@@ -6,6 +6,10 @@ export type { PageView }
 export type ZoomMode = "manual" | "width" | "page" | "pages"
 export type ColorMode = "light" | "dark"
 export type LayoutMode = "print" | "read" | "web" | "outline" | "draft"
+/** Read Mode's View menu: how wide a column of text is, the colour behind it, and columns or the paper pages. */
+export type ReadColumnWidth = "narrow" | "default" | "wide"
+export type ReadPageColor = "none" | "sepia" | "inverse"
+export type ReadLayout = "columns" | "paper"
 /** Word for the web's two ribbons: the classic one with labelled groups, or a single row of commands. */
 export type RibbonLayout = "classic" | "single"
 
@@ -65,6 +69,11 @@ type ViewState = {
   ribbonLayout: RibbonLayout
   themeBackground: string
   layoutMode: LayoutMode
+  /** Web Layout: the width the text runs, in unzoomed pixels; the page canvas measures it from the window. */
+  webWidth: number
+  readColumnWidth: ReadColumnWidth
+  readPageColor: ReadPageColor
+  readLayout: ReadLayout
   movement: "vertical" | "side"
   pageView: PageView
   split: boolean
@@ -98,6 +107,10 @@ type ViewState = {
   toggleRibbonLayout: () => void
   setThemeBackground: (themeBackground: string) => void
   setLayoutMode: (layoutMode: LayoutMode) => void
+  setWebWidth: (webWidth: number) => void
+  setReadColumnWidth: (readColumnWidth: ReadColumnWidth) => void
+  setReadPageColor: (readPageColor: ReadPageColor) => void
+  setReadLayout: (readLayout: ReadLayout) => void
   setMovement: (movement: "vertical" | "side") => void
   setPageView: (pageView: PageView) => void
   setSplit: (split: boolean) => void
@@ -135,6 +148,10 @@ export const useViewStore = create<ViewState>((set, get) => ({
   ribbonLayout: readRibbonLayout(),
   themeBackground: DEFAULT_THEME_BACKGROUND,
   layoutMode: "print",
+  webWidth: 0,
+  readColumnWidth: "default",
+  readPageColor: "none",
+  readLayout: "columns",
   movement: "vertical",
   pageView: 1,
   split: false,
@@ -180,11 +197,16 @@ export const useViewStore = create<ViewState>((set, get) => ({
   setLayoutMode: (layoutMode) =>
     set((state) => ({
       layoutMode,
-      focusMode: layoutMode === "read" ? true : state.focusMode,
       immersive: layoutMode === "read" ? false : state.immersive,
       movement: layoutMode === "print" ? state.movement : "vertical",
       pageView: layoutMode === "print" ? state.pageView : 1,
+      // Fit-to-page zooms measure a sheet; the other layouts have none, so they start at 100%.
+      ...(layoutMode === "print" ? {} : { zoomMode: "manual" as const, zoom: 1 }),
     })),
+  setWebWidth: (webWidth) => set({ webWidth }),
+  setReadColumnWidth: (readColumnWidth) => set({ readColumnWidth }),
+  setReadPageColor: (readPageColor) => set({ readPageColor }),
+  setReadLayout: (readLayout) => set({ readLayout }),
   setMovement: (movement) => set(movement === "side" ? { movement, pageView: 1, layoutMode: "print" } : { movement }),
   setPageView: (pageView) =>
     set(pageView > 1 ? { pageView, movement: "vertical", zoomMode: "pages", layoutMode: "print" } : { pageView }),

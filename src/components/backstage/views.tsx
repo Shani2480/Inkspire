@@ -620,7 +620,7 @@ export function PrintView() {
   const [pageIndex, setPageIndex] = useState(0)
   // Null fits the whole page in the preview, as Word's Zoom to Page does; otherwise the page's scale.
   const [zoom, setZoom] = useState<number | null>(null)
-  const page = pageMetrics(pageSetup)
+  const page = pageMetrics(pageSetup, true)
   const previewRef = useRef<HTMLDivElement>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
   const [room, setRoom] = useState({ height: 520, width: 400, high: 400 })

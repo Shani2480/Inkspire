@@ -5,7 +5,7 @@ import { TableStylesDialog } from "@/components/table-design-menus"
 import { TextPromptHost } from "@/components/text-prompt"
 import { ChartTypeDialog, SelectDataDialog } from "@/components/chart-menus"
 import { HelpDialogs } from "@/components/help-dialogs"
-import { useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { AiSidebar } from "@/components/ai-sidebar"
 import { AiKeysDialog } from "@/components/ai-keys"
 import { ClipboardPane, useClipboardCapture } from "@/components/clipboard-pane"
@@ -16,6 +16,7 @@ import { FormatDialogHost } from "@/components/format-dialogs"
 import { FillVariablesDialog } from "@/components/fill-variables"
 import { FindDialog } from "@/components/find-dialog"
 import { DocumentRulers } from "@/components/document-rulers"
+import { ReadBar, ReadView } from "@/components/read-mode"
 import { ImmersiveReader } from "@/components/immersive-reader"
 import { NavigationPane } from "@/components/navigation-pane"
 import { PageCanvas } from "@/components/page-canvas"
@@ -93,7 +94,10 @@ function DocumentShell({ onReady }: WorkspaceProps) {
     })
   }, [])
   const markup = useReviewStore((state) => state.markup)
-  const showRuler = useViewStore((state) => state.showRuler)
+  // Web Layout and Read Mode have no page to measure, so no rulers.
+  const showRuler = useViewStore(
+    (state) => state.showRuler && state.layoutMode !== "web" && state.layoutMode !== "read",
+  )
   const split = useViewStore((state) => state.split)
   const sideBySide = useViewStore((state) => state.sideBySide)
   const syncScroll = useViewStore((state) => state.syncScroll)
@@ -105,6 +109,17 @@ function DocumentShell({ onReady }: WorkspaceProps) {
   const colorMode = useViewStore((state) => state.colorMode)
   const layoutMode = useViewStore((state) => state.layoutMode)
   const focusMode = useViewStore((state) => state.focusMode)
+  const readLayout = useViewStore((state) => state.readLayout)
+  const [readHeadings, setReadHeadings] = useState<{ titles: string[]; go: (index: number) => void }>({
+    titles: [],
+    go: () => undefined,
+  })
+  const takeHeadings = useCallback(
+    (titles: string[], go: (index: number) => void) => setReadHeadings({ titles, go }),
+    [],
+  )
+  const reading = layoutMode === "read"
+  const columnsShown = reading && readLayout === "columns"
   const mainRef = useRef<HTMLElement>(null)
   const copyRef = useRef<HTMLElement>(null)
 
@@ -127,8 +142,8 @@ function DocumentShell({ onReady }: WorkspaceProps) {
       return
     }
     editor.view.dom.dataset.markup = markup
-    editor.setEditable(!restricted && !readOnly)
-  }, [editor, markup, restricted, readOnly])
+    editor.setEditable(!restricted && !readOnly && layoutMode !== "read")
+  }, [editor, markup, restricted, readOnly, layoutMode])
 
   useEffect(() => {
     if (backstageOpen || restricted || readOnly) {
@@ -215,7 +230,11 @@ function DocumentShell({ onReady }: WorkspaceProps) {
     >
       <TitleBar />
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-        <Ribbon />
+        {reading ? <ReadBar headings={columnsShown ? readHeadings.titles : []} onHeading={readHeadings.go} /> : null}
+        {/* Kept mounted, only hidden, so its tab and state are as they were when the reading is over. */}
+        <div className={reading ? "hidden" : "contents"}>
+          <Ribbon />
+        </div>
         <div className="flex min-h-0 min-w-0 flex-1 flex-row">
           {/* Task panes sit beside the rulers, as in Word, so the rulers never run over or cover them. */}
           <RecoveryDialog />
@@ -227,10 +246,11 @@ function DocumentShell({ onReady }: WorkspaceProps) {
                 <main
                   ref={mainRef}
                   id="document-scroll"
-                  className={`relative z-0 min-h-0 min-w-0 flex-1 overflow-auto bg-[var(--app-workspace)] pb-12 pr-6 ${showRuler ? "pl-[calc(1.5rem+18px)]" : "pl-6"}`}
+                  className={`relative z-0 min-h-0 min-w-0 flex-1 overflow-auto bg-[var(--app-workspace)] pb-12 pr-6 ${showRuler ? "pl-[calc(1.5rem+18px)]" : "pl-6"}${columnsShown ? " hidden" : ""}`}
                 >
                   <PageCanvas />
                 </main>
+                {columnsShown ? <ReadView onHeadings={takeHeadings} /> : null}
                 {split ? (
                   <section
                     ref={copyRef}

@@ -45,6 +45,10 @@ export function PageCanvas() {
   const highlightMerge = useViewStore((state) => state.highlightMerge)
   const hideInk = useViewStore((state) => state.hideInk)
   const layoutMode = useViewStore((state) => state.layoutMode)
+  // Subscribed so the metrics below follow the window in Web Layout.
+  useViewStore((state) => state.webWidth)
+  const setWebWidth = useViewStore((state) => state.setWebWidth)
+  const web = layoutMode === "web"
   const editingChrome = useViewStore((state) => state.editingChrome)
   const setEditingChrome = useViewStore((state) => state.setEditingChrome)
   const headerText = useDocumentStore((state) => state.headerText)
@@ -64,11 +68,12 @@ export function PageCanvas() {
   const pageSetup = useDocumentStore((state) => state.pageSetup)
   const metrics = pageMetrics(pageSetup)
   const header = headerText.trim()
-  const pageCount =
+  const countedPages =
     useEditorState({
       editor,
       selector: ({ editor: current }) => current?.storage.pagination?.pageCount ?? 1,
     }) ?? 1
+  const pageCount = web ? 1 : countedPages
   const pageRef = useRef<HTMLElement>(null)
   const [pageHeight, setPageHeight] = useState(metrics.height)
   const side = movement === "side"
@@ -103,8 +108,31 @@ export function PageCanvas() {
     }
   }, [header, footerText, differentFirstPage, firstHeaderText, firstFooterText, pageSetup])
 
+  // Web Layout: the text runs the width of the window, so the page is as wide as the room there is, at any zoom.
   useLayoutEffect(() => {
-    if (zoomMode === "manual") {
+    if (!web) {
+      return
+    }
+    const scroll = document.getElementById("document-scroll")
+    if (!scroll) {
+      return
+    }
+    const apply = () => {
+      const style = getComputedStyle(scroll)
+      const room = scroll.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0)
+      const next = Math.max(240, Math.floor(room / zoom))
+      if (next !== useViewStore.getState().webWidth) {
+        setWebWidth(next)
+      }
+    }
+    apply()
+    const observer = new ResizeObserver(apply)
+    observer.observe(scroll)
+    return () => observer.disconnect()
+  }, [web, zoom, setWebWidth])
+
+  useLayoutEffect(() => {
+    if (zoomMode === "manual" || web) {
       return
     }
     const scroll = document.getElementById("document-scroll")
@@ -143,7 +171,7 @@ export function PageCanvas() {
     const observer = new ResizeObserver(apply)
     observer.observe(scroll)
     return () => observer.disconnect()
-  }, [zoomMode, pageView, metrics.width, metrics.height, syncZoom])
+  }, [zoomMode, web, pageView, metrics.width, metrics.height, syncZoom])
 
   useEffect(() => {
     if (!editor || editor.isDestroyed) {
@@ -196,7 +224,7 @@ export function PageCanvas() {
     const observer = new ResizeObserver(update)
     observer.observe(page)
     return () => observer.disconnect()
-  }, [editor, pageSetup])
+  }, [editor, pageSetup, web])
 
   function clearFloatingSelection(event: MouseEvent<HTMLElement>) {
     if (!editor || event.target !== event.currentTarget || !selectedObject(editor)) {
@@ -301,13 +329,17 @@ export function PageCanvas() {
           data-layout={layoutMode}
           style={{
             width: stackWidth,
-            paddingTop: `${pageSetup.marginTop}mm`,
-            paddingRight: `${pageSetup.marginRight}mm`,
-            paddingBottom: `${pageSetup.marginBottom}mm`,
-            paddingLeft: `${pageSetup.marginLeft}mm`,
+            paddingTop: web ? metrics.marginTop : `${pageSetup.marginTop}mm`,
+            paddingRight: web ? metrics.marginRight : `${pageSetup.marginRight}mm`,
+            paddingBottom: web ? metrics.marginBottom : `${pageSetup.marginBottom}mm`,
+            paddingLeft: web ? metrics.marginLeft : `${pageSetup.marginLeft}mm`,
             transform: `scale(${zoom})`,
             transformOrigin: "top left",
-            minHeight: grid ? stackHeight + metrics.marginTop + metrics.marginBottom : stackHeight,
+            minHeight: web
+              ? "calc(100vh - 12rem)"
+              : grid
+                ? stackHeight + metrics.marginTop + metrics.marginBottom
+                : stackHeight,
           }}
         >
           {Array.from({ length: pageCount }, (_, index) => (
@@ -324,7 +356,7 @@ export function PageCanvas() {
                   ? index * (metrics.width + PAGE_GAP)
                   : pageGridCell(index, grid ? pageView : 1, metrics.width + PAGE_GAP, metrics.height + PAGE_GAP).left,
                 width: metrics.width,
-                height: metrics.height,
+                height: web ? "100%" : metrics.height,
                 background: pageSetup.pageColor || undefined,
               }}
             >
