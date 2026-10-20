@@ -10,10 +10,6 @@ describe("document chrome pack/unpack", () => {
       differentFirstPage: true,
       firstHeader: "<p>First header</p>",
       firstFooter: "<p>First footer</p>",
-      headerShapes: [],
-      footerShapes: [],
-      firstHeaderShapes: [],
-      firstFooterShapes: [],
       pageSetup: {
         ...DEFAULT_PAGE_SETUP,
         paper: "a4",

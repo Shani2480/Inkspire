@@ -93,10 +93,6 @@ function currentChrome(): DocumentChrome {
     firstHeader: state.firstHeaderHtml,
     firstFooter: state.firstFooterHtml,
     pageSetup: state.pageSetup,
-    headerShapes: state.headerShapes,
-    footerShapes: state.footerShapes,
-    firstHeaderShapes: state.firstHeaderShapes,
-    firstFooterShapes: state.firstFooterShapes,
   }
 }
 
@@ -764,10 +760,6 @@ export async function restoreRecoveryDocument(offer: RecoveryOffer) {
     firstHeader: unpacked.firstHeader,
     firstFooter: unpacked.firstFooter,
     pageSetup: unpacked.pageSetup,
-    headerShapes: unpacked.headerShapes,
-    footerShapes: unpacked.footerShapes,
-    firstHeaderShapes: unpacked.firstHeaderShapes,
-    firstFooterShapes: unpacked.firstFooterShapes,
   })
   await discardRecovery(offer.id)
   useBackstage.getState().closeBackstage()

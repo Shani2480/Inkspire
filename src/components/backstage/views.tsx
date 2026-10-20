@@ -977,12 +977,9 @@ function PreviewPage({
         return
       }
       const clone = source.cloneNode(true) as HTMLElement
-      // Keep the pages, the text and the header/footer pictures; drop the toolbars, menus and handles.
+      // Keep the pages, the text; drop the toolbars, menus and handles.
       for (const child of [...clone.children]) {
-        const keep =
-          child.classList.contains("page-sheet") ||
-          child.classList.contains("page-chrome-layer") ||
-          child.querySelector(".ProseMirror")
+        const keep = child.classList.contains("page-sheet") || child.querySelector(".ProseMirror")
         if (!keep) {
           child.remove()
         }

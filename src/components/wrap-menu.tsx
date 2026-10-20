@@ -3,7 +3,7 @@ import { WrapGlyph } from "@/components/menu-icons"
 import { useObjectPreview } from "@/components/object-preview-hook"
 import { defaultPictureWrap, setDefaultPictureWrap, useLayoutDialog } from "@/document/object-layout"
 import type { ObjectRun } from "@/editor/object-preview"
-import { objectAnchoring, objectWrap, selectedObject, WRAP_CHOICES } from "@/editor/objects"
+import { objectAnchoring, objectWrap, selectedObject, wrapChoicesFor } from "@/editor/objects"
 import { Check } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
@@ -20,7 +20,7 @@ export function WrapTextMenu({ editor, close }: { editor: Editor | null; close: 
   const wrap = objectWrap(object?.attrs.wrap)
   const floating = object?.name === "textBox" || (object !== null && wrap !== "inline")
   const anchoring = objectAnchoring(object?.attrs.anchoring)
-  const choices = WRAP_CHOICES.filter((choice) => !(object?.name === "textBox" && choice.id === "inline"))
+  const choices = wrapChoicesFor(editor, object?.name)
   const choose = (run: ObjectRun) => {
     preview?.commit(run)
     close()

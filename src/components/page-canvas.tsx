@@ -59,10 +59,6 @@ export function PageCanvas() {
   const differentFirstPage = useDocumentStore((state) => state.differentFirstPage)
   const firstHeaderHtml = useDocumentStore((state) => state.firstHeaderHtml)
   const firstFooterHtml = useDocumentStore((state) => state.firstFooterHtml)
-  const headerShapes = useDocumentStore((state) => state.headerShapes)
-  const footerShapes = useDocumentStore((state) => state.footerShapes)
-  const firstHeaderShapes = useDocumentStore((state) => state.firstHeaderShapes)
-  const firstFooterShapes = useDocumentStore((state) => state.firstFooterShapes)
   const setHeader = useDocumentStore((state) => state.setHeader)
   const setFooter = useDocumentStore((state) => state.setFooter)
   const setFirstHeader = useDocumentStore((state) => state.setFirstHeader)
@@ -452,50 +448,6 @@ export function PageCanvas() {
             />
           ) : null}
           <EditorContent editor={editor} />
-          {/* Header/footer images sit above the editor so margin-zone logos are never covered. */}
-          {Array.from({ length: pageCount }, (_, index) => {
-            const useFirst = index === 0 && differentFirstPage
-            const shapes = [
-              ...(useFirst ? firstHeaderShapes : headerShapes),
-              ...(useFirst ? firstFooterShapes : footerShapes),
-            ]
-            if (shapes.length === 0) {
-              return null
-            }
-            const cell = pageGridCell(index, grid ? pageView : 1, metrics.width + PAGE_GAP, metrics.height + PAGE_GAP)
-            return (
-              <div
-                key={`chrome-${index}`}
-                className="page-chrome-layer"
-                aria-hidden
-                style={{
-                  top: side ? 0 : cell.top,
-                  left: side ? index * (metrics.width + PAGE_GAP) : cell.left,
-                  width: metrics.width,
-                  height: metrics.height,
-                }}
-              >
-                {shapes.map((shape, shapeIndex) => (
-                  <img
-                    key={shapeIndex}
-                    className="page-chrome-shape"
-                    src={shape.src}
-                    alt={shape.alt || ""}
-                    width={shape.width}
-                    height={shape.height}
-                    style={{
-                      left: shape.x,
-                      top: shape.y,
-                      width: shape.width,
-                      height: shape.height,
-                      zIndex: shape.behind ? 0 : 3,
-                    }}
-                    draggable={false}
-                  />
-                ))}
-              </div>
-            )
-          })}
           {editor ? <CommentMarkers /> : null}
           {pageSetup.columns > 1 ? (
             <div
@@ -523,7 +475,7 @@ export function PageCanvas() {
           {editor ? <ObjectContextMenu editor={editor} /> : null}
           {editor ? <LayoutDialog editor={editor} /> : null}
           <TextContextMenu editor={editor} />
-          <TableHandles editor={editor} />
+          <TableHandles editor={formatted} />
         </article>
       </div>
     </div>

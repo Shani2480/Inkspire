@@ -297,8 +297,10 @@ export function Ribbon() {
       editor,
       selector: ({ editor: current }) => ribbonContext(current),
     }) ?? "none"
-  // While the header and footer are being edited, their tab is the one that shows, as in Word.
-  const context: RibbonContext = editingChrome ? "headerFooter" : bodyContext
+  // While the header and footer are being edited, their tab is the one that shows, as in Word; a picture or shape
+  // selected in them shows its own formatting tab instead, and the Header & Footer tab is back when it is let go.
+  const context: RibbonContext =
+    editingChrome && bodyContext !== "picture" && bodyContext !== "shape" ? "headerFooter" : bodyContext
   const [tab, setTab] = useState("home")
   const cardRef = useRef<HTMLDivElement>(null)
   useLayoutAnimation(cardRef, ribbonLayout)

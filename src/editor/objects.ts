@@ -48,6 +48,21 @@ export const WRAP_CHOICES: { id: ObjectWrap; label: string }[] = [
   { id: "front", label: "In Front of Text" },
 ]
 
+/** Whether an editor is a header or footer: there pictures sit in line, behind the text or in front of it. */
+export function isChromeEditor(editor: Editor | null) {
+  return Boolean(editor?.view.dom.classList.contains("chrome-editor"))
+}
+
+/** The wraps an object offers: a text box is never in line, and a header has no text to wrap around an object. */
+export function wrapChoicesFor(editor: Editor | null, objectName?: string) {
+  const chrome = isChromeEditor(editor)
+  return WRAP_CHOICES.filter(
+    (choice) =>
+      !(objectName === "textBox" && choice.id === "inline") &&
+      !(chrome && choice.id !== "inline" && choice.id !== "behind" && choice.id !== "front"),
+  )
+}
+
 /** Text flows beside the object (on its roomier side), as Word's "Largest only". */
 export function wrapsBeside(wrap: unknown) {
   return wrap === "square" || wrap === "tight" || wrap === "through"
@@ -1371,24 +1386,40 @@ export function bindDrag(
     const line = floating ? null : document.createElement("div")
 
     const placeAt = (ev: PointerEvent) =>
-      placeOnPage(
+      placeIn(
+        view,
         shown.page,
         shown.x + (ev.clientX - startX) / zoom,
         shown.y + (ev.clientY - startY) / zoom,
         pageMetrics(useDocumentStore.getState().pageSetup),
       )
 
+    // In a header an object keeps its offset from its paragraph, which is what a .docx stores; elsewhere its place.
+    const chrome = inChrome(view)
+    const anchored = objectAnchoring(original.anchoring) === "move" && original.relative !== "margin"
+    const from = anchored ? shown.y - (Number(original.dy) || 0) : 0
+    const shift = (attrs: Record<string, unknown>, placed: { page: number; x: number; y: number }) =>
+      chrome
+        ? {
+            ...attrs,
+            anchoring: "move",
+            relative: anchored ? "paragraph" : "margin",
+            x: placed.x,
+            dy: Math.round(placed.y - from),
+          }
+        : { ...attrs, ...placed }
+
     /** The floating object (and its group) at a place, as a transaction; Move with Text waits for the drop. */
     const moveTo = (placed: { page: number; x: number; y: number }, attrs: Record<string, unknown>) => {
       const metrics = pageMetrics(useDocumentStore.getState().pageSetup)
-      const tr = view.state.tr.setNodeMarkup(pos, undefined, { ...attrs, ...placed })
+      const tr = view.state.tr.setNodeMarkup(pos, undefined, shift(attrs, placed))
       const dx = placed.x - shown.x
       const dy = placed.y - shown.y
       for (const peer of peers) {
         if (tr.doc.nodeAt(peer.pos)) {
           tr.setNodeMarkup(peer.pos, undefined, {
             ...peer.attrs,
-            ...placeOnPage(peer.page, peer.x + dx, peer.y + dy, metrics),
+            ...placeIn(view, peer.page, peer.x + dx, peer.y + dy, metrics),
           })
         }
       }
@@ -1416,7 +1447,9 @@ export function bindDrag(
       }
       if (floating) {
         // Shown as fixed on the page while it moves, so the pages reflow around it without moving its anchor.
-        view.dispatch(moveTo(placeAt(ev), { ...original, anchoring: "fixed" }).setMeta("addToHistory", false))
+        view.dispatch(
+          moveTo(placeAt(ev), chrome ? original : { ...original, anchoring: "fixed" }).setMeta("addToHistory", false),
+        )
         return
       }
       drop = inlineDrop(view, ev.clientX, ev.clientY)
@@ -1459,7 +1492,7 @@ export function bindDrag(
       restore()
       const placed = placeAt(ev)
       const tr = moveTo(placed, original)
-      if (objectAnchoring(original.anchoring) === "move") {
+      if (objectAnchoring(original.anchoring) === "move" && !inChrome(view)) {
         // Moving with text: the object takes the paragraph it was dropped on as its anchor.
         reanchor(view, tr, pos, placed.page, placed.y)
       }
@@ -1572,7 +1605,7 @@ export function nudgeObject(view: EditorView, key: string, fine: boolean) {
   const contentWidth = metrics.width - metrics.marginLeft - metrics.marginRight
   const x = Math.round(Math.max(0, Math.min(contentWidth - 24, (Number(node.attrs.x) || 0) + dx)))
   const attrs =
-    objectAnchoring(node.attrs.anchoring) === "move"
+    objectAnchoring(node.attrs.anchoring) === "move" || inChrome(view)
       ? { ...node.attrs, x, dy: (Number(node.attrs.dy) || 0) + dy }
       : {
           ...node.attrs,
@@ -1587,6 +1620,20 @@ export function nudgeObject(view: EditorView, key: string, fine: boolean) {
   view.dispatch(tr.setSelection(NodeSelection.create(tr.doc, selection.from)))
   return true
 }
+
+/** A header or footer is an editor of its own, with one page-less layer: objects there are placed from its corner. */
+function inChrome(view: EditorView) {
+  return view.dom.classList.contains("chrome-editor")
+}
+
+function placeIn(view: EditorView, page: number, x: number, y: number, metrics: PageMetrics) {
+  return inChrome(view)
+    ? { page: 1, x: Math.round(Math.max(-CHROME_REACH, x)), y: Math.round(Math.max(-CHROME_REACH, y)) }
+    : placeOnPage(page, x, y, metrics)
+}
+
+/** How far a picture in the header may sit above or left of the header's own corner. */
+const CHROME_REACH = 400
 
 function placeOnPage(page: number, x: number, y: number, metrics: PageMetrics) {
   const contentWidth = metrics.width - metrics.marginLeft - metrics.marginRight
