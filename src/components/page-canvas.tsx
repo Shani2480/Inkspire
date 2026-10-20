@@ -1,0 +1,517 @@
+import { ChartPartLayer, ChartSideButtons } from "@/components/chart-overlay"
+import { LayoutDialog } from "@/components/layout-dialog"
+import { CommentMarkers } from "@/components/comment-markers"
+import { ObjectContextMenu } from "@/components/object-context-menu"
+import { MiniToolbar } from "@/components/mini-toolbar"
+import { LayoutOptions } from "@/components/layout-options"
+import { ObjectBar } from "@/components/object-bar"
+import { TextContextMenu } from "@/components/text-context-menu"
+import { TableHandles } from "@/components/table-handles"
+import { pageGridCell, pageGridColumns, pageGridRows } from "@/document/page-grid"
+import { paintDesignVars } from "@/document/design-format"
+import { applyPageChrome, pageMetrics } from "@/document/page-setup"
+import { useDocumentStore } from "@/document/store"
+import { clampZoom, useViewStore } from "@/document/view"
+import { useDocumentEditor } from "@/editor/document-editor"
+import { selectedObject } from "@/editor/objects"
+import { PAGE_GAP } from "@/editor/pages"
+import { bindLineSelect } from "@/editor/line-select"
+import { finishPageGrid, preparePageMeasure } from "@/editor/page-grid"
+import { TextSelection } from "@tiptap/pm/state"
+import { EditorContent, useEditorState } from "@tiptap/react"
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react"
+
+function cssString(value: string) {
+  return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
+}
+
+function footerBoxes(footer: string) {
+  const text = footer.trim()
+  return {
+    center: text ? cssString(text) : "counter(page)",
+    page: text ? "counter(page)" : "none",
+  }
+}
+
+export function PageCanvas() {
+  const editor = useDocumentEditor()
+  const zoom = useViewStore((state) => state.zoom)
+  const zoomMode = useViewStore((state) => state.zoomMode)
+  const syncZoom = useViewStore((state) => state.syncZoom)
+  const showFormattingMarks = useViewStore((state) => state.showFormattingMarks)
+  const showGridlines = useViewStore((state) => state.showGridlines)
+  const movement = useViewStore((state) => state.movement)
+  const pageView = useViewStore((state) => state.pageView)
+  const highlightMerge = useViewStore((state) => state.highlightMerge)
+  const hideInk = useViewStore((state) => state.hideInk)
+  const layoutMode = useViewStore((state) => state.layoutMode)
+  const editingChrome = useViewStore((state) => state.editingChrome)
+  const setEditingChrome = useViewStore((state) => state.setEditingChrome)
+  const headerText = useDocumentStore((state) => state.headerText)
+  const footerText = useDocumentStore((state) => state.footerText)
+  const differentFirstPage = useDocumentStore((state) => state.differentFirstPage)
+  const firstHeaderText = useDocumentStore((state) => state.firstHeaderText)
+  const firstFooterText = useDocumentStore((state) => state.firstFooterText)
+  const headerShapes = useDocumentStore((state) => state.headerShapes)
+  const footerShapes = useDocumentStore((state) => state.footerShapes)
+  const firstHeaderShapes = useDocumentStore((state) => state.firstHeaderShapes)
+  const firstFooterShapes = useDocumentStore((state) => state.firstFooterShapes)
+  const setHeader = useDocumentStore((state) => state.setHeader)
+  const setFooter = useDocumentStore((state) => state.setFooter)
+  const setFirstHeader = useDocumentStore((state) => state.setFirstHeader)
+  const setFirstFooter = useDocumentStore((state) => state.setFirstFooter)
+  const setDifferentFirstPage = useDocumentStore((state) => state.setDifferentFirstPage)
+  const pageSetup = useDocumentStore((state) => state.pageSetup)
+  const metrics = pageMetrics(pageSetup)
+  const header = headerText.trim()
+  const pageCount =
+    useEditorState({
+      editor,
+      selector: ({ editor: current }) => current?.storage.pagination?.pageCount ?? 1,
+    }) ?? 1
+  const pageRef = useRef<HTMLElement>(null)
+  const [pageHeight, setPageHeight] = useState(metrics.height)
+  const side = movement === "side"
+  const grid = pageView > 1 && !side
+  const gridColumns = grid ? pageGridColumns(pageView) : 1
+  const gridRows = grid ? pageGridRows(pageCount, pageView) : pageCount
+  const stackHeight = side ? metrics.height : gridRows * metrics.height + Math.max(0, gridRows - 1) * PAGE_GAP
+  const stackWidth = side
+    ? pageCount * metrics.width + Math.max(0, pageCount - 1) * PAGE_GAP
+    : grid
+      ? gridColumns * metrics.width + Math.max(0, gridColumns - 1) * PAGE_GAP
+      : metrics.width
+
+  useEffect(() => {
+    const style = document.documentElement.style
+    applyPageChrome(pageSetup)
+    paintDesignVars(pageSetup)
+    style.setProperty("--print-title", header ? cssString(header) : "none")
+    const footer = footerBoxes(footerText)
+    style.setProperty("--print-center", footer.center)
+    style.setProperty("--print-page", footer.page)
+    if (differentFirstPage) {
+      const firstHeader = firstHeaderText.trim()
+      const firstFooter = footerBoxes(firstFooterText)
+      style.setProperty("--print-first-title", firstHeader ? cssString(firstHeader) : "none")
+      style.setProperty("--print-first-center", firstFooter.center)
+      style.setProperty("--print-first-page", firstFooter.page)
+    } else {
+      style.removeProperty("--print-first-title")
+      style.removeProperty("--print-first-center")
+      style.removeProperty("--print-first-page")
+    }
+  }, [header, footerText, differentFirstPage, firstHeaderText, firstFooterText, pageSetup])
+
+  useLayoutEffect(() => {
+    if (zoomMode === "manual") {
+      return
+    }
+    const scroll = document.getElementById("document-scroll")
+    if (!scroll) {
+      return
+    }
+    const apply = () => {
+      const style = getComputedStyle(scroll)
+      const availableWidth =
+        scroll.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0)
+      const slack = pageView > 1 && zoomMode === "pages" ? 12 : 0
+      const availableHeight =
+        scroll.clientHeight - (parseFloat(style.paddingTop) || 0) - (parseFloat(style.paddingBottom) || 0) - 40 - slack
+      const widthZoom = availableWidth / metrics.width
+      const fitColumns = pageView > 1 ? pageGridColumns(pageView) : 2
+      const fitRows = pageView === 8 ? 2 : 1
+      const fitWidth = fitColumns * metrics.width + Math.max(0, fitColumns - 1) * PAGE_GAP
+      const fitHeight =
+        fitRows * metrics.height +
+        Math.max(0, fitRows - 1) * PAGE_GAP +
+        (pageView > 1 && zoomMode === "pages" ? metrics.marginTop + metrics.marginBottom : 0)
+      const floor = pageView > 1 && zoomMode === "pages" ? 0.1 : 0.5
+      const raw =
+        zoomMode === "width"
+          ? widthZoom
+          : zoomMode === "page"
+            ? Math.min(widthZoom, availableHeight / metrics.height)
+            : Math.min(availableWidth / fitWidth, availableHeight / fitHeight)
+      const next = pageView > 1 && zoomMode === "pages" ? Math.floor(raw * 100) / 100 : raw
+      const fitted = clampZoom(next, floor)
+      if (fitted !== useViewStore.getState().zoom) {
+        syncZoom(fitted, floor)
+      }
+    }
+    apply()
+    const observer = new ResizeObserver(apply)
+    observer.observe(scroll)
+    return () => observer.disconnect()
+  }, [zoomMode, pageView, metrics.width, metrics.height, syncZoom])
+
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) {
+      return
+    }
+    const shown = pageView > 1 && movement !== "side" ? pageView : 1
+    let cancelled = false
+    const repair = () => {
+      if (cancelled || editor.isDestroyed) {
+        return
+      }
+      const sample = editor.view.dom.querySelector(
+        ":scope > p, :scope > h1, :scope > h2, :scope > h3, :scope > table, :scope > ul, :scope > ol",
+      )
+      const placed = sample instanceof HTMLElement && sample.style.position === "absolute"
+      if (shown > 1 && !placed) {
+        preparePageMeasure(editor.view, shown, metrics)
+        finishPageGrid(editor.view, shown, metrics)
+      } else if (shown === 1 && placed) {
+        finishPageGrid(editor.view, 1, metrics)
+      }
+    }
+    const first = window.setTimeout(repair, 80)
+    const second = window.setTimeout(repair, 280)
+    return () => {
+      cancelled = true
+      window.clearTimeout(first)
+      window.clearTimeout(second)
+    }
+  }, [
+    editor,
+    pageView,
+    movement,
+    metrics.width,
+    metrics.height,
+    metrics.marginTop,
+    metrics.marginBottom,
+    metrics.marginLeft,
+    metrics.marginRight,
+  ])
+
+  useLayoutEffect(() => {
+    const page = pageRef.current
+    if (!page) {
+      return
+    }
+
+    const update = () => setPageHeight(page.offsetHeight)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(page)
+    return () => observer.disconnect()
+  }, [editor, pageSetup])
+
+  function clearFloatingSelection(event: MouseEvent<HTMLElement>) {
+    if (!editor || event.target !== event.currentTarget || !selectedObject(editor)) {
+      return
+    }
+    let target: number | null = null
+    editor.state.doc.descendants((node, pos) => {
+      if (target != null) {
+        return false
+      }
+      if (node.type.name === "textBox") {
+        return false
+      }
+      if (node.isTextblock) {
+        target = pos + 1
+        return false
+      }
+    })
+    if (target == null) {
+      return
+    }
+    const selection = TextSelection.create(editor.state.doc, target)
+    editor.view.dispatch(editor.state.tr.setSelection(selection))
+    editor.view.focus()
+  }
+
+  const pageWidth = stackWidth * zoom
+  const pageVisualHeight = (side ? metrics.height : pageHeight) * zoom
+
+  useEffect(() => {
+    const page = pageRef.current
+    if (!editor || !page) {
+      return
+    }
+    return bindLineSelect(editor, page, pageSetup.marginLeft, zoom)
+  }, [editor, pageSetup.marginLeft, zoom])
+
+  useEffect(() => {
+    if (!editor) {
+      return
+    }
+    const dom = editor.view.dom
+    dom.lang = pageSetup.language || "en"
+    dom.dataset.spacing = pageSetup.spacing
+    if (pageSetup.effects) {
+      dom.dataset.effects = pageSetup.effects
+    } else {
+      delete dom.dataset.effects
+    }
+    dom.classList.toggle("hyphenate", pageSetup.hyphenation)
+    dom.classList.toggle("highlight-merge", highlightMerge)
+    dom.classList.toggle("hide-ink", hideInk)
+  }, [editor, pageSetup.language, pageSetup.spacing, pageSetup.effects, pageSetup.hyphenation, highlightMerge, hideInk])
+
+  // Word: double-click a page's top or bottom margin to edit its header or footer, double-click the body (or press
+  // Esc) to go back to the document.
+  const editChrome = (index: number, part: "header" | "footer") => {
+    setEditingChrome(true)
+    editor?.commands.blur()
+    window.requestAnimationFrame(() => {
+      const sheet = pageRef.current?.querySelectorAll<HTMLElement>(":scope > .page-sheet")[index]
+      const field = sheet?.querySelector<HTMLInputElement>(part === "header" ? ".page-header" : ".page-footer")
+      field?.focus()
+      field?.setSelectionRange(field.value.length, field.value.length)
+    })
+  }
+
+  useEffect(() => {
+    if (!editingChrome) {
+      return
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !document.querySelector('[role="dialog"][aria-modal="true"]')) {
+        event.preventDefault()
+        setEditingChrome(false)
+        editor?.commands.focus()
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [editingChrome, editor, setEditingChrome])
+
+  const chromeLabel = (index: number, part: "Header" | "Footer") =>
+    index === 0 && differentFirstPage ? `First Page ${part}` : part
+
+  return (
+    <div className="page-stage relative mx-auto mt-10" style={{ width: pageWidth }}>
+      <div className="page-zoom relative" style={{ width: pageWidth, height: pageVisualHeight }}>
+        <article
+          ref={pageRef}
+          onMouseDown={clearFloatingSelection}
+          lang={pageSetup.language || "en"}
+          className={`page-canvas absolute top-0 left-0${showFormattingMarks ? " formatting-marks" : ""}${editingChrome ? " is-chrome-editing" : ""}`}
+          onDoubleClick={(event) => {
+            const target = event.target as HTMLElement
+            if (editingChrome && !target.closest(".page-header, .page-footer, .page-chrome-zone, .page-first")) {
+              setEditingChrome(false)
+              editor?.commands.focus()
+            }
+          }}
+          data-page-view={grid ? pageView : 1}
+          data-layout={layoutMode}
+          style={{
+            width: stackWidth,
+            paddingTop: `${pageSetup.marginTop}mm`,
+            paddingRight: `${pageSetup.marginRight}mm`,
+            paddingBottom: `${pageSetup.marginBottom}mm`,
+            paddingLeft: `${pageSetup.marginLeft}mm`,
+            transform: `scale(${zoom})`,
+            transformOrigin: "top left",
+            minHeight: grid ? stackHeight + metrics.marginTop + metrics.marginBottom : stackHeight,
+          }}
+        >
+          {Array.from({ length: pageCount }, (_, index) => (
+            <div
+              key={index}
+              className={`page-sheet pointer-events-none absolute box-border border border-gray-300 bg-white shadow-sm ${showGridlines ? "page-grid" : ""}`}
+              data-header-style={pageSetup.headerStyle}
+              data-footer-style={pageSetup.footerStyle}
+              style={{
+                top: side
+                  ? 0
+                  : pageGridCell(index, grid ? pageView : 1, metrics.width + PAGE_GAP, metrics.height + PAGE_GAP).top,
+                left: side
+                  ? index * (metrics.width + PAGE_GAP)
+                  : pageGridCell(index, grid ? pageView : 1, metrics.width + PAGE_GAP, metrics.height + PAGE_GAP).left,
+                width: metrics.width,
+                height: metrics.height,
+                background: pageSetup.pageColor || undefined,
+              }}
+            >
+              <div
+                className="page-chrome-zone is-header"
+                aria-hidden
+                style={{ height: metrics.marginTop }}
+                onDoubleClick={() => editChrome(index, "header")}
+              />
+              <div
+                className="page-chrome-zone is-footer"
+                aria-hidden
+                style={{ height: metrics.marginBottom }}
+                onDoubleClick={() => editChrome(index, "footer")}
+              />
+              {editingChrome ? (
+                <>
+                  <span
+                    className="page-chrome-tag is-header"
+                    data-label={chromeLabel(index, "Header")}
+                    style={{ top: metrics.marginTop }}
+                  />
+                  <span
+                    className="page-chrome-tag is-footer"
+                    data-label={chromeLabel(index, "Footer")}
+                    style={{ bottom: metrics.marginBottom }}
+                  />
+                </>
+              ) : null}
+              {index === 0 && editingChrome ? (
+                <label className="page-first">
+                  <input
+                    type="checkbox"
+                    checked={differentFirstPage}
+                    onChange={(event) => setDifferentFirstPage(event.target.checked)}
+                  />
+                  First page
+                </label>
+              ) : null}
+              <input
+                className="page-header"
+                readOnly={!editingChrome}
+                tabIndex={editingChrome ? 0 : -1}
+                onDoubleClick={() => editChrome(index, "header")}
+                aria-label={
+                  index === 0 && differentFirstPage
+                    ? "First page header"
+                    : pageCount === 1
+                      ? "Header"
+                      : `Header on page ${index + 1}`
+                }
+                value={index === 0 && differentFirstPage ? firstHeaderText : headerText}
+                placeholder={
+                  editingChrome ? (index === 0 && differentFirstPage ? "First page header" : "Header") : undefined
+                }
+                maxLength={160}
+                onChange={(event) =>
+                  index === 0 && differentFirstPage ? setFirstHeader(event.target.value) : setHeader(event.target.value)
+                }
+              />
+              <input
+                className="page-footer"
+                readOnly={!editingChrome}
+                tabIndex={editingChrome ? 0 : -1}
+                onDoubleClick={() => editChrome(index, "footer")}
+                aria-label={
+                  index === 0 && differentFirstPage
+                    ? "First page footer"
+                    : pageCount === 1
+                      ? "Footer"
+                      : `Footer on page ${index + 1}`
+                }
+                value={index === 0 && differentFirstPage ? firstFooterText : footerText}
+                placeholder={
+                  editingChrome ? (index === 0 && differentFirstPage ? "First page footer" : "Footer") : undefined
+                }
+                maxLength={160}
+                onChange={(event) =>
+                  index === 0 && differentFirstPage ? setFirstFooter(event.target.value) : setFooter(event.target.value)
+                }
+              />
+              <div className="page-number" data-place={pageSetup.pageNumber}>
+                {index + 1}
+              </div>
+              {pageSetup.watermark ? (
+                <div className="page-watermark" aria-hidden>
+                  <span>{pageSetup.watermark}</span>
+                </div>
+              ) : null}
+              {/* Body text margins only — not header/footer from-edge offsets. */}
+              <div className="page-margin-guide" aria-hidden />
+              {pageSetup.border !== "none" ? (
+                <div
+                  className="page-border"
+                  data-border={pageSetup.border}
+                  style={{ borderColor: pageSetup.borderColor }}
+                />
+              ) : null}
+            </div>
+          ))}
+          {pageSetup.watermark ? (
+            <div className="print-mark" aria-hidden>
+              <span>{pageSetup.watermark}</span>
+            </div>
+          ) : null}
+          {pageSetup.border !== "none" ? (
+            <div
+              className="print-frame"
+              data-border={pageSetup.border}
+              style={{ borderColor: pageSetup.borderColor }}
+            />
+          ) : null}
+          <EditorContent editor={editor} />
+          {/* Header/footer images sit above the editor so margin-zone logos are never covered. */}
+          {Array.from({ length: pageCount }, (_, index) => {
+            const useFirst = index === 0 && differentFirstPage
+            const shapes = [
+              ...(useFirst ? firstHeaderShapes : headerShapes),
+              ...(useFirst ? firstFooterShapes : footerShapes),
+            ]
+            if (shapes.length === 0) {
+              return null
+            }
+            const cell = pageGridCell(index, grid ? pageView : 1, metrics.width + PAGE_GAP, metrics.height + PAGE_GAP)
+            return (
+              <div
+                key={`chrome-${index}`}
+                className="page-chrome-layer"
+                aria-hidden
+                style={{
+                  top: side ? 0 : cell.top,
+                  left: side ? index * (metrics.width + PAGE_GAP) : cell.left,
+                  width: metrics.width,
+                  height: metrics.height,
+                }}
+              >
+                {shapes.map((shape, shapeIndex) => (
+                  <img
+                    key={shapeIndex}
+                    className="page-chrome-shape"
+                    src={shape.src}
+                    alt={shape.alt || ""}
+                    width={shape.width}
+                    height={shape.height}
+                    style={{
+                      left: shape.x,
+                      top: shape.y,
+                      width: shape.width,
+                      height: shape.height,
+                      zIndex: shape.behind ? 0 : 3,
+                    }}
+                    draggable={false}
+                  />
+                ))}
+              </div>
+            )
+          })}
+          {editor ? <CommentMarkers /> : null}
+          {pageSetup.columns > 1 ? (
+            <div
+              className={`page-column-guides${pageSetup.columnLine ? " has-rule" : ""}`}
+              aria-hidden
+              style={{
+                top: `${pageSetup.marginTop}mm`,
+                right: `${pageSetup.marginRight}mm`,
+                bottom: `${pageSetup.marginBottom}mm`,
+                left: `${pageSetup.marginLeft}mm`,
+                gap: `${pageSetup.columnGap}cm`,
+                ["--column-gap" as string]: `${pageSetup.columnGap}cm`,
+              }}
+            >
+              {Array.from({ length: pageSetup.columns }, (_, index) => (
+                <span key={index} />
+              ))}
+            </div>
+          ) : null}
+          {editor ? <MiniToolbar editor={editor} /> : null}
+          {editor ? <ObjectBar editor={editor} /> : null}
+          {editor ? <LayoutOptions editor={editor} /> : null}
+          {editor ? <ChartSideButtons editor={editor} /> : null}
+          {editor ? <ChartPartLayer editor={editor} /> : null}
+          {editor ? <ObjectContextMenu editor={editor} /> : null}
+          {editor ? <LayoutDialog editor={editor} /> : null}
+          <TextContextMenu editor={editor} />
+          <TableHandles editor={editor} />
+        </article>
+      </div>
+    </div>
+  )
+}

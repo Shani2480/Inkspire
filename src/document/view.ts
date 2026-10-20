@@ -1,0 +1,214 @@
+import type { PageView } from "@/document/page-grid"
+import { DEFAULT_THEME_BACKGROUND } from "@/document/theme"
+import { create } from "zustand"
+
+export type { PageView }
+export type ZoomMode = "manual" | "width" | "page" | "pages"
+export type ColorMode = "light" | "dark"
+export type LayoutMode = "print" | "read" | "web" | "outline" | "draft"
+/** Word for the web's two ribbons: the classic one with labelled groups, or a single row of commands. */
+export type RibbonLayout = "classic" | "single"
+
+const COLOR_MODE_KEY = "aiword-color-mode"
+const RIBBON_LAYOUT_KEY = "aiword-ribbon-layout"
+
+export function readRibbonLayout(): RibbonLayout {
+  try {
+    return localStorage.getItem(RIBBON_LAYOUT_KEY) === "single" ? "single" : "classic"
+  } catch {
+    return "classic"
+  }
+}
+
+function storeRibbonLayout(ribbonLayout: RibbonLayout) {
+  try {
+    localStorage.setItem(RIBBON_LAYOUT_KEY, ribbonLayout)
+  } catch {
+    // The choice is only a convenience; without storage it lasts for the session.
+  }
+}
+
+function readColorMode(): ColorMode {
+  if (typeof localStorage === "undefined") {
+    return "light"
+  }
+  return localStorage.getItem(COLOR_MODE_KEY) === "dark" ? "dark" : "light"
+}
+
+export function applyColorMode(colorMode: ColorMode) {
+  if (typeof document === "undefined") {
+    return
+  }
+  document.documentElement.classList.toggle("dark", colorMode === "dark")
+  document.documentElement.dataset.theme = colorMode
+  if (typeof localStorage !== "undefined") {
+    localStorage.setItem(COLOR_MODE_KEY, colorMode)
+  }
+}
+
+export type FindTab = "find" | "replace" | "goto"
+
+type ViewState = {
+  zoom: number
+  zoomMode: ZoomMode
+  findOpen: boolean
+  /** Editing the header and footer (Word's double-click in the margin): the body is dimmed and set aside. */
+  editingChrome: boolean
+  /** The tab of Find and Replace that shows. */
+  findTab: FindTab
+  showFormattingMarks: boolean
+  spellCheck: boolean
+  showRuler: boolean
+  showGridlines: boolean
+  autoSave: boolean
+  colorMode: ColorMode
+  ribbonLayout: RibbonLayout
+  themeBackground: string
+  layoutMode: LayoutMode
+  movement: "vertical" | "side"
+  pageView: PageView
+  split: boolean
+  sideBySide: boolean
+  syncScroll: boolean
+  navPane: boolean
+  focusMode: boolean
+  immersive: boolean
+  restricted: boolean
+  hideInk: boolean
+  highlightMerge: boolean
+  selectionPane: boolean
+  setZoom: (zoom: number) => void
+  setZoomMode: (zoomMode: ZoomMode) => void
+  syncZoom: (zoom: number, min?: number) => void
+  openFind: (replace: boolean) => void
+  openGoTo: () => void
+  setEditingChrome: (editing: boolean) => void
+  setFindTab: (tab: FindTab) => void
+  closeFind: () => void
+  toggleFormattingMarks: () => void
+  toggleSpellCheck: () => void
+  setSpellCheck: (spellCheck: boolean) => void
+  toggleRuler: () => void
+  toggleGridlines: () => void
+  toggleAutoSave: () => void
+  setColorMode: (colorMode: ColorMode) => void
+  toggleColorMode: () => void
+  setRibbonLayout: (ribbonLayout: RibbonLayout) => void
+  /** Collapses the classic ribbon to the single line, or expands the single line back to the classic ribbon. */
+  toggleRibbonLayout: () => void
+  setThemeBackground: (themeBackground: string) => void
+  setLayoutMode: (layoutMode: LayoutMode) => void
+  setMovement: (movement: "vertical" | "side") => void
+  setPageView: (pageView: PageView) => void
+  setSplit: (split: boolean) => void
+  setSideBySide: (sideBySide: boolean) => void
+  setSyncScroll: (syncScroll: boolean) => void
+  setNavPane: (navPane: boolean) => void
+  setFocusMode: (focusMode: boolean) => void
+  setImmersive: (immersive: boolean) => void
+  resetWindow: () => void
+  setRestricted: (restricted: boolean) => void
+  setHideInk: (hideInk: boolean) => void
+  setHighlightMerge: (highlightMerge: boolean) => void
+  toggleSelectionPane: () => void
+}
+
+export function clampZoom(zoom: number, min = 0.5) {
+  return Math.round(Math.min(2, Math.max(min, zoom)) * 100) / 100
+}
+
+const initialColorMode = readColorMode()
+applyColorMode(initialColorMode)
+
+export const useViewStore = create<ViewState>((set, get) => ({
+  zoom: 1,
+  zoomMode: "manual",
+  findOpen: false,
+  editingChrome: false,
+  findTab: "find",
+  showFormattingMarks: false,
+  spellCheck: true,
+  showRuler: true,
+  showGridlines: false,
+  autoSave: true,
+  colorMode: initialColorMode,
+  ribbonLayout: readRibbonLayout(),
+  themeBackground: DEFAULT_THEME_BACKGROUND,
+  layoutMode: "print",
+  movement: "vertical",
+  pageView: 1,
+  split: false,
+  sideBySide: false,
+  syncScroll: false,
+  navPane: false,
+  focusMode: false,
+  immersive: false,
+  restricted: false,
+  hideInk: false,
+  highlightMerge: false,
+  selectionPane: false,
+  setZoom: (zoom) => set({ zoom: clampZoom(zoom), zoomMode: "manual" }),
+  setZoomMode: (zoomMode) => set({ zoomMode }),
+  syncZoom: (zoom, min = 0.5) => set({ zoom: clampZoom(zoom, min) }),
+  openFind: (replace) => set({ findOpen: true, findTab: replace ? "replace" : "find" }),
+  openGoTo: () => set({ findOpen: true, findTab: "goto" }),
+  setEditingChrome: (editingChrome) => set({ editingChrome }),
+  setFindTab: (findTab) => set({ findTab }),
+  closeFind: () => set({ findOpen: false }),
+  toggleFormattingMarks: () => set((state) => ({ showFormattingMarks: !state.showFormattingMarks })),
+  toggleSpellCheck: () => set((state) => ({ spellCheck: !state.spellCheck })),
+  setSpellCheck: (spellCheck) => set({ spellCheck }),
+  toggleRuler: () => set((state) => ({ showRuler: !state.showRuler })),
+  toggleGridlines: () => set((state) => ({ showGridlines: !state.showGridlines })),
+  toggleAutoSave: () => set((state) => ({ autoSave: !state.autoSave })),
+  setColorMode: (colorMode) => {
+    applyColorMode(colorMode)
+    set({ colorMode })
+  },
+  toggleColorMode: () =>
+    set((state) => {
+      const colorMode = state.colorMode === "dark" ? "light" : "dark"
+      applyColorMode(colorMode)
+      return { colorMode }
+    }),
+  toggleRibbonLayout: () => get().setRibbonLayout(get().ribbonLayout === "single" ? "classic" : "single"),
+  setRibbonLayout: (ribbonLayout) => {
+    storeRibbonLayout(ribbonLayout)
+    set({ ribbonLayout })
+  },
+  setThemeBackground: (themeBackground) => set({ themeBackground }),
+  setLayoutMode: (layoutMode) =>
+    set((state) => ({
+      layoutMode,
+      focusMode: layoutMode === "read" ? true : state.focusMode,
+      immersive: layoutMode === "read" ? false : state.immersive,
+      movement: layoutMode === "print" ? state.movement : "vertical",
+      pageView: layoutMode === "print" ? state.pageView : 1,
+    })),
+  setMovement: (movement) => set(movement === "side" ? { movement, pageView: 1, layoutMode: "print" } : { movement }),
+  setPageView: (pageView) =>
+    set(pageView > 1 ? { pageView, movement: "vertical", zoomMode: "pages", layoutMode: "print" } : { pageView }),
+  setSplit: (split) => set({ split }),
+  setSideBySide: (sideBySide) => set(sideBySide ? { sideBySide, split: true } : { sideBySide }),
+  setSyncScroll: (syncScroll) => set({ syncScroll }),
+  setNavPane: (navPane) => set({ navPane }),
+  setFocusMode: (focusMode) => set({ focusMode, immersive: focusMode ? false : get().immersive }),
+  setImmersive: (immersive) => set({ immersive, focusMode: immersive ? false : get().focusMode }),
+  resetWindow: () =>
+    set({
+      split: false,
+      sideBySide: false,
+      syncScroll: false,
+      zoom: 1,
+      zoomMode: "manual",
+      pageView: 1,
+      movement: "vertical",
+      layoutMode: "print",
+      focusMode: false,
+      immersive: false,
+    }),
+  setRestricted: (restricted) => set({ restricted }),
+  setHideInk: (hideInk) => set({ hideInk }),
+  setHighlightMerge: (highlightMerge) => set({ highlightMerge }),
+  toggleSelectionPane: () => set((state) => ({ selectionPane: !state.selectionPane })),
+}))

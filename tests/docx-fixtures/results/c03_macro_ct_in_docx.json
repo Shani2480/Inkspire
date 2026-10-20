@@ -1,0 +1,13 @@
+﻿{
+    "input":  "C:\\REA\\docx-probe\\cases\\c03_macro_ct_in_docx.docx",
+    "open":  {
+                 "error":  "Exception calling \"InvokeMember\" with \"8\" argument(s): \"Word was unable to read this document.  It may be corrupt.\nTry one or more of the following:\n* Open and Repair the file.\n* Open the file with the Text Recovery converter.\r (C:\\REA\\...\\c03_macro_ct_in_docx.docx)\"",
+                 "ok":  false
+             },
+    "repair":  {
+                   "error":  "Exception calling \"InvokeMember\" with \"8\" argument(s): \"Word was unable to read this document.  It may be corrupt.\nTry one or more of the following:\n* Open and Repair the file.\n* Open the file with the Text Recovery converter.\r (C:\\REA\\...\\c03_macro_ct_in_docx.docx)\"",
+                   "ok":  false
+               },
+    "doc":  null,
+    "save":  null
+}

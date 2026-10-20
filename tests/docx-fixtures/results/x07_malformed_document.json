@@ -1,0 +1,13 @@
+﻿{
+    "input":  "C:\\REA\\docx-probe\\cases\\x07_malformed_document.docx",
+    "open":  {
+                 "error":  "Exception calling \"InvokeMember\" with \"8\" argument(s): \"Word experienced an error trying to open the file.\nTry these suggestions.\n* Check the file permissions for the document or drive.\n* Make sure there is sufficient free memory and disk space.\n* Open the file with the Text Recovery converter.\r (C:\\REA\\...\\x07_malformed_document.docx)\"",
+                 "ok":  false
+             },
+    "repair":  {
+                   "error":  "Exception calling \"InvokeMember\" with \"8\" argument(s): \"Word experienced an error trying to open the file.\nTry these suggestions.\n* Check the file permissions for the document or drive.\n* Make sure there is sufficient free memory and disk space.\n* Open the file with the Text Recovery converter.\r (C:\\REA\\...\\x07_malformed_document.docx)\"",
+                   "ok":  false
+               },
+    "doc":  null,
+    "save":  null
+}

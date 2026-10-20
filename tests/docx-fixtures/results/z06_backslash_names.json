@@ -1,0 +1,17 @@
+﻿{
+    "input":  "C:\\REA\\docx-probe\\cases\\z06_backslash_names.docx",
+    "open":  {
+                 "ok":  true
+             },
+    "repair":  null,
+    "doc":  {
+                "paragraphs":  1,
+                "tables":  0,
+                "compatibilityMode":  15,
+                "text":  "MARKER-BASE\r"
+            },
+    "save":  {
+                 "ok":  true,
+                 "path":  "C:\\REA\\docx-probe\\roundtrip\\z06_backslash_names.docx"
+             }
+}

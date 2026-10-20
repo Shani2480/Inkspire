@@ -1,0 +1,20 @@
+﻿{
+    "input":  "C:\\REA\\docx-probe\\cases\\w11_cell_no_paragraph.docx",
+    "open":  {
+                 "error":  "Exception calling \"InvokeMember\" with \"8\" argument(s): \"The file appears to be corrupted.\"",
+                 "ok":  false
+             },
+    "repair":  {
+                   "ok":  true
+               },
+    "doc":  {
+                "paragraphs":  3,
+                "tables":  1,
+                "compatibilityMode":  15,
+                "text":  "\r\u0007\r\u0007MARKER-AFTER\r"
+            },
+    "save":  {
+                 "ok":  true,
+                 "path":  "C:\\REA\\docx-probe\\roundtrip\\w11_cell_no_paragraph.docx"
+             }
+}

@@ -1,0 +1,53 @@
+00_baseline	Minimal valid package (control)
+z01_stored	All entries Stored (method 0)
+z02_data_descriptor	General-purpose bit 3: sizes/CRC in data descriptors
+z03_zip64	ZIP64 extra fields + ZIP64 EOCD on every entry
+z04_bad_crc_document	Wrong CRC-32 on word/document.xml
+z05_bad_crc_styles	Wrong CRC-32 on word/styles.xml only
+z06_backslash_names	ZIP entry names use backslashes
+z07_entry_order	[Content_Types].xml written last instead of first
+c01_no_content_types	[Content_Types].xml missing
+c02_no_main_override	No Override for main part (falls to Default xml=application/xml)
+c03_macro_ct_in_docx	Main part has macroEnabled content type, file is .docx
+c04_template_ct_in_docx	Main part has template content type, file is .docx
+c05_override_case	Override PartName differs in case (/WORD/DOCUMENT.XML)
+c06_missing_styles_ct	styles.xml has no content type Override
+r01_absolute_target	Package rel Target="/word/document.xml" (absolute)
+r02_main_renamed	Main part stored as /content/main.xml (found only via rel)
+r03_percent_encoded	Part with space stored as "my styles.xml", rel Target="my%20styles.xml"
+r04_target_case_mismatch	Rel Target="Styles.XML" but entry is styles.xml
+r05_dangling_hyperlink	w:hyperlink r:id points to a missing relationship
+r06_missing_styles_part	styles relationship present, styles.xml entry missing
+r07_duplicate_rid	Two relationships with the same Id in document.xml.rels
+r08_external_template	attachedTemplate relationship with external file:// target
+r09_unknown_part_preserved	Unknown part (custom content type) related from document
+r10_unknown_package_part	Unknown part related from the package root (_rels/.rels)
+x01_strict	ISO Strict namespaces + Strict relationship types
+x02_unknown_ns_not_ignorable	Unknown namespace element, NOT listed in mc:Ignorable
+x03_unknown_ns_ignorable	Unknown namespace element + attribute listed in mc:Ignorable
+x04_alternate_content	mc:AlternateContent: Choice requires unknown ns, Fallback has text
+x05_alternate_known	mc:AlternateContent: Choice requires w14 (known), Fallback differs
+x06_malformed_styles	styles.xml is not well-formed XML
+x07_malformed_document	document.xml is not well-formed (unclosed element)
+x08_unknown_w_element	Unknown element in the w: namespace (<w:probeElement/>)
+x09_dtd	document.xml contains a DOCTYPE with an internal entity
+x10_utf16	document.xml encoded as UTF-16LE with BOM
+x11_utf8_bom	document.xml with UTF-8 BOM
+x12_bad_attr_value	Invalid attribute values (w:sz="abc", w:jc="sideways")
+w01_no_sectpr	Body without w:sectPr
+w02_empty_body	Empty w:body (no paragraphs, no sectPr)
+w03_space_handling	w:t with leading/trailing spaces, with and without xml:space
+w04_duplicate_paraid	Two paragraphs with identical w14:paraId
+w05_paraid_too_big	w14:paraId >= 0x80000000
+w06_unlisted_rsid	Paragraph rsidR not present in settings w:rsids
+w07_no_compat_mode	settings.xml without compatibilityMode
+w08_compat_mode_14	compatibilityMode = 14 (Word 2010)
+w09_missing_style_ref	Paragraph references undefined styleId "NoSuchStyle"
+w10_table_no_grid	Table without w:tblGrid
+w11_cell_no_paragraph	Table cell with no w:p (schema violation)
+w12_table_last_in_body	Table is the last block before sectPr (no trailing paragraph)
+w13_elements_out_of_order	rPr children in non-schema order (sz before b)
+w14_rpr_after_text	w:rPr placed after w:t inside a run
+w15_unbalanced_field	fldChar begin without separate/end
+w16_bookmark_unpaired	bookmarkStart without bookmarkEnd
+w17_no_styles_rel	No styles part at all (rel removed)

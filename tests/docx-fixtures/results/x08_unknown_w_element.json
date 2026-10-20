@@ -1,0 +1,17 @@
+﻿{
+    "input":  "C:\\REA\\docx-probe\\cases\\x08_unknown_w_element.docx",
+    "open":  {
+                 "ok":  true
+             },
+    "repair":  null,
+    "doc":  {
+                "paragraphs":  1,
+                "tables":  0,
+                "compatibilityMode":  15,
+                "text":  "MARKER-A\r"
+            },
+    "save":  {
+                 "ok":  true,
+                 "path":  "C:\\REA\\docx-probe\\roundtrip\\x08_unknown_w_element.docx"
+             }
+}
