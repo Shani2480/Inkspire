@@ -573,6 +573,8 @@ export type TableCell = {
 }
 export type TableRow = {
   header?: boolean
+  /** w:trHeight: twips, and whether the row may grow past it (atLeast, the default) or not (exact). */
+  height?: { value: number; rule?: "atLeast" | "exact" }
   cellMargins?: CellMargins
   cells: TableCell[]
   /** w:trPr as written. */
@@ -590,6 +592,11 @@ export type Table = {
   borders?: TableBorders
   layout?: TableLayout
   look?: TableLook
+  /** w:jc: where a table narrower than the text sits. */
+  align?: "left" | "center" | "right"
+  /** w:tblCaption and w:tblDescription: the table's alt text. */
+  caption?: string
+  description?: string
   /** w:tblCellMar, shown in the editor; saving writes w:tblPr from its source. */
   cellMargins?: CellMargins
   grid: number[]
@@ -1320,11 +1327,20 @@ export function paragraphPropertiesInput(paragraph: Paragraph) {
 }
 
 export function tablePropertiesInput(table: Table) {
-  return { styleId: table.styleId, width: table.width, borders: table.borders, layout: table.layout, look: table.look }
+  return {
+    styleId: table.styleId,
+    width: table.width,
+    borders: table.borders,
+    layout: table.layout,
+    look: table.look,
+    align: table.align,
+    caption: table.caption,
+    description: table.description,
+  }
 }
 
 export function rowPropertiesInput(row: TableRow) {
-  return { header: row.header }
+  return { header: row.header, height: row.height }
 }
 
 export function rowExceptionsInput(row: TableRow) {
@@ -1338,5 +1354,6 @@ export function cellPropertiesInput(cell: TableCell) {
     vMerge: cell.vMerge,
     borders: cell.look?.borders,
     shading: cell.shading,
+    vAlign: cell.look?.vAlign,
   }
 }

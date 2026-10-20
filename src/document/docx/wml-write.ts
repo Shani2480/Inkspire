@@ -849,7 +849,10 @@ function writeRowExceptions(input: ReturnType<typeof rowExceptionsInput>) {
 }
 
 function writeRowProperties(input: ReturnType<typeof rowPropertiesInput>) {
-  return input.header ? "<w:tblHeader/>" : ""
+  const height = input.height
+    ? `<w:trHeight w:val="${input.height.value}"${input.height.rule ? ` w:hRule="${input.height.rule}"` : ""}/>`
+    : ""
+  return `${height}${input.header ? "<w:tblHeader/>" : ""}`
 }
 
 function writeTableProperties(table: Table) {
@@ -860,9 +863,12 @@ function writeTableProperties(table: Table) {
       [
         input.styleId ? `<w:tblStyle w:val="${escapeXml(input.styleId)}"/>` : "",
         input.width ? `<w:tblW w:w="${input.width.value}" w:type="${input.width.type}"/>` : "",
+        input.align ? `<w:jc w:val="${input.align}"/>` : "",
         writeBorders(input.borders),
         input.layout ? `<w:tblLayout w:type="${input.layout}"/>` : "",
         writeLook(input.look),
+        input.caption ? `<w:tblCaption w:val="${escapeXml(input.caption)}"/>` : "",
+        input.description ? `<w:tblDescription w:val="${escapeXml(input.description)}"/>` : "",
       ].join(""),
     ORDER.tblPr,
   )
@@ -928,7 +934,8 @@ function generateCellProperties(cell: ReturnType<typeof cellPropertiesInput>) {
   const shading = cell.shading
     ? `<w:shd w:val="${cell.shading.value}"${cell.shading.color ? ` w:color="${cell.shading.color}"` : ""}${cell.shading.fill ? ` w:fill="${cell.shading.fill}"` : ""}/>`
     : ""
-  return `${width}${span}${merge}${borders}${shading}`
+  const vAlign = cell.vAlign ? `<w:vAlign w:val="${cell.vAlign}"/>` : ""
+  return `${width}${span}${merge}${borders}${shading}${vAlign}`
 }
 
 function writeCellMargins(margins: CellMargins | undefined) {

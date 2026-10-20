@@ -1096,6 +1096,18 @@ function readTable(node: MarkupNode, notes: WordNote[], raw: RawCursor = NO_RAW)
   if (look) {
     table.look = look
   }
+  const align = oneOf(logicalSide(childVal(properties, "jc")), ["left", "center", "right"] as const)
+  if (align) {
+    table.align = align
+  }
+  const caption = childVal(properties, "tblCaption")
+  if (caption) {
+    table.caption = caption
+  }
+  const description = childVal(properties, "tblDescription")
+  if (description) {
+    table.description = description
+  }
   const grid = wordChild(node, "tblGrid")
   if (grid) {
     for (const column of wordChildren(grid, "gridCol")) {
@@ -1117,6 +1129,12 @@ function readTable(node: MarkupNode, notes: WordNote[], raw: RawCursor = NO_RAW)
     }
     if (header) {
       row.header = readOnOff(header) ?? true
+    }
+    const heightNode = wordChild(rowProperties, "trHeight")
+    const heightValue = readUMeasure(attr(heightNode, "val"))
+    if (heightValue !== undefined && heightValue > 0) {
+      const rule = oneOf(attr(heightNode, "hRule"), ["atLeast", "exact"] as const)
+      row.height = rule ? { value: heightValue, rule } : { value: heightValue }
     }
     const source = elementSource(rowProperties, rowPropertiesInput(row))
     if (source) {

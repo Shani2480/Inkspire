@@ -17,6 +17,11 @@ export function tableLayoutState(editor: Editor) {
   return {
     heightCm: roundCm((height || rowHeight(editor, row.pos)) / PX_PER_CM),
     widthCm: roundCm((width || cellWidth(editor, cell.pos)) / PX_PER_CM),
+    align: (table.node.attrs.align === "center" || table.node.attrs.align === "right"
+      ? table.node.attrs.align
+      : "left") as TableAlign,
+    altTitle: typeof table.node.attrs.altTitle === "string" ? table.node.attrs.altTitle : "",
+    altDesc: typeof table.node.attrs.altDesc === "string" ? table.node.attrs.altDesc : "",
     gridlines: table.node.attrs.gridlines !== false,
     headerRow: Boolean(table.node.attrs.headerRow),
     vertical: cell.node.attrs.textDir === "vertical",
@@ -32,6 +37,7 @@ export function tableLayoutState(editor: Editor) {
 }
 
 export type CellPad = "narrow" | "normal" | "wide"
+export type TableAlign = "left" | "center" | "right"
 
 /** What the Table Properties dialog edits (22.10). Heights and widths are in centimetres. */
 export type TableProperties = {
@@ -42,6 +48,9 @@ export type TableProperties = {
   rowHeightCm: number | null
   columnWidthCm: number
   valign: "top" | "middle" | "bottom"
+  align: TableAlign
+  altTitle: string
+  altDesc: string
 }
 
 /** Applies only what differs from the table's current state, so an unchanged field never rewrites the table. */
@@ -57,6 +66,19 @@ export function applyTableProperties(editor: Editor, next: TableProperties): boo
     editor.view.dispatch(
       editor.state.tr.setNodeMarkup(table.pos, undefined, { ...table.node.attrs, cellPad: next.cellPad }),
     )
+  }
+  if (next.align !== before.align || next.altTitle !== before.altTitle || next.altDesc !== before.altDesc) {
+    const current = currentTable(editor)
+    if (current) {
+      editor.view.dispatch(
+        editor.state.tr.setNodeMarkup(current.pos, undefined, {
+          ...current.node.attrs,
+          align: next.align,
+          altTitle: next.altTitle,
+          altDesc: next.altDesc,
+        }),
+      )
+    }
   }
   if (next.gridlines !== before.gridlines) {
     toggleGridlines(editor)

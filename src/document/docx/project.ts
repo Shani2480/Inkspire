@@ -531,13 +531,18 @@ function tableHtml(table: Table, ctx: Projection) {
           return `<td${span}${rowspan}${colwidth}${valign ? ` data-valign="${valign}"` : ""}${word}>${inner}</td>`
         })
         .join("")
-      return `<tr>${cells}</tr>`
+      const height = row.height ? ` style="height: ${Math.round(row.height.value / TWIP_PER_PX)}px"` : ""
+      return `<tr${height}>${cells}</tr>`
     })
     .join("")
   const key = table.key ? ` data-docx="${table.key}"` : ""
   const style = table.styleId ? ` data-word-table-style="${escapeAttribute(table.styleId)}"` : ""
   const frame = tableVariables(table.borders, table.cellMargins).join("; ")
-  const attrs = `${key} data-word-table="1"${style} data-word-look="${tableLookTokens(table.look)}"${
+  const align = table.align && table.align !== "left" ? ` data-align="${table.align}"` : ""
+  const alt =
+    (table.caption ? ` data-alt-title="${escapeAttribute(table.caption)}"` : "") +
+    (table.description ? ` data-alt-desc="${escapeAttribute(table.description)}"` : "")
+  const attrs = `${key} data-word-table="1"${style} data-word-look="${tableLookTokens(table.look)}"${align}${alt}${
     frame ? ` data-word-frame="${escapeAttribute(frame)}"` : ""
   }`
   return `<table${attrs}><tbody>${rows}</tbody></table>`
@@ -1225,6 +1230,7 @@ function tableFromNode(node: JsonNode, build: Build): Table {
           ...(span > 1 ? { gridSpan: span } : {}),
           ...(down > 1 ? { vMerge: "restart" as const } : {}),
           colwidth: Array.isArray(child.attrs?.colwidth) ? child.attrs.colwidth.map((width) => Number(width)) : null,
+          valign: child.attrs?.valign === "middle" || child.attrs?.valign === "bottom" ? child.attrs.valign : "top",
           ...shadedAndBordered(child.attrs),
         })
         if (down > 1) {
@@ -1246,13 +1252,42 @@ function tableFromNode(node: JsonNode, build: Build): Table {
           cell.look = { ...structuredClone(match.look), ...cell.look }
         }
         if (match.source) {
-          // Borders, margins, vertical alignment, conditional formatting: everything tcPr says that the editor
-          // does not show.
+          // Borders, margins, conditional formatting: everything tcPr says that the editor does not show.
           cell.source = match.source
         }
       }
+      // The vertical alignment the editor shows wins over the one the source cell had: top is only written where the
+      // source said it, as it is Word's default.
+      for (const [index, cell] of cells.entries()) {
+        const match = sourceCellAt(gridColumn(cells, index))
+        const shown = cell.valign
+        const wanted =
+          shown === "middle"
+            ? "center"
+            : shown === "bottom"
+              ? "bottom"
+              : match?.look?.vAlign === "top"
+                ? "top"
+                : undefined
+        if (wanted) {
+          cell.look = { ...cell.look, vAlign: wanted }
+        } else if (cell.look?.vAlign) {
+          const { vAlign: _dropped, ...rest } = cell.look
+          cell.look = rest
+        }
+      }
+      const editedHeight = Number(row.attrs?.height)
+      const height =
+        editedHeight > 0
+          ? {
+              value: Math.round(editedHeight * TWIP_PER_PX),
+              ...(source?.height?.rule ? { rule: source.height.rule } : {}),
+            }
+          : undefined
       return {
-        ...(source?.header ? { header: true } : {}),
+        ...(source?.header || (rowIndex === 0 && node.attrs?.headerRow === true) ? { header: true } : {}),
+        // A height the source row had and the editor did not show stays; one the person set replaces it.
+        ...(height ? { height } : source?.height ? { height: structuredClone(source.height) } : {}),
         ...(source?.cellMargins ? { cellMargins: structuredClone(source.cellMargins) } : {}),
         ...(source?.source ? { source: source.source } : {}),
         ...(source?.exceptionSource ? { exceptionSource: source.exceptionSource } : {}),
@@ -1271,7 +1306,7 @@ function tableFromNode(node: JsonNode, build: Build): Table {
     grid,
     rows: rows.map((row) => ({
       ...row,
-      cells: row.cells.map(({ colwidth: _colwidth, ...cell }, index) => {
+      cells: row.cells.map(({ colwidth: _colwidth, valign: _valign, ...cell }, index) => {
         const at = gridColumn(row.cells, index)
         const width = grid.slice(at, at + (cell.gridSpan ?? 1)).reduce((sum, column) => sum + column, 0)
         return width > 0 ? { ...cell, width: { value: width, type: "dxa" as const } } : cell
@@ -1280,6 +1315,19 @@ function tableFromNode(node: JsonNode, build: Build): Table {
   }
   if (key) {
     table.key = key
+  }
+  const align = node.attrs?.align === "center" || node.attrs?.align === "right" ? node.attrs.align : "left"
+  // Left is Word's default: an untouched table keeps what it had, and only a changed one writes w:jc.
+  if (align !== "left" || origin?.align) {
+    table.align = align
+  }
+  const title = typeof node.attrs?.altTitle === "string" ? node.attrs.altTitle.trim() : ""
+  const description = typeof node.attrs?.altDesc === "string" ? node.attrs.altDesc.trim() : ""
+  if (title) {
+    table.caption = title
+  }
+  if (description) {
+    table.description = description
   }
   if (!origin) {
     madeInApp(table, node.attrs?.frame)
@@ -1322,7 +1370,9 @@ function madeInApp(table: Table, frame: unknown) {
   }
 }
 
-type EditedRow = Omit<TableRow, "cells"> & { cells: (TableCell & { colwidth?: number[] | null })[] }
+type EditedRow = Omit<TableRow, "cells"> & {
+  cells: (TableCell & { colwidth?: number[] | null; valign?: "top" | "middle" | "bottom" })[]
+}
 
 /**
  * Column widths from the editor's colwidth attributes. While they still match the source grid in pixels the
