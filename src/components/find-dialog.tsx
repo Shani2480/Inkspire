@@ -36,6 +36,8 @@ export function FindDialog() {
   const [replacement, setReplacement] = useState("")
   const [matchCase, setMatchCase] = useState(false)
   const [index, setIndex] = useState(0)
+  /** How many matches the last Replace All changed; shown in place of the match count until the search changes. */
+  const [replacedCount, setReplacedCount] = useState<number | null>(null)
   const [revision, setRevision] = useState(0)
   const shown = useRef(false)
 
@@ -49,7 +51,8 @@ export function FindDialog() {
   useEffect(() => {
     setIndex(0)
     shown.current = false
-  }, [query, matchCase])
+    setReplacedCount(null)
+  }, [query, matchCase, replacement, tab])
 
   useEffect(() => {
     if (!editor || !open) {
@@ -116,8 +119,10 @@ export function FindDialog() {
     if (!editor) {
       return
     }
-    replaceTextRanges(editor, findTextRanges(editor, query, matchCase), replacement)
+    const found = findTextRanges(editor, query, matchCase)
+    replaceTextRanges(editor, found, replacement)
     setIndex(0)
+    setReplacedCount(found.length)
   }
 
   const none = !query || ranges.length === 0
@@ -219,7 +224,11 @@ export function FindDialog() {
               Match case
             </label>
             <span className="text-[var(--dlg-muted)]" aria-live="polite">
-              {query ? `${ranges.length} found` : `Type to find (${commandShortcut("F")})`}
+              {replacedCount !== null
+                ? `Replaced ${replacedCount} ${replacedCount === 1 ? "occurrence" : "occurrences"}.`
+                : query
+                  ? `${ranges.length} found`
+                  : `Type to find (${commandShortcut("F")})`}
             </span>
           </div>
         </>
