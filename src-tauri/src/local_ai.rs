@@ -556,26 +556,50 @@ pub fn local_ai_cancel_install() {
     CANCEL_INSTALL.store(true, Ordering::SeqCst);
 }
 
-/// Stops the engine and deletes it and its models, giving the disk space back.
+/// Deletes one model's file (and a half-finished download of it), and with `engine` the engine builds too. Nothing
+/// else in the folder is touched: the other models stay.
+pub fn remove_files(root: &Path, model: &ModelInfo, engine: bool) -> Result<(), String> {
+    let file = models_dir(root).join(model.file);
+    for path in [file.with_extension("part"), file] {
+        if path.exists() {
+            std::fs::remove_file(&path)
+                .map_err(|_| format!("Could not delete {}.", model.label))?;
+        }
+    }
+    if engine {
+        for backend in [Backend::Vulkan, Backend::Cpu] {
+            let dir = engine_dir(root, backend);
+            if dir.exists() {
+                std::fs::remove_dir_all(&dir)
+                    .map_err(|_| "Could not delete the engine.".to_string())?;
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Deletes the chosen model from the disk, giving its space back; the other models stay. With `remove_engine` the
+/// engine goes too. The engine is stopped first when it is running that model (or when it is going).
 #[tauri::command]
-pub async fn local_ai_remove(app: tauri::AppHandle) -> Result<(), String> {
+pub async fn local_ai_remove(
+    app: tauri::AppHandle,
+    model_id: String,
+    remove_engine: Option<bool>,
+) -> Result<(), String> {
     if INSTALLING.load(Ordering::SeqCst) {
         return Err("Wait for the download to stop first.".into());
     }
-    stop().await;
-    let root = root(&app)?;
-    for entry in std::fs::read_dir(&root)
-        .map_err(|_| "Could not open the engine folder.".to_string())?
-        .flatten()
-    {
-        let path = entry.path();
-        let _ = if path.is_dir() {
-            std::fs::remove_dir_all(&path)
-        } else {
-            std::fs::remove_file(&path)
-        };
+    let model = model_by_id(Some(&model_id))?;
+    let engine = remove_engine == Some(true);
+    let running_it = RUNNING
+        .lock()
+        .await
+        .as_ref()
+        .is_some_and(|current| current.model == model.id);
+    if engine || running_it {
+        stop().await;
     }
-    Ok(())
+    remove_files(&root(&app)?, model, engine)
 }
 
 // --- Running it ----------------------------------------------------------------------------------------------------
@@ -840,6 +864,50 @@ mod tests {
         touch_file(&icd, "lvp_icd.x86_64.json");
         touch_file(&dri, "renderD128");
         assert!(!vulkan_available_in(&[lib], &[icd], &dri));
+    }
+
+    #[test]
+    fn removing_a_model_leaves_the_other_model_and_the_engine() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        let (small, standard) = (&MODELS[0], &MODELS[1]);
+        touch_file(&models_dir(root), small.file);
+        touch_file(&models_dir(root), standard.file);
+        touch_file(&engine_dir(root, Backend::Cpu), "llama-server");
+
+        remove_files(root, standard, false).unwrap();
+
+        assert!(!models_dir(root).join(standard.file).exists());
+        assert!(models_dir(root).join(small.file).exists());
+        assert!(engine_dir(root, Backend::Cpu).join("llama-server").exists());
+    }
+
+    #[test]
+    fn removing_a_model_also_clears_its_half_finished_download() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        let model = &MODELS[1];
+        let part = models_dir(root).join(model.file).with_extension("part");
+        touch_file(
+            &models_dir(root),
+            part.file_name().unwrap().to_str().unwrap(),
+        );
+        remove_files(root, model, false).unwrap();
+        assert!(!part.exists());
+    }
+
+    #[test]
+    fn the_engine_goes_only_when_asked() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path();
+        touch_file(&models_dir(root), MODELS[0].file);
+        touch_file(&engine_dir(root, Backend::Cpu), "llama-server");
+        touch_file(&engine_dir(root, Backend::Vulkan), "llama-server");
+
+        remove_files(root, &MODELS[0], true).unwrap();
+
+        assert!(!engine_dir(root, Backend::Cpu).exists());
+        assert!(!engine_dir(root, Backend::Vulkan).exists());
     }
 
     #[test]
