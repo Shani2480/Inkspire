@@ -38,7 +38,7 @@ export function bindLineSelect(editor: Editor, canvas: HTMLElement, marginMm: nu
       return
     }
     // Single click: line; double+: paragraph. Triple in the text area is handled by
-    // TripleClickSelectAll (visual line); margin triple should not select-all.
+    // TripleClickSelectAll (paragraph); margin triple should not select-all.
     applySelection(editor, range.from, range.to)
     dragging = event.detail < 2
     anchorFrom = range.from
