@@ -3,6 +3,7 @@ import { flushPendingEdit, getDocumentEditor } from "@/document/editor-ref"
 import { packDocument } from "@/document/header"
 import { packStyles, useStyleStore } from "@/document/styles"
 import { documentName, useDocumentStore } from "@/document/store"
+import { WINDOW_ID, openWindows } from "@/document/windows"
 import { isTauriRuntime } from "@/lib/platform"
 import { BaseDirectory, exists, readTextFile, remove, stat, writeTextFile } from "@tauri-apps/plugin-fs"
 
@@ -45,8 +46,6 @@ type SnapshotRecord = {
 /** Snapshot id for the document currently open in this session. */
 let activeSnapshotId: string | null = null
 
-/** This window, for telling its drafts from those of a window that closed or crashed. */
-const WINDOW_ID = typeof crypto !== "undefined" ? crypto.randomUUID() : String(Math.random())
 const ALIVE_KEY = "aiword-recovery-alive"
 const ALIVE_EVERY_MS = 5_000
 const ALIVE_FOR_MS = 20_000
@@ -97,7 +96,35 @@ export function keepRecoveryAlive() {
 
 /** A draft another open window is editing. */
 function heldElsewhere(record: SnapshotRecord, alive: Record<string, number>, now: number) {
-  return Boolean(record.owner && record.owner !== WINDOW_ID && now - (alive[record.owner] ?? 0) < ALIVE_FOR_MS)
+  if (!record.owner || record.owner === WINDOW_ID) {
+    return false
+  }
+  // Either heartbeat says the window is open: a window behind another one may be slow to write its own.
+  return now - (alive[record.owner] ?? 0) < ALIVE_FOR_MS || openWindows().some((entry) => entry.id === record.owner)
+}
+
+const pathKey = (path: string) => path.replace(/\\/g, "/").toLowerCase()
+
+/**
+ * The files open now: in this window and in every other live one. A draft of such a file is not offered back, as the
+ * file is in front of the person already (it stays stored, and is offered again once the file is closed).
+ */
+export function openFilePaths(): Set<string> {
+  const paths = new Set<string>()
+  const here = useDocumentStore.getState().currentFilePath
+  if (here) {
+    paths.add(pathKey(here))
+  }
+  for (const entry of openWindows()) {
+    if (entry.path) {
+      paths.add(pathKey(entry.path))
+    }
+  }
+  return paths
+}
+
+export function isOpenFile(sourcePath: string | null, open: Set<string>) {
+  return Boolean(sourcePath) && open.has(pathKey(sourcePath as string))
 }
 
 export function resetRecoverySession() {
@@ -445,10 +472,11 @@ export async function listRecoveryOffers(): Promise<RecoveryOffer[]> {
 
   const alive = readAlive()
   const now = Date.now()
+  const open = openFilePaths()
   const offers: RecoveryOffer[] = []
   const seen = new Set<string>()
   for (const record of records.sort((left, right) => right.writtenAt - left.writtenAt)) {
-    if (record.id === activeSnapshotId || heldElsewhere(record, alive, now)) {
+    if (record.id === activeSnapshotId || heldElsewhere(record, alive, now) || isOpenFile(record.sourcePath, open)) {
       continue
     }
     // Earlier versions copied the open draft back in from the desktop mirror on every focus, as "legacy" records.
