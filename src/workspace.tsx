@@ -56,7 +56,7 @@ import { showEditedStyles, useStyleStore } from "@/document/styles"
 import { SaveChangesDialog } from "@/components/save-changes-dialog"
 import { useDocumentCommands } from "@/document/app-menu"
 import { getDocumentEditor } from "@/document/editor-ref"
-import { DocumentEditorProvider, useDocumentEditor } from "@/editor/document-editor"
+import { DocumentEditorProvider, useBodyEditor } from "@/editor/document-editor"
 import { installPaginationProfileCommand } from "@/editor/pagination-profile"
 import { ensureDictionary } from "@/editor/spellcheck"
 import { ensureSystemFonts } from "@/editor/system-fonts"
@@ -81,7 +81,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
   useAutosave()
   useCloseGuard()
   useClipboardCapture()
-  const editor = useDocumentEditor()
+  const editor = useBodyEditor()
   useDocumentWindow(Boolean(editor))
 
   useEffect(() => installPaginationProfileCommand(() => getDocumentEditor()), [])
@@ -314,7 +314,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
  * open and only this re-renders as you type, not the whole workspace.
  */
 function SplitPreview() {
-  const editor = useDocumentEditor()
+  const editor = useBodyEditor()
   const preview = useEditorState({
     editor,
     selector: ({ editor: current }) => current?.getHTML() ?? "",

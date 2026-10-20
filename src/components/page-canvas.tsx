@@ -9,11 +9,13 @@ import { TextContextMenu } from "@/components/text-context-menu"
 import { TableHandles } from "@/components/table-handles"
 import { pageGridCell, pageGridColumns, pageGridRows } from "@/document/page-grid"
 import { paintDesignVars } from "@/document/design-format"
-import { chromeText, chromeWithText } from "@/document/chrome-html"
+import { ChromeBox, useChromePart } from "@/components/chrome-editors"
+import { useActiveChromeEditor } from "@/document/chrome-editing"
+import { chromeText } from "@/document/chrome-html"
 import { applyPageChrome, pageMetrics } from "@/document/page-setup"
 import { useDocumentStore } from "@/document/store"
 import { clampZoom, useViewStore } from "@/document/view"
-import { useDocumentEditor } from "@/editor/document-editor"
+import { useBodyEditor } from "@/editor/document-editor"
 import { selectedObject } from "@/editor/objects"
 import { PAGE_GAP } from "@/editor/pages"
 import { bindLineSelect } from "@/editor/line-select"
@@ -35,7 +37,7 @@ function footerBoxes(footer: string) {
 }
 
 export function PageCanvas() {
-  const editor = useDocumentEditor()
+  const editor = useBodyEditor()
   const zoom = useViewStore((state) => state.zoom)
   const zoomMode = useViewStore((state) => state.zoomMode)
   const syncZoom = useViewStore((state) => state.syncZoom)
@@ -66,6 +68,13 @@ export function PageCanvas() {
   const setFirstHeader = useDocumentStore((state) => state.setFirstHeader)
   const setFirstFooter = useDocumentStore((state) => state.setFirstFooter)
   const setDifferentFirstPage = useDocumentStore((state) => state.setDifferentFirstPage)
+  const headerPart = useChromePart(headerHtml, setHeader, "Header")
+  const footerPart = useChromePart(footerHtml, setFooter, "Footer")
+  const firstHeaderPart = useChromePart(firstHeaderHtml, setFirstHeader, "First page header")
+  const firstFooterPart = useChromePart(firstFooterHtml, setFirstFooter, "First page footer")
+  const chromeTarget = useViewStore((state) => state.chromeTarget)
+  const activeChrome = useActiveChromeEditor((state) => state.editor)
+  const editChromeAt = useViewStore((state) => state.editChrome)
   const pageSetup = useDocumentStore((state) => state.pageSetup)
   const metrics = pageMetrics(pageSetup)
   const header = chromeText(headerHtml)
@@ -75,6 +84,8 @@ export function PageCanvas() {
       selector: ({ editor: current }) => current?.storage.pagination?.pageCount ?? 1,
     }) ?? 1
   const pageCount = web ? 1 : countedPages
+  // The floating toolbars follow the text being edited: the header or footer while one is open, else the body.
+  const formatted = editingChrome ? activeChrome : editor
   const pageRef = useRef<HTMLElement>(null)
   const [pageHeight, setPageHeight] = useState(metrics.height)
   const side = movement === "side"
@@ -283,14 +294,8 @@ export function PageCanvas() {
   // Word: double-click a page's top or bottom margin to edit its header or footer, double-click the body (or press
   // Esc) to go back to the document.
   const editChrome = (index: number, part: "header" | "footer") => {
-    setEditingChrome(true)
     editor?.commands.blur()
-    window.requestAnimationFrame(() => {
-      const sheet = pageRef.current?.querySelectorAll<HTMLElement>(":scope > .page-sheet")[index]
-      const field = sheet?.querySelector<HTMLInputElement>(part === "header" ? ".page-header" : ".page-footer")
-      field?.focus()
-      field?.setSelectionRange(field.value.length, field.value.length)
-    })
+    editChromeAt(part, index)
   }
 
   useEffect(() => {
@@ -366,12 +371,14 @@ export function PageCanvas() {
                 aria-hidden
                 style={{ height: metrics.marginTop }}
                 onDoubleClick={() => editChrome(index, "header")}
+                onMouseDown={() => editingChrome && editChrome(index, "header")}
               />
               <div
                 className="page-chrome-zone is-footer"
                 aria-hidden
                 style={{ height: metrics.marginBottom }}
                 onDoubleClick={() => editChrome(index, "footer")}
+                onMouseDown={() => editingChrome && editChrome(index, "footer")}
               />
               {editingChrome ? (
                 <>
@@ -397,51 +404,21 @@ export function PageCanvas() {
                   First page
                 </label>
               ) : null}
-              <input
-                className="page-header"
-                readOnly={!editingChrome}
-                tabIndex={editingChrome ? 0 : -1}
-                onDoubleClick={() => editChrome(index, "header")}
-                aria-label={
-                  index === 0 && differentFirstPage
-                    ? "First page header"
-                    : pageCount === 1
-                      ? "Header"
-                      : `Header on page ${index + 1}`
-                }
-                value={chromeText(index === 0 && differentFirstPage ? firstHeaderHtml : headerHtml)}
-                placeholder={
-                  editingChrome ? (index === 0 && differentFirstPage ? "First page header" : "Header") : undefined
-                }
-                maxLength={160}
-                onChange={(event) =>
-                  index === 0 && differentFirstPage
-                    ? setFirstHeader(chromeWithText(firstHeaderHtml, event.target.value))
-                    : setHeader(chromeWithText(headerHtml, event.target.value))
-                }
+              <ChromeBox
+                kind="header"
+                part={index === 0 && differentFirstPage ? firstHeaderPart : headerPart}
+                html={index === 0 && differentFirstPage ? firstHeaderHtml : headerHtml}
+                live={editingChrome && chromeTarget.part === "header" && chromeTarget.page === index}
+                placeholder={index === 0 && differentFirstPage ? "First page header" : "Header"}
+                focus
               />
-              <input
-                className="page-footer"
-                readOnly={!editingChrome}
-                tabIndex={editingChrome ? 0 : -1}
-                onDoubleClick={() => editChrome(index, "footer")}
-                aria-label={
-                  index === 0 && differentFirstPage
-                    ? "First page footer"
-                    : pageCount === 1
-                      ? "Footer"
-                      : `Footer on page ${index + 1}`
-                }
-                value={chromeText(index === 0 && differentFirstPage ? firstFooterHtml : footerHtml)}
-                placeholder={
-                  editingChrome ? (index === 0 && differentFirstPage ? "First page footer" : "Footer") : undefined
-                }
-                maxLength={160}
-                onChange={(event) =>
-                  index === 0 && differentFirstPage
-                    ? setFirstFooter(chromeWithText(firstFooterHtml, event.target.value))
-                    : setFooter(chromeWithText(footerHtml, event.target.value))
-                }
+              <ChromeBox
+                kind="footer"
+                part={index === 0 && differentFirstPage ? firstFooterPart : footerPart}
+                html={index === 0 && differentFirstPage ? firstFooterHtml : footerHtml}
+                live={editingChrome && chromeTarget.part === "footer" && chromeTarget.page === index}
+                placeholder={index === 0 && differentFirstPage ? "First page footer" : "Footer"}
+                focus
               />
               <div className="page-number" data-place={pageSetup.pageNumber}>
                 {index + 1}
@@ -538,9 +515,9 @@ export function PageCanvas() {
               ))}
             </div>
           ) : null}
-          {editor ? <MiniToolbar editor={editor} /> : null}
-          {editor ? <ObjectBar editor={editor} /> : null}
-          {editor ? <LayoutOptions editor={editor} /> : null}
+          {formatted ? <MiniToolbar editor={formatted} /> : null}
+          {formatted ? <ObjectBar editor={formatted} /> : null}
+          {formatted ? <LayoutOptions editor={formatted} /> : null}
           {editor ? <ChartSideButtons editor={editor} /> : null}
           {editor ? <ChartPartLayer editor={editor} /> : null}
           {editor ? <ObjectContextMenu editor={editor} /> : null}

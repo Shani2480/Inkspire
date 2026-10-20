@@ -28,7 +28,7 @@ import { loadPageSetupDefault, resetPageSetupDefault } from "@/document/design-f
 import { useViewStore } from "@/document/view"
 import { defaultPictureWrap, setDefaultPictureWrap } from "@/document/object-layout"
 import { WRAP_CHOICES } from "@/editor/objects"
-import { useDocumentEditor } from "@/editor/document-editor"
+import { useBodyEditor } from "@/editor/document-editor"
 import { useEditorState } from "@tiptap/react"
 import { MARGIN_PRESETS, marginPresetId, pageMetrics } from "@/document/page-setup"
 import { RECOVERY_CHOICES, useEditingOptions } from "@/document/editing-options"
@@ -332,7 +332,7 @@ export function InfoView() {
   const readOnly = useDocumentStore((state) => state.readOnly)
   const setDocumentProps = useDocumentStore((state) => state.setDocumentProps)
   const setReadOnly = useDocumentStore((state) => state.setReadOnly)
-  const editor = useDocumentEditor()
+  const editor = useBodyEditor()
   const [showAll, setShowAll] = useState(false)
   const stats = useEditorState({
     editor,
@@ -606,7 +606,7 @@ export function PrintView() {
   const pageSetup = useDocumentStore((state) => state.pageSetup)
   const setPageSetup = useDocumentStore((state) => state.setPageSetup)
   const html = useDocumentStore((state) => state.documentHTML)
-  const editor = useDocumentEditor()
+  const editor = useBodyEditor()
   const pages =
     useEditorState({
       editor,
@@ -994,13 +994,6 @@ function PreviewPage({
         .querySelectorAll(".ProseMirror-selectednode, .selectedCell")
         .forEach((element) => element.classList.remove("ProseMirror-selectednode", "selectedCell"))
       clone.querySelectorAll("[contenteditable]").forEach((element) => element.removeAttribute("contenteditable"))
-      // Header and footer boxes: the copy keeps what was typed, not the hint shown when they are empty.
-      const fields = source.querySelectorAll<HTMLInputElement>(".page-header, .page-footer")
-      clone.querySelectorAll<HTMLInputElement>(".page-header, .page-footer").forEach((field, index) => {
-        field.value = fields[index]?.value ?? ""
-        field.readOnly = true
-        field.tabIndex = -1
-      })
       clone.removeAttribute("id")
       // Print Layout, whichever view the editor is in.
       clone.dataset.layout = "print"

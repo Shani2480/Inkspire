@@ -58,6 +58,8 @@ type ViewState = {
   findOpen: boolean
   /** Editing the header and footer (Word's double-click in the margin): the body is dimmed and set aside. */
   editingChrome: boolean
+  /** The header or footer being edited, on the page it was opened on (the same text shows on every page). */
+  chromeTarget: { part: "header" | "footer"; page: number }
   /** The tab of Find and Replace that shows. */
   findTab: FindTab
   showFormattingMarks: boolean
@@ -92,6 +94,8 @@ type ViewState = {
   openFind: (replace: boolean) => void
   openGoTo: () => void
   setEditingChrome: (editing: boolean) => void
+  /** Opens the header or footer for editing on a page (the first by default). */
+  editChrome: (part: "header" | "footer", page?: number) => void
   setFindTab: (tab: FindTab) => void
   closeFind: () => void
   toggleFormattingMarks: () => void
@@ -138,6 +142,7 @@ export const useViewStore = create<ViewState>((set, get) => ({
   zoomMode: "manual",
   findOpen: false,
   editingChrome: false,
+  chromeTarget: { part: "header", page: 0 },
   findTab: "find",
   showFormattingMarks: false,
   spellCheck: true,
@@ -170,6 +175,7 @@ export const useViewStore = create<ViewState>((set, get) => ({
   openFind: (replace) => set({ findOpen: true, findTab: replace ? "replace" : "find" }),
   openGoTo: () => set({ findOpen: true, findTab: "goto" }),
   setEditingChrome: (editingChrome) => set({ editingChrome }),
+  editChrome: (part, page = 0) => set({ editingChrome: true, chromeTarget: { part, page } }),
   setFindTab: (findTab) => set({ findTab }),
   closeFind: () => set({ findOpen: false }),
   toggleFormattingMarks: () => set((state) => ({ showFormattingMarks: !state.showFormattingMarks })),

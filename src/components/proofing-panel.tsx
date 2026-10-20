@@ -4,13 +4,13 @@ import { useAiSettings } from "@/ai/settings"
 import { languageThesaurusName } from "@/document/languages"
 import { errorMessage } from "@/document/commands"
 import { useDocumentStore } from "@/document/store"
-import { useDocumentEditor } from "@/editor/document-editor"
+import { useBodyEditor } from "@/editor/document-editor"
 import { X } from "lucide-react"
 import { useRef } from "react"
 import { DialogFrame } from "@/components/word-dialog"
 
 export function ProofingPanel() {
-  const editor = useDocumentEditor()
+  const editor = useBodyEditor()
   const open = useProofing((state) => state.open)
   const running = useProofing((state) => state.running)
   const notice = useProofing((state) => state.notice)

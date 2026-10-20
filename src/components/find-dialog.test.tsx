@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 const editor = { on: () => undefined, off: () => undefined, chain: () => ({}) }
-vi.mock("@/editor/document-editor", () => ({ useDocumentEditor: () => editor }))
+vi.mock("@/editor/document-editor", () => ({ useBodyEditor: () => editor }))
 let matches = 3
 const replace = vi.fn(() => {
   matches = 0

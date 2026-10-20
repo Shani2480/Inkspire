@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 const askAi = vi.fn(async () => true)
 vi.mock("@/editor/actions", () => ({ askAi: (...args: unknown[]) => askAi(...args) }))
 const editor = { view: {} }
-vi.mock("@/editor/document-editor", () => ({ useDocumentEditor: () => editor }))
+vi.mock("@/editor/document-editor", () => ({ useBodyEditor: () => editor }))
 vi.mock("@/components/rewrite-popover", () => ({ selectionAnchor: () => ({ top: 100, left: 100 }) }))
 
 import { useAskAi } from "@/ai/ask-ai"

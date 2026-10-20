@@ -7,7 +7,7 @@ const editor = {
   on: () => undefined,
   off: () => undefined,
 }
-vi.mock("@/editor/document-editor", () => ({ useDocumentEditor: () => editor }))
+vi.mock("@/editor/document-editor", () => ({ useBodyEditor: () => editor }))
 vi.mock("@tiptap/react", () => ({
   useEditorState: ({ selector }: { selector: (s: { editor: unknown }) => unknown }) => selector({ editor }),
 }))

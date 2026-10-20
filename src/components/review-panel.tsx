@@ -10,14 +10,14 @@ import {
   updateComment,
   type CommentRecord,
 } from "@/editor/comments"
-import { useDocumentEditor } from "@/editor/document-editor"
+import { useBodyEditor } from "@/editor/document-editor"
 import { acceptChanges, listChanges, rejectChanges, type TrackedChange } from "@/editor/track-changes"
 import { useEditorState } from "@tiptap/react"
 import { Check, MoreHorizontal, X } from "lucide-react"
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react"
 
 export function ReviewPanel() {
-  const editor = useDocumentEditor()
+  const editor = useBodyEditor()
   const panel = useReviewStore((state) => state.panel)
   const showResolved = useReviewStore((state) => state.showResolved)
   const setShowResolved = useReviewStore((state) => state.setShowResolved)
@@ -105,7 +105,7 @@ function CommentCard({
   active: boolean
   onActivate: () => void
 }) {
-  const editor = useDocumentEditor()
+  const editor = useBodyEditor()
   const [menuOpen, setMenuOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(comment.text)
@@ -272,7 +272,7 @@ function CommentCard({
 }
 
 function ChangeRow({ change }: { change: TrackedChange }) {
-  const editor = useDocumentEditor()
+  const editor = useBodyEditor()
   return (
     <li className="comment-sidebar-card">
       <p className="text-[11px] text-[var(--app-ribbon-muted)]">

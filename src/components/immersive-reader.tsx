@@ -1,4 +1,4 @@
-import { useDocumentEditor } from "@/editor/document-editor"
+import { useBodyEditor } from "@/editor/document-editor"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
 import { useEditorState } from "@tiptap/react"
@@ -11,7 +11,7 @@ export function ImmersiveReader() {
 
 function ImmersiveReaderView() {
   const setImmersive = useViewStore((state) => state.setImmersive)
-  const editor = useDocumentEditor()
+  const editor = useBodyEditor()
   const language = useDocumentStore((state) => state.pageSetup.language)
   const html = useEditorState({
     editor,
