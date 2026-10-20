@@ -1688,11 +1688,6 @@ button.line-menu-row:focus-visible {
   margin: 0;
 }
 
-.page-sheet:has(.page-first) .page-header {
-  padding-left: 1.75rem;
-  padding-right: 1.75rem;
-}
-
 .page-editor.ProseMirror {
   max-width: 100%;
   overflow-wrap: break-word;
