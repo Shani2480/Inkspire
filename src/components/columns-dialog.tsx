@@ -7,6 +7,7 @@ import {
   findColumnSection,
   removeColumnSection,
   setColumnSectionGap,
+  setColumnSectionLine,
 } from "@/editor/columns"
 import type { Editor } from "@tiptap/core"
 import { useState } from "react"
@@ -33,7 +34,7 @@ function ColumnsDialog({ editor, onClose }: { editor: Editor | null; onClose: ()
   const [scope, setScope] = useState<Scope>(section ? "selection" : "document")
   const [count, setCount] = useState<number>(section?.columns ?? setup.columns)
   const [gapText, setGapText] = useState(String(section?.gap ?? setup.columnGap))
-  const [line, setLine] = useState(setup.columnLine)
+  const [line, setLine] = useState(section ? section.line : setup.columnLine)
   const gap = clampColumnGap(Number(gapText))
 
   const apply = () => {
@@ -47,6 +48,7 @@ function ColumnsDialog({ editor, onClose }: { editor: Editor | null; onClose: ()
         const placed = findColumnSection(editor.state)
         if (placed) {
           setColumnSectionGap(editor, placed.pos, gap)
+          setColumnSectionLine(editor, placed.pos, line)
         }
       }
     }
@@ -56,7 +58,7 @@ function ColumnsDialog({ editor, onClose }: { editor: Editor | null; onClose: ()
   return (
     <DialogFrame title="Columns" width={400} onClose={onClose} onSubmit={apply}>
       <div className="tp-panel">
-        <fieldset className="tp-field">
+        <fieldset className="tp-field columns-presets">
           <legend>Presets</legend>
           {[1, 2, 3].map((value) => (
             <label key={value} className="tp-check">
@@ -91,7 +93,7 @@ function ColumnsDialog({ editor, onClose }: { editor: Editor | null; onClose: ()
           <input
             type="checkbox"
             checked={line}
-            disabled={count < 2 || scope === "selection"}
+            disabled={count < 2}
             onChange={(event) => setLine(event.target.checked)}
           />
           Line between
@@ -106,7 +108,30 @@ function ColumnsDialog({ editor, onClose }: { editor: Editor | null; onClose: ()
           </select>
         </label>
       </div>
+      <div className="tp-field columns-preview-row">
+        Preview
+        <ColumnsPreview count={count} gapCm={gap} line={line && count > 1} />
+      </div>
       <DialogButtons submit onCancel={onClose} />
     </DialogFrame>
+  )
+}
+
+function ColumnsPreview({ count, gapCm, line }: { count: number; gapCm: number; line: boolean }) {
+  const parts = []
+  for (let index = 0; index < count; index += 1) {
+    if (index > 0) {
+      parts.push(<i key={`gap-${index}`} className={line ? "rule" : undefined} />)
+    }
+    parts.push(<span key={index} />)
+  }
+  return (
+    <div
+      className="columns-preview"
+      data-testid="columns-preview"
+      style={{ width: 140, ["--preview-gap" as string]: `${Math.min(24, Math.max(4, gapCm * 8))}px` }}
+    >
+      {parts}
+    </div>
   )
 }

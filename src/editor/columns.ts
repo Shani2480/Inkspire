@@ -2,7 +2,7 @@ import { COLUMN_GAP_CM } from "@/document/page-setup"
 import { restoreSelection } from "@/editor/selection-memory"
 import { Node, mergeAttributes, type Editor } from "@tiptap/core"
 import type { Node as ProseNode } from "@tiptap/pm/model"
-import type { EditorState } from "@tiptap/pm/state"
+import { TextSelection, type EditorState } from "@tiptap/pm/state"
 
 const CM_TO_PX = 96 / 2.54
 const MIN_GAP_CM = 0.2
@@ -63,6 +63,7 @@ export function findColumnSection(state: EditorState) {
         pos: $from.before(depth),
         columns: columns as 2 | 3,
         gap: clampColumnGap(Number(node.attrs.gap) || COLUMN_GAP_CM),
+        line: node.attrs.line === true,
       }
     }
   }
@@ -92,7 +93,9 @@ export function applyColumnSection(editor: Editor, columns: 2 | 3) {
     return false
   }
   const section = type.create({ columns, gap: COLUMN_GAP_CM }, slice.content)
-  editor.view.dispatch(state.tr.replaceWith(range.start, range.end, section).scrollIntoView())
+  const tr = state.tr.replaceWith(range.start, range.end, section)
+  // Keep the cursor inside the new section so it can be found (a select-all would otherwise stay on the document).
+  editor.view.dispatch(tr.setSelection(TextSelection.near(tr.doc.resolve(range.start + 1))).scrollIntoView())
   return true
 }
 
@@ -124,6 +127,14 @@ export function setColumnSectionGap(editor: Editor, pos: number, gapCm: number) 
   editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, gap }))
 }
 
+export function setColumnSectionLine(editor: Editor, pos: number, line: boolean) {
+  const node = editor.state.doc.nodeAt(pos)
+  if (!node || node.type.name !== "columnSection" || (node.attrs.line === true) === line) {
+    return
+  }
+  editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, line }))
+}
+
 function columnCountAttr(value: unknown) {
   return value === 3 || value === "3" ? 3 : 2
 }
@@ -150,6 +161,11 @@ export const ColumnSection = Node.create({
         renderHTML: (attributes: { gap?: number }) => ({
           "data-gap": String(clampColumnGap(Number(attributes.gap) || COLUMN_GAP_CM)),
         }),
+      },
+      line: {
+        default: false,
+        parseHTML: (element: HTMLElement) => element.getAttribute("data-line") === "1",
+        renderHTML: (attributes: { line?: boolean }) => (attributes.line === true ? { "data-line": "1" } : {}),
       },
     }
   },
@@ -189,6 +205,7 @@ export const ColumnSection = Node.create({
         dom.style.setProperty("--cols", String(columns))
         dom.style.setProperty("--gap", `${gap}cm`)
         dom.dataset.columns = String(columns)
+        dom.toggleAttribute("data-line", next.attrs.line === true)
         guides.replaceChildren(
           ...Array.from({ length: columns }, () => {
             const span = document.createElement("span")
