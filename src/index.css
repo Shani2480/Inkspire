@@ -3279,6 +3279,8 @@ button.line-menu-row:focus-visible {
 .page-image {
   position: relative;
   display: inline-block;
+  /* On the text baseline an in-line box leaves the line's descender below it, which the paginator does not count. */
+  vertical-align: top;
   line-height: 0;
 }
 
