@@ -4,7 +4,7 @@ import { askText } from "@/components/text-prompt"
 import { ContextGlyph } from "@/components/ribbon/context-icons"
 import { GalleryNav } from "@/components/ribbon/shape-format-tab"
 import { MenuButton, RibbonCommand, RibbonGroup, RibbonHover } from "@/components/ribbon/ribbon-button"
-import { HeaderFooterCommands, useChromeMenus } from "@/components/ribbon/insert-tab"
+import { DateIcon, DateMenu, HeaderFooterCommands, useChromeMenus } from "@/components/ribbon/insert-tab"
 import {
   LineAltTextIcon,
   LineBordersIcon,
@@ -1774,6 +1774,7 @@ export function HeaderFooterTab() {
   const setup = useDocumentStore((state) => state.pageSetup)
   const setPageSetup = useDocumentStore((state) => state.setPageSetup)
   const { headerMenu, footerMenu, pageNumberMenu } = useChromeMenus()
+  const dateMenu = (close: () => void) => <DateMenu editor={editor} close={close} />
   const edge = (label: string, key: "headerFromEdge" | "footerFromEdge") => (
     <RibbonHover label={label}>
       <label className="layout-spin">
@@ -1801,6 +1802,7 @@ export function HeaderFooterTab() {
       { id: "header", label: "Header", icon: <LineChromeIcon edge="header" />, priority: 1, menu: headerMenu },
       { id: "footer", label: "Footer", icon: <LineChromeIcon edge="footer" />, priority: 1, menu: footerMenu },
       { id: "page-number", label: "Page Number", icon: <LinePageNumberIcon />, menu: pageNumberMenu },
+      { id: "date-time", label: "Date & Time", icon: <DateIcon />, menu: dateMenu },
     ]
     const navigation: LineCommand[] = [
       {
@@ -1860,6 +1862,11 @@ export function HeaderFooterTab() {
     <div role="toolbar" aria-label="Header & Footer" className="ribbon-home flex items-stretch overflow-x-auto">
       <RibbonGroup label="Header & Footer">
         <HeaderFooterCommands />
+      </RibbonGroup>
+      <RibbonGroup label="Insert">
+        <RibbonCommand label="Date & Time" menu={dateMenu}>
+          <DateIcon />
+        </RibbonCommand>
       </RibbonGroup>
       <RibbonGroup label="Navigation">
         <RibbonCommand label="Go to Header" onClick={() => goToChrome("header")}>

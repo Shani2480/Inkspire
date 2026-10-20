@@ -1,6 +1,6 @@
 import { EditorContent, useEditor, type Editor } from "@tiptap/react"
 import { useEffect, useRef, useState, type CSSProperties } from "react"
-import { chromeHasContent } from "@/document/chrome-html"
+import { chromeHasContent, chromeOnPage } from "@/document/chrome-html"
 import { useActiveChromeEditor } from "@/document/chrome-editing"
 import { pageMetrics } from "@/document/page-setup"
 import { useDocumentStore } from "@/document/store"
@@ -76,6 +76,8 @@ export function ChromeBox({
   live,
   html,
   placeholder,
+  page,
+  pages,
   focus,
 }: {
   part: ChromePart
@@ -83,6 +85,9 @@ export function ChromeBox({
   live: boolean
   html: string
   placeholder: string
+  /** The number of the page this box is on, and how many pages there are: what the page fields in it show. */
+  page: number
+  pages: number
   focus: boolean
 }) {
   const { editor, snapshot } = part
@@ -119,9 +124,30 @@ export function ChromeBox({
     }
   }, [editor, live, focus, activate])
 
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!editor || !live) {
+      return
+    }
+    // The editor draws a field with the number it was saved with; the page it is on has its own.
+    const show = () => {
+      box.current?.querySelectorAll<HTMLElement>("[data-page-field]").forEach((field) => {
+        const text = String(field.dataset.pageField === "pages" ? pages : page)
+        if (field.textContent !== text) {
+          field.textContent = text
+        }
+      })
+    }
+    show()
+    editor.on("transaction", show)
+    return () => {
+      editor.off("transaction", show)
+    }
+  }, [editor, live, page, pages])
+
   if (live && editor) {
     return (
-      <div className={className} style={origin} data-chrome-part={kind} data-placeholder={placeholder}>
+      <div ref={box} className={className} style={origin} data-chrome-part={kind} data-placeholder={placeholder}>
         <EditorContent editor={editor} />
       </div>
     )
@@ -131,7 +157,7 @@ export function ChromeBox({
       <div
         className="page-editor chrome-editor ProseMirror"
         // What the editor drew, copied; it is read-only and never run as a page of its own.
-        dangerouslySetInnerHTML={{ __html: snapshot }}
+        dangerouslySetInnerHTML={{ __html: chromeOnPage(snapshot, page, pages) }}
       />
     </div>
   )

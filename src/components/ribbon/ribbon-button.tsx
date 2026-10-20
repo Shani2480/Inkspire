@@ -492,11 +492,13 @@ function LauncherIcon() {
 
 export function MenuButton({
   selected,
+  disabled,
   onClick,
   children,
   className,
 }: {
   selected?: boolean
+  disabled?: boolean
   onClick: () => void
   children: ReactNode
   className?: string
@@ -507,6 +509,7 @@ export function MenuButton({
       variant="ghost"
       size="sm"
       aria-pressed={selected}
+      disabled={disabled}
       className={cn("h-8 w-full justify-start px-2 font-normal", selected && "bg-neutral-100", className)}
       onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}

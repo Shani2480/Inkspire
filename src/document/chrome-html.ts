@@ -43,12 +43,36 @@ export function chromeText(html: string) {
 /** Whether there is anything to show: text, a picture, a field or an object. */
 export function chromeHasContent(html: string) {
   return (
-    chromeText(html) !== "" || /<(?:img|svg|canvas|object|span[^>]*data-(?:field|date-field|docx-atom))\b/i.test(html)
+    chromeText(html) !== "" ||
+    /<(?:img|svg|canvas|object|span[^>]*data-(?:field|date-field|docx-atom|word-inline))\b/i.test(html)
   )
 }
 
-/** `html` with its text replaced by `text`; the pictures in it stay. */
-export function chromeWithText(html: string, text: string) {
-  const pictures = html.match(/<img\b[^>]*>/gi)?.join("") ?? ""
-  return `${chromeHtml(text)}${pictures}`
+/** A page number or page count field, as the editor writes one. */
+export function chromeHasPageField(html: string) {
+  return /data-page-field="(?:page|pages)"/.test(html)
+}
+
+/** `html` without its page number and page count fields. */
+export function chromeWithoutPageFields(html: string) {
+  return html.replace(/<span\b[^>]*data-page-field="(?:page|pages)"[^>]*>[^<]*<\/span>/g, "")
+}
+
+/** Each page number and page count field in `html` showing the number of the page it is drawn on. */
+export function chromeOnPage(html: string, page: number, pages: number) {
+  return html.replace(
+    /(<span\b[^>]*data-page-field="(page|pages)"[^>]*>)[^<]*(<\/span>)/g,
+    (_match, open: string, kind: string, close: string) => `${open}${kind === "pages" ? pages : page}${close}`,
+  )
+}
+
+/** A page number or page count field as the editor holds one, kept as Word's PAGE or NUMPAGES; in a paragraph when `align` is given. */
+export function pageFieldHtml(field: "page" | "pages", align: "left" | "center" | "right" | "" = "") {
+  const instr = field === "page" ? " PAGE " : " NUMPAGES "
+  const payload = JSON.stringify([
+    { kind: "simpleField", instr, inlines: [{ kind: "run", rPr: {}, content: [{ kind: "text", text: "1" }] }] },
+  ])
+  const attrs = `data-word-inline data-role="field" data-payload="${payload.replace(/&/g, "&amp;").replace(/"/g, "&quot;")}" data-text="1" data-page-field="${field}"`
+  const span = `<span ${attrs} class="word-inline" contenteditable="false">1</span>`
+  return align ? `<p style="text-align: ${align}">${span}</p>` : span
 }

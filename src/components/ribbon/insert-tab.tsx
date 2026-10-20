@@ -20,10 +20,12 @@ import {
 } from "@/components/ribbon/line-icons"
 import { SingleLineBar, type LineCommand, type LineGroup } from "@/components/ribbon/single-line"
 import { DEFAULT_TOC_INSTRUCTION } from "@/document/toc"
+import { chromeWithoutPageFields, pageFieldHtml } from "@/document/chrome-html"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
 import { addComment } from "@/editor/comments"
 import { useDocumentEditor } from "@/editor/document-editor"
+import { insertPageField } from "@/editor/page-fields"
 import { insertImageFile } from "@/editor/actions"
 import { COVER_PAGES, deleteSavedCover, saveCover, savedCovers, type CoverVariant } from "@/editor/cover-page"
 import { formatDate, type DateFormat } from "@/editor/formula"
@@ -661,25 +663,7 @@ export function InsertTab() {
   )
   const dropCapMenu = (close: () => void) => <DropCapMenu editor={editor} close={close} />
   const signatureMenu = (close: () => void) => <SignatureMenu editor={editor} close={close} />
-  const dateMenu = (close: () => void) => (
-    <div className="flex w-52 flex-col">
-      <MenuButton onClick={() => editor && insertStatic(editor, "date", close)}>Date</MenuButton>
-      <MenuButton onClick={() => editor && insertStatic(editor, "time", close)}>Time</MenuButton>
-      <MenuButton onClick={() => editor && insertStatic(editor, "datetime", close)}>Date and time</MenuButton>
-      <MenuButton onClick={() => editor && insertAutomatic(editor, "date", close)}>Automatic date</MenuButton>
-      <MenuButton onClick={() => editor && insertAutomatic(editor, "datetime", close)}>
-        Automatic date and time
-      </MenuButton>
-      <MenuButton
-        onClick={() => {
-          editor?.chain().focus().updateDateFields().run()
-          close()
-        }}
-      >
-        Update automatic fields
-      </MenuButton>
-    </div>
-  )
+  const dateMenu = (close: () => void) => <DateMenu editor={editor} close={close} />
   const objectMenu = (close: () => void) => (
     <div className="flex w-52 flex-col">
       <MenuButton
@@ -1478,30 +1462,70 @@ export function HeaderFooterCommands() {
 }
 
 const PAGE_NUMBER_PLACES = [
-  ["bottom-center", "Bottom of page"],
-  ["bottom-right", "Bottom right"],
-  ["top-center", "Top of page"],
-  ["top-right", "Top right"],
-  ["none", "Remove page numbers"],
+  ["footer", "center", "Bottom of Page"],
+  ["footer", "right", "Bottom Right"],
+  ["header", "center", "Top of Page"],
+  ["header", "right", "Top Right"],
 ] as const
 
+/**
+ * Page numbers are fields in the header or footer, as in Word. A place puts one there (in place of any other); the
+ * current position puts one, or the number of pages, where the caret is in the header or footer being edited.
+ */
 function PageNumberMenu({ close }: { close: () => void }) {
-  const setup = useDocumentStore((state) => state.pageSetup)
-  const setPageSetup = useDocumentStore((state) => state.setPageSetup)
+  const editingChrome = useViewStore((state) => state.editingChrome)
+  const editor = useDocumentEditor()
+  const place = (part: "header" | "footer", align: "center" | "right") => {
+    const state = useDocumentStore.getState()
+    const set = part === "header" ? state.setHeader : state.setFooter
+    const html = chromeWithoutPageFields(part === "header" ? state.headerHtml : state.footerHtml)
+    set(`${html}${pageFieldHtml("page", align)}`)
+    removeFrom(part === "header" ? "footer" : "header")
+    state.setPageSetup({ ...state.pageSetup, pageNumber: "none" })
+    close()
+    editChromePart(part)
+  }
+  const removeFrom = (part: "header" | "footer") => {
+    const state = useDocumentStore.getState()
+    const set = part === "header" ? state.setHeader : state.setFooter
+    set(chromeWithoutPageFields(part === "header" ? state.headerHtml : state.footerHtml))
+  }
   return (
-    <div className="flex w-44 flex-col">
-      {PAGE_NUMBER_PLACES.map(([id, label]) => (
-        <MenuButton
-          key={id}
-          selected={setup.pageNumber === id}
-          onClick={() => {
-            setPageSetup({ ...setup, pageNumber: id })
-            close()
-          }}
-        >
+    <div className="flex w-48 flex-col">
+      {PAGE_NUMBER_PLACES.map(([part, align, label]) => (
+        <MenuButton key={label} onClick={() => place(part, align)}>
           {label}
         </MenuButton>
       ))}
+      <MenuButton
+        disabled={!editingChrome}
+        onClick={() => {
+          editor && insertPageField(editor, "page")
+          close()
+        }}
+      >
+        Current Position
+      </MenuButton>
+      <MenuButton
+        disabled={!editingChrome}
+        onClick={() => {
+          editor && insertPageField(editor, "pages")
+          close()
+        }}
+      >
+        Number of Pages
+      </MenuButton>
+      <MenuButton
+        onClick={() => {
+          removeFrom("header")
+          removeFrom("footer")
+          const state = useDocumentStore.getState()
+          state.setPageSetup({ ...state.pageSetup, pageNumber: "none" })
+          close()
+        }}
+      >
+        Remove Page Numbers
+      </MenuButton>
     </div>
   )
 }
@@ -1712,6 +1736,29 @@ function selectionHtml(editor: Editor) {
   const holder = document.createElement("div")
   holder.appendChild(DOMSerializer.fromSchema(editor.schema).serializeFragment(slice.content))
   return holder.innerHTML
+}
+
+/** Date & Time: a date as text, or one that follows the clock, in the page or in a header or footer. */
+export function DateMenu({ editor, close }: { editor: Editor | null; close: () => void }) {
+  return (
+    <div className="flex w-52 flex-col">
+      <MenuButton onClick={() => editor && insertStatic(editor, "date", close)}>Date</MenuButton>
+      <MenuButton onClick={() => editor && insertStatic(editor, "time", close)}>Time</MenuButton>
+      <MenuButton onClick={() => editor && insertStatic(editor, "datetime", close)}>Date and time</MenuButton>
+      <MenuButton onClick={() => editor && insertAutomatic(editor, "date", close)}>Automatic date</MenuButton>
+      <MenuButton onClick={() => editor && insertAutomatic(editor, "datetime", close)}>
+        Automatic date and time
+      </MenuButton>
+      <MenuButton
+        onClick={() => {
+          editor?.chain().focus().updateDateFields().run()
+          close()
+        }}
+      >
+        Update automatic fields
+      </MenuButton>
+    </div>
+  )
 }
 
 function insertStatic(editor: Editor, format: DateFormat, close: () => void) {
@@ -2021,7 +2068,7 @@ function SignatureIcon() {
     </Svg>
   )
 }
-function DateIcon() {
+export function DateIcon() {
   return (
     <Svg>
       <rect x="5" y="6" width="18" height="16" rx="1" fill="#fff" stroke="#ca5010" />
