@@ -1508,14 +1508,7 @@ function PageNumberMenu({ close }: { close: () => void }) {
 
 /** As in Word, choosing a header or footer opens it for editing, on the first page. */
 export function editChromePart(part: "header" | "footer") {
-  useViewStore.getState().setEditingChrome(true)
-  window.requestAnimationFrame(() => {
-    const field = document.querySelector<HTMLInputElement>(
-      `#document-scroll .page-sheet ${part === "header" ? ".page-header" : ".page-footer"}`,
-    )
-    field?.focus()
-    field?.setSelectionRange(field.value.length, field.value.length)
-  })
+  useViewStore.getState().editChrome(part, 0)
 }
 
 function BuiltInChrome({

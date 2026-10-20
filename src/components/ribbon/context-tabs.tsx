@@ -1758,16 +1758,10 @@ function promptAlt(editor: Editor) {
   })
 }
 
-/** Focuses the header or footer of the page whose header or footer has focus now, or of the first page. */
+/** Moves the caret to the header or footer of the page being edited. */
 function goToChrome(part: "header" | "footer") {
-  const active = document.activeElement
-  const sheet =
-    active instanceof HTMLElement && active.closest(".page-sheet")
-      ? active.closest(".page-sheet")
-      : document.querySelector("#document-scroll .page-sheet")
-  const field = sheet?.querySelector<HTMLInputElement>(part === "header" ? ".page-header" : ".page-footer")
-  field?.focus()
-  field?.setSelectionRange(field.value.length, field.value.length)
+  const view = useViewStore.getState()
+  view.editChrome(part, view.chromeTarget.page)
 }
 
 /** Word's Header & Footer tab, shown while the header and footer are being edited. */

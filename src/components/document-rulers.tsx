@@ -25,7 +25,7 @@ import { columnMarks, findColumnSection, gapFromBoundary, setColumnSectionGap } 
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
 import { ZOOM_PREVIEW_EVENT } from "@/document/zoom-gesture"
-import { useDocumentEditor } from "@/editor/document-editor"
+import { useBodyEditor } from "@/editor/document-editor"
 import type { Editor } from "@tiptap/core"
 import { useEditorState } from "@tiptap/react"
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react"
@@ -88,7 +88,7 @@ function cursorSheet(scroll: HTMLElement, editor: Editor | null | undefined) {
 }
 
 export function DocumentRulers({ children }: DocumentRulersProps) {
-  const editor = useDocumentEditor()
+  const editor = useBodyEditor()
   const zoom = useViewStore((state) => state.zoom)
   const pageView = useViewStore((state) => state.pageView)
   // Web Layout and Read Mode have no page to measure, so no rulers.

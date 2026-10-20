@@ -1,7 +1,7 @@
 import { MenuButton } from "@/components/ribbon/ribbon-button"
 import { replaceSpelling } from "@/editor/actions"
 import { refreshDisplayedMarks } from "@/editor/display-refresh"
-import { useDocumentEditor } from "@/editor/document-editor"
+import { useBodyEditor } from "@/editor/document-editor"
 import { addToDictionary, ignoreSpelling, spellingSuggestions } from "@/editor/spellcheck"
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
@@ -16,7 +16,7 @@ type SpellMenuState = {
 }
 
 export function SpellMenu() {
-  const editor = useDocumentEditor()
+  const editor = useBodyEditor()
   const [menu, setMenu] = useState<SpellMenuState | null>(null)
 
   // Underlines come from checking as you type or from a manual check; either way, clicking one offers fixes.

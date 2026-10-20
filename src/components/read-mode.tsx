@@ -2,7 +2,7 @@ import { MenuButton, RibbonPopover } from "@/components/ribbon/ribbon-button"
 import { documentName, useDocumentStore } from "@/document/store"
 import { READ_COLUMN_GAP, READ_COLUMN_WIDTHS, readPageAt, readPageCount, readPageStep } from "@/document/read-pages"
 import { useViewStore, type ReadColumnWidth, type ReadLayout, type ReadPageColor } from "@/document/view"
-import { useDocumentEditor } from "@/editor/document-editor"
+import { useBodyEditor } from "@/editor/document-editor"
 import { useEditorState } from "@tiptap/react"
 import { Check, ChevronDown, ChevronLeft, ChevronRight, Pencil, X } from "lucide-react"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
@@ -48,7 +48,7 @@ export function ReadBar({ headings, onHeading }: { headings: string[]; onHeading
   const setPageColor = useViewStore((state) => state.setReadPageColor)
   const setReadLayout = useViewStore((state) => state.setReadLayout)
   const setLayoutMode = useViewStore((state) => state.setLayoutMode)
-  const editor = useDocumentEditor()
+  const editor = useBodyEditor()
   const language = useDocumentStore((state) => state.pageSetup.language)
 
   function readAloud() {
@@ -166,7 +166,7 @@ export function ReadBar({ headings, onHeading }: { headings: string[]; onHeading
  * when it is clicked. The document is not editable here.
  */
 export function ReadView({ onHeadings }: { onHeadings: (headings: string[], go: (index: number) => void) => void }) {
-  const editor = useDocumentEditor()
+  const editor = useBodyEditor()
   const columnWidth = useViewStore((state) => state.readColumnWidth)
   const pageColor = useViewStore((state) => state.readPageColor)
   const setLayoutMode = useViewStore((state) => state.setLayoutMode)

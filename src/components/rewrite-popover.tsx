@@ -2,7 +2,7 @@ import { rewritePreviewText, useRewrite, type DraftKind } from "@/ai/rewrite"
 import { useAiSettings } from "@/ai/settings"
 import { Button } from "@/components/ui/button"
 import { applyDraft } from "@/editor/actions"
-import { useDocumentEditor } from "@/editor/document-editor"
+import { useBodyEditor } from "@/editor/document-editor"
 import type { Editor } from "@tiptap/core"
 import { AiSpark } from "@/components/ai-spark"
 import { useEffect, useLayoutEffect, useRef, useState, type WheelEvent } from "react"
@@ -13,7 +13,7 @@ const POPOVER_WIDTH = 288
 const VIEWPORT_GAP = 8
 
 export function RewritePopover() {
-  const editor = useDocumentEditor()
+  const editor = useBodyEditor()
   const open = useRewrite((state) => state.open)
   const kind = useRewrite((state) => state.kind)
   const from = useRewrite((state) => state.from)

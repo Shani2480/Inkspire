@@ -1,11 +1,11 @@
-import { useDocumentEditor } from "@/editor/document-editor"
+import { useBodyEditor } from "@/editor/document-editor"
 import { listHeadings } from "@/editor/insert-blocks"
 import { useViewStore } from "@/document/view"
 import { useEditorState } from "@tiptap/react"
 
 export function NavigationPane() {
   const open = useViewStore((state) => state.navPane)
-  const editor = useDocumentEditor()
+  const editor = useBodyEditor()
   const headings = useEditorState({
     editor,
     selector: ({ editor: current }) => (current ? listHeadings(current.state.doc) : []),

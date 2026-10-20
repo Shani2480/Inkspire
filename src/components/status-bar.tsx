@@ -1,14 +1,14 @@
 import { DOCUMENT_LANGUAGES, languageLabel } from "@/document/languages"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
-import { useDocumentEditor } from "@/editor/document-editor"
+import { useBodyEditor } from "@/editor/document-editor"
 import { accessibilityStatus } from "@/lib/accessibility"
 import { useEditorState } from "@tiptap/react"
 import { BookOpen, Focus, Minus, Monitor, Plus, Printer } from "lucide-react"
 import { useState } from "react"
 
 export function StatusBar() {
-  const editor = useDocumentEditor()
+  const editor = useBodyEditor()
   const isDirty = useDocumentStore((state) => state.isDirty)
   const saving = useDocumentStore((state) => state.saving)
   const setup = useDocumentStore((state) => state.pageSetup)
@@ -230,7 +230,7 @@ function ViewButton({
   )
 }
 
-function currentPage(editor: ReturnType<typeof useDocumentEditor>) {
+function currentPage(editor: ReturnType<typeof useBodyEditor>) {
   const pagination = editor?.storage.pagination
   if (!pagination) {
     return { page: 1, pageCount: 1 }

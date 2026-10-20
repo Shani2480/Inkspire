@@ -1403,14 +1403,50 @@ button.line-menu-row:focus-visible {
 
 .page-header,
 .page-footer {
+  font-family: var(--doc-body-font, inherit);
+}
+
+/* A header or footer is a layer of its own over the page: it does not take room from the body, and a tall picture in
+   it runs over the text. Not being edited it takes no clicks, so the body under it stays editable. */
+.page-header,
+.page-footer {
   width: auto;
-  height: 18px;
+  min-height: 18px;
   padding: 0;
   border: none;
   border-radius: 2px;
   background: transparent;
-  pointer-events: auto;
+  pointer-events: none;
   outline: none;
+  text-align: left;
+  font-size: inherit;
+  letter-spacing: normal;
+  color: inherit;
+}
+
+.page-header.is-live,
+.page-footer.is-live {
+  pointer-events: auto;
+}
+
+.page-header.is-empty.is-live::before,
+.page-footer.is-empty.is-live::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: #c4c4c4;
+  content: attr(data-placeholder);
+  pointer-events: none;
+}
+
+.chrome-editor {
+  min-height: 18px;
+  outline: none;
+}
+
+.chrome-box :is(p, h1, h2, h3) {
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 .page-header {
@@ -1419,17 +1455,6 @@ button.line-menu-row:focus-visible {
 
 .page-footer {
   bottom: var(--footer-from-edge, 12.5mm);
-}
-
-.page-header::placeholder,
-.page-footer::placeholder {
-  color: #c4c4c4;
-}
-
-.page-header:focus,
-.page-footer:focus {
-  outline: 1px solid #d4d4d4;
-  background: rgb(255 255 255 / 0.7);
 }
 
 .page-number {
@@ -1513,11 +1538,11 @@ button.line-menu-row:focus-visible {
   line-height: 2;
 }
 
-.page-sheet:has(.page-footer:not(:placeholder-shown)) .page-footer {
+.page-sheet:has(.page-footer.has-content) .page-footer {
   padding-right: 2.5rem;
 }
 
-.page-sheet:has(.page-footer:not(:placeholder-shown)) .page-number {
+.page-sheet:has(.page-footer.has-content) .page-number {
   left: auto;
   width: 2.5rem;
   text-align: right;
@@ -1553,11 +1578,15 @@ button.line-menu-row:focus-visible {
   user-select: none;
 }
 
+.chrome-box:not(.is-live) .ProseMirror-selectednode {
+  outline: none;
+}
+
 .page-canvas:not(.is-chrome-editing) :is(.page-header, .page-footer, .page-number, .page-chrome-layer) {
   opacity: 0.5;
 }
 
-.page-canvas.is-chrome-editing .page-editor {
+.page-canvas.is-chrome-editing .page-editor:not(.chrome-editor) {
   opacity: 0.45;
   pointer-events: none;
   user-select: none;
@@ -1567,13 +1596,8 @@ button.line-menu-row:focus-visible {
   color: #242424;
 }
 
-.page-canvas.is-chrome-editing :is(.page-header, .page-footer):focus {
-  outline: none;
-  background: transparent;
-}
-
 .page-canvas.is-chrome-editing .page-chrome-zone {
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .page-chrome-tag {

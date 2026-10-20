@@ -1,5 +1,6 @@
 import { useEditor, type Editor } from "@tiptap/react"
 import { createContext, useContext, useEffect, type ReactNode } from "react"
+import { useActiveChromeEditor } from "@/document/chrome-editing"
 import { bindDocumentEditor, bindPendingEdit } from "@/document/editor-ref"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
@@ -80,6 +81,15 @@ export function DocumentEditorProvider({ children }: { children: ReactNode }) {
   return <DocumentEditorContext.Provider value={editor}>{children}</DocumentEditorContext.Provider>
 }
 
-export function useDocumentEditor() {
+/** The document's own text editor, whatever is being edited. */
+export function useBodyEditor() {
   return useContext(DocumentEditorContext)
+}
+
+/** The editor commands act on: the header or footer while one is being edited, else the document. */
+export function useDocumentEditor() {
+  const body = useBodyEditor()
+  const editing = useViewStore((state) => state.editingChrome)
+  const chrome = useActiveChromeEditor((state) => state.editor)
+  return editing && chrome ? chrome : body
 }

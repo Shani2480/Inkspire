@@ -3,12 +3,12 @@ import { PROMPT_TIPS, promptTip } from "@/ai/prompt-tips"
 import { AiThinking } from "@/components/ai-working"
 import { rewritePreviewText } from "@/ai/rewrite"
 import { useAiSettings } from "@/ai/settings"
-import { useDocumentEditor } from "@/editor/document-editor"
+import { useBodyEditor } from "@/editor/document-editor"
 import { restoreSelection } from "@/editor/selection-memory"
 import { useEffect, useRef, useState } from "react"
 
 export function AiSidebar() {
-  const editor = useDocumentEditor()
+  const editor = useBodyEditor()
   const open = useAiChat((state) => state.open)
   const messages = useAiChat((state) => state.messages)
   const draft = useAiChat((state) => state.draft)

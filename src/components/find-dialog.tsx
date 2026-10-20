@@ -2,7 +2,7 @@ import { DialogFrame } from "@/components/word-dialog"
 import { useViewStore, type FindTab } from "@/document/view"
 import { GO_TO_KINDS, goTo, type GoToKind } from "@/editor/go-to"
 import { findTextRanges, replaceTextRanges } from "@/editor/find"
-import { useDocumentEditor } from "@/editor/document-editor"
+import { useBodyEditor } from "@/editor/document-editor"
 import { commandShortcut } from "@/lib/platform"
 import { useEffect, useId, useMemo, useRef, useState } from "react"
 
@@ -20,7 +20,7 @@ export function findSelection(text: string) {
 }
 
 export function FindDialog() {
-  const editor = useDocumentEditor()
+  const editor = useBodyEditor()
   const open = useViewStore((state) => state.findOpen)
   const tab = useViewStore((state) => state.findTab)
   const setTab = useViewStore((state) => state.setFindTab)

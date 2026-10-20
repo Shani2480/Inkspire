@@ -9,7 +9,7 @@ import {
   updateComment,
   type CommentRecord,
 } from "@/editor/comments"
-import { useDocumentEditor } from "@/editor/document-editor"
+import { useBodyEditor } from "@/editor/document-editor"
 import { useReviewStore } from "@/document/review"
 import { pageMetrics } from "@/document/page-setup"
 import { useDocumentStore } from "@/document/store"
@@ -28,7 +28,7 @@ type MarkerGroup = {
 }
 
 export function CommentMarkers() {
-  const editor = useDocumentEditor()
+  const editor = useBodyEditor()
   const pageSetup = useDocumentStore((state) => state.pageSetup)
   const metrics = pageMetrics(pageSetup)
   const zoom = useViewStore((state) => state.zoom)
@@ -209,7 +209,7 @@ function CommentPopover({
   onClose: () => void
   onOpenSidebar: () => void
 }) {
-  const editor = useDocumentEditor()
+  const editor = useBodyEditor()
   const [menuOpen, setMenuOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(comment.text)

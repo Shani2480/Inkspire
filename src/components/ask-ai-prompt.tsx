@@ -4,7 +4,7 @@ import { useAiSettings } from "@/ai/settings"
 import { Button } from "@/components/ui/button"
 import { selectionAnchor } from "@/components/rewrite-popover"
 import { askAi } from "@/editor/actions"
-import { useDocumentEditor } from "@/editor/document-editor"
+import { useBodyEditor } from "@/editor/document-editor"
 import { Sparkles } from "lucide-react"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 
@@ -19,7 +19,7 @@ const CARET = ["Summarize this document", "Continue writing", "Write an introduc
  * the Rewrite popover at the same place, where it can be inserted, put in place of the selection, or discarded.
  */
 export function AskAiPrompt() {
-  const editor = useDocumentEditor()
+  const editor = useBodyEditor()
   const open = useAskAi((state) => state.open)
   const from = useAskAi((state) => state.from)
   const to = useAskAi((state) => state.to)
