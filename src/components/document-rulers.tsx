@@ -91,7 +91,10 @@ export function DocumentRulers({ children }: DocumentRulersProps) {
   const editor = useDocumentEditor()
   const zoom = useViewStore((state) => state.zoom)
   const pageView = useViewStore((state) => state.pageView)
-  const showRuler = useViewStore((state) => state.showRuler)
+  // Web Layout and Read Mode have no page to measure, so no rulers.
+  const showRuler = useViewStore(
+    (state) => state.showRuler && state.layoutMode !== "web" && state.layoutMode !== "read",
+  )
   const pageSetup = useDocumentStore((state) => state.pageSetup)
   const metrics = pageMetrics(pageSetup)
   const pageCount =

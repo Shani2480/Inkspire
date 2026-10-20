@@ -1,3 +1,5 @@
+import { useViewStore } from "@/document/view"
+
 export type PaperSize = "letter" | "a4" | "legal"
 export type PageOrientation = "portrait" | "landscape"
 export type ColumnCount = 1 | 2 | 3
@@ -260,7 +262,34 @@ export function formatCm(mm: number) {
   return String(mmToCm(mm)).replace(".", ",")
 }
 
-export function pageMetrics(setup: PageSetup): PageMetrics {
+/**
+ * Web Layout has no pages: the text runs the width of the window and never breaks. The frame is one very tall "page"
+ * with small gutters, so the paginator and everything placed by page metrics need no second code path.
+ */
+const WEB_HEIGHT = 1_000_000
+const WEB_GUTTER_X = 32
+const WEB_GUTTER_Y = 24
+
+export function webMetrics(width: number): PageMetrics {
+  return {
+    width,
+    height: WEB_HEIGHT,
+    marginTop: WEB_GUTTER_Y,
+    marginRight: WEB_GUTTER_X,
+    marginBottom: WEB_GUTTER_Y,
+    marginLeft: WEB_GUTTER_X,
+    contentHeight: WEB_HEIGHT - 2 * WEB_GUTTER_Y,
+  }
+}
+
+/** The page's size and margins in pixels; `paper` asks for the sheet itself, even where the view has no pages. */
+export function pageMetrics(setup: PageSetup, paper = false): PageMetrics {
+  if (!paper) {
+    const { layoutMode, webWidth } = useViewStore.getState()
+    if (layoutMode === "web" && webWidth > 0) {
+      return webMetrics(webWidth)
+    }
+  }
   const box = paperBox(setup)
   const width = box.width * MM_TO_PX
   const height = box.height * MM_TO_PX

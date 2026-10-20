@@ -230,7 +230,8 @@ function paginationPlugin(storage: PaginationStorage) {
                 storage.peakCacheHits = laid.cacheHits
                 storage.peakDirtyFrom = from
               }
-              const columns = pageSetup.columns
+              const web = useViewStore.getState().layoutMode === "web"
+              const columns = web ? 1 : pageSetup.columns
               if (columns > 1) {
                 view.dom.dataset.columns = String(columns)
                 view.dom.style.setProperty("--column-gap", `${pageSetup.columnGap}cm`)
@@ -238,7 +239,10 @@ function paginationPlugin(storage: PaginationStorage) {
               } else {
                 delete view.dom.dataset.columns
                 view.dom.style.removeProperty("--column-gap")
-                view.dom.style.paddingBottom = `${Math.max(0, Math.round(laid.contentHeight - laid.lastUsed))}px`
+                // The web frame is one endless page: there is no empty rest of a page to pad out.
+                view.dom.style.paddingBottom = web
+                  ? "0"
+                  : `${Math.max(0, Math.round(laid.contentHeight - laid.lastUsed))}px`
               }
               const lines = pageSetup.lineNumbers
                 ? collectLineNumbers(view, pageSetup.lineNumberRestart === "page", metrics.contentHeight)
@@ -338,7 +342,15 @@ function paginationPlugin(storage: PaginationStorage) {
       }
 
       schedule()
+      // While the editor is hidden (Read Mode's columns) every block measures zero, so the layout done then is wrong;
+      // when it shows again the layout has to be done afresh, which the "already placed" check would otherwise skip.
+      let wasHidden = false
       const observer = new ResizeObserver(() => {
+        const hidden = view.dom.offsetParent === null
+        if (wasHidden && !hidden) {
+          applied = ""
+        }
+        wasHidden = hidden
         forceFull = true
         measureCache.clear()
         schedule()
@@ -353,7 +365,12 @@ function paginationPlugin(storage: PaginationStorage) {
         schedule()
       })
       const unsubscribeView = useViewStore.subscribe((state, previous) => {
-        if (state.pageView === previous.pageView && state.movement === previous.movement) {
+        if (
+          state.pageView === previous.pageView &&
+          state.movement === previous.movement &&
+          state.layoutMode === previous.layoutMode &&
+          state.webWidth === previous.webWidth
+        ) {
           return
         }
         // Multi-page and side-to-side views change block widths, so cached heights are stale.
@@ -674,7 +691,12 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   let measureCount = 0
   let cacheHits = 0
 
+  // Web Layout has no pages, so no break, manual or not, ends one.
+  const web = useViewStore.getState().layoutMode === "web"
   const pushBreak = (pos: number, manual: boolean) => {
+    if (web) {
+      return
+    }
     column = 0
     if (breaks.some((item) => item.pos === pos)) {
       used = 0
@@ -898,6 +920,9 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     }
 
     if (node.type.name === "blankPage") {
+      if (web) {
+        return
+      }
       if (used > 0 || column > 0) {
         pushBreak(pos, false)
       }
@@ -1057,6 +1082,9 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
 }
 
 function metricsColumns() {
+  if (useViewStore.getState().layoutMode === "web") {
+    return 1
+  }
   const count = useDocumentStore.getState().pageSetup.columns
   return count === 2 || count === 3 ? count : 1
 }

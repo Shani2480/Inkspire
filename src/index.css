@@ -5343,10 +5343,18 @@ html[data-theme="dark"] .drawing-canvas::after {
   opacity: 1;
 }
 
+/* Web Layout is one endless page the width of the window: no sheet edges, margins, headers or page numbers. */
 .page-canvas[data-layout="web"] .page-sheet {
   border: none;
   box-shadow: none;
-  background: transparent;
+}
+
+.page-canvas[data-layout="web"] .page-sheet > :not(.page-watermark) {
+  display: none;
+}
+
+.page-stage:has(.page-canvas[data-layout="web"]) {
+  margin-top: 0;
 }
 
 .page-canvas[data-layout="draft"] .page-sheet,
@@ -5375,6 +5383,115 @@ html[data-theme="dark"] .drawing-canvas::after {
 .page-canvas[data-layout="draft"] .page-editor {
   max-width: 780px;
   margin-inline: auto;
+}
+
+/* Read Mode: columns of text that run sideways, a screenful at a time. */
+.read-view {
+  --read-bg: #ffffff;
+  --read-text: #242424;
+  --read-edge: #605e5c;
+  background: var(--read-bg);
+  color: var(--read-text);
+}
+
+.dark .read-view[data-color="none"] {
+  --read-bg: #2b2b2b;
+  --read-text: #f3f2f1;
+  --read-edge: #c8c6c4;
+}
+
+.read-view[data-color="sepia"] {
+  --read-bg: #f4ecd8;
+  --read-text: #3b2f1e;
+  --read-edge: #7a6a50;
+}
+
+.read-view[data-color="inverse"] {
+  --read-bg: #1b1b1b;
+  --read-text: #ededed;
+  --read-edge: #bdbdbd;
+}
+
+.read-scroller {
+  overflow-x: auto;
+  overflow-y: hidden;
+  outline: none;
+  scrollbar-width: none;
+}
+
+.read-scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.read-body {
+  box-sizing: border-box;
+  height: 100%;
+  padding: 28px 0 20px;
+  column-fill: auto;
+  font-size: 16px;
+  line-height: 1.6;
+  user-select: text;
+}
+
+.read-body img,
+.read-body svg {
+  max-width: 100%;
+  max-height: 100%;
+  height: auto;
+  cursor: zoom-in;
+}
+
+.read-body table {
+  max-width: 100%;
+}
+
+.read-body > * {
+  position: static !important;
+  float: none !important;
+  max-width: 100%;
+}
+
+.read-turn {
+  display: inline-flex;
+  width: 44px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--read-edge);
+}
+
+.read-turn:hover:not(:disabled) {
+  background: color-mix(in oklch, var(--read-text) 8%, transparent);
+}
+
+.read-turn:disabled {
+  opacity: 0.25;
+}
+
+.read-status {
+  flex: none;
+  padding: 4px 0 8px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--read-edge);
+}
+
+.read-zoom {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgb(0 0 0 / 0.82);
+  cursor: zoom-out;
+}
+
+.read-zoom img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 
 .nav-pane {
