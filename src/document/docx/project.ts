@@ -1,7 +1,8 @@
 import { BUILT_IN_STYLES, catalogWithStyles, wordIdForNamedStyle, type StyleDef } from "@/document/styles"
 import type { DocumentChrome } from "@/document/header"
 import { emptyChrome } from "@/document/header"
-import { storyShapes } from "@/document/docx/chrome-shapes"
+import { chromeHasContent } from "@/document/chrome-html"
+import { chromeJson } from "@/document/chrome-json"
 import { bordersOf, shadingOf } from "@/document/docx/cell-edits"
 import { cellCss, tableLookTokens, tableVariables, themeFontsOf } from "@/document/docx/word-styles"
 import type { PageSetup, PaperSize, SectionStart } from "@/document/page-setup"
@@ -47,6 +48,7 @@ import {
   type Hyperlink,
   type Inline,
   type LineNumbering,
+  type MediaPart,
   type NumberingDefinitions,
   type Paragraph,
   type ParagraphProperties,
@@ -127,43 +129,26 @@ export function editorToWord(
 ): WordDocument {
   const source = base ? structuredClone(base) : null
   const origins = originsOf(source)
-  const build: Build = {
-    styles: documentStyles,
-    media: [...(source?.media ?? [])],
-    picture: (source?.media?.length ?? 0) + 1,
-    usedParts: new Set(
-      [...(source?.preserved?.parts ?? []), ...(source?.media ?? [])].map((part) => part.name.toLowerCase()),
-    ),
-    preserved: source?.preserved,
-    bulletId: 0,
-    orderedId: 0,
-    origins,
-    numbering: source?.numbering ?? emptyNumbering(),
-    runs: origins.runs,
-    links: origins.links,
-    comments: new Map(),
-    tags: new Map(),
-    revisionIds: new Map(),
-    nextRevision: 1_000_000,
-    theme: source ? themeFontsOf(source) : undefined,
-    toc: { bookmarks: new Map(), anchors: new Map(), textWidth: 0 },
-  }
-  const section = sectionFromChrome(chrome, source?.section ?? null, source === null)
+  const build = newBuild(source, documentStyles, origins)
+  const section = sectionFromChrome(chrome, source?.section ?? null)
   build.section = source?.section ?? section
   build.toc = linkTocEntries(json, section, documentStyles)
-  const numbering = ensureListNumbering(build.numbering, json, build)
-  build.numbering = numbering
+  build.numbering = ensureListNumbering(build.numbering, json, build)
   const blocks = blocksFromNodes(json.content ?? [], build, 0)
   dropEditorTrailingParagraph(blocks)
+  const stories = storiesFromChrome(chrome, source, build, source === null)
+  const numbering = build.numbering
+  section.references = stories.length > 0 ? stories : undefined
+  const partBlocks = [...blocks, ...stories.flatMap((story) => story.blocks)]
   const comments = commentsFromEditor(build.comments, source?.comments)
   placeCommentRanges(blocks, build.tags, comments.ids, commentReferenceProps(source))
   const styles = ensureEditorStyles(
     catalogWithStyles(
       source?.styles ?? { docDefaults: { pPr: {}, rPr: {} }, styles: [] },
       documentStyles,
-      usedStyleIds(blocks),
+      usedStyleIds(partBlocks),
     ),
-    blocks,
+    partBlocks,
     source === null,
   )
   const settings = {
@@ -188,15 +173,49 @@ export function editorToWord(
   return document
 }
 
+/** State for turning editor JSON back into a document's parts, starting from the source document's. */
+function newBuild(
+  source: WordDocument | null,
+  documentStyles: StyleDef[],
+  origins: Origins,
+  reserved: Iterable<string> = [],
+): Build {
+  return {
+    styles: documentStyles,
+    media: [...(source?.media ?? [])],
+    picture: (source?.media?.length ?? 0) + 1,
+    usedParts: new Set(
+      [...(source?.preserved?.parts ?? []), ...(source?.media ?? [])]
+        .map((part) => part.name.toLowerCase())
+        .concat([...reserved].map((name) => name.toLowerCase())),
+    ),
+    preserved: source?.preserved,
+    bulletId: 0,
+    orderedId: 0,
+    origins,
+    numbering: source?.numbering ?? emptyNumbering(),
+    runs: origins.runs,
+    links: origins.links,
+    comments: new Map(),
+    tags: new Map(),
+    revisionIds: new Map(),
+    nextRevision: 1_000_000,
+    theme: source ? themeFontsOf(source) : undefined,
+    toc: { bookmarks: new Map(), anchors: new Map(), textWidth: 0 },
+  }
+}
+
 /**
  * Gives every paragraph and table an anchor the editor carries as data-docx. Saving copies anchors into the new
  * document, so they keep pointing at the right source across saves.
  */
 function assignKeys(doc: WordDocument) {
   const used = new Set<string>()
-  const tables = tablesIn(doc.blocks)
-  const paragraphs = paragraphsIn(doc.blocks)
-  for (const item of [...paragraphs, ...tables, ...runsIn(doc.blocks)]) {
+  // The header and footer parts are read like the body, so their paragraphs carry anchors too.
+  const blocks = [...doc.blocks, ...(doc.section?.references ?? []).flatMap((story) => story.blocks)]
+  const tables = tablesIn(blocks)
+  const paragraphs = paragraphsIn(blocks)
+  for (const item of [...paragraphs, ...tables, ...runsIn(blocks)]) {
     if (item.key) {
       used.add(item.key)
     }
@@ -218,7 +237,7 @@ function assignKeys(doc: WordDocument) {
   for (const table of tables) {
     table.key ??= fresh("t")
   }
-  for (const run of runsIn(doc.blocks)) {
+  for (const run of runsIn(blocks)) {
     run.key ??= fresh("r")
   }
 }
@@ -578,33 +597,17 @@ function chromeFromDocument(doc: WordDocument): DocumentChrome {
   const references = section?.references ?? []
   return {
     ...emptyChrome(),
-    header: storyText(references, "header", "default"),
-    footer: storyText(references, "footer", "default"),
+    header: storyHtml(doc, storyOf(references, "header", "default")),
+    footer: storyHtml(doc, storyOf(references, "footer", "default")),
     differentFirstPage: Boolean(section?.titlePg),
-    firstHeader: storyText(references, "header", "first"),
-    firstFooter: storyText(references, "footer", "first"),
+    firstHeader: storyHtml(doc, storyOf(references, "header", "first")),
+    firstFooter: storyHtml(doc, storyOf(references, "footer", "first")),
     pageSetup: setup,
-    headerShapes: storyShapes(storyOf(references, "header", "default"), section),
-    footerShapes: storyShapes(storyOf(references, "footer", "default"), section),
-    firstHeaderShapes: storyShapes(storyOf(references, "header", "first"), section),
-    firstFooterShapes: storyShapes(storyOf(references, "footer", "first"), section),
   }
 }
 
 function storyOf(references: HeaderFooterRef[], kind: "header" | "footer", type: HeaderFooterType) {
   return references.find((item) => item.kind === kind && item.type === type)
-}
-
-function storyText(references: HeaderFooterRef[], kind: "header" | "footer", type: HeaderFooterType) {
-  const story = storyOf(references, kind, type)
-  if (!story) {
-    return ""
-  }
-  return story.blocks
-    .filter((block): block is Paragraph => block.kind === "paragraph")
-    .map((paragraph) => visibleParagraphText(paragraph))
-    .join("\n")
-    .trim()
 }
 
 function pageSetupFromSection(section: SectionProps): PageSetup {
@@ -668,11 +671,7 @@ function sectionStartFrom(type: SectionProps["type"]): SectionStart {
   }
 }
 
-function sectionFromChrome(
-  chrome: DocumentChrome,
-  base: SectionProps | null,
-  synthesizePageNumber: boolean,
-): SectionProps {
+function sectionFromChrome(chrome: DocumentChrome, base: SectionProps | null): SectionProps {
   const setup = chrome.pageSetup
   const named = PAPER_TWIPS[setup.paper] ?? PAPER_TWIPS.letter
   const custom = setup.paperWidth > 0 && setup.paperHeight > 0
@@ -690,7 +689,6 @@ function sectionFromChrome(
     width = height
     height = swap
   }
-  const references = storiesFromChrome(chrome, base?.references ?? [], synthesizePageNumber)
   const section: SectionProps = {
     ...(base ?? {}),
     pageWidth: width,
@@ -716,7 +714,6 @@ function sectionFromChrome(
     lineNumbers: lineNumberingFrom(setup, base?.lineNumbers),
     titlePg: chrome.differentFirstPage ? true : undefined,
     type: sectionTypeFrom(setup.sectionStart) ?? base?.type,
-    references: references.length > 0 ? references : undefined,
   }
   return section
 }
@@ -751,7 +748,159 @@ function sectionTypeFrom(start: SectionStart): SectionProps["type"] {
   }
 }
 
-function storiesFromChrome(chrome: DocumentChrome, existing: HeaderFooterRef[], synthesizePageNumber: boolean) {
+/** A header or footer part as a document of its own, so the body's converters read and write it. */
+function storyDocument(doc: WordDocument, story: HeaderFooterRef): WordDocument {
+  return { ...doc, blocks: story.blocks, media: storyMedia(story), comments: undefined }
+}
+
+/** The pictures a header or footer part points at, as the body's media. */
+function storyMedia(story: HeaderFooterRef): MediaPart[] {
+  const media: MediaPart[] = []
+  for (const relationship of story.links?.relationships ?? []) {
+    const part = story.links?.parts.find((item) => item.name === relationship.partName)
+    if (part?.contentType.startsWith("image/")) {
+      media.push({ ...part, relId: relationship.id, type: relationship.type, target: relationship.target })
+    }
+  }
+  return media
+}
+
+/** The part's links with its pictures replaced by `media`; what else it points at (charts, objects) stays. */
+function storyLinks(story: HeaderFooterRef | undefined, media: MediaPart[]): HeaderFooterRef["links"] {
+  const pictureIds = new Set(
+    storyMedia(story ?? { kind: "header", type: "default", relId: "", blocks: [] }).map((item) => item.relId),
+  )
+  const kept = (story?.links?.relationships ?? []).filter((item) => !pictureIds.has(item.id))
+  const keptNames = new Set(kept.map((item) => item.partName))
+  const relationships = [
+    ...kept,
+    ...media.map((item) => ({
+      id: item.relId,
+      type: item.type,
+      target: item.target,
+      targetMode: "Internal" as const,
+      partName: item.name,
+    })),
+  ]
+  const parts = [
+    ...(story?.links?.parts ?? []).filter((part) => keptNames.has(part.name)),
+    ...media.map((item) => ({ name: item.name, contentType: item.contentType, data: item.data })),
+  ]
+  return relationships.length > 0 || parts.length > 0 ? { relationships, parts } : undefined
+}
+
+/**
+ * The page number is shown by the page, not by the header's markup: a PAGE field is left out of what the editor
+ * shows, and put back where it was when the part is saved.
+ */
+function withoutPageFields(blocks: Block[]): Block[] {
+  return blocks.map((block) =>
+    block.kind === "paragraph" ? { ...block, inlines: inlinesWithoutPageFields(block.inlines) } : block,
+  )
+}
+
+function inlinesWithoutPageFields(inlines: Inline[]): Inline[] {
+  const kept: Inline[] = []
+  let depth = 0
+  let instruction = ""
+  let start = 0
+  for (const inline of inlines) {
+    if (inline.kind === "simpleField" && /\bPAGE\b/.test(inline.instr)) {
+      continue
+    }
+    if (inline.kind !== "run") {
+      kept.push(inline)
+      continue
+    }
+    let closes = false
+    for (const content of inline.content) {
+      if (content.kind === "fldChar" && content.fieldType === "begin") {
+        if (depth === 0) {
+          start = kept.length
+          instruction = ""
+        }
+        depth += 1
+      } else if (content.kind === "fldChar" && content.fieldType === "end" && depth > 0) {
+        depth -= 1
+        closes = closes || depth === 0
+      } else if (content.kind === "instrText" && depth === 1) {
+        instruction += content.text
+      }
+    }
+    if (closes && /\bPAGE\b/.test(instruction)) {
+      // Everything from the field's first run to this one, which closes it.
+      kept.splice(start)
+      continue
+    }
+    kept.push(inline)
+  }
+  return kept
+}
+
+/** What the editor shows for a header or footer part: its HTML, empty when there is nothing to see. */
+function storyHtml(doc: WordDocument, story: HeaderFooterRef | undefined) {
+  if (!story) {
+    return ""
+  }
+  const shown = { ...story, blocks: withoutPageFields(story.blocks) }
+  const html = blocksToHtml(shown.blocks, projectionFor(storyDocument(doc, shown)))
+  return chromeHasContent(html) ? html : ""
+}
+
+/** The blocks and pictures of a header or footer part from its HTML, built like the body's from the editor's JSON. */
+function storyBlocks(
+  html: string,
+  original: HeaderFooterRef | undefined,
+  source: WordDocument | null,
+  shared: Build,
+  page: boolean,
+) {
+  const base = source && original ? storyDocument(source, original) : null
+  const origins = originsOf(base)
+  const build: Build = {
+    ...shared,
+    media: [...(base?.media ?? [])],
+    picture: 1,
+    usedParts: shared.usedParts,
+    origins,
+    runs: origins.runs,
+    links: origins.links,
+    comments: new Map(),
+    tags: new Map(),
+  }
+  for (const item of shared.media) {
+    build.usedParts?.add(item.name.toLowerCase())
+  }
+  const json = chromeJson(html)
+  shared.numbering = ensureListNumbering(shared.numbering, json, build)
+  build.numbering = shared.numbering
+  const blocks = html ? blocksFromNodes(json.content ?? [], build, 0) : []
+  dropEditorTrailingParagraph(blocks)
+  if (page) {
+    const last = blocks[blocks.length - 1]
+    if (last?.kind === "paragraph") {
+      last.inlines.push({ kind: "simpleField", instr: " PAGE ", inlines: [plainRun("1")] })
+    } else {
+      blocks.push(storyParagraph("", true))
+    }
+  }
+  for (const item of build.media) {
+    build.usedParts?.add(item.name.toLowerCase())
+  }
+  return { blocks, media: build.media }
+}
+
+/**
+ * The section's header and footer parts for the chrome the editor holds. A part whose HTML is what opening it gave
+ * is kept as it was; an edited one is read back through the body's converter, pictures and styles included.
+ */
+function storiesFromChrome(
+  chrome: DocumentChrome,
+  source: WordDocument | null,
+  shared: Build,
+  synthesizePageNumber: boolean,
+) {
+  const existing = source?.section?.references ?? []
   const used = new Set(existing.map((story) => story.relId))
   const nextId = () => {
     let number = 10
@@ -762,30 +911,31 @@ function storiesFromChrome(chrome: DocumentChrome, existing: HeaderFooterRef[], 
     used.add(id)
     return id
   }
+  for (const story of existing) {
+    for (const part of story.links?.parts ?? []) {
+      shared.usedParts?.add(part.name.toLowerCase())
+    }
+  }
   const stories = existing.map((story) => ({ ...story, blocks: story.blocks.map((block) => ({ ...block })) }))
-  const ensure = (kind: "header" | "footer", type: HeaderFooterType, text: string) => {
+  const ensure = (kind: "header" | "footer", type: HeaderFooterType, html: string) => {
     const current = stories.find((story) => story.kind === kind && story.type === type)
-    const projected = storyText(existing, kind, type)
+    const original = existing.find((story) => story.kind === kind && story.type === type)
+    const projected = source ? storyHtml(source, original) : ""
     const page = pageFieldFor(kind, type, chrome, current, synthesizePageNumber)
-    if (current && text === projected && storyHasPageField(current) === page) {
+    if (current && html === projected && storyHasPageField(current) === page) {
       return
     }
-    const blocks = textToParagraphs(text, page)
+    const rebuilt = storyBlocks(html, original, source, shared, page)
+    const blocks = rebuilt.blocks.length > 0 ? rebuilt.blocks : current ? [emptyParagraph()] : []
     if (current) {
-      const replaced = blocks.length > 0 ? blocks : [emptyParagraph()]
-      // The page chrome edits text only; pictures in the story (a logo) stay with its first paragraph.
-      const pictures = runsIn(current.blocks).filter((run) => run.content.some((item) => item.kind === "drawing"))
-      const first = replaced[0]
-      if (first?.kind === "paragraph" && pictures.length > 0) {
-        first.inlines = [...pictures, ...first.inlines]
-      }
-      current.blocks = replaced
+      current.blocks = blocks
+      current.links = storyLinks(original, rebuilt.media)
       return
     }
     if (blocks.length === 0) {
       return
     }
-    stories.push({ kind, type, relId: nextId(), blocks })
+    stories.push({ kind, type, relId: nextId(), blocks, links: storyLinks(undefined, rebuilt.media) })
   }
   ensure("header", "default", chrome.header)
   ensure("footer", "default", chrome.footer)
@@ -841,75 +991,6 @@ function inlinesHavePageField(inlines: Inline[]): boolean {
     }
   }
   return false
-}
-
-function visibleParagraphText(paragraph: Paragraph) {
-  return visibleInlineText(paragraph.inlines)
-}
-
-function visibleInlineText(inlines: Inline[]) {
-  let text = ""
-  let instruction = ""
-  let inField = false
-  let skipResult = false
-  const visit = (inline: Inline) => {
-    if (inline.kind === "simpleField") {
-      if (!/\bPAGE\b/.test(inline.instr)) {
-        text += visibleInlineText(inline.inlines)
-      }
-      return
-    }
-    if (inline.kind === "hyperlink" || inline.kind === "ins" || inline.kind === "del") {
-      text += visibleInlineText(inline.inlines)
-      return
-    }
-    if (inline.kind === "raw") {
-      text += inline.text
-      return
-    }
-    if (inline.kind !== "run") {
-      return
-    }
-    for (const content of inline.content) {
-      if (content.kind === "fldChar") {
-        if (content.fieldType === "begin") {
-          inField = true
-          instruction = ""
-          skipResult = false
-        } else if (content.fieldType === "separate") {
-          skipResult = /\bPAGE\b/.test(instruction)
-        } else if (content.fieldType === "end") {
-          inField = false
-          skipResult = false
-        }
-        continue
-      }
-      if (content.kind === "instrText") {
-        if (inField) {
-          instruction += content.text
-        }
-        continue
-      }
-      if (skipResult) {
-        continue
-      }
-      if (content.kind === "text" || content.kind === "delText" || content.kind === "drawing") {
-        text += content.text
-      }
-    }
-  }
-  for (const inline of inlines) {
-    visit(inline)
-  }
-  return text
-}
-
-function textToParagraphs(text: string, page = false): Paragraph[] {
-  if (!text) {
-    return page ? [storyParagraph("", true)] : []
-  }
-  const lines = text.split("\n")
-  return lines.map((line, index) => storyParagraph(line, page && index === lines.length - 1))
 }
 
 function storyParagraph(line: string, page: boolean): Paragraph {

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs"
 import path from "node:path"
 import { Editor } from "@tiptap/core"
 import { afterEach, describe, expect, it } from "vitest"
+import { chromeText } from "@/document/chrome-html"
 import { openDocxBytes, saveDocxBytes } from "@/document/docx/io"
 import { findPart, openPackage, relationshipsFor, writePackage } from "@/document/docx/opc"
 import { decodeXml } from "@/document/docx/xml"
@@ -141,7 +142,8 @@ describe("headers and footers keep their own relationships", () => {
   it("keeps the header picture when the header text is edited", async () => {
     const { bytes, header } = await headerWithLogo()
     const saved = await editAndSave(bytes, (chrome) => {
-      chrome.header = "New header text"
+      expect(chrome.header).toContain("HEADER-TEXT")
+      chrome.header = chrome.header.replace("HEADER-TEXT", "New header text")
     })
     const xml = decodeXml(findPart(saved, header)!.data)
     expect(xml).toContain("New header text")
@@ -149,17 +151,44 @@ describe("headers and footers keep their own relationships", () => {
     expect(relationshipsFor(saved, header).find((item) => item.id === "rId1")?.type).toBe(IMAGE_REL)
   })
 
-  it("shows a header picture on the page where Word puts it", async () => {
+  it("shows a header picture in the header as a picture, as in the body", async () => {
     const { bytes } = await headerWithLogo()
     const opened = await openDocxBytes(bytes, "story.docx")
-    const section = opened.word.section!
-    const [logo] = opened.view.chrome.headerShapes
-    expect(opened.view.chrome.headerShapes).toHaveLength(1)
-    expect(logo!.src.startsWith("data:image/png;base64,")).toBe(true)
-    // 4 cm × 2 cm, 12 cm right of the left margin, 0.5 cm above the header paragraph.
-    expect(logo!.width).toBeCloseTo(1440000 / 9525)
-    expect(logo!.height).toBeCloseTo(720000 / 9525)
-    expect(logo!.x).toBeCloseTo((section.marginLeft ?? 0) / 15 + 4320000 / 9525)
-    expect(logo!.y).toBeCloseTo((section.header ?? 0) / 15 - 180000 / 9525)
+    const root = new DOMParser().parseFromString(opened.view.chrome.header, "text/html")
+    const logo = root.querySelector("img")!
+    expect(logo.getAttribute("src")?.startsWith("data:image/png;base64,")).toBe(true)
+    // 4 cm × 2 cm.
+    expect(Number(logo.getAttribute("width"))).toBeCloseTo(1440000 / 9525, 0)
+    expect(Number(logo.getAttribute("height"))).toBeCloseTo(720000 / 9525, 0)
+    expect(opened.view.chrome.header).toContain("HEADER-TEXT")
+  })
+
+  it("saves a picture added to a header as a picture of that header part", async () => {
+    const { bytes, header, footer } = await headerWithLogo()
+    const added = `<p>Footer</p><img src="data:image/png;base64,${btoa(String.fromCharCode(...PNG))}" width="40" height="20">`
+    const saved = await editAndSave(bytes, (chrome) => {
+      chrome.footer = added
+    })
+    const xml = decodeXml(findPart(saved, footer)!.data)
+    expect(xml).toContain("<w:drawing")
+    const picture = relationshipsFor(saved, footer).find((item) => item.type === IMAGE_REL)
+    expect(findPart(saved, picture!.partName!)?.data).toEqual(PNG)
+    const names = new Set(saved.parts.map((part) => part.name))
+    expect(names.size).toBe(saved.parts.length)
+    expect(relationshipsFor(saved, header).some((item) => item.type === IMAGE_REL)).toBe(true)
+  })
+
+  it("keeps the page number field of a footer when its text is edited", async () => {
+    const { bytes, footer } = await headerWithLogo()
+    const opened = await openDocxBytes(bytes, "story.docx")
+    expect(chromeText(opened.view.chrome.footer)).toBe("example.comPage")
+    expect(opened.view.chrome.footer).not.toContain('data-role="field"')
+    const saved = await editAndSave(bytes, (chrome) => {
+      chrome.footer = chrome.footer.replace(">example.com<", ">Sheet<")
+    })
+    const xml = decodeXml(findPart(saved, footer)!.data)
+    expect(xml).toContain("Sheet")
+    expect(xml).toMatch(/PAGE/)
+    expect(xml).toContain('<w:t xml:space="preserve">Page </w:t>')
   })
 })

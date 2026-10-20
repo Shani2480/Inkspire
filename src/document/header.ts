@@ -1,3 +1,4 @@
+import { chromeHtml } from "@/document/chrome-html"
 import { knownColorScheme } from "@/document/design-format"
 import {
   builtInHeader,
@@ -16,7 +17,6 @@ import {
 
 const CHROME_MARK =
   /^<!-- aiword-(header|footer|first-header|first-footer|first|page|columns|colgap|colline|lines|watermark|border|borderwidth|borderline|pagecolor|pagenum|hyphens|language|fonts|spacing|headerstyle|footerstyle|colors|effects):([^\n>]*) -->\n?/
-const CHROME_LIMIT = 160
 
 /** Absolutely positioned image from a Word header/footer (or body float). */
 export type ChromeShape = {
@@ -32,6 +32,7 @@ export type ChromeShape = {
 }
 
 export type DocumentChrome = {
+  /** The header and footer of each kind of page, as editor HTML. */
   header: string
   footer: string
   differentFirstPage: boolean
@@ -59,13 +60,10 @@ export function emptyChrome(): DocumentChrome {
   }
 }
 
-function clip(value: string) {
-  return value.trim().slice(0, CHROME_LIMIT)
-}
-
+/** A header or footer is saved as its HTML, so pictures and styled lines come back as they were. */
 function comment(kind: "header" | "footer" | "first-header" | "first-footer", value: string) {
-  const text = clip(value)
-  return text ? `<!-- aiword-${kind}:${encodeURIComponent(text)} -->` : ""
+  const html = chromeHtml(value).trim()
+  return html ? `<!-- aiword-${kind}:${encodeURIComponent(html)} -->` : ""
 }
 
 export function packDocument(html: string, chrome: DocumentChrome) {
@@ -112,7 +110,7 @@ export function packDocument(html: string, chrome: DocumentChrome) {
 
 function decodeMark(value: string) {
   try {
-    return decodeURIComponent(value).slice(0, CHROME_LIMIT)
+    return decodeURIComponent(value)
   } catch {
     return ""
   }
@@ -129,13 +127,13 @@ export function unpackDocument(raw: string) {
     }
     const value = decodeMark(match[2])
     if (match[1] === "header") {
-      chrome.header = value
+      chrome.header = chromeHtml(value)
     } else if (match[1] === "footer") {
-      chrome.footer = value
+      chrome.footer = chromeHtml(value)
     } else if (match[1] === "first-header") {
-      chrome.firstHeader = value
+      chrome.firstHeader = chromeHtml(value)
     } else if (match[1] === "first-footer") {
-      chrome.firstFooter = value
+      chrome.firstFooter = chromeHtml(value)
     } else if (match[1] === "first") {
       chrome.differentFirstPage = value === "1"
     } else if (match[1] === "page") {

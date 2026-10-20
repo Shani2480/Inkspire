@@ -1,3 +1,4 @@
+import { chromeText } from "@/document/chrome-html"
 import { readFileSync } from "node:fs"
 import path from "node:path"
 import { describe, expect, it } from "vitest"
@@ -51,8 +52,8 @@ describe("docx to editor projection of Word-authored files", () => {
   it("f07 isolates first-page and default headers and honours titlePg", async () => {
     const { chrome } = (await open("f07_header_footer.docx")).view
     expect(chrome.differentFirstPage).toBe(true)
-    expect(chrome.header).toBe("HEADER-TEXT")
-    expect(chrome.firstHeader).toBe("FIRST-PAGE-HEADER")
+    expect(chromeText(chrome.header)).toBe("HEADER-TEXT")
+    expect(chromeText(chrome.firstHeader)).toBe("FIRST-PAGE-HEADER")
     expect(chrome.header).not.toContain("FIRST-PAGE")
   })
 

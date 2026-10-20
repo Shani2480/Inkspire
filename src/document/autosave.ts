@@ -16,11 +16,11 @@ export function useAutosave() {
   const isDirty = useDocumentStore((state) => state.isDirty)
   const currentFilePath = useDocumentStore((state) => state.currentFilePath)
   const documentHTML = useDocumentStore((state) => state.documentHTML)
-  const headerText = useDocumentStore((state) => state.headerText)
-  const footerText = useDocumentStore((state) => state.footerText)
+  const headerHtml = useDocumentStore((state) => state.headerHtml)
+  const footerHtml = useDocumentStore((state) => state.footerHtml)
   const differentFirstPage = useDocumentStore((state) => state.differentFirstPage)
-  const firstHeaderText = useDocumentStore((state) => state.firstHeaderText)
-  const firstFooterText = useDocumentStore((state) => state.firstFooterText)
+  const firstHeaderHtml = useDocumentStore((state) => state.firstHeaderHtml)
+  const firstFooterHtml = useDocumentStore((state) => state.firstFooterHtml)
   const pageSetup = useDocumentStore((state) => state.pageSetup)
 
   useEffect(() => keepRecoveryAlive(), [])
@@ -54,11 +54,11 @@ export function useAutosave() {
     recoverySeconds,
     isDirty,
     documentHTML,
-    headerText,
-    footerText,
+    headerHtml,
+    footerHtml,
     differentFirstPage,
-    firstHeaderText,
-    firstFooterText,
+    firstHeaderHtml,
+    firstFooterHtml,
     pageSetup,
     currentFilePath,
   ])
