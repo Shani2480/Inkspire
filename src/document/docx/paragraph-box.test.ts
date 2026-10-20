@@ -56,14 +56,25 @@ describe("paragraph borders and fill in .docx (21.30)", () => {
       textAlign: "center",
     })
     const pPr = /<w:pPr>.*?<\/w:pPr>/.exec(xml)?.[0] ?? ""
-    const order = ["keepNext", "suppressLineNumbers", "shd", "suppressAutoHyphens", "mirrorIndents", "jc", "textboxTightWrap"].map(
-      (name) => pPr.indexOf(`<w:${name}`),
-    )
+    const order = [
+      "keepNext",
+      "suppressLineNumbers",
+      "shd",
+      "suppressAutoHyphens",
+      "mirrorIndents",
+      "jc",
+      "textboxTightWrap",
+    ].map((name) => pPr.indexOf(`<w:${name}`))
     expect(order.every((at) => at >= 0)).toBe(true)
     expect([...order].sort((a, b) => a - b)).toEqual(order)
     expect(pPr).toContain('<w:textboxTightWrap w:val="firstLineOnly"/>')
     const { view } = await openDocxBytes(bytes, "t.docx")
-    for (const token of ['data-suppress-lines="1"', 'data-no-hyphen="1"', 'data-mirror="1"', 'data-tight-wrap="firstLineOnly"']) {
+    for (const token of [
+      'data-suppress-lines="1"',
+      'data-no-hyphen="1"',
+      'data-mirror="1"',
+      'data-tight-wrap="firstLineOnly"',
+    ]) {
       expect(view.html).toContain(token)
     }
   })

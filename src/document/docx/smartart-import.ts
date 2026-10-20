@@ -99,7 +99,9 @@ function textOf(shape: string, box: { x: number; y: number; w: number; h: number
     if (!text) {
       continue
     }
-    const size = Number(/<a:rPr[^>]*\bsz="(\d+)"/.exec(paragraph)?.[1] ?? /<a:endParaRPr[^>]*\bsz="(\d+)"/.exec(paragraph)?.[1] ?? 1800)
+    const size = Number(
+      /<a:rPr[^>]*\bsz="(\d+)"/.exec(paragraph)?.[1] ?? /<a:endParaRPr[^>]*\bsz="(\d+)"/.exec(paragraph)?.[1] ?? 1800,
+    )
     lines.push({ text, size: (size / 100) * EMU_PER_PT })
   }
   if (lines.length === 0) {

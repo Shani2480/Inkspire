@@ -424,7 +424,9 @@ export function cellCss(part: {
       return []
     }
     const line = borderCss(border).split(" ").pop() ?? "#000000"
-    return [`linear-gradient(${direction}, transparent calc(50% - 0.75px), ${line} calc(50% - 0.75px), ${line} calc(50% + 0.75px), transparent calc(50% + 0.75px))`]
+    return [
+      `linear-gradient(${direction}, transparent calc(50% - 0.75px), ${line} calc(50% - 0.75px), ${line} calc(50% + 0.75px), transparent calc(50% + 0.75px))`,
+    ]
   })
   if (diagonals.length > 0) {
     rules.push(`background-image: ${diagonals.join(", ")}`)

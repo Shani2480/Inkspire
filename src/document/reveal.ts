@@ -4,7 +4,9 @@ import { invoke } from "@tauri-apps/api/core"
 
 /** The tooltip for "Open containing folder": what it does, or why it is unavailable. */
 export function revealTitle(tauri: boolean = isTauriRuntime()): string {
-  return tauri ? "Open containing folder" : "Open containing folder (only in the desktop app, where the file's path is known)"
+  return tauri
+    ? "Open containing folder"
+    : "Open containing folder (only in the desktop app, where the file's path is known)"
 }
 
 /**
@@ -19,7 +21,9 @@ export async function revealDocument(path: string, forget?: (path: string) => vo
     await invoke("reveal_document", { path })
     return true
   } catch (error) {
-    const action = await useFileError.getState().show(describeFileProblem(error, { operation: "open", file: path, recent: true }))
+    const action = await useFileError
+      .getState()
+      .show(describeFileProblem(error, { operation: "open", file: path, recent: true }))
     if (action === "remove-recent") {
       forget?.(path)
     }
