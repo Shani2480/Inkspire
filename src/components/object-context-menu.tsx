@@ -1,3 +1,4 @@
+import { openBordersAndShading } from "@/components/borders-shading-dialog"
 import { useCropMode } from "@/editor/picture-crop"
 import { useLayoutDialog } from "@/document/object-layout"
 import { useViewStore } from "@/document/view"
@@ -292,6 +293,7 @@ function itemsFor(
           leaf("Align Right", () => run(() => editor.chain().focus().setCellAttribute("align", "right").run())),
         ])}
         {sep()}
+        {leaf("Borders and Shading...", () => run(() => openBordersAndShading(editor)))}
         {leaf("Table Properties...", () => openDialog("table"))}
       </>
     )

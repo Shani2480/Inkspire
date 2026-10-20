@@ -8,6 +8,7 @@ import {
   BORDER_WEIGHTS,
   DEFAULT_PEN,
   inTable,
+  readScopedBorders,
   setBordersOnCells,
   shadeScope,
   type BorderEdge,
@@ -66,6 +67,14 @@ const STYLE_LABELS: Record<string, string> = { solid: "Solid", dashed: "Dashed",
 export function paragraphBorderOf(edges: Set<BorderEdge>): string | null {
   const sides = (["top", "right", "bottom", "left"] as const).filter((side) => edges.has(side))
   return sides.length === 4 ? "all" : sides.length > 0 ? sides.join(",") : null
+}
+
+/** The sides of a paragraph's `border` value ("all", or sides joined by commas). */
+export function edgesOfParagraphBorder(value: unknown): Set<BorderEdge> {
+  if (value === "all") {
+    return new Set(BOX)
+  }
+  return new Set(typeof value === "string" ? BOX.filter((side) => value.split(",").includes(side)) : [])
 }
 
 export function BordersShadingHost() {
@@ -132,10 +141,22 @@ function BordersShadingDialog({
   const setup = useDocumentStore((state) => state.pageSetup)
   const setPageSetup = useDocumentStore((state) => state.setPageSetup)
   const [tab, setTab] = useState<Tab>(initialTab)
-  const [edges, setEdges] = useState<Set<BorderEdge>>(new Set())
-  const [pen, setPen] = useState<BorderPen>(DEFAULT_PEN)
+  // The dialog opens on what is drawn now (the first cell scope, or the paragraph the cursor is in).
+  const [current] = useState(() => {
+    if (table) {
+      return readScopedBorders(editor, "cell")
+    }
+    const attrs = editor.state.selection.$from.parent.attrs
+    return {
+      edges: edgesOfParagraphBorder(attrs.border),
+      pen: DEFAULT_PEN,
+      fill: typeof attrs.shading === "string" ? attrs.shading : null,
+    }
+  })
+  const [edges, setEdges] = useState<Set<BorderEdge>>(current?.edges ?? new Set())
+  const [pen, setPen] = useState<BorderPen>(current?.pen ?? DEFAULT_PEN)
   const [target, setTarget] = useState<Target>(table ? "cell" : "paragraph")
-  const [fill, setFill] = useState<string | null>(null)
+  const [fill, setFill] = useState<string | null>(current?.fill ?? null)
   const [fillTouched, setFillTouched] = useState(false)
   const [bordersTouched, setBordersTouched] = useState(false)
   const [pageDraft, setPageDraft] = useState<BorderPatch>({

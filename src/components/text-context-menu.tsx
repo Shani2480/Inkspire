@@ -1,3 +1,4 @@
+import { openBordersAndShading } from "@/components/borders-shading-dialog"
 import { askText } from "@/components/text-prompt"
 import { MenuLabel } from "@/components/menu-icons"
 import { useClipboard } from "@/document/clipboard"
@@ -9,6 +10,7 @@ import { copySelection, cutSelection, pasteFromClipboard, pasteStored } from "@/
 import { requestFormatDialog } from "@/components/format-dialogs"
 import { findSelection } from "@/components/find-dialog"
 import { chainWithSelection, rememberSelection } from "@/editor/selection-memory"
+import { inTable } from "@/editor/table-tools"
 import type { Editor } from "@tiptap/core"
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
@@ -96,6 +98,9 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
     },
     { id: "font", label: "Font…", run: () => requestFormatDialog("font") },
     { id: "paragraph", label: "Paragraph…", run: () => requestFormatDialog("paragraph") },
+    ...(inTable(editor)
+      ? [{ id: "borders", label: "Borders and Shading…", run: () => openBordersAndShading(editor) }]
+      : []),
     {
       id: "block",
       label: "Block Authors",
