@@ -1,0 +1,17 @@
+﻿{
+    "input":  "C:\\REA\\docx-probe\\cases\\w05_paraid_too_big.docx",
+    "open":  {
+                 "ok":  true
+             },
+    "repair":  null,
+    "doc":  {
+                "paragraphs":  1,
+                "tables":  0,
+                "compatibilityMode":  15,
+                "text":  "MARKER-P1\r"
+            },
+    "save":  {
+                 "ok":  true,
+                 "path":  "C:\\REA\\docx-probe\\roundtrip\\w05_paraid_too_big.docx"
+             }
+}

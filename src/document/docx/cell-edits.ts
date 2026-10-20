@@ -1,0 +1,77 @@
+import type { Border, BorderValue, Shading, TableBorders } from "@/document/docx/model"
+
+/** A CSS colour as the six hex digits .docx uses, or undefined when it is not a plain colour. */
+export function hexOf(css: unknown) {
+  if (typeof css !== "string") {
+    return undefined
+  }
+  const text = css.trim().toLowerCase()
+  const short = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/.exec(text)
+  if (short) {
+    return `${short[1]}${short[1]}${short[2]}${short[2]}${short[3]}${short[3]}`.toUpperCase()
+  }
+  if (/^#[0-9a-f]{6}$/.test(text)) {
+    return text.slice(1).toUpperCase()
+  }
+  const rgb = /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/.exec(text)
+  if (rgb) {
+    return rgb
+      .slice(1, 4)
+      .map((part) => Math.min(255, Number(part)).toString(16).padStart(2, "0"))
+      .join("")
+      .toUpperCase()
+  }
+  return undefined
+}
+
+/** The fill the editor gave a cell (backgroundColor), as w:shd. */
+export function shadingOf(backgroundColor: unknown): Shading | undefined {
+  const fill = hexOf(backgroundColor)
+  return fill ? { value: "clear", color: "auto", fill } : undefined
+}
+
+const PEN_STYLES: Record<string, BorderValue> = {
+  solid: "single",
+  dashed: "dashed",
+  dotted: "dotted",
+  double: "double",
+}
+
+/** One border from a pen written as the CSS shorthand ("1px solid #404040"). */
+function borderOf(pen: unknown): Border {
+  const [width = "", style = "solid", color = ""] = typeof pen === "string" ? pen.split(/\s+/) : []
+  const points = Number.parseFloat(width) * 0.75
+  return {
+    value: PEN_STYLES[style] ?? "single",
+    // w:sz counts eighths of a point, from 2 to 96.
+    sz: Number.isFinite(points) ? Math.min(96, Math.max(2, Math.round(points * 8))) : 4,
+    space: 0,
+    color: hexOf(color) ?? "auto",
+  }
+}
+
+const SIDE_NAMES = ["top", "left", "bottom", "right"] as const
+
+/** The cell borders the editor drew (borders and borderPen), as w:tcBorders. */
+export function bordersOf(borders: unknown, pen: unknown): TableBorders | undefined {
+  if (typeof borders !== "string" || borders === "") {
+    return undefined
+  }
+  if (borders === "none") {
+    return { top: { value: "nil" }, left: { value: "nil" }, bottom: { value: "nil" }, right: { value: "nil" } }
+  }
+  const tokens = borders.split(" ")
+  const sides: string[] = borders === "all" ? [...SIDE_NAMES] : SIDE_NAMES.filter((side) => tokens.includes(side))
+  // The two diagonals of a cell (21.30): "diagDown" runs top-left to bottom-right, "diagUp" top-right to bottom-left.
+  if (tokens.includes("diagDown")) {
+    sides.push("tl2br")
+  }
+  if (tokens.includes("diagUp")) {
+    sides.push("tr2bl")
+  }
+  if (sides.length === 0) {
+    return undefined
+  }
+  const border = borderOf(pen)
+  return Object.fromEntries(sides.map((side) => [side, { ...border }]))
+}

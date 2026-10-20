@@ -1,0 +1,17 @@
+﻿{
+    "input":  "C:\\REA\\docx-probe\\cases\\x03_unknown_ns_ignorable.docx",
+    "open":  {
+                 "ok":  true
+             },
+    "repair":  null,
+    "doc":  {
+                "paragraphs":  1,
+                "tables":  0,
+                "compatibilityMode":  15,
+                "text":  "MARKER-AMARKER-B\r"
+            },
+    "save":  {
+                 "ok":  true,
+                 "path":  "C:\\REA\\docx-probe\\roundtrip\\x03_unknown_ns_ignorable.docx"
+             }
+}

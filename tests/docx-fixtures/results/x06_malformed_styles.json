@@ -1,0 +1,20 @@
+﻿{
+    "input":  "C:\\REA\\docx-probe\\cases\\x06_malformed_styles.docx",
+    "open":  {
+                 "error":  "Exception calling \"InvokeMember\" with \"8\" argument(s): \"The file appears to be corrupted.\"",
+                 "ok":  false
+             },
+    "repair":  {
+                   "ok":  true
+               },
+    "doc":  {
+                "paragraphs":  1,
+                "tables":  0,
+                "compatibilityMode":  15,
+                "text":  "MARKER-BASE\r"
+            },
+    "save":  {
+                 "ok":  true,
+                 "path":  "C:\\REA\\docx-probe\\roundtrip\\x06_malformed_styles.docx"
+             }
+}

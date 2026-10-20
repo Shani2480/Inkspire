@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-tools-cancel-install"
+description = "Enables the tools_cancel_install command without any pre-configured scope."
+commands.allow = ["tools_cancel_install"]
+
+[[permission]]
+identifier = "deny-tools-cancel-install"
+description = "Denies the tools_cancel_install command without any pre-configured scope."
+commands.deny = ["tools_cancel_install"]

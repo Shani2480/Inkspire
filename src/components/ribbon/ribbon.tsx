@@ -1,0 +1,509 @@
+import { HIDEABLE_TABS, useCustomize } from "@/document/customize"
+import { ChartDesignTab, ChartFormatTab } from "@/components/ribbon/chart-tabs"
+import { ShapeFormatTab } from "@/components/ribbon/shape-format-tab"
+import { FileMenu } from "@/components/quick-access"
+import { AiTab } from "@/components/ribbon/ai-tab"
+import { useTabMotion } from "@/components/ribbon/tab-motion"
+import { HomeTab } from "@/components/ribbon/home-tab"
+import { InsertTab } from "@/components/ribbon/insert-tab"
+import { DesignTab } from "@/components/ribbon/design-tab"
+import { LayoutTab } from "@/components/ribbon/layout-tab"
+import { ReviewTab } from "@/components/ribbon/review-tab"
+import { HelpTab } from "@/components/ribbon/help-tab"
+import { ViewTab } from "@/components/ribbon/view-tab"
+import { ReferencesTab } from "@/components/ribbon/references-tab"
+import { SmartArtDesignTab } from "@/components/ribbon/smartart-tab"
+import { EquationTab } from "@/components/ribbon/equation-tab"
+import { MailingsTab } from "@/components/ribbon/mailings-tab"
+import {
+  HeaderFooterTab,
+  ModelTab,
+  PictureFormatTab,
+  TableDesignTab,
+  TableLayoutTab,
+} from "@/components/ribbon/context-tabs"
+import { DesignDialogs } from "@/components/design-dialogs"
+import { DrawTab } from "@/components/ribbon/draw-tab"
+import { RibbonButton } from "@/components/ribbon/ribbon-button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useViewStore, type RibbonLayout } from "@/document/view"
+import { isMacPlatform } from "@/lib/platform"
+import { useDocumentEditor } from "@/editor/document-editor"
+import { rememberSelection } from "@/editor/selection-memory"
+import { NodeSelection } from "@tiptap/pm/state"
+import { useEditorState } from "@tiptap/react"
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Moon, Sun } from "lucide-react"
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react"
+import { prefersReducedMotion } from "@/document/motion"
+
+type RibbonContext =
+  "none" | "smartart" | "table" | "picture" | "shape" | "chart" | "model" | "equation" | "draw" | "headerFooter"
+
+const ribbonTabClassName =
+  "h-8 flex-none rounded-none border-0 px-3 text-[13px] font-medium text-[var(--app-tab-text)] shadow-none hover:bg-[var(--app-hover)] hover:text-[var(--app-tab-text)] data-active:bg-transparent data-active:font-semibold data-active:text-[var(--app-tab-active)] data-active:shadow-none data-active:hover:bg-transparent data-active:hover:text-[var(--app-tab-active)] group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-active:bg-transparent group-data-[variant=line]/tabs-list:data-active:shadow-none"
+
+const contextTabClassName = `${ribbonTabClassName} ribbon-context-tab`
+
+function ribbonContext(
+  editor: { isActive: (name: string) => boolean; state: { selection: unknown } } | null,
+): RibbonContext {
+  if (!editor) {
+    return "none"
+  }
+  if (editor.isActive("table")) {
+    return "table"
+  }
+  const selection = editor.state.selection
+  if (selection instanceof NodeSelection) {
+    const name = selection.node.type.name
+    if (name === "drawingCanvas") {
+      return "draw"
+    }
+    if (name === "image") {
+      return "picture"
+    }
+    if (name === "smartArt") {
+      return "smartart"
+    }
+    if (name === "threeDModel") {
+      return "model"
+    }
+    if (name === "equation") {
+      return "equation"
+    }
+    if (
+      name === "textBox" ||
+      name === "wordArt" ||
+      (name === "figure" &&
+        String(selection.node.attrs.kind) !== "chart" &&
+        String(selection.node.attrs.kind) !== "model")
+    ) {
+      return "shape"
+    }
+    if (name === "figure") {
+      const kind = String(selection.node.attrs.kind)
+      if (kind === "chart") {
+        return "chart"
+      }
+      if (kind === "model") {
+        return "model"
+      }
+      return "shape"
+    }
+  }
+  if (editor.isActive("textBox") || editor.isActive("wordArt")) {
+    return "shape"
+  }
+  if (editor.isActive("image")) {
+    return "picture"
+  }
+  return "none"
+}
+
+/** The tabs a selection brings, after the fixed ones; their labels are in the theme's colour (--app-context-tab). */
+const CONTEXT_TAB: Record<Exclude<RibbonContext, "none">, { id: string; label: string }> = {
+  table: { id: "ctx-table-design", label: "Table Design" },
+  smartart: { id: "ctx-smartart", label: "SmartArt Design" },
+  picture: { id: "ctx-picture", label: "Picture Format" },
+  shape: { id: "ctx-shape", label: "Shape Format" },
+  chart: { id: "ctx-chart", label: "Chart Design" },
+  model: { id: "ctx-model", label: "3D Model" },
+  equation: { id: "ctx-equation", label: "Equation" },
+  draw: { id: "ctx-draw", label: "Draw" },
+  headerFooter: { id: "ctx-header-footer", label: "Header & Footer" },
+}
+
+function ColorModeToggle() {
+  const colorMode = useViewStore((state) => state.colorMode)
+  const toggleColorMode = useViewStore((state) => state.toggleColorMode)
+  const dark = colorMode === "dark"
+
+  return (
+    <button
+      type="button"
+      aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+      title={dark ? "Light mode" : "Dark mode"}
+      className="inline-flex size-7 items-center justify-center rounded-md text-[var(--app-tab-text)] hover:bg-[var(--app-hover)]"
+      style={{ marginRight: 8 }}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={toggleColorMode}
+    >
+      {dark ? <Sun className="size-4" strokeWidth={1.75} /> : <Moon className="size-4" strokeWidth={1.75} />}
+    </button>
+  )
+}
+
+/**
+ * The arrow at the ribbon's bottom right switches between the full (classic) ribbon and the single line: pointing up
+ * it collapses the ribbon to one line, pointing down it shows the whole ribbon again. Ctrl+F1 does the same.
+ */
+function RibbonLayoutToggle() {
+  const ribbonLayout = useViewStore((state) => state.ribbonLayout)
+  const toggleRibbonLayout = useViewStore((state) => state.toggleRibbonLayout)
+  const single = ribbonLayout === "single"
+
+  return (
+    <RibbonButton
+      label={single ? "Expand the ribbon" : "Collapse the ribbon"}
+      description={single ? "Show the full ribbon with every group." : "Show the ribbon's commands on a single line."}
+      shortcut={isMacPlatform ? "⌘F1" : "Ctrl+F1"}
+      className="ribbon-layout-toggle"
+      onClick={toggleRibbonLayout}
+    >
+      {single ? <ChevronDown strokeWidth={1.75} /> : <ChevronUp strokeWidth={1.75} />}
+    </RibbonButton>
+  )
+}
+
+/**
+ * When the window is too narrow for a tab's commands, arrows at the ribbon's edges scroll to the rest, as Word's
+ * ribbon does.
+ */
+function RibbonScrollButtons({
+  card,
+  tab,
+  layout,
+}: {
+  card: RefObject<HTMLDivElement | null>
+  tab: string
+  layout: RibbonLayout
+}) {
+  const [edges, setEdges] = useState({ left: false, right: false })
+  const toolbar = () => card.current?.querySelector<HTMLElement>('[role="toolbar"]') ?? null
+
+  useLayoutEffect(() => {
+    const bar = card.current?.querySelector<HTMLElement>('[role="toolbar"]')
+    if (!bar) {
+      setEdges({ left: false, right: false })
+      return
+    }
+    const update = () => {
+      const max = bar.scrollWidth - bar.clientWidth
+      const left = bar.scrollLeft > 1
+      const right = bar.scrollLeft < max - 1
+      setEdges((current) => (current.left === left && current.right === right ? current : { left, right }))
+    }
+    update()
+    // The tab's groups change width as they collapse or their content changes, as well as when the window does.
+    const resize = new ResizeObserver(update)
+    resize.observe(bar)
+    const watchGroups = () => [...bar.children].forEach((child) => resize.observe(child))
+    watchGroups()
+    const groups = new MutationObserver(() => {
+      watchGroups()
+      update()
+    })
+    groups.observe(bar, { childList: true })
+    bar.addEventListener("scroll", update, { passive: true })
+    return () => {
+      resize.disconnect()
+      groups.disconnect()
+      bar.removeEventListener("scroll", update)
+    }
+  }, [card, tab, layout])
+
+  const scroll = (direction: 1 | -1) => {
+    const bar = toolbar()
+    bar?.scrollBy({ left: direction * Math.max(120, bar.clientWidth * 0.75), behavior: "smooth" })
+  }
+
+  return (
+    <>
+      {edges.left ? (
+        <button
+          type="button"
+          className="ribbon-scroll is-left"
+          aria-label="Scroll the ribbon left"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => scroll(-1)}
+        >
+          <ChevronLeft className="size-4" strokeWidth={2} />
+        </button>
+      ) : null}
+      {edges.right ? (
+        <button
+          type="button"
+          className="ribbon-scroll is-right"
+          aria-label="Scroll the ribbon right"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => scroll(1)}
+        >
+          <ChevronRight className="size-4" strokeWidth={2} />
+        </button>
+      ) : null}
+    </>
+  )
+}
+
+/**
+ * Collapsing to the single line ribbon or expanding back eases the card's height from one layout to the other. The
+ * card clips its content, so the full ribbon unrolls downwards and the single line rolls it up. Height is laid
+ * out, not composited, so nothing is repainted when it ends.
+ */
+function useLayoutAnimation(card: RefObject<HTMLDivElement | null>, layout: string) {
+  const height = useRef(0)
+  const shown = useRef(layout)
+
+  useLayoutEffect(() => {
+    const element = card.current
+    if (!element) {
+      return
+    }
+    const from = height.current
+    const to = element.getBoundingClientRect().height
+    const changed = shown.current !== layout
+    shown.current = layout
+    height.current = to
+    if (
+      !changed ||
+      !from ||
+      Math.abs(from - to) < 2 ||
+      prefersReducedMotion() ||
+      typeof element.animate !== "function"
+    ) {
+      return
+    }
+    // A gentler curve than the menus' decelerate, which spends nearly all its motion in the first frames.
+    const animation = element.animate([{ height: `${from}px` }, { height: `${to}px` }], {
+      duration: 220,
+      easing: "cubic-bezier(0.33, 0, 0.1, 1)",
+    })
+    return () => animation.cancel()
+  }, [card, layout])
+
+  useEffect(() => {
+    const element = card.current
+    if (!element) {
+      return
+    }
+    // Remember the settled height, so the next layout change starts from what is on screen.
+    const observer = new ResizeObserver(() => {
+      if (!element.getAnimations().length) {
+        height.current = element.getBoundingClientRect().height
+      }
+    })
+    observer.observe(element)
+    height.current = element.getBoundingClientRect().height
+    return () => observer.disconnect()
+  }, [card])
+}
+
+export function Ribbon() {
+  const editor = useDocumentEditor()
+  const editingChrome = useViewStore((state) => state.editingChrome)
+  const ribbonLayout = useViewStore((state) => state.ribbonLayout)
+  const bodyContext =
+    useEditorState({
+      editor,
+      selector: ({ editor: current }) => ribbonContext(current),
+    }) ?? "none"
+  // While the header and footer are being edited, their tab is the one that shows, as in Word.
+  const context: RibbonContext = editingChrome ? "headerFooter" : bodyContext
+  const [tab, setTab] = useState("home")
+  const cardRef = useRef<HTMLDivElement>(null)
+  useLayoutAnimation(cardRef, ribbonLayout)
+  const tabMotion = useTabMotion()
+  const hiddenTabs = useCustomize((state) => state.hiddenTabs)
+
+  useEffect(() => {
+    // A tab the user hid in Customize Ribbon cannot stay the open one.
+    setTab((current) => (hiddenTabs.includes(current) ? "home" : current))
+  }, [hiddenTabs])
+
+  useEffect(() => {
+    setTab((current) => {
+      // Ink: selecting a drawing canvas opens the Draw tools tab; so does editing the header and footer its tab.
+      if (context === "draw" || context === "headerFooter") {
+        return CONTEXT_TAB[context].id
+      }
+      if (!current.startsWith("ctx-")) {
+        return current
+      }
+      if (context === "table" && (current === "ctx-table-design" || current === "ctx-table-layout")) {
+        return current
+      }
+      if (context === "chart" && (current === "ctx-chart" || current === "ctx-chart-format")) {
+        return current
+      }
+      if (context !== "none" && current === CONTEXT_TAB[context].id) {
+        return current
+      }
+      return "home"
+    })
+  }, [context])
+
+  return (
+    <div className="app-ribbon-shell relative z-40 shrink-0 bg-[var(--app-workspace)]">
+      <Tabs
+        value={tab}
+        onValueChange={(value) => {
+          tabMotion.start()
+          setTab(String(value))
+        }}
+        className="app-ribbon relative gap-0 border-0 bg-transparent shadow-none"
+        onMouseDownCapture={() => {
+          if (editor) {
+            rememberSelection(editor)
+          }
+        }}
+      >
+        <div className="relative flex items-end gap-2 bg-transparent px-3">
+          <FileMenu className="ribbon-file-tab mb-px inline-flex h-8 items-center rounded-none px-3 text-[13px] font-semibold text-[var(--app-theme-primary)] hover:bg-[var(--app-hover)] data-popup-open:bg-[var(--app-hover)]" />
+          <TabsList variant="line" className="h-8 flex-1 items-end justify-start gap-0 bg-transparent p-0">
+            <TabsTrigger value="home" className={ribbonTabClassName}>
+              Home
+            </TabsTrigger>
+            {HIDEABLE_TABS.filter((item) => !hiddenTabs.includes(item.id)).map((item) => (
+              <TabsTrigger key={item.id} value={item.id} className={ribbonTabClassName}>
+                {item.label}
+              </TabsTrigger>
+            ))}
+            {context === "table" ? (
+              <>
+                <TabsTrigger value="ctx-table-design" className={contextTabClassName}>
+                  Table Design
+                </TabsTrigger>
+                <TabsTrigger value="ctx-table-layout" className={contextTabClassName}>
+                  Table Layout
+                </TabsTrigger>
+              </>
+            ) : null}
+            {context === "chart" ? (
+              <>
+                <TabsTrigger value="ctx-chart" className={contextTabClassName}>
+                  Chart Design
+                </TabsTrigger>
+                <TabsTrigger value="ctx-chart-format" className={contextTabClassName}>
+                  Format
+                </TabsTrigger>
+              </>
+            ) : null}
+            {context !== "none" && context !== "table" && context !== "chart" ? (
+              <TabsTrigger value={CONTEXT_TAB[context].id} className={contextTabClassName}>
+                {CONTEXT_TAB[context].label}
+              </TabsTrigger>
+            ) : null}
+          </TabsList>
+          <div className="mb-0.5 flex shrink-0 items-center">
+            <ColorModeToggle />
+          </div>
+        </div>
+        <div
+          ref={cardRef}
+          data-ribbon-layout={ribbonLayout}
+          data-tab-motion={tabMotion.moving ? "on" : undefined}
+          className="ribbon-card relative mx-3 mb-1.5 overflow-hidden rounded-[8px] border border-[var(--app-ribbon-border)] bg-[var(--app-ribbon-card)] shadow-[var(--app-ribbon-shadow)]"
+        >
+          {tab === "home" && (
+            <TabsContent value="home">
+              <HomeTab />
+            </TabsContent>
+          )}
+          {tab === "insert" && (
+            <TabsContent value="insert">
+              <InsertTab />
+            </TabsContent>
+          )}
+          {tab === "design" && (
+            <TabsContent value="design">
+              <DesignTab />
+            </TabsContent>
+          )}
+          {tab === "layout" && (
+            <TabsContent value="layout">
+              <LayoutTab />
+            </TabsContent>
+          )}
+          {tab === "references" && (
+            <TabsContent value="references">
+              <ReferencesTab />
+            </TabsContent>
+          )}
+          {tab === "mailings" && (
+            <TabsContent value="mailings">
+              <MailingsTab />
+            </TabsContent>
+          )}
+          {tab === "review" && (
+            <TabsContent value="review">
+              <ReviewTab />
+            </TabsContent>
+          )}
+          {tab === "view" && (
+            <TabsContent value="view">
+              <ViewTab />
+            </TabsContent>
+          )}
+          {tab === "help" && (
+            <TabsContent value="help">
+              <HelpTab />
+            </TabsContent>
+          )}
+          {tab === "ai" && (
+            <TabsContent value="ai">
+              <AiTab />
+            </TabsContent>
+          )}
+          {tab === "ctx-table-design" && (
+            <TabsContent value="ctx-table-design">
+              <TableDesignTab />
+            </TabsContent>
+          )}
+          {tab === "ctx-table-layout" && (
+            <TabsContent value="ctx-table-layout">
+              <TableLayoutTab />
+            </TabsContent>
+          )}
+          {tab === "ctx-smartart" && (
+            <TabsContent value="ctx-smartart">
+              <SmartArtDesignTab />
+            </TabsContent>
+          )}
+          {tab === "ctx-picture" && (
+            <TabsContent value="ctx-picture">
+              <PictureFormatTab />
+            </TabsContent>
+          )}
+          {tab === "ctx-shape" && (
+            <TabsContent value="ctx-shape">
+              <ShapeFormatTab />
+            </TabsContent>
+          )}
+          {tab === "ctx-chart" && (
+            <TabsContent value="ctx-chart">
+              <ChartDesignTab />
+            </TabsContent>
+          )}
+          {tab === "ctx-chart-format" && (
+            <TabsContent value="ctx-chart-format">
+              <ChartFormatTab />
+            </TabsContent>
+          )}
+          {tab === "ctx-model" && (
+            <TabsContent value="ctx-model">
+              <ModelTab />
+            </TabsContent>
+          )}
+          {tab === "ctx-equation" && (
+            <TabsContent value="ctx-equation">
+              <EquationTab />
+            </TabsContent>
+          )}
+          {tab === "ctx-header-footer" && (
+            <TabsContent value="ctx-header-footer">
+              <HeaderFooterTab />
+            </TabsContent>
+          )}
+          {tab === "ctx-draw" && (
+            <TabsContent value="ctx-draw">
+              <DrawTab />
+            </TabsContent>
+          )}
+          <RibbonScrollButtons card={cardRef} tab={tab} layout={ribbonLayout} />
+          <RibbonLayoutToggle />
+        </div>
+        <DesignDialogs />
+      </Tabs>
+    </div>
+  )
+}

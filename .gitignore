@@ -1,0 +1,44 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+*.tsbuildinfo
+src-tauri/target
+tmp/
+PAGINATION_PROFILE.live.json
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# .NET build output
+tools/docx-validate/bin/
+tools/docx-validate/obj/
+
+# Pandoc/Typst temp output
+src-tauri/toPdfViaTempFile*
+
+# Kept on this computer only: reference screenshots, working notes and docs, check tooling, editor rules, test documents.
+/screenshots/
+/docs/
+/tools/
+/scripts/
+/.cursor/
+/123.docx
+/DOCX_ROUNDTRIP.md

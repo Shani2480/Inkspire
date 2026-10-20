@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-generate-ai-text"
+description = "Enables the generate_ai_text command without any pre-configured scope."
+commands.allow = ["generate_ai_text"]
+
+[[permission]]
+identifier = "deny-generate-ai-text"
+description = "Denies the generate_ai_text command without any pre-configured scope."
+commands.deny = ["generate_ai_text"]

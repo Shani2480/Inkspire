@@ -1,0 +1,16 @@
+dist
+node_modules
+src-tauri/target
+src-tauri/gen
+screenshots
+public
+*.tsbuildinfo
+package-lock.json
+*.txt
+*.woff2
+tmp
+tests/docx-fixtures
+docs/docx
+tools/docx-validate/bin
+tools/docx-validate/obj
+.cursor

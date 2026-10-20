@@ -1,0 +1,77 @@
+import { describe, expect, it } from "vitest"
+import { emptyChrome } from "@/document/header"
+import { openDocxBytes, saveDocxBytes } from "@/document/docx/io"
+import { findPart, openPackage } from "@/document/docx/opc"
+import { decodeXml } from "@/document/docx/xml"
+
+async function save(attrs: Record<string, unknown>) {
+  const saved = await saveDocxBytes({
+    json: { type: "doc", content: [{ type: "paragraph", attrs, content: [{ type: "text", text: "x" }] }] },
+    chrome: emptyChrome(),
+    word: null,
+    unchanged: false,
+    fileName: "t.docx",
+  })
+  const pkg = await openPackage(saved.bytes, "t.docx")
+  return { bytes: saved.bytes, xml: decodeXml(findPart(pkg, pkg.mainPartName)!.data) }
+}
+
+describe("paragraph borders and fill in .docx (21.30)", () => {
+  it("writes a bottom border as w:pBdr before the shading and the spacing, and opens it again", async () => {
+    const { bytes, xml } = await save({ border: "bottom", shading: "#ffeb9c", spaceAfter: 6 })
+    const pPr = /<w:pPr>.*?<\/w:pPr>/.exec(xml)?.[0] ?? ""
+    expect(pPr).toContain('<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="1C1C1C"/></w:pBdr>')
+    expect(pPr).toContain('<w:shd w:val="clear" w:color="auto" w:fill="FFEB9C"/>')
+    expect(pPr.indexOf("<w:pBdr>")).toBeLessThan(pPr.indexOf("<w:shd "))
+    expect(pPr.indexOf("<w:shd ")).toBeLessThan(pPr.indexOf("<w:spacing "))
+    const { view } = await openDocxBytes(bytes, "t.docx")
+    expect(view.html).toContain('data-border="bottom"')
+    expect(view.html).toContain("background-color: #ffeb9c")
+  })
+
+  it("writes all four sides, or a comma list, and nothing for a plain paragraph", async () => {
+    const all = await save({ border: "all" })
+    expect(["top", "left", "bottom", "right"].every((side) => all.xml.includes(`<w:${side} w:val="single"`))).toBe(true)
+    const two = await save({ border: "top,bottom" })
+    expect(two.xml).toContain("<w:top ")
+    expect(two.xml).not.toContain("<w:left ")
+    const plain = await save({})
+    expect(plain.xml).not.toContain("<w:pBdr")
+    expect(plain.xml).not.toContain("<w:shd")
+  })
+
+  it("accepts the browser's rgb() form of a fill", async () => {
+    const { xml } = await save({ shading: "rgb(255, 235, 156)" })
+    expect(xml).toContain('w:fill="FFEB9C"')
+  })
+
+  it("writes the formatting exceptions in schema order, and opens them again (22.8)", async () => {
+    const { bytes, xml } = await save({
+      suppressLineNumbers: true,
+      dontHyphenate: true,
+      mirrorIndents: true,
+      tightWrap: "firstLineOnly",
+      keepNext: true,
+      shading: "#ffeb9c",
+      textAlign: "center",
+    })
+    const pPr = /<w:pPr>.*?<\/w:pPr>/.exec(xml)?.[0] ?? ""
+    const order = ["keepNext", "suppressLineNumbers", "shd", "suppressAutoHyphens", "mirrorIndents", "jc", "textboxTightWrap"].map(
+      (name) => pPr.indexOf(`<w:${name}`),
+    )
+    expect(order.every((at) => at >= 0)).toBe(true)
+    expect([...order].sort((a, b) => a - b)).toEqual(order)
+    expect(pPr).toContain('<w:textboxTightWrap w:val="firstLineOnly"/>')
+    const { view } = await openDocxBytes(bytes, "t.docx")
+    for (const token of ['data-suppress-lines="1"', 'data-no-hyphen="1"', 'data-mirror="1"', 'data-tight-wrap="firstLineOnly"']) {
+      expect(view.html).toContain(token)
+    }
+  })
+
+  it("writes none of them for a plain paragraph", async () => {
+    const { xml } = await save({ tightWrap: "none" })
+    for (const name of ["suppressLineNumbers", "suppressAutoHyphens", "mirrorIndents", "textboxTightWrap"]) {
+      expect(xml).not.toContain(`<w:${name}`)
+    }
+  })
+})

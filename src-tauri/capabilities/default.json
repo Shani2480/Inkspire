@@ -1,0 +1,60 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Capability for the document windows",
+  "windows": ["main", "doc-*"],
+  "permissions": [
+    "core:default",
+    "core:window:allow-close",
+    "core:window:allow-destroy",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-start-dragging",
+    "core:window:allow-is-maximized",
+    "core:window:allow-set-title",
+    "core:window:allow-set-focus",
+    "core:window:allow-unminimize",
+    "allow-open-window",
+    "allow-rename-document",
+    "allow-import-document",
+    "allow-export-document",
+    "allow-read-document",
+    "allow-write-document",
+    "allow-generate-ai-text",
+    "allow-cancel-ai-text",
+    "allow-ai-key-status",
+    "allow-save-ai-key",
+    "allow-test-ai-connection",
+    "allow-local-ai-status",
+    "allow-tools-status",
+    "allow-tools-install",
+    "allow-tools-cancel-install",
+    "allow-tools-remove",
+    "allow-local-ai-install",
+    "allow-local-ai-cancel-install",
+    "allow-local-ai-remove",
+    "allow-list-system-fonts",
+    "dialog:default",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [{ "url": "https://github.com/Shani2480/AiWord/*" }, { "url": "mailto:*" }]
+    },
+    "fs:allow-read-text-file",
+    "fs:allow-write-text-file",
+    "fs:allow-mkdir",
+    "fs:allow-exists",
+    "fs:allow-stat",
+    "fs:allow-remove",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        { "path": "$APPCONFIG" },
+        { "path": "$APPCONFIG/**" },
+        { "path": "$APPDATA" },
+        { "path": "$APPDATA/**" },
+        { "path": "$APPLOCALDATA" },
+        { "path": "$APPLOCALDATA/**" }
+      ]
+    }
+  ]
+}
