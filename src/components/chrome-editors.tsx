@@ -12,6 +12,22 @@ import { objectLeft, objectTop } from "@/editor/objects"
 /** The schema and behaviour of the body, without the checks that only make sense over a whole document. */
 const chromeExtensions = [...createExtensions().filter((extension) => extension.name !== "spellcheck"), ChromeFlow]
 
+/**
+ * What the editor drew, without what only the person editing sees: a selected picture's frame and its resize and rotate
+ * handles. The copy shown on a page that is not being edited must not carry them, or a selection left behind keeps its
+ * handles on screen and turns the header zone off (see `.page-canvas:has(.ProseMirror-selectednode …)`).
+ */
+export function drawnMarkup(dom: HTMLElement) {
+  const copy = dom.cloneNode(true) as HTMLElement
+  copy
+    .querySelectorAll(".ProseMirror-selectednode")
+    .forEach((node) => node.classList.remove("ProseMirror-selectednode"))
+  copy
+    .querySelectorAll("[data-rotate], [data-resize], [data-crop-edge], .image-resize, .object-rotate, .object-handle")
+    .forEach((handle) => handle.remove())
+  return copy.innerHTML
+}
+
 export type ChromePart = {
   editor: Editor | null
   /** What the part looks like when it is not being edited: the editor's own markup, so a picture sits where it was put. */
@@ -53,7 +69,12 @@ export function useChromePart(html: string, setHtml: (html: string) => void, lab
     let frame = 0
     const capture = () => {
       window.cancelAnimationFrame(frame)
-      frame = window.requestAnimationFrame(() => setSnapshot(editor.view.dom.innerHTML))
+      frame = window.requestAnimationFrame(() => {
+        // Once the editor is taken off the page (the header is closed) its markup is no longer what was drawn.
+        if (editor.view.dom.isConnected) {
+          setSnapshot(drawnMarkup(editor.view.dom))
+        }
+      })
     }
     capture()
     editor.on("transaction", capture)
