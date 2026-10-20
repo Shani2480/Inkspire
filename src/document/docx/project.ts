@@ -1,7 +1,7 @@
 import { BUILT_IN_STYLES, catalogWithStyles, wordIdForNamedStyle, type StyleDef } from "@/document/styles"
 import type { DocumentChrome } from "@/document/header"
 import { emptyChrome } from "@/document/header"
-import { chromeHasContent } from "@/document/chrome-html"
+import { chromeHasContent, chromeHasPageField } from "@/document/chrome-html"
 import { chromeJson } from "@/document/chrome-json"
 import { bordersOf, shadingOf } from "@/document/docx/cell-edits"
 import { cellCss, tableLookTokens, tableVariables, themeFontsOf } from "@/document/docx/word-styles"
@@ -594,6 +594,8 @@ function chromeFromDocument(doc: WordDocument): DocumentChrome {
   if (doc.settings.evenAndOddHeaders) {
     setup.differentOddEven = true
   }
+  // A page number in a Word document is a field in its header or footer, which is shown there.
+  setup.pageNumber = "none"
   const references = section?.references ?? []
   return {
     ...emptyChrome(),
@@ -789,61 +791,12 @@ function storyLinks(story: HeaderFooterRef | undefined, media: MediaPart[]): Hea
   return relationships.length > 0 || parts.length > 0 ? { relationships, parts } : undefined
 }
 
-/**
- * The page number is shown by the page, not by the header's markup: a PAGE field is left out of what the editor
- * shows, and put back where it was when the part is saved.
- */
-function withoutPageFields(blocks: Block[]): Block[] {
-  return blocks.map((block) =>
-    block.kind === "paragraph" ? { ...block, inlines: inlinesWithoutPageFields(block.inlines) } : block,
-  )
-}
-
-function inlinesWithoutPageFields(inlines: Inline[]): Inline[] {
-  const kept: Inline[] = []
-  let depth = 0
-  let instruction = ""
-  let start = 0
-  for (const inline of inlines) {
-    if (inline.kind === "simpleField" && /\bPAGE\b/.test(inline.instr)) {
-      continue
-    }
-    if (inline.kind !== "run") {
-      kept.push(inline)
-      continue
-    }
-    let closes = false
-    for (const content of inline.content) {
-      if (content.kind === "fldChar" && content.fieldType === "begin") {
-        if (depth === 0) {
-          start = kept.length
-          instruction = ""
-        }
-        depth += 1
-      } else if (content.kind === "fldChar" && content.fieldType === "end" && depth > 0) {
-        depth -= 1
-        closes = closes || depth === 0
-      } else if (content.kind === "instrText" && depth === 1) {
-        instruction += content.text
-      }
-    }
-    if (closes && /\bPAGE\b/.test(instruction)) {
-      // Everything from the field's first run to this one, which closes it.
-      kept.splice(start)
-      continue
-    }
-    kept.push(inline)
-  }
-  return kept
-}
-
 /** What the editor shows for a header or footer part: its HTML, empty when there is nothing to see. */
 function storyHtml(doc: WordDocument, story: HeaderFooterRef | undefined) {
   if (!story) {
     return ""
   }
-  const shown = { ...story, blocks: withoutPageFields(story.blocks) }
-  const html = blocksToHtml(shown.blocks, projectionFor(storyDocument(doc, shown)))
+  const html = blocksToHtml(story.blocks, projectionFor(storyDocument(doc, story)))
   return chromeHasContent(html) ? html : ""
 }
 
@@ -921,8 +874,8 @@ function storiesFromChrome(
     const current = stories.find((story) => story.kind === kind && story.type === type)
     const original = existing.find((story) => story.kind === kind && story.type === type)
     const projected = source ? storyHtml(source, original) : ""
-    const page = pageFieldFor(kind, type, chrome, current, synthesizePageNumber)
-    if (current && html === projected && storyHasPageField(current) === page) {
+    const page = pageFieldFor(kind, type, chrome, html, current, synthesizePageNumber)
+    if (current && html === projected) {
       return
     }
     const rebuilt = storyBlocks(html, original, source, shared, page)
@@ -946,51 +899,24 @@ function storiesFromChrome(
   return stories
 }
 
+/**
+ * Whether a part is given a page number the editor did not draw into it: a new document's footer with the page
+ * number set for the bottom of the page. A part with a page number field of its own, or one opened from a file, has it.
+ */
 function pageFieldFor(
   kind: "header" | "footer",
   type: HeaderFooterType,
   chrome: DocumentChrome,
+  html: string,
   current: HeaderFooterRef | undefined,
   synthesizePageNumber: boolean,
 ) {
   const place = chrome.pageSetup.pageNumber
   const wanted = place !== "none" && (kind === "footer" ? place.startsWith("bottom") : place.startsWith("top"))
-  if (!wanted || (type !== "default" && type !== "first")) {
+  if (!wanted || current || !synthesizePageNumber || (type !== "default" && type !== "first")) {
     return false
   }
-  if (current) {
-    return storyHasPageField(current)
-  }
-  return synthesizePageNumber
-}
-
-function storyHasPageField(story: HeaderFooterRef) {
-  return story.blocks.some((block) => block.kind === "paragraph" && inlinesHavePageField(block.inlines))
-}
-
-function inlinesHavePageField(inlines: Inline[]): boolean {
-  for (const inline of inlines) {
-    if (inline.kind === "simpleField" && /\bPAGE\b/.test(inline.instr)) {
-      return true
-    }
-    if (
-      inline.kind === "hyperlink" ||
-      inline.kind === "ins" ||
-      inline.kind === "del" ||
-      inline.kind === "simpleField"
-    ) {
-      if (inlinesHavePageField(inline.inlines)) {
-        return true
-      }
-    }
-    if (
-      inline.kind === "run" &&
-      inline.content.some((content) => content.kind === "instrText" && /\bPAGE\b/.test(content.text))
-    ) {
-      return true
-    }
-  }
-  return false
+  return !chromeHasPageField(html)
 }
 
 function storyParagraph(line: string, page: boolean): Paragraph {

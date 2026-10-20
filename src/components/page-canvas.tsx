@@ -10,6 +10,7 @@ import { TableHandles } from "@/components/table-handles"
 import { pageGridCell, pageGridColumns, pageGridRows } from "@/document/page-grid"
 import { paintDesignVars } from "@/document/design-format"
 import { ChromeBox, useChromePart } from "@/components/chrome-editors"
+import { chromeHasPageField } from "@/document/chrome-html"
 import { useActiveChromeEditor } from "@/document/chrome-editing"
 import { chromeText } from "@/document/chrome-html"
 import { applyPageChrome, pageMetrics } from "@/document/page-setup"
@@ -406,6 +407,8 @@ export function PageCanvas() {
                 html={index === 0 && differentFirstPage ? firstHeaderHtml : headerHtml}
                 live={editingChrome && chromeTarget.part === "header" && chromeTarget.page === index}
                 placeholder={index === 0 && differentFirstPage ? "First page header" : "Header"}
+                page={index + 1}
+                pages={pageCount}
                 focus
               />
               <ChromeBox
@@ -414,9 +417,20 @@ export function PageCanvas() {
                 html={index === 0 && differentFirstPage ? firstFooterHtml : footerHtml}
                 live={editingChrome && chromeTarget.part === "footer" && chromeTarget.page === index}
                 placeholder={index === 0 && differentFirstPage ? "First page footer" : "Footer"}
+                page={index + 1}
+                pages={pageCount}
                 focus
               />
-              <div className="page-number" data-place={pageSetup.pageNumber}>
+              {/* A page number written into the header or footer is the page's number; this one is for when there is none. */}
+              <div
+                className="page-number"
+                data-place={
+                  chromeHasPageField(index === 0 && differentFirstPage ? firstHeaderHtml : headerHtml) ||
+                  chromeHasPageField(index === 0 && differentFirstPage ? firstFooterHtml : footerHtml)
+                    ? "none"
+                    : pageSetup.pageNumber
+                }
+              >
                 {index + 1}
               </div>
               {pageSetup.watermark ? (

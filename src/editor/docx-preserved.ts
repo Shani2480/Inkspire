@@ -33,7 +33,16 @@ export const WordInline = Node.create({
   selectable: true,
 
   addAttributes() {
-    return preservedAttributes()
+    return {
+      ...preservedAttributes(),
+      /** A PAGE or NUMPAGES field: a header or footer shows the number of the page it is drawn on. */
+      pageField: {
+        default: "",
+        parseHTML: (element: HTMLElement) => element.getAttribute("data-page-field") ?? "",
+        renderHTML: (attributes: { pageField?: string }) =>
+          attributes.pageField ? { "data-page-field": attributes.pageField } : {},
+      },
+    }
   },
 
   parseHTML() {

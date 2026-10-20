@@ -17,6 +17,7 @@ import { shapeMarkup } from "@/editor/insert-blocks"
 import { hasPictureFormat } from "@/editor/picture-format"
 import { fontOf, fontStack, themeFontsOf, type ThemeFonts } from "@/document/docx/word-styles"
 import { chartSpecOf, renderChart, serializeChartSpec, variantOf, type ChartSpec } from "@/editor/chart-spec"
+import { dateFormat, formatDate } from "@/editor/formula"
 import {
   INKSPIRE_OBJECT_NS,
   paragraphsIn,
@@ -658,7 +659,17 @@ function atomHtml(role: string, payload: unknown, text: string) {
     `data-payload="${escapeHtml(JSON.stringify(payload))}"`,
     `data-text="${escapeHtml(text)}"`,
   ]
+  const page = role === "field" ? pageFieldOf(payload) : ""
+  if (page) {
+    attrs.push(`data-page-field="${page}"`)
+  }
   return `<${tag} ${attrs.join(" ")}>${escapeHtml(text)}</${tag}>`
+}
+
+/** `page` or `pages` for a PAGE or NUMPAGES field (simple or complex), else nothing. */
+function pageFieldOf(payload: unknown) {
+  const match = /"(?:instr|text)":"\s*(NUMPAGES|PAGE)\b/.exec(JSON.stringify(payload))
+  return match ? (match[1] === "PAGE" ? "page" : "pages") : ""
 }
 
 /** A block content control or display equation, kept whole. */
@@ -1097,6 +1108,9 @@ export type InlineBuild = {
   preserved?: PreservedPackage
 }
 
+/** Word's date pictures for the automatic date and time the editor offers. */
+const DATE_PICTURES = { date: "M/d/yyyy", time: "h:mm am/pm", datetime: "M/d/yyyy h:mm am/pm" } as const
+
 export function inlinesFromEditor(nodes: JsonNode[], build: InlineBuild): Inline[] {
   const pieces: Piece[] = []
   for (const node of nodes) {
@@ -1117,6 +1131,19 @@ export function inlinesFromEditor(nodes: JsonNode[], build: InlineBuild): Inline
       if (run) {
         pieces.push({ inline: run, ...annotations })
       }
+      continue
+    }
+    if (node.type === "dateField") {
+      // An automatic date goes back as Word's DATE field, with the date it shows as its result.
+      const format = dateFormat(node.attrs?.format)
+      pieces.push({
+        inline: {
+          kind: "simpleField",
+          instr: ` DATE \\@ "${DATE_PICTURES[format]}" `,
+          inlines: [textRun(formatDate(format), marks, annotations.revision, build)],
+        },
+        ...annotations,
+      })
       continue
     }
     if (node.type === "wordInline") {

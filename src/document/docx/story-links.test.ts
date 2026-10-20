@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs"
 import path from "node:path"
 import { Editor } from "@tiptap/core"
 import { afterEach, describe, expect, it } from "vitest"
-import { chromeText } from "@/document/chrome-html"
+import { chromeText, pageFieldHtml } from "@/document/chrome-html"
 import { openDocxBytes, saveDocxBytes } from "@/document/docx/io"
 import { findPart, openPackage, relationshipsFor, writePackage } from "@/document/docx/opc"
 import { decodeXml } from "@/document/docx/xml"
@@ -179,6 +179,21 @@ describe("headers and footers keep their own relationships", () => {
     expect(offsets[1]).toBeCloseTo(-180000, -5)
   })
 
+  it("saves page number, page count and date fields as Word's fields, and shows them again as fields", async () => {
+    const { bytes, footer } = await headerWithLogo()
+    const date = '<span data-date-field data-date-format="date" class="date-field">1/1/2026</span>'
+    const saved = await editAndSave(bytes, (chrome) => {
+      chrome.footer = `<p>Page ${pageFieldHtml("page")} of ${pageFieldHtml("pages")} on ${date}</p>`
+    })
+    const xml = decodeXml(findPart(saved, footer)!.data)
+    expect(xml).toMatch(/<w:fldSimple[^>]*w:instr=" PAGE "/)
+    expect(xml).toMatch(/<w:fldSimple[^>]*w:instr=" NUMPAGES "/)
+    expect(xml).toMatch(/<w:fldSimple[^>]*w:instr=" DATE \\@ &quot;M\/d\/yyyy&quot; "/)
+    const again = await openDocxBytes(await writePackage(saved), "story.docx")
+    expect(again.view.chrome.footer).toContain('data-page-field="page"')
+    expect(again.view.chrome.footer).toContain('data-page-field="pages"')
+  })
+
   it("saves a picture added to a header as a picture of that header part", async () => {
     const { bytes, header, footer } = await headerWithLogo()
     const added = `<p>Footer</p><img src="data:image/png;base64,${btoa(String.fromCharCode(...PNG))}" width="40" height="20">`
@@ -194,11 +209,13 @@ describe("headers and footers keep their own relationships", () => {
     expect(relationshipsFor(saved, header).some((item) => item.type === IMAGE_REL)).toBe(true)
   })
 
-  it("keeps the page number field of a footer when its text is edited", async () => {
+  it("shows the page number field of a footer and keeps it when its text is edited", async () => {
     const { bytes, footer } = await headerWithLogo()
     const opened = await openDocxBytes(bytes, "story.docx")
-    expect(chromeText(opened.view.chrome.footer)).toBe("example.comPage")
-    expect(opened.view.chrome.footer).not.toContain('data-role="field"')
+    // The number is a field in the footer, drawn as the number of the page it is on.
+    expect(chromeText(opened.view.chrome.footer)).toBe("example.comPage 1")
+    expect(opened.view.chrome.footer).toContain('data-page-field="page"')
+    expect(opened.view.chrome.pageSetup.pageNumber).toBe("none")
     const saved = await editAndSave(bytes, (chrome) => {
       chrome.footer = chrome.footer.replace(">example.com<", ">Sheet<")
     })
