@@ -194,6 +194,20 @@ describe("headers and footers keep their own relationships", () => {
     expect(again.view.chrome.footer).toContain('data-page-field="pages"')
   })
 
+  it("saves the header and footer of even pages as their own parts and reads them back", async () => {
+    const { bytes } = await headerWithLogo()
+    const saved = await editAndSave(bytes, (chrome) => {
+      chrome.pageSetup.differentOddEven = true
+      chrome.evenHeader = "<p>Even header</p>"
+      chrome.evenFooter = "<p>Even footer</p>"
+    })
+    const again = await openDocxBytes(await writePackage(saved), "story.docx")
+    expect(again.view.chrome.pageSetup.differentOddEven).toBe(true)
+    expect(chromeText(again.view.chrome.evenHeader)).toBe("Even header")
+    expect(chromeText(again.view.chrome.evenFooter)).toBe("Even footer")
+    expect(chromeText(again.view.chrome.header)).toContain("HEADER-TEXT")
+  })
+
   it("saves a picture added to a header as a picture of that header part", async () => {
     const { bytes, header, footer } = await headerWithLogo()
     const added = `<p>Footer</p><img src="data:image/png;base64,${btoa(String.fromCharCode(...PNG))}" width="40" height="20">`

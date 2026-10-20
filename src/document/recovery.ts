@@ -259,7 +259,9 @@ function buildSnapshotRecord(id: string): SnapshotRecord | null {
       footer: state.footerHtml,
       differentFirstPage: state.differentFirstPage,
       firstHeader: state.firstHeaderHtml,
+      evenHeader: state.evenHeaderHtml,
       firstFooter: state.firstFooterHtml,
+      evenFooter: state.evenFooterHtml,
       pageSetup: state.pageSetup,
     })
   const editor = getDocumentEditor()

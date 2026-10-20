@@ -1824,6 +1824,13 @@ export function HeaderFooterTab() {
         active: differentFirstPage,
         onClick: () => setDifferentFirstPage(!differentFirstPage),
       },
+      {
+        id: "odd-even",
+        label: "Different Odd & Even Pages",
+        icon: <LineFirstPageIcon />,
+        active: setup.differentOddEven,
+        onClick: () => setPageSetup({ ...setup, differentOddEven: !setup.differentOddEven }),
+      },
     ]
     const close: LineCommand[] = [
       { id: "close", label: "Close Header and Footer", icon: <LineCloseIcon />, priority: 3, onClick: closeChrome },
@@ -1886,6 +1893,16 @@ export function HeaderFooterTab() {
                 onChange={(event) => setDifferentFirstPage(event.target.checked)}
               />
               Different First Page
+            </label>
+          </RibbonHover>
+          <RibbonHover label="Different Odd & Even Pages">
+            <label className="ribbon-check">
+              <input
+                type="checkbox"
+                checked={setup.differentOddEven}
+                onChange={(event) => setPageSetup({ ...setup, differentOddEven: event.target.checked })}
+              />
+              Different Odd &amp; Even Pages
             </label>
           </RibbonHover>
         </div>

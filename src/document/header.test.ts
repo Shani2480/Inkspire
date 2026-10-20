@@ -10,8 +10,11 @@ describe("document chrome pack/unpack", () => {
       differentFirstPage: true,
       firstHeader: "<p>First header</p>",
       firstFooter: "<p>First footer</p>",
+      evenHeader: "<p>Even header</p>",
+      evenFooter: "<p>Even footer</p>",
       pageSetup: {
         ...DEFAULT_PAGE_SETUP,
+        differentOddEven: true,
         paper: "a4",
         orientation: "landscape",
         marginTop: 20,
@@ -42,6 +45,8 @@ describe("document chrome pack/unpack", () => {
     expect(unpacked.differentFirstPage).toBe(true)
     expect(unpacked.firstHeader).toBe(chrome.firstHeader)
     expect(unpacked.firstFooter).toBe(chrome.firstFooter)
+    expect(unpacked.evenHeader).toBe(chrome.evenHeader)
+    expect(unpacked.evenFooter).toBe(chrome.evenFooter)
     expect(unpacked.pageSetup).toEqual(chrome.pageSetup)
   })
 

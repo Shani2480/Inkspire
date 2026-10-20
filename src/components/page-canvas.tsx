@@ -64,11 +64,17 @@ export function PageCanvas() {
   const setFooter = useDocumentStore((state) => state.setFooter)
   const setFirstHeader = useDocumentStore((state) => state.setFirstHeader)
   const setFirstFooter = useDocumentStore((state) => state.setFirstFooter)
+  const evenHeaderHtml = useDocumentStore((state) => state.evenHeaderHtml)
+  const evenFooterHtml = useDocumentStore((state) => state.evenFooterHtml)
+  const setEvenHeader = useDocumentStore((state) => state.setEvenHeader)
+  const setEvenFooter = useDocumentStore((state) => state.setEvenFooter)
   const setDifferentFirstPage = useDocumentStore((state) => state.setDifferentFirstPage)
   const headerPart = useChromePart(headerHtml, setHeader, "Header")
   const footerPart = useChromePart(footerHtml, setFooter, "Footer")
   const firstHeaderPart = useChromePart(firstHeaderHtml, setFirstHeader, "First page header")
   const firstFooterPart = useChromePart(firstFooterHtml, setFirstFooter, "First page footer")
+  const evenHeaderPart = useChromePart(evenHeaderHtml, setEvenHeader, "Even page header")
+  const evenFooterPart = useChromePart(evenFooterHtml, setEvenFooter, "Even page footer")
   const chromeTarget = useViewStore((state) => state.chromeTarget)
   const activeChrome = useActiveChromeEditor((state) => state.editor)
   const editChromeAt = useViewStore((state) => state.editChrome)
@@ -310,8 +316,22 @@ export function PageCanvas() {
     return () => window.removeEventListener("keydown", onKey)
   }, [editingChrome, editor, setEditingChrome])
 
-  const chromeLabel = (index: number, part: "Header" | "Footer") =>
-    index === 0 && differentFirstPage ? `First Page ${part}` : part
+  /** Which header and footer a page shows: the first page's, the even pages', or the ones every page shares. */
+  const chromeKind = (index: number) =>
+    index === 0 && differentFirstPage ? "first" : pageSetup.differentOddEven && index % 2 === 1 ? "even" : "default"
+  const chromeLabel = (index: number, part: "Header" | "Footer") => {
+    const kind = chromeKind(index)
+    return kind === "first" ? `First Page ${part}` : kind === "even" ? `Even Page ${part}` : part
+  }
+  const chromeFor = (index: number, part: "header" | "footer") => {
+    const kind = chromeKind(index)
+    const header = part === "header"
+    return kind === "first"
+      ? { part: header ? firstHeaderPart : firstFooterPart, html: header ? firstHeaderHtml : firstFooterHtml }
+      : kind === "even"
+        ? { part: header ? evenHeaderPart : evenFooterPart, html: header ? evenHeaderHtml : evenFooterHtml }
+        : { part: header ? headerPart : footerPart, html: header ? headerHtml : footerHtml }
+  }
 
   return (
     <div className="page-stage relative mx-auto mt-10" style={{ width: pageWidth }}>
@@ -403,20 +423,18 @@ export function PageCanvas() {
               ) : null}
               <ChromeBox
                 kind="header"
-                part={index === 0 && differentFirstPage ? firstHeaderPart : headerPart}
-                html={index === 0 && differentFirstPage ? firstHeaderHtml : headerHtml}
+                {...chromeFor(index, "header")}
                 live={editingChrome && chromeTarget.part === "header" && chromeTarget.page === index}
-                placeholder={index === 0 && differentFirstPage ? "First page header" : "Header"}
+                placeholder={chromeLabel(index, "Header")}
                 page={index + 1}
                 pages={pageCount}
                 focus
               />
               <ChromeBox
                 kind="footer"
-                part={index === 0 && differentFirstPage ? firstFooterPart : footerPart}
-                html={index === 0 && differentFirstPage ? firstFooterHtml : footerHtml}
+                {...chromeFor(index, "footer")}
                 live={editingChrome && chromeTarget.part === "footer" && chromeTarget.page === index}
-                placeholder={index === 0 && differentFirstPage ? "First page footer" : "Footer"}
+                placeholder={chromeLabel(index, "Footer")}
                 page={index + 1}
                 pages={pageCount}
                 focus
@@ -425,8 +443,8 @@ export function PageCanvas() {
               <div
                 className="page-number"
                 data-place={
-                  chromeHasPageField(index === 0 && differentFirstPage ? firstHeaderHtml : headerHtml) ||
-                  chromeHasPageField(index === 0 && differentFirstPage ? firstFooterHtml : footerHtml)
+                  chromeHasPageField(chromeFor(index, "header").html) ||
+                  chromeHasPageField(chromeFor(index, "footer").html)
                     ? "none"
                     : pageSetup.pageNumber
                 }

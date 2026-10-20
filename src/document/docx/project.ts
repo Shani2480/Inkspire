@@ -604,6 +604,8 @@ function chromeFromDocument(doc: WordDocument): DocumentChrome {
     differentFirstPage: Boolean(section?.titlePg),
     firstHeader: storyHtml(doc, storyOf(references, "header", "first")),
     firstFooter: storyHtml(doc, storyOf(references, "footer", "first")),
+    evenHeader: storyHtml(doc, storyOf(references, "header", "even")),
+    evenFooter: storyHtml(doc, storyOf(references, "footer", "even")),
     pageSetup: setup,
   }
 }
@@ -895,6 +897,10 @@ function storiesFromChrome(
   if (chrome.differentFirstPage) {
     ensure("header", "first", chrome.firstHeader)
     ensure("footer", "first", chrome.firstFooter)
+  }
+  if (chrome.pageSetup.differentOddEven) {
+    ensure("header", "even", chrome.evenHeader)
+    ensure("footer", "even", chrome.evenFooter)
   }
   return stories
 }

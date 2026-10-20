@@ -20,7 +20,9 @@ export function useAutosave() {
   const footerHtml = useDocumentStore((state) => state.footerHtml)
   const differentFirstPage = useDocumentStore((state) => state.differentFirstPage)
   const firstHeaderHtml = useDocumentStore((state) => state.firstHeaderHtml)
+  const evenHeaderHtml = useDocumentStore((state) => state.evenHeaderHtml)
   const firstFooterHtml = useDocumentStore((state) => state.firstFooterHtml)
+  const evenFooterHtml = useDocumentStore((state) => state.evenFooterHtml)
   const pageSetup = useDocumentStore((state) => state.pageSetup)
 
   useEffect(() => keepRecoveryAlive(), [])
@@ -58,7 +60,9 @@ export function useAutosave() {
     footerHtml,
     differentFirstPage,
     firstHeaderHtml,
+    evenHeaderHtml,
     firstFooterHtml,
+    evenFooterHtml,
     pageSetup,
     currentFilePath,
   ])
