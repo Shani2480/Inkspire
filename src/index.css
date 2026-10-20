@@ -3113,6 +3113,11 @@ button.line-menu-row:focus-visible {
   column-fill: balance;
 }
 
+.column-section[data-line] .column-section-body,
+.column-section[data-line]:not(:has(.column-section-body)) {
+  column-rule: 1px solid currentColor;
+}
+
 .column-guides,
 .page-column-guides {
   display: flex;
@@ -11795,6 +11800,48 @@ textarea.text-prompt-field {
 .bs-shade-preview {
   height: 110px;
   border: 1px solid var(--dlg-control-border);
+}
+
+/* Columns dialog preview (22.7). */
+.columns-preview {
+  display: flex;
+  height: 84px;
+  padding: 8px;
+  border: 1px solid var(--dlg-control-border);
+  background: var(--dlg-surface);
+}
+
+.columns-preview > span {
+  flex: 1 1 0;
+  background: repeating-linear-gradient(to bottom, var(--dlg-control-border) 0 2px, transparent 2px 7px);
+}
+
+.columns-preview > i {
+  flex: 0 0 var(--preview-gap, 8px);
+  align-self: stretch;
+  border-left: 1px solid transparent;
+  margin-left: calc(var(--preview-gap, 8px) / 2);
+  margin-right: calc(var(--preview-gap, 8px) / -2);
+}
+
+.columns-preview > i.rule {
+  border-left-color: var(--dlg-text);
+}
+
+fieldset.columns-presets {
+  justify-content: flex-start;
+  gap: 18px;
+  margin: 0;
+  border: 1px solid var(--dlg-control-border);
+}
+
+fieldset.columns-presets input {
+  width: auto;
+}
+
+.columns-preview-row {
+  align-items: flex-start;
+  margin-top: 4px;
 }
 
 /* Table Properties (22.10). */
