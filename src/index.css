@@ -3383,16 +3383,17 @@ button.line-menu-row:focus-visible {
   cursor: ew-resize;
 }
 
-/* Word's rotate handle: out from the top-right corner on a 45° stem (its centre 18 px along each axis). */
+/* Word's rotate handle: a round grip above the middle of the top edge, joined to it by a short stem. */
 .object-rotate {
   position: absolute;
-  top: -28px;
-  right: -28px;
+  top: -34px;
+  left: 50%;
   z-index: 4;
   display: none;
   box-sizing: border-box;
   width: 20px;
   height: 20px;
+  margin-left: -10px;
   align-items: center;
   justify-content: center;
   padding: 0;
@@ -3407,13 +3408,12 @@ button.line-menu-row:focus-visible {
 .object-rotate::before {
   content: "";
   position: absolute;
-  top: 50%;
+  top: 100%;
   left: 50%;
-  width: 16px;
-  height: 1px;
+  width: 1px;
+  height: 13px;
+  margin-left: -0.5px;
   background: #1d4ed8;
-  transform-origin: 0 50%;
-  transform: rotate(135deg) translateX(10px);
   pointer-events: none;
 }
 

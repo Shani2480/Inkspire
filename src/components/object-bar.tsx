@@ -209,7 +209,7 @@ export function ObjectBar({ editor }: { editor: Editor }) {
         setPlace(null)
         return
       }
-      // The frame with its handles: the rotate handle stands out above the top right corner.
+      // The frame with its handles: the rotate handle stands out above the middle of the top edge.
       let top = rect.top
       let bottom = rect.bottom
       for (const handle of element.querySelectorAll<HTMLElement>(":scope > [data-rotate], :scope > [data-resize]")) {
