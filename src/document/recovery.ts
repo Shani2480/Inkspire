@@ -255,11 +255,11 @@ function buildSnapshotRecord(id: string): SnapshotRecord | null {
   const packed =
     packStyles(useStyleStore.getState().styles) +
     packDocument(editorHtml, {
-      header: state.headerText,
-      footer: state.footerText,
+      header: state.headerHtml,
+      footer: state.footerHtml,
       differentFirstPage: state.differentFirstPage,
-      firstHeader: state.firstHeaderText,
-      firstFooter: state.firstFooterText,
+      firstHeader: state.firstHeaderHtml,
+      firstFooter: state.firstFooterHtml,
       pageSetup: state.pageSetup,
       headerShapes: state.headerShapes,
       footerShapes: state.footerShapes,

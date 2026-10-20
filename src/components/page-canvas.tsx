@@ -9,6 +9,7 @@ import { TextContextMenu } from "@/components/text-context-menu"
 import { TableHandles } from "@/components/table-handles"
 import { pageGridCell, pageGridColumns, pageGridRows } from "@/document/page-grid"
 import { paintDesignVars } from "@/document/design-format"
+import { chromeText, chromeWithText } from "@/document/chrome-html"
 import { applyPageChrome, pageMetrics } from "@/document/page-setup"
 import { useDocumentStore } from "@/document/store"
 import { clampZoom, useViewStore } from "@/document/view"
@@ -51,11 +52,11 @@ export function PageCanvas() {
   const web = layoutMode === "web"
   const editingChrome = useViewStore((state) => state.editingChrome)
   const setEditingChrome = useViewStore((state) => state.setEditingChrome)
-  const headerText = useDocumentStore((state) => state.headerText)
-  const footerText = useDocumentStore((state) => state.footerText)
+  const headerHtml = useDocumentStore((state) => state.headerHtml)
+  const footerHtml = useDocumentStore((state) => state.footerHtml)
   const differentFirstPage = useDocumentStore((state) => state.differentFirstPage)
-  const firstHeaderText = useDocumentStore((state) => state.firstHeaderText)
-  const firstFooterText = useDocumentStore((state) => state.firstFooterText)
+  const firstHeaderHtml = useDocumentStore((state) => state.firstHeaderHtml)
+  const firstFooterHtml = useDocumentStore((state) => state.firstFooterHtml)
   const headerShapes = useDocumentStore((state) => state.headerShapes)
   const footerShapes = useDocumentStore((state) => state.footerShapes)
   const firstHeaderShapes = useDocumentStore((state) => state.firstHeaderShapes)
@@ -67,7 +68,7 @@ export function PageCanvas() {
   const setDifferentFirstPage = useDocumentStore((state) => state.setDifferentFirstPage)
   const pageSetup = useDocumentStore((state) => state.pageSetup)
   const metrics = pageMetrics(pageSetup)
-  const header = headerText.trim()
+  const header = chromeText(headerHtml)
   const countedPages =
     useEditorState({
       editor,
@@ -92,12 +93,12 @@ export function PageCanvas() {
     applyPageChrome(pageSetup)
     paintDesignVars(pageSetup)
     style.setProperty("--print-title", header ? cssString(header) : "none")
-    const footer = footerBoxes(footerText)
+    const footer = footerBoxes(chromeText(footerHtml))
     style.setProperty("--print-center", footer.center)
     style.setProperty("--print-page", footer.page)
     if (differentFirstPage) {
-      const firstHeader = firstHeaderText.trim()
-      const firstFooter = footerBoxes(firstFooterText)
+      const firstHeader = chromeText(firstHeaderHtml)
+      const firstFooter = footerBoxes(chromeText(firstFooterHtml))
       style.setProperty("--print-first-title", firstHeader ? cssString(firstHeader) : "none")
       style.setProperty("--print-first-center", firstFooter.center)
       style.setProperty("--print-first-page", firstFooter.page)
@@ -106,7 +107,7 @@ export function PageCanvas() {
       style.removeProperty("--print-first-center")
       style.removeProperty("--print-first-page")
     }
-  }, [header, footerText, differentFirstPage, firstHeaderText, firstFooterText, pageSetup])
+  }, [header, footerHtml, differentFirstPage, firstHeaderHtml, firstFooterHtml, pageSetup])
 
   // Web Layout: the text runs the width of the window, so the page is as wide as the room there is, at any zoom.
   useLayoutEffect(() => {
@@ -408,13 +409,15 @@ export function PageCanvas() {
                       ? "Header"
                       : `Header on page ${index + 1}`
                 }
-                value={index === 0 && differentFirstPage ? firstHeaderText : headerText}
+                value={chromeText(index === 0 && differentFirstPage ? firstHeaderHtml : headerHtml)}
                 placeholder={
                   editingChrome ? (index === 0 && differentFirstPage ? "First page header" : "Header") : undefined
                 }
                 maxLength={160}
                 onChange={(event) =>
-                  index === 0 && differentFirstPage ? setFirstHeader(event.target.value) : setHeader(event.target.value)
+                  index === 0 && differentFirstPage
+                    ? setFirstHeader(chromeWithText(firstHeaderHtml, event.target.value))
+                    : setHeader(chromeWithText(headerHtml, event.target.value))
                 }
               />
               <input
@@ -429,13 +432,15 @@ export function PageCanvas() {
                       ? "Footer"
                       : `Footer on page ${index + 1}`
                 }
-                value={index === 0 && differentFirstPage ? firstFooterText : footerText}
+                value={chromeText(index === 0 && differentFirstPage ? firstFooterHtml : footerHtml)}
                 placeholder={
                   editingChrome ? (index === 0 && differentFirstPage ? "First page footer" : "Footer") : undefined
                 }
                 maxLength={160}
                 onChange={(event) =>
-                  index === 0 && differentFirstPage ? setFirstFooter(event.target.value) : setFooter(event.target.value)
+                  index === 0 && differentFirstPage
+                    ? setFirstFooter(chromeWithText(firstFooterHtml, event.target.value))
+                    : setFooter(chromeWithText(footerHtml, event.target.value))
                 }
               />
               <div className="page-number" data-place={pageSetup.pageNumber}>

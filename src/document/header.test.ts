@@ -5,11 +5,11 @@ import { DEFAULT_PAGE_SETUP } from "@/document/page-setup"
 describe("document chrome pack/unpack", () => {
   it("round-trips headers, footers, and page setup", () => {
     const chrome: DocumentChrome = {
-      header: "Top header",
-      footer: "Bottom footer",
+      header: "<p>Top header</p>",
+      footer: "<p>Bottom footer</p>",
       differentFirstPage: true,
-      firstHeader: "First header",
-      firstFooter: "First footer",
+      firstHeader: "<p>First header</p>",
+      firstFooter: "<p>First footer</p>",
       headerShapes: [],
       footerShapes: [],
       firstHeaderShapes: [],
@@ -47,6 +47,17 @@ describe("document chrome pack/unpack", () => {
     expect(unpacked.firstHeader).toBe(chrome.firstHeader)
     expect(unpacked.firstFooter).toBe(chrome.firstFooter)
     expect(unpacked.pageSetup).toEqual(chrome.pageSetup)
+  })
+
+  it("keeps a header's picture and more than 160 characters of text", () => {
+    const header = `<p>${"long ".repeat(60)}</p><img src="data:image/png;base64,AAAA" width="40" height="20">`
+    const unpacked = unpackDocument(packDocument("<p>Body</p>", { ...emptyChrome(), header }))
+    expect(unpacked.header).toBe(header)
+  })
+
+  it("reads a plain-text header from an older file as a paragraph", () => {
+    const unpacked = unpackDocument("<!-- aiword-header:Old%20header -->\n<p>Body</p>")
+    expect(unpacked.header).toBe("<p>Old header</p>")
   })
 
   it("leaves plain html alone", () => {

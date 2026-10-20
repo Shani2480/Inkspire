@@ -87,11 +87,11 @@ function currentHTML() {
 function currentChrome(): DocumentChrome {
   const state = useDocumentStore.getState()
   return {
-    header: state.headerText,
-    footer: state.footerText,
+    header: state.headerHtml,
+    footer: state.footerHtml,
     differentFirstPage: state.differentFirstPage,
-    firstHeader: state.firstHeaderText,
-    firstFooter: state.firstFooterText,
+    firstHeader: state.firstHeaderHtml,
+    firstFooter: state.firstFooterHtml,
     pageSetup: state.pageSetup,
     headerShapes: state.headerShapes,
     footerShapes: state.footerShapes,
@@ -344,8 +344,8 @@ export function untouchedHere() {
     doc!.textContent.trim() === "" &&
     doc!.childCount <= 1 &&
     doc!.firstChild?.type.name === "paragraph" &&
-    useDocumentStore.getState().headerText === "" &&
-    useDocumentStore.getState().footerText === ""
+    useDocumentStore.getState().headerHtml === "" &&
+    useDocumentStore.getState().footerHtml === ""
   )
 }
 

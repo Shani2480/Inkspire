@@ -1,3 +1,4 @@
+import { chromeHtml } from "@/document/chrome-html"
 import { clearWordDocument } from "@/document/docx/session"
 import type { ChromeShape, DocumentChrome } from "@/document/header"
 import { pageSetupForNewDocument } from "@/document/design-format"
@@ -7,15 +8,15 @@ import { create } from "zustand"
 type ChromeState = {
   documentHTML: string
   savedHTML: string
-  headerText: string
+  headerHtml: string
   savedHeader: string
-  footerText: string
+  footerHtml: string
   savedFooter: string
   differentFirstPage: boolean
   savedDifferentFirstPage: boolean
-  firstHeaderText: string
+  firstHeaderHtml: string
   savedFirstHeader: string
-  firstFooterText: string
+  firstFooterHtml: string
   savedFirstFooter: string
   pageSetup: PageSetup
   savedPageSetup: PageSetup
@@ -23,11 +24,11 @@ type ChromeState = {
 
 function isUnsaved(state: ChromeState, next: Partial<ChromeState> = {}) {
   const html = next.documentHTML ?? state.documentHTML
-  const header = next.headerText ?? state.headerText
-  const footer = next.footerText ?? state.footerText
+  const header = next.headerHtml ?? state.headerHtml
+  const footer = next.footerHtml ?? state.footerHtml
   const differentFirstPage = next.differentFirstPage ?? state.differentFirstPage
-  const firstHeader = next.firstHeaderText ?? state.firstHeaderText
-  const firstFooter = next.firstFooterText ?? state.firstFooterText
+  const firstHeader = next.firstHeaderHtml ?? state.firstHeaderHtml
+  const firstFooter = next.firstFooterHtml ?? state.firstFooterHtml
   const pageSetup = next.pageSetup ?? state.pageSetup
   return (
     html !== state.savedHTML ||
@@ -200,15 +201,15 @@ type DocumentState = {
   saving: boolean
   documentHTML: string
   savedHTML: string
-  headerText: string
+  headerHtml: string
   savedHeader: string
-  footerText: string
+  footerHtml: string
   savedFooter: string
   differentFirstPage: boolean
   savedDifferentFirstPage: boolean
-  firstHeaderText: string
+  firstHeaderHtml: string
   savedFirstHeader: string
-  firstFooterText: string
+  firstFooterHtml: string
   savedFirstFooter: string
   headerShapes: ChromeShape[]
   footerShapes: ChromeShape[]
@@ -259,15 +260,15 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   saving: false,
   documentHTML: "",
   savedHTML: "",
-  headerText: "",
+  headerHtml: "",
   savedHeader: "",
-  footerText: "",
+  footerHtml: "",
   savedFooter: "",
   differentFirstPage: false,
   savedDifferentFirstPage: false,
-  firstHeaderText: "",
+  firstHeaderHtml: "",
   savedFirstHeader: "",
-  firstFooterText: "",
+  firstFooterHtml: "",
   savedFirstFooter: "",
   headerShapes: [],
   footerShapes: [],
@@ -286,25 +287,25 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       isDirty: isUnsaved(state, { documentHTML: html }),
     })),
   setHeader: (header) =>
-    set((state) => ({
-      headerText: header,
-      isDirty: isUnsaved(state, { headerText: header }),
-    })),
+    set((state) => {
+      const html = chromeHtml(header)
+      return { headerHtml: html, isDirty: isUnsaved(state, { headerHtml: html }) }
+    }),
   setFooter: (footer) =>
-    set((state) => ({
-      footerText: footer,
-      isDirty: isUnsaved(state, { footerText: footer }),
-    })),
+    set((state) => {
+      const html = chromeHtml(footer)
+      return { footerHtml: html, isDirty: isUnsaved(state, { footerHtml: html }) }
+    }),
   setFirstHeader: (header) =>
-    set((state) => ({
-      firstHeaderText: header,
-      isDirty: isUnsaved(state, { firstHeaderText: header }),
-    })),
+    set((state) => {
+      const html = chromeHtml(header)
+      return { firstHeaderHtml: html, isDirty: isUnsaved(state, { firstHeaderHtml: html }) }
+    }),
   setFirstFooter: (footer) =>
-    set((state) => ({
-      firstFooterText: footer,
-      isDirty: isUnsaved(state, { firstFooterText: footer }),
-    })),
+    set((state) => {
+      const html = chromeHtml(footer)
+      return { firstFooterHtml: html, isDirty: isUnsaved(state, { firstFooterHtml: html }) }
+    }),
   setDifferentFirstPage: (enabled) =>
     set((state) => ({
       differentFirstPage: enabled,
@@ -341,15 +342,15 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       isDirty: false,
       documentHTML: blankHtml,
       savedHTML: blankHtml,
-      headerText: "",
+      headerHtml: "",
       savedHeader: "",
-      footerText: "",
+      footerHtml: "",
       savedFooter: "",
       differentFirstPage: false,
       savedDifferentFirstPage: false,
-      firstHeaderText: "",
+      firstHeaderHtml: "",
       savedFirstHeader: "",
-      firstFooterText: "",
+      firstFooterHtml: "",
       savedFirstFooter: "",
       headerShapes: [],
       footerShapes: [],
@@ -380,15 +381,15 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         lastSavedTimestamp: new Date().toISOString(),
         documentHTML: html,
         savedHTML: html,
-        headerText: chrome.header ?? "",
+        headerHtml: chrome.header ?? "",
         savedHeader: chrome.header ?? "",
-        footerText: chrome.footer ?? "",
+        footerHtml: chrome.footer ?? "",
         savedFooter: chrome.footer ?? "",
         differentFirstPage: chrome.differentFirstPage ?? false,
         savedDifferentFirstPage: chrome.differentFirstPage ?? false,
-        firstHeaderText: chrome.firstHeader ?? "",
+        firstHeaderHtml: chrome.firstHeader ?? "",
         savedFirstHeader: chrome.firstHeader ?? "",
-        firstFooterText: chrome.firstFooter ?? "",
+        firstFooterHtml: chrome.firstFooter ?? "",
         savedFirstFooter: chrome.firstFooter ?? "",
         headerShapes: chrome.headerShapes ?? [],
         footerShapes: chrome.footerShapes ?? [],
@@ -413,11 +414,11 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         lastSavedTimestamp: new Date().toISOString(),
         documentHTML: html,
         savedHTML: html,
-        savedHeader: state.headerText,
-        savedFooter: state.footerText,
+        savedHeader: state.headerHtml,
+        savedFooter: state.footerHtml,
         savedDifferentFirstPage: state.differentFirstPage,
-        savedFirstHeader: state.firstHeaderText,
-        savedFirstFooter: state.firstFooterText,
+        savedFirstHeader: state.firstHeaderHtml,
+        savedFirstFooter: state.firstFooterHtml,
         savedPageSetup: state.pageSetup,
         isDirty: false,
         recentFiles: path ? rememberRecent(path, state.recentFiles) : state.recentFiles,
@@ -487,15 +488,15 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       documentHTML: html,
       // Fake baseline so the restored draft stays Unsaved until the user saves.
       savedHTML: "\u0000",
-      headerText: chrome.header,
+      headerHtml: chrome.header,
       savedHeader: chrome.header,
-      footerText: chrome.footer,
+      footerHtml: chrome.footer,
       savedFooter: chrome.footer,
       differentFirstPage: chrome.differentFirstPage,
       savedDifferentFirstPage: chrome.differentFirstPage,
-      firstHeaderText: chrome.firstHeader,
+      firstHeaderHtml: chrome.firstHeader,
       savedFirstHeader: chrome.firstHeader,
-      firstFooterText: chrome.firstFooter,
+      firstFooterHtml: chrome.firstFooter,
       savedFirstFooter: chrome.firstFooter,
       headerShapes: chrome.headerShapes ?? [],
       footerShapes: chrome.footerShapes ?? [],
