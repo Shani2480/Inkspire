@@ -15,9 +15,13 @@ type ChromeState = {
   differentFirstPage: boolean
   savedDifferentFirstPage: boolean
   firstHeaderHtml: string
+  evenHeaderHtml: string
   savedFirstHeader: string
+  savedEvenHeader: string
   firstFooterHtml: string
+  evenFooterHtml: string
   savedFirstFooter: string
+  savedEvenFooter: string
   pageSetup: PageSetup
   savedPageSetup: PageSetup
 }
@@ -28,7 +32,9 @@ function isUnsaved(state: ChromeState, next: Partial<ChromeState> = {}) {
   const footer = next.footerHtml ?? state.footerHtml
   const differentFirstPage = next.differentFirstPage ?? state.differentFirstPage
   const firstHeader = next.firstHeaderHtml ?? state.firstHeaderHtml
+  const evenHeader = next.evenHeaderHtml ?? state.evenHeaderHtml
   const firstFooter = next.firstFooterHtml ?? state.firstFooterHtml
+  const evenFooter = next.evenFooterHtml ?? state.evenFooterHtml
   const pageSetup = next.pageSetup ?? state.pageSetup
   return (
     html !== state.savedHTML ||
@@ -36,7 +42,9 @@ function isUnsaved(state: ChromeState, next: Partial<ChromeState> = {}) {
     footer !== state.savedFooter ||
     differentFirstPage !== state.savedDifferentFirstPage ||
     firstHeader !== state.savedFirstHeader ||
+    evenHeader !== state.savedEvenHeader ||
     firstFooter !== state.savedFirstFooter ||
+    evenFooter !== state.savedEvenFooter ||
     !samePageSetup(pageSetup, state.savedPageSetup)
   )
 }
@@ -208,9 +216,13 @@ type DocumentState = {
   differentFirstPage: boolean
   savedDifferentFirstPage: boolean
   firstHeaderHtml: string
+  evenHeaderHtml: string
   savedFirstHeader: string
+  savedEvenHeader: string
   firstFooterHtml: string
+  evenFooterHtml: string
   savedFirstFooter: string
+  savedEvenFooter: string
   pageSetup: PageSetup
   savedPageSetup: PageSetup
   recentFiles: string[]
@@ -223,6 +235,8 @@ type DocumentState = {
   setFooter: (footer: string) => void
   setFirstHeader: (header: string) => void
   setFirstFooter: (footer: string) => void
+  setEvenHeader: (header: string) => void
+  setEvenFooter: (footer: string) => void
   setDifferentFirstPage: (enabled: boolean) => void
   setPageSetup: (pageSetup: PageSetup) => void
   startUntitled: (blankHtml: string) => void
@@ -263,9 +277,13 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   differentFirstPage: false,
   savedDifferentFirstPage: false,
   firstHeaderHtml: "",
+  evenHeaderHtml: "",
   savedFirstHeader: "",
+  savedEvenHeader: "",
   firstFooterHtml: "",
+  evenFooterHtml: "",
   savedFirstFooter: "",
+  savedEvenFooter: "",
   pageSetup: pageSetupForNewDocument(),
   savedPageSetup: pageSetupForNewDocument(),
   recentFiles: loadRecentFiles(),
@@ -297,6 +315,16 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     set((state) => {
       const html = chromeHtml(footer)
       return { firstFooterHtml: html, isDirty: isUnsaved(state, { firstFooterHtml: html }) }
+    }),
+  setEvenHeader: (header) =>
+    set((state) => {
+      const html = chromeHtml(header)
+      return { evenHeaderHtml: html, isDirty: isUnsaved(state, { evenHeaderHtml: html }) }
+    }),
+  setEvenFooter: (footer) =>
+    set((state) => {
+      const html = chromeHtml(footer)
+      return { evenFooterHtml: html, isDirty: isUnsaved(state, { evenFooterHtml: html }) }
     }),
   setDifferentFirstPage: (enabled) =>
     set((state) => ({
@@ -341,9 +369,13 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       differentFirstPage: false,
       savedDifferentFirstPage: false,
       firstHeaderHtml: "",
+      evenHeaderHtml: "",
       savedFirstHeader: "",
+      savedEvenHeader: "",
       firstFooterHtml: "",
+      evenFooterHtml: "",
       savedFirstFooter: "",
+      savedEvenFooter: "",
       pageSetup: pageSetupForNewDocument(),
       savedPageSetup: pageSetupForNewDocument(),
       documentProps,
@@ -376,9 +408,13 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         differentFirstPage: chrome.differentFirstPage ?? false,
         savedDifferentFirstPage: chrome.differentFirstPage ?? false,
         firstHeaderHtml: chrome.firstHeader ?? "",
+        evenHeaderHtml: chrome.evenHeader ?? "",
         savedFirstHeader: chrome.firstHeader ?? "",
+        savedEvenHeader: chrome.evenHeader ?? "",
         firstFooterHtml: chrome.firstFooter ?? "",
+        evenFooterHtml: chrome.evenFooter ?? "",
         savedFirstFooter: chrome.firstFooter ?? "",
+        savedEvenFooter: chrome.evenFooter ?? "",
         pageSetup: normalizePageSetup(chrome.pageSetup ?? DEFAULT_PAGE_SETUP),
         savedPageSetup: normalizePageSetup(chrome.pageSetup ?? DEFAULT_PAGE_SETUP),
         isDirty: false,
@@ -402,7 +438,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         savedFooter: state.footerHtml,
         savedDifferentFirstPage: state.differentFirstPage,
         savedFirstHeader: state.firstHeaderHtml,
+        savedEvenHeader: state.evenHeaderHtml,
         savedFirstFooter: state.firstFooterHtml,
+        savedEvenFooter: state.evenFooterHtml,
         savedPageSetup: state.pageSetup,
         isDirty: false,
         recentFiles: path ? rememberRecent(path, state.recentFiles) : state.recentFiles,
@@ -479,9 +517,13 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       differentFirstPage: chrome.differentFirstPage,
       savedDifferentFirstPage: chrome.differentFirstPage,
       firstHeaderHtml: chrome.firstHeader,
+      evenHeaderHtml: chrome.evenHeader,
       savedFirstHeader: chrome.firstHeader,
+      savedEvenHeader: chrome.evenHeader,
       firstFooterHtml: chrome.firstFooter,
+      evenFooterHtml: chrome.evenFooter,
       savedFirstFooter: chrome.firstFooter,
+      savedEvenFooter: chrome.evenFooter,
       pageSetup: chrome.pageSetup,
       savedPageSetup: chrome.pageSetup,
       isDirty: true,

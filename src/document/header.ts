@@ -16,7 +16,7 @@ import {
 } from "@/document/page-setup"
 
 const CHROME_MARK =
-  /^<!-- aiword-(header|footer|first-header|first-footer|first|page|columns|colgap|colline|lines|watermark|border|borderwidth|borderline|pagecolor|pagenum|hyphens|language|fonts|spacing|headerstyle|footerstyle|colors|effects):([^\n>]*) -->\n?/
+  /^<!-- aiword-(header|footer|first-header|first-footer|even-header|even-footer|first|oddeven|page|columns|colgap|colline|lines|watermark|border|borderwidth|borderline|pagecolor|pagenum|hyphens|language|fonts|spacing|headerstyle|footerstyle|colors|effects):([^\n>]*) -->\n?/
 
 export type DocumentChrome = {
   /** The header and footer of each kind of page, as editor HTML. */
@@ -25,6 +25,9 @@ export type DocumentChrome = {
   differentFirstPage: boolean
   firstHeader: string
   firstFooter: string
+  /** The header and footer of even pages, when the page setup has odd and even pages differ. */
+  evenHeader: string
+  evenFooter: string
   pageSetup: PageSetup
 }
 
@@ -35,12 +38,17 @@ export function emptyChrome(): DocumentChrome {
     differentFirstPage: false,
     firstHeader: "",
     firstFooter: "",
+    evenHeader: "",
+    evenFooter: "",
     pageSetup: DEFAULT_PAGE_SETUP,
   }
 }
 
 /** A header or footer is saved as its HTML, so pictures and styled lines come back as they were. */
-function comment(kind: "header" | "footer" | "first-header" | "first-footer", value: string) {
+function comment(
+  kind: "header" | "footer" | "first-header" | "first-footer" | "even-header" | "even-footer",
+  value: string,
+) {
   const html = chromeHtml(value).trim()
   return html ? `<!-- aiword-${kind}:${encodeURIComponent(html)} -->` : ""
 }
@@ -52,7 +60,10 @@ export function packDocument(html: string, chrome: DocumentChrome) {
     chrome.differentFirstPage ? "<!-- aiword-first:1 -->" : "",
     chrome.differentFirstPage ? comment("first-header", chrome.firstHeader) : "",
     chrome.differentFirstPage ? comment("first-footer", chrome.firstFooter) : "",
+    chrome.pageSetup.differentOddEven ? comment("even-header", chrome.evenHeader) : "",
+    chrome.pageSetup.differentOddEven ? comment("even-footer", chrome.evenFooter) : "",
     `<!-- aiword-page:${formatPageSetup(chrome.pageSetup)} -->`,
+    chrome.pageSetup.differentOddEven ? "<!-- aiword-oddeven:1 -->" : "",
     chrome.pageSetup.columns === 1 ? "" : `<!-- aiword-columns:${chrome.pageSetup.columns} -->`,
     chrome.pageSetup.columns > 1 && chrome.pageSetup.columnGap !== DEFAULT_PAGE_SETUP.columnGap
       ? `<!-- aiword-colgap:${chrome.pageSetup.columnGap} -->`
@@ -113,10 +124,16 @@ export function unpackDocument(raw: string) {
       chrome.firstHeader = chromeHtml(value)
     } else if (match[1] === "first-footer") {
       chrome.firstFooter = chromeHtml(value)
+    } else if (match[1] === "even-header") {
+      chrome.evenHeader = chromeHtml(value)
+    } else if (match[1] === "even-footer") {
+      chrome.evenFooter = chromeHtml(value)
     } else if (match[1] === "first") {
       chrome.differentFirstPage = value === "1"
     } else if (match[1] === "page") {
       chrome.pageSetup = parsePageSetup(value)
+    } else if (match[1] === "oddeven") {
+      chrome.pageSetup = { ...chrome.pageSetup, differentOddEven: value === "1" }
     } else if (match[1] === "columns") {
       chrome.pageSetup = { ...chrome.pageSetup, columns: columnCount(value) }
     } else if (match[1] === "colline") {

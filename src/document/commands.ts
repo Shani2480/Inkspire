@@ -91,7 +91,9 @@ function currentChrome(): DocumentChrome {
     footer: state.footerHtml,
     differentFirstPage: state.differentFirstPage,
     firstHeader: state.firstHeaderHtml,
+    evenHeader: state.evenHeaderHtml,
     firstFooter: state.firstFooterHtml,
+    evenFooter: state.evenFooterHtml,
     pageSetup: state.pageSetup,
   }
 }
@@ -758,7 +760,9 @@ export async function restoreRecoveryDocument(offer: RecoveryOffer) {
     footer: unpacked.footer,
     differentFirstPage: unpacked.differentFirstPage,
     firstHeader: unpacked.firstHeader,
+    evenHeader: unpacked.evenHeader,
     firstFooter: unpacked.firstFooter,
+    evenFooter: unpacked.evenFooter,
     pageSetup: unpacked.pageSetup,
   })
   await discardRecovery(offer.id)
