@@ -3,15 +3,35 @@ import { Editor } from "@tiptap/core"
 import { TableRow } from "@tiptap/extension-table"
 import { StarterKit } from "@tiptap/starter-kit"
 import { afterEach, describe, expect, it } from "vitest"
-import { BordersShadingHost, edgesOf, openBordersAndShading, paragraphBorderOf, settingOf } from "@/components/borders-shading-dialog"
+import {
+  BordersShadingHost,
+  edgesOf,
+  openBordersAndShading,
+  paragraphBorderOf,
+  settingOf,
+} from "@/components/borders-shading-dialog"
 import { IndentedParagraph } from "@/editor/indent"
-import { FramedTable, ShadedTableCell, ShadedTableHeader } from "@/editor/table-tools"
+import {
+  DEFAULT_PEN,
+  FramedTable,
+  ShadedTableCell,
+  ShadedTableHeader,
+  readScopedBorders,
+  setBordersOnCells,
+} from "@/editor/table-tools"
 
 afterEach(cleanup)
 
 function make(content: string) {
   return new Editor({
-    extensions: [StarterKit.configure({ paragraph: false }), IndentedParagraph, FramedTable, TableRow, ShadedTableCell, ShadedTableHeader],
+    extensions: [
+      StarterKit.configure({ paragraph: false }),
+      IndentedParagraph,
+      FramedTable,
+      TableRow,
+      ShadedTableCell,
+      ShadedTableHeader,
+    ],
     content,
   })
 }
@@ -99,5 +119,45 @@ describe("the Borders and Shading dialog (22.4)", () => {
     fireEvent.click(screen.getByLabelText("#ffff00"))
     fireEvent.click(screen.getByText("Cancel"))
     expect(cells(editor).every((attrs) => attrs.backgroundColor === null)).toBe(true)
+  })
+
+  it("opens on the borders and fill the paragraph already has", () => {
+    const editor = make("<p>one</p>")
+    editor.commands.setTextSelection(2)
+    editor.commands.updateAttributes("paragraph", { border: "top,bottom", shading: "#ffff00" })
+    render(<BordersShadingHost />)
+    act(() => openBordersAndShading(editor))
+    expect(screen.getByLabelText("Top Border").getAttribute("aria-pressed")).toBe("true")
+    expect(screen.getByLabelText("Left Border").getAttribute("aria-pressed")).toBe("false")
+    expect(screen.getByRole("button", { name: "Custom" }).getAttribute("aria-pressed")).toBe("true")
+    // Nothing was touched, so OK leaves the paragraph as it was.
+    fireEvent.click(screen.getByText("OK"))
+    expect(editor.state.doc.firstChild?.attrs).toMatchObject({ border: "top,bottom", shading: "#ffff00" })
+  })
+
+  it("opens on the box a cell already has, with its pen", () => {
+    const editor = make(TABLE)
+    editor.commands.setTextSelection(4)
+    expect(
+      setBordersOnCells(editor, "cell", new Set(["top", "bottom", "left", "right"]), {
+        width: 1.5,
+        color: "#ff0000",
+        style: "dashed",
+      }),
+    ).toBe(true)
+    const found = readScopedBorders(editor, "cell")
+    expect(found?.edges).toEqual(new Set(["top", "bottom", "left", "right"]))
+    expect(found?.pen).toEqual({ width: 1.5, color: "#ff0000", style: "dashed" })
+    render(<BordersShadingHost />)
+    act(() => openBordersAndShading(editor))
+    expect(screen.getByRole("button", { name: "Box" }).getAttribute("aria-pressed")).toBe("true")
+  })
+
+  it("reads a table's inside lines back as All", () => {
+    const editor = make(TABLE)
+    editor.commands.setTextSelection(4)
+    setBordersOnCells(editor, "table", new Set(["top", "bottom", "left", "right", "insideH", "insideV"]), DEFAULT_PEN)
+    const found = readScopedBorders(editor, "table")
+    expect(settingOf(found!.edges, true)).toBe("all")
   })
 })

@@ -704,6 +704,85 @@ export function setBordersOnCells(editor: Editor, scope: TableScope, edges: Set<
   return true
 }
 
+/** The pen of a `borderPen` value (`1.33px dashed #404040`), as Word's weight in points. */
+function parsePen(value: unknown): BorderPen | null {
+  const match = typeof value === "string" ? /^([\d.]+)px\s+(\S+)\s+(.+)$/.exec(value.trim()) : null
+  if (!match) {
+    return null
+  }
+  const width = Math.round(Number(match[1]) * 0.75 * 100) / 100
+  return { width: BORDER_WEIGHTS.includes(width) ? width : DEFAULT_PEN.width, style: match[2], color: match[3] }
+}
+
+/**
+ * The borders and fill the cells in `scope` have now, so Borders and Shading opens on what is drawn: an edge counts when
+ * every cell along it has it (the exact reverse of `setBordersOnCells`), the pen is the first drawn line's, and the fill
+ * is shared by every cell or none.
+ */
+export function readScopedBorders(editor: Editor, scope: TableScope) {
+  const found = scopedCells(editor, scope)
+  if (!found) {
+    return null
+  }
+  const { table, map, offsets } = found
+  const cells = offsets.map((offset) => {
+    const rect = map.findCell(offset)
+    const attrs = table.node.nodeAt(offset)?.attrs ?? {}
+    return { rect, sides: cellSides(attrs.borders), diagonals: cellDiagonals(attrs.borders), attrs }
+  })
+  const top = Math.min(...cells.map((cell) => cell.rect.top))
+  const bottom = Math.max(...cells.map((cell) => cell.rect.bottom))
+  const left = Math.min(...cells.map((cell) => cell.rect.left))
+  const right = Math.max(...cells.map((cell) => cell.rect.right))
+  const every = (test: (cell: (typeof cells)[number]) => boolean) => cells.length > 0 && cells.every(test)
+  const edges = new Set<BorderEdge>()
+  const edge = (name: BorderEdge, cellsOnIt: typeof cells, side: Side) => {
+    if (cellsOnIt.length > 0 && cellsOnIt.every((cell) => cell.sides.has(side))) {
+      edges.add(name)
+    }
+  }
+  edge(
+    "top",
+    cells.filter((cell) => cell.rect.top === top),
+    "top",
+  )
+  edge(
+    "bottom",
+    cells.filter((cell) => cell.rect.bottom === bottom),
+    "bottom",
+  )
+  edge(
+    "left",
+    cells.filter((cell) => cell.rect.left === left),
+    "left",
+  )
+  edge(
+    "right",
+    cells.filter((cell) => cell.rect.right === right),
+    "right",
+  )
+  edge(
+    "insideH",
+    cells.filter((cell) => cell.rect.top !== top),
+    "top",
+  )
+  edge(
+    "insideV",
+    cells.filter((cell) => cell.rect.left !== left),
+    "left",
+  )
+  for (const name of DIAGONALS) {
+    if (every((cell) => cell.diagonals.has(name))) {
+      edges.add(name)
+    }
+  }
+  const pen = cells.map((cell) => parsePen(cell.attrs.borderPen)).find(Boolean) ?? DEFAULT_PEN
+  const fills = new Set(
+    cells.map((cell) => (typeof cell.attrs.backgroundColor === "string" ? cell.attrs.backgroundColor : null)),
+  )
+  return { edges, pen, fill: fills.size === 1 ? [...fills][0] : null }
+}
+
 /** The fill of the selected cells or of every cell in the table; null clears it. */
 export function shadeScope(editor: Editor, scope: TableScope, color: string | null): boolean {
   const found = scopedCells(editor, scope)
