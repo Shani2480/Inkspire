@@ -1,4 +1,6 @@
+import { useAiBusy } from "@/ai/activity"
 import { useAiChat } from "@/ai/chat"
+import { AiSpark } from "@/components/ai-spark"
 import { useBackstage } from "@/document/backstage"
 import { useDocumentEditor } from "@/editor/document-editor"
 import { RibbonTipContent } from "@/components/ribbon/ribbon-button"
@@ -14,6 +16,7 @@ import { SEPARATOR, addCommand, useCustomize } from "@/document/customize"
 export function QuickAccessToolbar() {
   const editor = useDocumentEditor()
   const aiOpen = useAiChat((state) => state.open)
+  const aiBusy = useAiBusy()
   const shown = useCustomize((state) => state.qatShown)
   const arrangement = useCustomize((state) => state.qat)
   const history = useEditorState({
@@ -45,9 +48,10 @@ export function QuickAccessToolbar() {
               command.enabled ? !command.enabled({ editor, ...(history ?? { undo: false, redo: false }) }) : false
             }
             pressed={id === "ai" && aiOpen}
+            busy={id === "ai" && aiBusy}
             onClick={() => command.run(editor)}
           >
-            {command.icon}
+            {id === "ai" ? <AiSpark busy={aiBusy} /> : command.icon}
           </QuickButton>
         )
       })}
@@ -149,12 +153,15 @@ function QuickButton({
   onClick,
   disabled = false,
   pressed = false,
+  busy = false,
   children,
 }: {
   label: string
   onClick: () => void
   disabled?: boolean
   pressed?: boolean
+  /** The AI is working; the button says so to assistive tech while its icon animates. */
+  busy?: boolean
   children: ReactNode
 }) {
   return (
@@ -163,6 +170,7 @@ function QuickButton({
         type="button"
         aria-label={label}
         aria-pressed={pressed || undefined}
+        aria-busy={busy || undefined}
         aria-disabled={disabled || undefined}
         tabIndex={disabled ? -1 : undefined}
         className="inline-flex size-7 items-center justify-center rounded-md text-white hover:bg-white/10 aria-disabled:opacity-40 aria-pressed:bg-white/15 [&_svg]:size-3.5"
