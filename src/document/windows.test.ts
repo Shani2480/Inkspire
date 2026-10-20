@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest"
+import { isOpenFile, openFilePaths } from "@/document/recovery"
 import { WINDOW_ID, openWindows, readRequest, registerWindow, windowWithPath } from "@/document/windows"
 
 afterEach(() => {
@@ -52,5 +53,31 @@ describe("open windows", () => {
     expect(windowWithPath("/old.docx")).toBeUndefined()
     stop()
     expect(openWindows().map((entry) => entry.id)).toEqual(["other"])
+  })
+})
+
+describe("drafts of files that are open (Unsaved Documents)", () => {
+  it("are not offered while the file is open in another live window, in any spelling of its path", () => {
+    const now = Date.now()
+    localStorage.setItem(
+      "inkspire-windows",
+      JSON.stringify({
+        other: {
+          id: "other",
+          label: "doc-1",
+          name: "R",
+          path: "C:\\Docs\\Report.docx",
+          dirty: false,
+          since: now,
+          at: now,
+        },
+        gone: { id: "gone", label: "doc-2", name: "O", path: "/old.docx", dirty: false, since: now, at: now - 60_000 },
+      }),
+    )
+    const open = openFilePaths()
+    expect(isOpenFile("c:/docs/report.docx", open)).toBe(true)
+    // A window that has closed no longer holds its file, and a draft with no file is never held.
+    expect(isOpenFile("/old.docx", open)).toBe(false)
+    expect(isOpenFile(null, open)).toBe(false)
   })
 })
