@@ -3,7 +3,15 @@ import type { Editor } from "@tiptap/core"
 import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { WrapGlyph } from "@/components/menu-icons"
-import { objectAnchoring, objectWrap, selectedObject, WRAP_CHOICES, type ObjectWrap } from "@/editor/objects"
+import {
+  objectAnchoring,
+  objectWrap,
+  isChromeEditor,
+  selectedObject,
+  WRAP_CHOICES,
+  wrapChoicesFor,
+  type ObjectWrap,
+} from "@/editor/objects"
 
 type Place = { pos: number; name: string; wrap: ObjectWrap; anchoring: string; left: number; top: number }
 
@@ -181,9 +189,11 @@ export function LayoutOptions({ editor }: { editor: Editor }) {
           <div className="layout-options-row">{tile("inline")}</div>
           <div className="layout-options-heading">With Text Wrapping</div>
           <div className="layout-options-row">
-            {(["square", "tight", "through", "topBottom", "behind", "front"] as const).map(tile)}
+            {(["square", "tight", "through", "topBottom", "behind", "front"] as const)
+              .filter((id) => wrapChoicesFor(editor).some((choice) => choice.id === id))
+              .map(tile)}
           </div>
-          {(["move", "fixed"] as const).map((anchoring) => (
+          {(isChromeEditor(editor) ? [] : (["move", "fixed"] as const)).map((anchoring) => (
             <label key={anchoring} className="layout-options-radio" aria-disabled={!floating}>
               <input
                 type="radio"

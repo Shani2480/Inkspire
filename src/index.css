@@ -1369,24 +1369,6 @@ button.line-menu-row:focus-visible {
   pointer-events: none;
 }
 
-.page-chrome-layer {
-  position: absolute;
-  pointer-events: none;
-  overflow: visible;
-  z-index: 5;
-}
-
-.page-chrome-shape {
-  position: absolute;
-  display: block;
-  max-width: none;
-  height: auto;
-  object-fit: contain;
-  pointer-events: none;
-  user-select: none;
-  -webkit-user-drag: none;
-}
-
 .page-header,
 .page-footer,
 .page-number {
@@ -1422,6 +1404,8 @@ button.line-menu-row:focus-visible {
   font-size: inherit;
   letter-spacing: normal;
   color: inherit;
+  /* No stacking context of its own, so a picture in it can sit behind the body's text or in front of it. */
+  z-index: auto;
 }
 
 .page-header.is-live,
@@ -1442,6 +1426,27 @@ button.line-menu-row:focus-visible {
 .chrome-editor {
   min-height: 18px;
   outline: none;
+}
+
+/* A header is its own layer: pictures in it are positioned from its corner, so they overlap the page and push nothing. */
+.chrome-editor {
+  position: relative;
+  z-index: auto;
+}
+
+/* The header's text is over the body's; a picture behind text sits between the page and the body's text. */
+.chrome-editor > :not(.object-frame) {
+  position: relative;
+  z-index: 2;
+}
+
+.chrome-box .object-behind {
+  z-index: 0 !important;
+}
+
+.chrome-box .object-frame {
+  margin-left: var(--chrome-left, 0);
+  margin-top: var(--chrome-top, 0);
 }
 
 .chrome-box :is(p, h1, h2, h3) {
@@ -1582,7 +1587,7 @@ button.line-menu-row:focus-visible {
   outline: none;
 }
 
-.page-canvas:not(.is-chrome-editing) :is(.page-header, .page-footer, .page-number, .page-chrome-layer) {
+.page-canvas:not(.is-chrome-editing) :is(.page-number, .chrome-editor > *) {
   opacity: 0.5;
 }
 
@@ -1632,7 +1637,7 @@ button.line-menu-row:focus-visible {
   border-radius: 3px 3px 0 0;
 }
 
-.is-print-copy :is(.page-header, .page-footer, .page-number, .page-chrome-layer, .page-editor) {
+.is-print-copy :is(.page-header, .page-footer, .page-number, .page-editor) {
   opacity: 1 !important;
 }
 
@@ -1645,7 +1650,7 @@ button.line-menu-row:focus-visible {
 }
 
 @media print {
-  .page-canvas :is(.page-header, .page-footer, .page-number, .page-chrome-layer, .page-editor) {
+  .page-canvas :is(.page-header, .page-footer, .page-number, .page-editor) {
     opacity: 1 !important;
   }
 

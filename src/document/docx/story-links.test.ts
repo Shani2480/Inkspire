@@ -163,6 +163,22 @@ describe("headers and footers keep their own relationships", () => {
     expect(opened.view.chrome.header).toContain("HEADER-TEXT")
   })
 
+  it("keeps a floating header picture floating, where it was, and sends it behind the text when asked", async () => {
+    const { bytes, header } = await headerWithLogo()
+    const opened = await openDocxBytes(bytes, "story.docx")
+    expect(opened.view.chrome.header).toMatch(/data-wrap="front"/)
+    const saved = await editAndSave(bytes, (chrome) => {
+      chrome.header = chrome.header.replace('data-wrap="front"', 'data-wrap="behind"')
+    })
+    const xml = decodeXml(findPart(saved, header)!.data)
+    expect(xml).toContain("<wp:anchor")
+    expect(xml).toContain('behindDoc="1"')
+    // The offsets come back to the pixel: 12 cm across, a little above its paragraph.
+    const offsets = [...xml.matchAll(/<wp:posOffset>(-?\d+)<\/wp:posOffset>/g)].map((match) => Number(match[1]))
+    expect(offsets[0]).toBeCloseTo(4320000, -5)
+    expect(offsets[1]).toBeCloseTo(-180000, -5)
+  })
+
   it("saves a picture added to a header as a picture of that header part", async () => {
     const { bytes, header, footer } = await headerWithLogo()
     const added = `<p>Footer</p><img src="data:image/png;base64,${btoa(String.fromCharCode(...PNG))}" width="40" height="20">`

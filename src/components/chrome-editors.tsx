@@ -1,11 +1,16 @@
 import { EditorContent, useEditor, type Editor } from "@tiptap/react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type CSSProperties } from "react"
 import { chromeHasContent } from "@/document/chrome-html"
 import { useActiveChromeEditor } from "@/document/chrome-editing"
+import { pageMetrics } from "@/document/page-setup"
+import { useDocumentStore } from "@/document/store"
+import { useViewStore } from "@/document/view"
+import { ChromeFlow } from "@/editor/chrome-flow"
 import { createExtensions } from "@/editor/extensions"
+import { objectLeft, objectTop } from "@/editor/objects"
 
 /** The schema and behaviour of the body, without the checks that only make sense over a whole document. */
-const chromeExtensions = createExtensions().filter((extension) => extension.name !== "spellcheck")
+const chromeExtensions = [...createExtensions().filter((extension) => extension.name !== "spellcheck"), ChromeFlow]
 
 export type ChromePart = {
   editor: Editor | null
@@ -84,6 +89,16 @@ export function ChromeBox({
   const activate = useActiveChromeEditor((state) => state.activate)
   const className = `${kind === "header" ? "page-header" : "page-footer"} chrome-box${chromeHasContent(html) ? " has-content" : " is-empty"}${live ? " is-live" : ""}`
 
+  // A picture floating in the header is placed from the box's own corner: objects are laid out on the page grid,
+  // so the box takes the first page's corner back out (see `.chrome-box` in index.css).
+  const pageSetup = useDocumentStore((state) => state.pageSetup)
+  useViewStore((state) => state.pageView + state.movement)
+  const metrics = pageMetrics(pageSetup)
+  const origin = {
+    "--chrome-left": `${-objectLeft(1, 0, metrics)}px`,
+    "--chrome-top": `${-objectTop(1, 0, metrics)}px`,
+  } as CSSProperties
+
   useEffect(() => {
     if (!editor || !live) {
       return
@@ -106,13 +121,13 @@ export function ChromeBox({
 
   if (live && editor) {
     return (
-      <div className={className} data-chrome-part={kind} data-placeholder={placeholder}>
+      <div className={className} style={origin} data-chrome-part={kind} data-placeholder={placeholder}>
         <EditorContent editor={editor} />
       </div>
     )
   }
   return (
-    <div className={className} data-chrome-part={kind} aria-hidden={!chromeHasContent(html)}>
+    <div className={className} style={origin} data-chrome-part={kind} aria-hidden={!chromeHasContent(html)}>
       <div
         className="page-editor chrome-editor ProseMirror"
         // What the editor drew, copied; it is read-only and never run as a page of its own.

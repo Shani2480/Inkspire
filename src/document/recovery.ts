@@ -261,10 +261,6 @@ function buildSnapshotRecord(id: string): SnapshotRecord | null {
       firstHeader: state.firstHeaderHtml,
       firstFooter: state.firstFooterHtml,
       pageSetup: state.pageSetup,
-      headerShapes: state.headerShapes,
-      footerShapes: state.footerShapes,
-      firstHeaderShapes: state.firstHeaderShapes,
-      firstFooterShapes: state.firstFooterShapes,
     })
   const editor = getDocumentEditor()
   const json = editor && !editor.isDestroyed ? editor.getJSON() : null

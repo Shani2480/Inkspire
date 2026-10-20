@@ -13,7 +13,7 @@ import {
   wrapGaps,
   wrapSide,
   wrapsBeside,
-  WRAP_CHOICES,
+  wrapChoicesFor,
   WRAP_SIDES,
   type ObjectAnchoring,
   type ObjectWrap,
@@ -411,25 +411,23 @@ function LayoutDialogBody({
           <>
             <Section title="Wrapping style">
               <div className="layout-dialog-wraps" role="radiogroup" aria-label="Wrapping style">
-                {WRAP_CHOICES.filter((choice) => !(object.name === "textBox" && choice.id === "inline")).map(
-                  (choice) => (
-                    <button
-                      key={choice.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={draft.wrap === choice.id}
-                      className="layout-dialog-wrap"
-                      onClick={() => {
-                        const side = wrapDistance(choice.id)
-                        const gaps = { top: 0, bottom: 0, left: side, right: side }
-                        update({ wrap: choice.id, dist: draft.dist === start.dist ? gaps : draft.dist })
-                      }}
-                    >
-                      <WrapGlyph kind={choice.id} size={32} />
-                      <span>{choice.label}</span>
-                    </button>
-                  ),
-                )}
+                {wrapChoicesFor(editor, object.name).map((choice) => (
+                  <button
+                    key={choice.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={draft.wrap === choice.id}
+                    className="layout-dialog-wrap"
+                    onClick={() => {
+                      const side = wrapDistance(choice.id)
+                      const gaps = { top: 0, bottom: 0, left: side, right: side }
+                      update({ wrap: choice.id, dist: draft.dist === start.dist ? gaps : draft.dist })
+                    }}
+                  >
+                    <WrapGlyph kind={choice.id} size={32} />
+                    <span>{choice.label}</span>
+                  </button>
+                ))}
               </div>
             </Section>
             <Section title="Wrap text">

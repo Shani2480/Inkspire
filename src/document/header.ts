@@ -18,19 +18,6 @@ import {
 const CHROME_MARK =
   /^<!-- aiword-(header|footer|first-header|first-footer|first|page|columns|colgap|colline|lines|watermark|border|borderwidth|borderline|pagecolor|pagenum|hyphens|language|fonts|spacing|headerstyle|footerstyle|colors|effects):([^\n>]*) -->\n?/
 
-/** Absolutely positioned image from a Word header/footer (or body float). */
-export type ChromeShape = {
-  src: string
-  width: number
-  height: number
-  /** CSS pixels from the left edge of the page sheet. */
-  x: number
-  /** CSS pixels from the top edge of the page sheet (header) or up from the bottom (footer, via zone). */
-  y: number
-  behind?: boolean
-  alt?: string
-}
-
 export type DocumentChrome = {
   /** The header and footer of each kind of page, as editor HTML. */
   header: string
@@ -39,10 +26,6 @@ export type DocumentChrome = {
   firstHeader: string
   firstFooter: string
   pageSetup: PageSetup
-  headerShapes: ChromeShape[]
-  footerShapes: ChromeShape[]
-  firstHeaderShapes: ChromeShape[]
-  firstFooterShapes: ChromeShape[]
 }
 
 export function emptyChrome(): DocumentChrome {
@@ -53,10 +36,6 @@ export function emptyChrome(): DocumentChrome {
     firstHeader: "",
     firstFooter: "",
     pageSetup: DEFAULT_PAGE_SETUP,
-    headerShapes: [],
-    footerShapes: [],
-    firstHeaderShapes: [],
-    firstFooterShapes: [],
   }
 }
 

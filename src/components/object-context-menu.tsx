@@ -16,7 +16,7 @@ import { IconLibrary } from "@/components/icon-library"
 import { IF_OPERATORS, type DateFormat, type IfOperator } from "@/editor/formula"
 import { pasteFromClipboard, copySelection, cutSelection } from "@/editor/home-actions"
 import { openModelFormat } from "@/components/model-format-dialog"
-import { objectAnchoring, objectWrap, patchObject, WRAP_CHOICES } from "@/editor/objects"
+import { objectAnchoring, objectWrap, patchObject, wrapChoicesFor } from "@/editor/objects"
 import type { Editor } from "@tiptap/core"
 import { NodeSelection } from "@tiptap/pm/state"
 import { CellSelection, findTable } from "@tiptap/pm/tables"
@@ -415,7 +415,7 @@ function wrapItems(editor: Editor, target: Target, close: () => void, attrs: Rec
     close()
   }
   return [
-    ...WRAP_CHOICES.filter((choice) => !(target.name === "textBox" && choice.id === "inline")).map((choice) =>
+    ...wrapChoicesFor(editor, target.name).map((choice) =>
       leaf(
         choice.label,
         () => choose(() => editor.chain().focus().setObjectWrap(choice.id).run()),

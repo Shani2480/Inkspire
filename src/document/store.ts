@@ -1,6 +1,6 @@
 import { chromeHtml } from "@/document/chrome-html"
 import { clearWordDocument } from "@/document/docx/session"
-import type { ChromeShape, DocumentChrome } from "@/document/header"
+import type { DocumentChrome } from "@/document/header"
 import { pageSetupForNewDocument } from "@/document/design-format"
 import { DEFAULT_PAGE_SETUP, normalizePageSetup, samePageSetup, type PageSetup } from "@/document/page-setup"
 import { create } from "zustand"
@@ -211,10 +211,6 @@ type DocumentState = {
   savedFirstHeader: string
   firstFooterHtml: string
   savedFirstFooter: string
-  headerShapes: ChromeShape[]
-  footerShapes: ChromeShape[]
-  firstHeaderShapes: ChromeShape[]
-  firstFooterShapes: ChromeShape[]
   pageSetup: PageSetup
   savedPageSetup: PageSetup
   recentFiles: string[]
@@ -270,10 +266,6 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   savedFirstHeader: "",
   firstFooterHtml: "",
   savedFirstFooter: "",
-  headerShapes: [],
-  footerShapes: [],
-  firstHeaderShapes: [],
-  firstFooterShapes: [],
   pageSetup: pageSetupForNewDocument(),
   savedPageSetup: pageSetupForNewDocument(),
   recentFiles: loadRecentFiles(),
@@ -352,10 +344,6 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       savedFirstHeader: "",
       firstFooterHtml: "",
       savedFirstFooter: "",
-      headerShapes: [],
-      footerShapes: [],
-      firstHeaderShapes: [],
-      firstFooterShapes: [],
       pageSetup: pageSetupForNewDocument(),
       savedPageSetup: pageSetupForNewDocument(),
       documentProps,
@@ -391,10 +379,6 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         savedFirstHeader: chrome.firstHeader ?? "",
         firstFooterHtml: chrome.firstFooter ?? "",
         savedFirstFooter: chrome.firstFooter ?? "",
-        headerShapes: chrome.headerShapes ?? [],
-        footerShapes: chrome.footerShapes ?? [],
-        firstHeaderShapes: chrome.firstHeaderShapes ?? [],
-        firstFooterShapes: chrome.firstFooterShapes ?? [],
         pageSetup: normalizePageSetup(chrome.pageSetup ?? DEFAULT_PAGE_SETUP),
         savedPageSetup: normalizePageSetup(chrome.pageSetup ?? DEFAULT_PAGE_SETUP),
         isDirty: false,
@@ -498,10 +482,6 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       savedFirstHeader: chrome.firstHeader,
       firstFooterHtml: chrome.firstFooter,
       savedFirstFooter: chrome.firstFooter,
-      headerShapes: chrome.headerShapes ?? [],
-      footerShapes: chrome.footerShapes ?? [],
-      firstHeaderShapes: chrome.firstHeaderShapes ?? [],
-      firstFooterShapes: chrome.firstFooterShapes ?? [],
       pageSetup: chrome.pageSetup,
       savedPageSetup: chrome.pageSetup,
       isDirty: true,
