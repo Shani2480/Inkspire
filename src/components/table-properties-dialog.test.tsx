@@ -31,6 +31,9 @@ describe("Table Properties (22.10)", () => {
       rowHeightCm: 1.5,
       columnWidthCm: before.widthCm,
       valign: "middle",
+      align: before.align,
+      altTitle: before.altTitle,
+      altDesc: before.altDesc,
     })
     const after = tableLayoutState(editor)!
     expect(after).toMatchObject({ cellPad: "wide", valign: "middle", gridlines: false, rowHeightSet: true })
@@ -52,6 +55,9 @@ describe("Table Properties (22.10)", () => {
       rowHeightCm: null,
       columnWidthCm: before.widthCm,
       valign: before.valign,
+      align: before.align,
+      altTitle: before.altTitle,
+      altDesc: before.altDesc,
     })
     expect(editor.state.doc.eq(doc)).toBe(true)
     editor.destroy()
@@ -87,6 +93,22 @@ describe("Table Properties (22.10)", () => {
     render(<TablePropertiesHost />)
     act(() => openTableProperties(editor))
     expect(screen.queryByText("Table Properties")).toBeNull()
+    editor.destroy()
+  })
+
+  it("sets the table's alignment and alt text, and shows them again", () => {
+    const editor = make()
+    expect(tableLayoutState(editor)).toMatchObject({ align: "left", altTitle: "", altDesc: "" })
+    render(<TablePropertiesHost />)
+    act(() => openTableProperties(editor, "table"))
+    fireEvent.click(screen.getByRole("button", { name: "Right" }))
+    fireEvent.click(screen.getByRole("tab", { name: "Alt Text" }))
+    fireEvent.change(screen.getByLabelText("Alt text title"), { target: { value: "Totals" } })
+    fireEvent.change(screen.getByLabelText("Alt text description"), { target: { value: "Totals per row" } })
+    fireEvent.click(screen.getByText("OK"))
+    expect(tableLayoutState(editor)).toMatchObject({ align: "right", altTitle: "Totals", altDesc: "Totals per row" })
+    expect(editor.getHTML()).toContain('data-align="right"')
+    expect(editor.getHTML()).toContain('data-alt-title="Totals"')
     editor.destroy()
   })
 })

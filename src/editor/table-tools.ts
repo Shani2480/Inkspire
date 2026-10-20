@@ -82,6 +82,16 @@ function applyTableStyleDom(table: HTMLTableElement, node: ProseNode) {
   table.dataset.gridlines = node.attrs.gridlines === false ? "0" : "1"
   const pad = node.attrs.cellPad === "narrow" || node.attrs.cellPad === "wide" ? node.attrs.cellPad : "normal"
   table.dataset.cellPad = pad
+  if (node.attrs.align === "center" || node.attrs.align === "right") {
+    table.dataset.align = node.attrs.align
+  } else {
+    delete table.dataset.align
+  }
+  if (node.attrs.altTitle) {
+    table.setAttribute("aria-label", String(node.attrs.altTitle))
+  } else {
+    table.removeAttribute("aria-label")
+  }
   applyWordTable(table, node)
 }
 
@@ -203,6 +213,27 @@ export const FramedTable = Table.extend({
         }),
       },
       ...wordTableAttributes,
+      align: {
+        default: "left",
+        parseHTML: (element: HTMLElement) => {
+          const value = element.getAttribute("data-align")
+          return value === "center" || value === "right" ? value : "left"
+        },
+        renderHTML: (attributes: { align?: string }) =>
+          attributes.align === "center" || attributes.align === "right" ? { "data-align": attributes.align } : {},
+      },
+      altTitle: {
+        default: "",
+        parseHTML: (element: HTMLElement) => element.getAttribute("data-alt-title") ?? "",
+        renderHTML: (attributes: { altTitle?: string }) =>
+          attributes.altTitle ? { "data-alt-title": attributes.altTitle } : {},
+      },
+      altDesc: {
+        default: "",
+        parseHTML: (element: HTMLElement) => element.getAttribute("data-alt-desc") ?? "",
+        renderHTML: (attributes: { altDesc?: string }) =>
+          attributes.altDesc ? { "data-alt-desc": attributes.altDesc } : {},
+      },
       cellPad: {
         default: "normal",
         parseHTML: (element: HTMLElement) => {

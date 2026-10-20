@@ -1,11 +1,17 @@
 import { openBordersAndShading } from "@/components/borders-shading-dialog"
 import { DialogButtons, DialogFrame } from "@/components/word-dialog"
-import { applyTableProperties, tableLayoutState, type CellPad, type TableProperties } from "@/editor/table-layout"
+import {
+  applyTableProperties,
+  tableLayoutState,
+  type CellPad,
+  type TableAlign,
+  type TableProperties,
+} from "@/editor/table-layout"
 import type { Editor } from "@tiptap/core"
 import { useState } from "react"
 import { create } from "zustand"
 
-type Tab = "table" | "row" | "column" | "cell"
+type Tab = "table" | "row" | "column" | "cell" | "alt"
 
 /** Opens Table Properties (22.10) for the table the editor's selection is in. */
 export const useTableProperties = create<{ open: { editor: Editor; tab: Tab } | null }>(() => ({ open: null }))
@@ -33,6 +39,11 @@ const PADS: { id: CellPad; label: string }[] = [
   { id: "normal", label: "Normal" },
   { id: "wide", label: "Wide" },
 ]
+const ALIGNS: { id: TableAlign; label: string }[] = [
+  { id: "left", label: "Left" },
+  { id: "center", label: "Center" },
+  { id: "right", label: "Right" },
+]
 const VERTICAL = [
   { id: "top", label: "Top" },
   { id: "middle", label: "Center" },
@@ -57,6 +68,9 @@ function TablePropertiesDialog({
     rowHeightCm: state?.rowHeightSet ? state.heightCm : null,
     columnWidthCm: state?.widthCm ?? 0,
     valign: state?.valign ?? "top",
+    align: state?.align ?? "left",
+    altTitle: state?.altTitle ?? "",
+    altDesc: state?.altDesc ?? "",
   })
   const [heightText, setHeightText] = useState(state?.heightCm ? state.heightCm.toFixed(2) : "")
   const [widthText, setWidthText] = useState(state?.widthCm ? state.widthCm.toFixed(2) : "")
@@ -80,6 +94,7 @@ function TablePropertiesDialog({
         { id: "row", label: "Row" },
         { id: "column", label: "Column" },
         { id: "cell", label: "Cell" },
+        { id: "alt", label: "Alt Text" },
       ]}
       tab={tab}
       onTab={(id) => setTab(id as Tab)}
@@ -87,6 +102,22 @@ function TablePropertiesDialog({
     >
       {tab === "table" ? (
         <div className="tp-panel">
+          <div role="group" aria-label="Table alignment">
+            <p className="tp-heading">Alignment</p>
+            <div className="tp-choices">
+              {ALIGNS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="dialog-btn"
+                  aria-pressed={draft.align === item.id}
+                  onClick={() => patch({ align: item.id })}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
           <label className="tp-field">
             Cell margins
             <select
@@ -195,6 +226,28 @@ function TablePropertiesDialog({
               </button>
             ))}
           </div>
+        </div>
+      ) : null}
+      {tab === "alt" ? (
+        <div className="tp-panel">
+          <label className="tp-field">
+            Title
+            <input
+              aria-label="Alt text title"
+              value={draft.altTitle}
+              onChange={(event) => patch({ altTitle: event.target.value })}
+            />
+          </label>
+          <label className="tp-field">
+            Description
+            <textarea
+              aria-label="Alt text description"
+              rows={4}
+              value={draft.altDesc}
+              onChange={(event) => patch({ altDesc: event.target.value })}
+            />
+          </label>
+          <p className="tp-note">Read out to people who cannot see the table.</p>
         </div>
       ) : null}
       <DialogButtons submit onCancel={onClose} />
