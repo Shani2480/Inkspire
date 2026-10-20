@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { applyDraft } from "@/editor/actions"
 import { useDocumentEditor } from "@/editor/document-editor"
 import type { Editor } from "@tiptap/core"
-import { Sparkles } from "lucide-react"
+import { AiSpark } from "@/components/ai-spark"
 import { useEffect, useLayoutEffect, useRef, useState, type WheelEvent } from "react"
 
 const TEXT_MIN = 20
@@ -139,7 +139,7 @@ export function RewritePopover() {
         <div className="rewrite-border" aria-hidden />
         <div className="rewrite-panel">
           <div className="mb-2 flex items-center gap-1.5">
-            <Sparkles className={`size-3.5 text-violet-600 ${running ? "rewrite-spark" : ""}`} aria-hidden />
+            <AiSpark busy={running} className="size-3.5 text-violet-600" />
             <span className="text-xs font-medium">{running ? `${title}…` : title}</span>
           </div>
           <div

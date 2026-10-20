@@ -2922,31 +2922,67 @@ button.line-menu-row:focus-visible {
   transition: opacity 320ms ease;
 }
 
-.rewrite-popover.is-running .rewrite-border,
-.ai-working .rewrite-border {
+.rewrite-popover.is-running .rewrite-border {
   opacity: 1;
   animation: rewrite-spin 2.4s linear infinite;
 }
 
-.ai-working-dots {
-  display: inline-flex;
-  gap: 3px;
+.ai-spark.is-busy {
+  overflow: visible;
+  animation: ai-spark-glow 1.6s ease-in-out infinite;
 }
 
-.ai-working-dots i {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: #7c3aed;
-  animation: rewrite-spark 1.2s ease-in-out infinite;
+.ai-spark.is-busy path {
+  transform-box: fill-box;
+  transform-origin: center;
 }
 
-.ai-working-dots i:nth-child(2) {
-  animation-delay: 0.2s;
+.ai-spark.is-busy path:nth-child(1) {
+  animation: ai-spark-breathe 1.6s ease-in-out infinite;
 }
 
-.ai-working-dots i:nth-child(3) {
-  animation-delay: 0.4s;
+.ai-spark.is-busy path:nth-child(n + 2) {
+  animation: ai-spark-twinkle 1.6s ease-in-out infinite;
+}
+
+.ai-spark.is-busy path:nth-child(4),
+.ai-spark.is-busy path:nth-child(5) {
+  animation-delay: 0.8s;
+}
+
+@keyframes ai-spark-breathe {
+  0%,
+  100% {
+    transform: scale(0.82) rotate(-12deg);
+  }
+
+  50% {
+    transform: scale(1.08) rotate(12deg);
+  }
+}
+
+@keyframes ai-spark-twinkle {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.6);
+  }
+
+  40% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+}
+
+@keyframes ai-spark-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 transparent);
+  }
+
+  50% {
+    filter: drop-shadow(0 0 3px currentColor);
+  }
 }
 
 .rewrite-panel {
@@ -2970,11 +3006,6 @@ button.line-menu-row:focus-visible {
   animation: rewrite-reveal 160ms ease-out;
 }
 
-.rewrite-spark {
-  transform-origin: center;
-  animation: rewrite-spark 1.4s ease-in-out infinite;
-}
-
 @keyframes rewrite-spin {
   to {
     transform: rotate(360deg);
@@ -2991,30 +3022,15 @@ button.line-menu-row:focus-visible {
   }
 }
 
-@keyframes rewrite-spark {
-  0%,
-  100% {
-    opacity: 0.45;
-    transform: scale(0.92);
-  }
-
-  50% {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .rewrite-popover.is-running .rewrite-border,
-  .ai-working .rewrite-border,
-  .ai-working-dots i,
-  .rewrite-spark,
+  .ai-spark.is-busy,
+  .ai-spark.is-busy path,
   .rewrite-reveal {
     animation: none;
   }
 
-  .rewrite-reveal,
-  .rewrite-spark {
+  .rewrite-reveal {
     opacity: 1;
   }
 }

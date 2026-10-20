@@ -1,22 +1,11 @@
 import { useAskAi } from "@/ai/ask-ai"
+import { AiSpark } from "@/components/ai-spark"
 import { toggleBold } from "@/editor/shape-text"
 import { saveDocument } from "@/document/commands"
 import { useBackstage } from "@/document/backstage"
 import { registerKnownCommands } from "@/document/customize"
 import type { Editor } from "@tiptap/core"
-import {
-  Bold,
-  FileOutput,
-  FilePlus,
-  FolderOpen,
-  Italic,
-  Printer,
-  Redo2,
-  Save,
-  Sparkles,
-  Underline,
-  Undo2,
-} from "lucide-react"
+import { Bold, FileOutput, FilePlus, FolderOpen, Italic, Printer, Redo2, Save, Underline, Undo2 } from "lucide-react"
 import type { ReactNode } from "react"
 
 export type QuickCommand = {
@@ -65,7 +54,7 @@ export const QUICK_COMMANDS: QuickCommand[] = [
   {
     id: "ai",
     label: "Ask AI",
-    icon: <Sparkles />,
+    icon: <AiSpark />,
     run: (editor) => (editor ? useAskAi.getState().show(editor) : undefined),
   },
 ]

@@ -1,3 +1,4 @@
+import { useAiActivity } from "@/ai/activity"
 import { providerConfig, useAiSettings } from "@/ai/settings"
 import { isTauriRuntime } from "@/lib/platform"
 import { listen, type UnlistenFn } from "@tauri-apps/api/event"
@@ -55,6 +56,7 @@ export async function generateAiText(prompt: string, context: string, options?: 
   const settings = useAiSettings.getState()
   const requestId = options?.requestId ?? crypto.randomUUID()
   const quiet = options?.quiet === true
+  useAiActivity.getState().start()
   if (!quiet) {
     settings.begin(requestId)
   }
@@ -87,6 +89,7 @@ export async function generateAiText(prompt: string, context: string, options?: 
     throwIfCancelled(requestId)
     return html
   } finally {
+    useAiActivity.getState().end()
     unlisten?.()
     if (!quiet && useAiSettings.getState().requestId === requestId) {
       useAiSettings.getState().finish()
