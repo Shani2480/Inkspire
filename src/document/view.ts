@@ -240,3 +240,20 @@ export const useViewStore = create<ViewState>((set, get) => ({
   setHighlightMerge: (highlightMerge) => set({ highlightMerge }),
   toggleSelectionPane: () => set((state) => ({ selectionPane: !state.selectionPane })),
 }))
+
+/**
+ * Light or dark is for the app, not for a document: when another window changes it (the choice is kept in
+ * localStorage, which tells the other windows through a `storage` event), this window follows.
+ */
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    if (event.key !== COLOR_MODE_KEY) {
+      return
+    }
+    const colorMode: ColorMode = event.newValue === "dark" ? "dark" : "light"
+    if (useViewStore.getState().colorMode !== colorMode) {
+      applyColorMode(colorMode)
+      useViewStore.setState({ colorMode })
+    }
+  })
+}
