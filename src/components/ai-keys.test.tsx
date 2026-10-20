@@ -58,6 +58,14 @@ describe("AI Settings dialog", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("local_ai_install", { modelId: "qwen2.5-3b" }))
   })
 
+  it("shows a checking line, not the browser message, while the desktop app loads the engine status", async () => {
+    answer(status())
+    render(<AiKeysDialog />)
+    expect(screen.getByText(/Checking the built-in engine/)).toBeTruthy()
+    expect(screen.queryByText(/Open the desktop app/)).toBeNull()
+    expect(await screen.findByRole("button", { name: /Download 2\.0 GB/ })).toBeTruthy()
+  })
+
   it("says the engine uses the processor when there is no Vulkan graphics card", async () => {
     answer(status())
     render(<AiKeysDialog />)

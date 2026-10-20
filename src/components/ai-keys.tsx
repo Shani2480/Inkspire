@@ -8,7 +8,6 @@ import {
   type KeySource,
 } from "@/ai/keys"
 import {
-  NO_LOCAL_STATUS,
   cancelLocalInstall,
   defaultLocalModel,
   formatBytes,
@@ -258,7 +257,7 @@ function EnginePanel() {
   const installing = useLocalDownload((state) => state.installing)
   const progress = useLocalDownload((state) => state.progress)
   const downloadError = useLocalDownload((state) => state.error)
-  const [status, setStatus] = useState<LocalStatus>(NO_LOCAL_STATUS)
+  const [status, setStatus] = useState<LocalStatus | null>(null)
   const [removing, setRemoving] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [alsoEngine, setAlsoEngine] = useState(false)
@@ -278,6 +277,9 @@ function EnginePanel() {
     }
   }, [installing, removing])
 
+  if (!status) {
+    return <p className="mt-3 text-xs text-neutral-600">Checking the built-in engine…</p>
+  }
   if (!status.supported) {
     return <p className="mt-3 text-xs text-neutral-600">{status.reason}</p>
   }
