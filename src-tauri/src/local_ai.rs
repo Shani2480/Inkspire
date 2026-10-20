@@ -82,7 +82,7 @@ pub struct ModelInfo {
     pub size: u64,
 }
 
-pub const MODELS: [ModelInfo; 2] = [
+pub const MODELS: [ModelInfo; 3] = [
     ModelInfo {
         id: "qwen2.5-1.5b",
         label: "Small: Qwen2.5 1.5B Instruct",
@@ -98,6 +98,14 @@ pub const MODELS: [ModelInfo; 2] = [
         url: "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf",
         sha256: "626b4a6678b86442240e33df819e00132d3ba7dddfe1cdc4fbb18e0a9615c62d",
         size: 2_104_932_768,
+    },
+    ModelInfo {
+        id: "qwen2.5-7b",
+        label: "Best quality: Qwen2.5 7B Instruct",
+        file: "Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+        url: "https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/resolve/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf",
+        sha256: "65b8fcd92af6b4fefa935c625d1ac27ea29dcb6ee14589c55a8f115ceaaa1423",
+        size: 4_683_074_240,
     },
 ];
 
@@ -932,6 +940,7 @@ mod tests {
             model_by_id(Some("qwen2.5-1.5b")).unwrap().size,
             1_117_320_736
         );
+        assert_eq!(model_by_id(Some("qwen2.5-7b")).unwrap().size, 4_683_074_240);
         assert!(model_by_id(Some("../../etc/passwd")).is_err());
         for model in MODELS {
             assert_eq!(model.sha256.len(), 64);
