@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { DEFAULT_ADDRESSES, useAiSettings } from "@/ai/settings"
 import { AiKeysDialog } from "@/components/ai-keys"
@@ -80,7 +80,49 @@ describe("AI Settings dialog", () => {
     render(<AiKeysDialog />)
     expect(await screen.findByText(/Ready\./)).toBeTruthy()
     fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[0]!)
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("local_ai_remove"))
+    // It says what it will do first, and nothing is deleted until that is confirmed.
+    expect(await screen.findByText(/Remove Standard\?/)).toBeTruthy()
+    expect(invoke).not.toHaveBeenCalledWith("local_ai_remove", expect.anything())
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Remove" }))
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("local_ai_remove", { modelId: "qwen2.5-3b", removeEngine: false }),
+    )
+  })
+
+  it("removes only the model that is chosen and keeps the other one", async () => {
+    answer(
+      status({
+        engineInstalled: true,
+        models: [
+          { id: "qwen2.5-1.5b", label: "Small", size: 1_117_320_736, installed: true, default: false },
+          { id: "qwen2.5-3b", label: "Standard", size: 2_104_932_768, installed: true, default: true },
+        ],
+      }),
+    )
+    render(<AiKeysDialog />)
+    await screen.findByText(/Ready\./)
+    fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[0]!)
+    expect(await screen.findByText(/The other downloaded model and the engine stay/)).toBeTruthy()
+    expect(screen.queryByLabelText(/Also remove the engine/)).toBeNull()
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Remove" }))
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("local_ai_remove", { modelId: "qwen2.5-3b", removeEngine: false }),
+    )
+  })
+
+  it("lets Cancel back out of a removal", async () => {
+    answer(
+      status({
+        engineInstalled: true,
+        models: [{ id: "qwen2.5-3b", label: "Standard", size: 2_104_932_768, installed: true, default: true }],
+      }),
+    )
+    render(<AiKeysDialog />)
+    await screen.findByText(/Ready\./)
+    fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[0]!)
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }))
+    expect(screen.queryByRole("alertdialog")).toBeNull()
+    expect(invoke).not.toHaveBeenCalledWith("local_ai_remove", expect.anything())
   })
 
   it("explains an unsupported system instead of offering a download", async () => {

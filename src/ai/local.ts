@@ -106,6 +106,7 @@ export async function cancelLocalInstall() {
   await invoke("local_ai_cancel_install")
 }
 
-export async function removeLocalEngine() {
-  await invoke("local_ai_remove")
+/** Deletes one downloaded model; the others stay. `engine` deletes the engine builds as well. */
+export async function removeLocalModel(modelId: string, engine = false) {
+  await invoke("local_ai_remove", { modelId, removeEngine: engine })
 }

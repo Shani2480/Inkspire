@@ -15,7 +15,7 @@ import {
   installLocalEngine,
   loadLocalStatus,
   localReady,
-  removeLocalEngine,
+  removeLocalModel,
   useLocalDownload,
   type LocalStatus,
 } from "@/ai/local"
@@ -260,6 +260,8 @@ function EnginePanel() {
   const downloadError = useLocalDownload((state) => state.error)
   const [status, setStatus] = useState<LocalStatus>(NO_LOCAL_STATUS)
   const [removing, setRemoving] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  const [alsoEngine, setAlsoEngine] = useState(false)
 
   useEffect(() => {
     if (installing) {
@@ -282,6 +284,7 @@ function EnginePanel() {
   const chosen = model || defaultLocalModel(status)
   const picked = status.models.find((item) => item.id === chosen)
   const ready = localReady(status, model)
+  const othersInstalled = status.models.some((item) => item.id !== chosen && item.installed)
   const needed = (status.engineInstalled ? 0 : status.engineSize) + (picked?.installed ? 0 : (picked?.size ?? 0))
   const percent =
     progress && progress.total > 0 ? Math.min(100, Math.round((progress.received / progress.total) * 100)) : 0
@@ -301,7 +304,10 @@ function EnginePanel() {
           value={chosen}
           disabled={installing}
           className="h-8 min-w-0 flex-1 rounded-md border border-black/10 px-2 text-sm text-neutral-900 outline-none focus:border-neutral-400"
-          onChange={(event) => setModelFor("builtin", event.target.value)}
+          onChange={(event) => {
+            setModelFor("builtin", event.target.value)
+            setConfirming(false)
+          }}
         >
           {status.models.map((item) => (
             <option key={item.id} value={item.id}>
@@ -324,30 +330,76 @@ function EnginePanel() {
             </button>
           </div>
         </div>
-      ) : ready ? (
-        <div className="flex items-center justify-between gap-2">
-          <span>Ready. It starts when you use it and stops after ten quiet minutes.</span>
-          <button
-            type="button"
-            className="dialog-btn"
-            disabled={removing}
-            onClick={() => {
-              setRemoving(true)
-              void removeLocalEngine().finally(() => setRemoving(false))
-            }}
-          >
-            Remove
-          </button>
+      ) : confirming && picked ? (
+        <div role="alertdialog" aria-label={`Remove ${picked.label}`} className="space-y-1.5">
+          <p className="font-medium text-neutral-700">Remove {picked.label}?</p>
+          <p>
+            This deletes its {formatBytes(picked.size)} file from this computer. You can download it again later.
+            {othersInstalled
+              ? " The other downloaded model and the engine stay."
+              : " The engine stays, unless you remove it too."}
+          </p>
+          {othersInstalled || !status.engineInstalled ? null : (
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={alsoEngine} onChange={(event) => setAlsoEngine(event.target.checked)} />
+              Also remove the engine ({formatBytes(status.engineSize)})
+            </label>
+          )}
+          <div className="flex justify-end gap-1.5">
+            <button
+              type="button"
+              className="dialog-btn"
+              onClick={() => {
+                setConfirming(false)
+                setAlsoEngine(false)
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="dialog-btn is-primary"
+              disabled={removing}
+              onClick={() => {
+                setRemoving(true)
+                void removeLocalModel(picked.id, alsoEngine && !othersInstalled).finally(() => {
+                  setRemoving(false)
+                  setConfirming(false)
+                  setAlsoEngine(false)
+                })
+              }}
+            >
+              Remove
+            </button>
+          </div>
         </div>
       ) : (
         <div className="space-y-1">
-          <button type="button" className="dialog-btn" onClick={() => void installLocalEngine(chosen)}>
-            Download {formatBytes(needed)}
-          </button>
-          <p className="text-[11px] text-neutral-500">
-            Downloads the llama.cpp engine from GitHub and the model from Hugging Face, once, and checks both. A stopped
-            download picks up where it left off.
-          </p>
+          {ready ? (
+            <div className="flex items-center justify-between gap-2">
+              <span>Ready. It starts when you use it and stops after ten quiet minutes.</span>
+              <button type="button" className="dialog-btn" onClick={() => setConfirming(true)}>
+                Remove
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <button type="button" className="dialog-btn" onClick={() => void installLocalEngine(chosen)}>
+                  Download {formatBytes(needed)}
+                </button>
+                {picked?.installed ? (
+                  <button type="button" className="dialog-btn" onClick={() => setConfirming(true)}>
+                    Remove
+                  </button>
+                ) : null}
+              </div>
+              <p className="text-[11px] text-neutral-500">
+                Downloads the llama.cpp engine from GitHub and the model from Hugging Face, once, and checks both. A
+                stopped download picks up where it left off.
+              </p>
+            </div>
+          )}
         </div>
       )}
       {downloadError ? (
