@@ -1,7 +1,3 @@
-import { MceError } from "@/document/docx/mce"
-import { OpcError } from "@/document/docx/opc"
-import { WmlError } from "@/document/docx/wml-read"
-import { ZipError } from "@/document/docx/zip"
 import { create } from "zustand"
 
 /** What went wrong, in the terms the dialog explains it in. */
@@ -82,13 +78,16 @@ export function classifyFileError(error: unknown, context: Pick<Context, "file" 
     // Word stores a password-protected .docx encrypted inside a compound file, the container .doc files use too.
     return ext === "docx" ? "protected" : "legacy-word"
   }
-  if (error instanceof MceError) {
+  // By name, not class: the reader's classes live in a part of the app that loads only when a file is opened.
+  const failure = error instanceof Error ? error : null
+  if (failure?.name === "MceError") {
     return "unsupported"
   }
-  if (error instanceof OpcError && (error.code === "unsupported-extension" || error.code === "content-type-mismatch")) {
+  const code = (failure as { code?: unknown } | null)?.code
+  if (failure?.name === "OpcError" && (code === "unsupported-extension" || code === "content-type-mismatch")) {
     return context.operation === "open" ? "unsupported" : "unknown"
   }
-  if (error instanceof OpcError || error instanceof WmlError || error instanceof ZipError) {
+  if (failure?.name === "OpcError" || failure?.name === "WmlError" || failure?.name === "ZipError") {
     return context.operation === "open" ? "damaged" : "unknown"
   }
   const text = detail.toLowerCase()

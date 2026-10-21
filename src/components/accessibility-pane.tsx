@@ -9,7 +9,7 @@ import { errorMessage } from "@/document/commands"
 import { applyAccessibilityFix, applyAccessibilitySuggestion } from "@/editor/accessibility-fixes"
 import { useBodyEditor } from "@/editor/document-editor"
 import { checkAccessibility, type AccessibilityIssue, type AccessibilitySeverity } from "@/lib/accessibility"
-import { useEditorState } from "@tiptap/react"
+import { useSettledEditorValue } from "@/editor/use-settled"
 import { Sparkles, X } from "lucide-react"
 
 const GROUPS: { severity: AccessibilitySeverity; title: string }[] = [
@@ -28,12 +28,13 @@ export function AccessibilityPane() {
   const running = useAccessibility((state) => state.running)
   const error = useAccessibility((state) => state.error)
   const pageColor = useDocumentStore((state) => state.pageSetup.pageColor)
-  const found = useEditorState({
+  const found = useSettledEditorValue(
     editor,
-    selector: ({ editor: current }) => (open && current ? checkAccessibility(current, { pageColor }) : []),
-    equalityFn: (a, b) => (a ?? []).map((i) => i.id).join() === (b ?? []).map((i) => i.id).join(),
-  })
-  const issues = (found ?? []).filter((issue) => !dismissed.includes(issue.id))
+    (current) => (open ? checkAccessibility(current, { pageColor }) : []),
+    [] as AccessibilityIssue[],
+    [open, pageColor],
+  )
+  const issues = found.filter((issue) => !dismissed.includes(issue.id))
 
   if (!open) {
     return null

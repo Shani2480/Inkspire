@@ -11,8 +11,6 @@ import {
 } from "@/document/windows"
 import { flushPendingEdit, getDocumentEditor } from "@/document/editor-ref"
 import { emptyChrome, packDocument, unpackDocument, type DocumentChrome } from "@/document/header"
-import { openDocxBytes, saveDocxBytes } from "@/document/docx/io"
-import { analyzeDocx, optimizeDocx } from "@/document/docx/optimize"
 import { useOptimizeDialog } from "@/document/optimize-dialog-state"
 import { documentWithObjectPictures, restoreObjects } from "@/document/object-pictures"
 import { clearWordDocument, currentWordDocument, rememberWordDocument } from "@/document/docx/session"
@@ -50,6 +48,11 @@ import { isTauriRuntime } from "@/lib/platform"
 import { EditorState } from "@tiptap/pm/state"
 import { invoke } from "@tauri-apps/api/core"
 import { message } from "@tauri-apps/plugin-dialog"
+
+// The .docx reader and writer (and the zip library under them) are large and needed only once a file is opened or
+// saved, so they load then rather than when the app starts.
+const docxIo = () => import("@/document/docx/io")
+const docxOptimizer = () => import("@/document/docx/optimize")
 
 export const BLANK_DOCUMENT_HTML = '<p style="text-align: left;"></p>'
 
@@ -281,7 +284,7 @@ async function loadOpenedFile(file: OpenedFile) {
   useStyleStore.getState().load(defaultStyles())
   const ext = fileExtension(file.name || file.path || "")
   if (ext === "docx") {
-    const opened = await openDocxBytes(file.bytes, file.name || file.path || "document.docx")
+    const opened = await (await docxIo()).openDocxBytes(file.bytes, file.name || file.path || "document.docx")
     rememberWordDocument(opened.word)
     useStyleStore.getState().load(stylesFromWord(opened.word))
     applyEditorHtml(opened.view.html, opened.view.chrome, file.path, file.name, opened.view.props, true)
@@ -535,7 +538,9 @@ export async function emailDocument() {
       const editor = getDocumentEditor()
       const word = currentWordDocument()
       const fileName = `${fileStem(useDocumentStore.getState().currentFilePath)}.docx`
-      const saved = await saveDocxBytes({
+      const saved = await (
+        await docxIo()
+      ).saveDocxBytes({
         json: editor ? await documentWithObjectPictures(editor) : { type: "doc", content: [] },
         chrome: currentChrome(),
         props,
@@ -558,7 +563,9 @@ export async function emailDocument() {
 async function currentDocxBytes(fileName: string) {
   const editor = getDocumentEditor()
   const word = currentWordDocument()
-  const saved = await saveDocxBytes({
+  const saved = await (
+    await docxIo()
+  ).saveDocxBytes({
     json: editor ? await documentWithObjectPictures(editor) : { type: "doc", content: [] },
     chrome: currentChrome(),
     props: useDocumentStore.getState().documentProps,
@@ -575,7 +582,7 @@ export async function optimizeDocumentSize() {
   const fileName = `${fileStem(useDocumentStore.getState().currentFilePath)}.docx`
   try {
     const bytes = await currentDocxBytes(fileName)
-    const findings = await analyzeDocx(bytes, fileName)
+    const findings = await (await docxOptimizer()).analyzeDocx(bytes, fileName)
     useOptimizeDialog.getState().show({ fileName, bytes, findings })
   } catch (error) {
     await askAboutFileProblem(error, { operation: "save", file: fileName })
@@ -592,7 +599,7 @@ export async function saveOptimizedCopy(fileName: string, bytes: Uint8Array) {
   if (!selected) {
     return null
   }
-  const result = await optimizeDocx(bytes, fileName)
+  const result = await (await docxOptimizer()).optimizeDocx(bytes, fileName)
   await writeBytes(ensureExtension(selected, "docx"), result.bytes)
   return result
 }
@@ -800,7 +807,9 @@ async function writeDocument(path: string, forceExt?: string, operation: FileOpe
     if (ext === "docx") {
       const json = editor ? await documentWithObjectPictures(editor) : { type: "doc", content: [] }
       const word = currentWordDocument()
-      const saved = await saveDocxBytes({
+      const saved = await (
+        await docxIo()
+      ).saveDocxBytes({
         json,
         chrome,
         props,

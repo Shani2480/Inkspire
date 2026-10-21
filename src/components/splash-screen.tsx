@@ -2,7 +2,7 @@ import { useEffect, useState, type TransitionEvent } from "react"
 import splashArt from "@/assets/splash.png"
 
 const INITIAL_STATUS = "Starting..."
-const MIN_VISIBLE_MS = 900
+const MIN_VISIBLE_MS = 250
 
 type StatusSetter = (status: string) => void
 

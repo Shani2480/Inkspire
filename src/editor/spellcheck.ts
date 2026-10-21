@@ -180,6 +180,7 @@ export function ensureDictionary(language?: string) {
 }
 
 export function ignoreSpelling(word: string) {
+  wordsVersion += 1
   ignoredWords.add(normalizeToken(word))
 }
 
@@ -192,6 +193,7 @@ export function addToDictionary(word: string) {
   }
   const set = customWordSet(lang)
   if (!set.has(lower)) {
+    wordsVersion += 1
     set.add(lower)
     persistCustomDictionaries()
   }
@@ -298,9 +300,34 @@ export function skippedBySpellingOptions(word: string, text: string, at: number,
   )
 }
 
+function spellDecoration(from: number, to: number) {
+  return Decoration.inline(from, to, {
+    class: "spell-error",
+    "data-spell-from": String(from),
+    "data-spell-to": String(to),
+  })
+}
+
 const spellcheckKey = new PluginKey<DecorationSet | null>("spellcheck")
 
 type SpellMeta = { run?: boolean; clear?: boolean }
+
+/** What was found in a run of text, kept for as long as the run is the same node and nothing that decides it changed. */
+const checkedText = new WeakMap<ProseMirrorNode, { key: string; errors: [number, number][] }>()
+/** Bumped when a word is ignored or added, which changes what counts as misspelt. */
+let wordsVersion = 0
+
+function checkSettingsKey() {
+  const options = useEditingOptions.getState()
+  return [
+    activeLanguage,
+    wordsVersion,
+    options.ignoreAddresses,
+    options.ignoreNumbers,
+    options.ignoreUppercase,
+    options.flagRepeated,
+  ].join("|")
+}
 
 /** Underlines for every misspelt word in the document, or null when there are none. */
 function spellingDecorations(doc: ProseMirrorNode) {
@@ -308,6 +335,7 @@ function spellingDecorations(doc: ProseMirrorNode) {
     return null
   }
   const decorations: Decoration[] = []
+  const settings = checkSettingsKey()
   doc.descendants((node, pos) => {
     if (node.type.name === "codeBlock") {
       return false
@@ -315,6 +343,15 @@ function spellingDecorations(doc: ProseMirrorNode) {
     if (!node.isText || !node.text || node.marks.some((mark) => mark.type.name === "code")) {
       return
     }
+    // Typing changes one paragraph; the words of every other one were checked already.
+    const kept = checkedText.get(node)
+    if (kept && kept.key === settings) {
+      for (const [from, to] of kept.errors) {
+        decorations.push(spellDecoration(pos + from, pos + to))
+      }
+      return
+    }
+    const errors: [number, number][] = []
 
     const addresses = [...node.text.matchAll(ADDRESS_PATTERN)].map((found): [number, number] => [
       found.index,
@@ -335,18 +372,12 @@ function spellingDecorations(doc: ProseMirrorNode) {
       previous = word.toLowerCase()
       previousEnd = match.index + word.length
       if (repeated || (!skipped && !knownWord(word))) {
-        const from = pos + match.index
-        const to = from + word.length
-        decorations.push(
-          Decoration.inline(from, to, {
-            class: "spell-error",
-            "data-spell-from": String(from),
-            "data-spell-to": String(to),
-          }),
-        )
+        errors.push([match.index, match.index + word.length])
+        decorations.push(spellDecoration(pos + match.index, pos + match.index + word.length))
       }
       match = WORD_PATTERN.exec(node.text)
     }
+    checkedText.set(node, { key: settings, errors })
   })
 
   if (decorations.length === 0) {
@@ -406,7 +437,7 @@ export const Spellcheck = Extension.create({
   name: "spellcheck",
 
   addStorage() {
-    return { unsubscribe: null as null | (() => void) }
+    return { unsubscribe: null as null | (() => void), cancelStart: null as null | (() => void) }
   },
 
   onCreate() {
@@ -416,7 +447,14 @@ export const Spellcheck = Extension.create({
         refreshDisplayedMarks(editor)
       })
     }
-    reload()
+    // Parsing the dictionary holds the main thread for a moment, so at start it waits until the window has been drawn.
+    if (window.requestIdleCallback) {
+      const idle = window.requestIdleCallback(reload, { timeout: 1500 })
+      this.storage.cancelStart = () => window.cancelIdleCallback(idle)
+    } else {
+      const timer = window.setTimeout(reload, 300)
+      this.storage.cancelStart = () => window.clearTimeout(timer)
+    }
     this.storage.unsubscribe = useDocumentStore.subscribe((state, previous) => {
       if (state.pageSetup.language !== previous.pageSetup.language) {
         reload()
@@ -425,6 +463,8 @@ export const Spellcheck = Extension.create({
   },
 
   onDestroy() {
+    this.storage.cancelStart?.()
+    this.storage.cancelStart = null
     this.storage.unsubscribe?.()
     this.storage.unsubscribe = null
   },

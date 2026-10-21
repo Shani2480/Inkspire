@@ -52,7 +52,7 @@ import { chainWithSelection, insertAtSelectionEnd } from "@/editor/selection-mem
 import { DOMSerializer } from "@tiptap/pm/model"
 import type { Editor } from "@tiptap/core"
 import { useEditorState } from "@tiptap/react"
-import katex from "katex"
+import { loadKatex } from "@/lib/katex-lazy"
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { DialogButtons, DialogFrame } from "@/components/word-dialog"
 
@@ -1339,8 +1339,14 @@ function SymbolButton({ symbol, editor, close }: { symbol: string; editor: Edito
 function TexPreview({ tex }: { tex: string }) {
   const ref = useRef<HTMLSpanElement>(null)
   useEffect(() => {
-    if (ref.current) {
-      katex.render(tex, ref.current, { throwOnError: false, displayMode: false })
+    let current = true
+    void loadKatex().then((katex) => {
+      if (current && ref.current) {
+        katex.render(tex, ref.current, { throwOnError: false, displayMode: false })
+      }
+    })
+    return () => {
+      current = false
     }
   }, [tex])
   return <span ref={ref} />

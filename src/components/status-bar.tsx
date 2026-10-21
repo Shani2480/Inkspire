@@ -4,6 +4,7 @@ import { useViewStore } from "@/document/view"
 import { useBodyEditor } from "@/editor/document-editor"
 import { useAccessibility } from "@/ai/accessibility-check"
 import { accessibilityStatus } from "@/lib/accessibility"
+import { useSettledEditorValue } from "@/editor/use-settled"
 import { useEditorState } from "@tiptap/react"
 import { BookOpen, Focus, Minus, Monitor, Plus, Printer } from "lucide-react"
 import { useState } from "react"
@@ -22,18 +23,12 @@ export function StatusBar() {
   const setFocusMode = useViewStore((state) => state.setFocusMode)
   const [langOpen, setLangOpen] = useState(false)
   const openAccessibility = useAccessibility((state) => state.openPane)
-  const counts = useEditorState({
-    editor,
-    selector: ({ editor: current }) => countText(current?.getText() ?? ""),
-  })
+  const counts = useSettledEditorValue(editor, (current) => countText(current.getText()), countText(""))
   const pages = useEditorState({
     editor,
     selector: ({ editor: current }) => currentPage(current),
   })
-  const access = useEditorState({
-    editor,
-    selector: ({ editor: current }) => accessibilityStatus(current),
-  })
+  const access = useSettledEditorValue(editor, accessibilityStatus, null)
   const words = counts?.words ?? 0
   const characters = counts?.characters ?? 0
   const page = pages?.page ?? 1
