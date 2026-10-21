@@ -1,3 +1,4 @@
+import { hasWindowRequest } from "@/document/windows"
 import { create } from "zustand"
 
 export type BackstageTab =
@@ -29,8 +30,9 @@ type BackstageState = {
 }
 
 export const useBackstage = create<BackstageState>((set) => ({
-  // The app starts on the File menu, as Word starts on its start screen.
-  open: true,
+  // The app starts on the File menu, as Word starts on its start screen. A window opened for a document goes straight
+  // to the document: showing the File menu until the file has loaded would flash it.
+  open: !hasWindowRequest(),
   tab: "home",
   closed: false,
   openBackstage: (tab = "home") => set({ open: true, tab }),
