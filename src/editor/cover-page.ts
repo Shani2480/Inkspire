@@ -69,6 +69,22 @@ export function deleteSavedCover(name: string) {
   return next
 }
 
+/** Gives a saved cover a new name; a name already in the gallery, or an empty one, changes nothing. */
+export function renameSavedCover(name: string, to: string) {
+  const next = to.trim().slice(0, 24)
+  const covers = savedCovers()
+  if (!next || next === name || covers.some((item) => item.name === next)) {
+    return covers
+  }
+  const renamed = covers.map((item) => (item.name === name ? { ...item, name: next } : item))
+  try {
+    localStorage.setItem(SAVED_KEY, JSON.stringify(renamed))
+  } catch {
+    // Without storage the old name stays.
+  }
+  return renamed
+}
+
 export function saveCover(cover: SavedCover) {
   const next = [...savedCovers().filter((item) => item.name !== cover.name), cover].slice(-12)
   try {
