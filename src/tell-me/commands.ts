@@ -4,6 +4,7 @@ import { useAiSettings } from "@/ai/settings"
 import { captureTemplatePlace } from "@/ai/template-place"
 import { RIBBON_TIPS } from "@/components/ribbon/tips"
 import { useBackstage } from "@/document/backstage"
+import { useOptionsDialog } from "@/document/options-dialog"
 import { closeDocument, exportDocument, openDocument, saveDocument } from "@/document/commands"
 import { getDocumentEditor } from "@/document/editor-ref"
 import { useReviewStore } from "@/document/review"
@@ -579,7 +580,7 @@ function buildCommands(): TellMeCommand[] {
       description: "Open application options.",
       keywords: ["settings", "options", "preferences"],
       category: "File",
-      run: () => useBackstage.getState().openBackstage("options"),
+      run: () => useOptionsDialog.getState().openOptions(),
     },
   ]
 

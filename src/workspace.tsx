@@ -5,6 +5,7 @@ import { TableStylesDialog } from "@/components/table-design-menus"
 import { TextPromptHost } from "@/components/text-prompt"
 import { ChartTypeDialog, SelectDataDialog } from "@/components/chart-menus"
 import { HelpDialogs } from "@/components/help-dialogs"
+import { OptionsDialog } from "@/components/options-dialog"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { AiSidebar } from "@/components/ai-sidebar"
 import { AiKeysDialog } from "@/components/ai-keys"
@@ -282,6 +283,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
       <FillVariablesDialog />
       <FindDialog />
       <HelpDialogs />
+      <OptionsDialog />
       <SpellMenu />
       <ProofingPanel />
       <FieldEditor />

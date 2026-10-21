@@ -12144,6 +12144,20 @@ fieldset.columns-presets input {
   flex: 1;
   min-width: 0;
 }
+.options-dialog-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.options-dialog-body .options-layout {
+  flex: 1;
+  min-height: 0;
+}
+.options-dialog-body .options-nav,
+.options-dialog-body .backstage-options-grid {
+  max-height: 100%;
+  overflow: auto;
+}
 .options-unavailable {
   display: flex;
   flex-direction: column;

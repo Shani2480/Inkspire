@@ -8,7 +8,6 @@ import {
   InfoView,
   NewView,
   OpenView,
-  OptionsView,
   PrintView,
   SaveAction,
   SaveAsView,
@@ -16,6 +15,7 @@ import {
   TransformView,
 } from "@/components/backstage/views"
 import { useBackstage, type BackstageTab } from "@/document/backstage"
+import { useOptionsDialog } from "@/document/options-dialog"
 import { themeAccentVars } from "@/document/theme"
 import { useViewStore } from "@/document/view"
 import {
@@ -66,8 +66,17 @@ const FOOTER_TABS: { id: BackstageTab; label: string; icon: ReactNode }[] = [
 export function Backstage() {
   const open = useBackstage((state) => state.open)
   const tab = useBackstage((state) => state.tab)
-  const setTab = useBackstage((state) => state.setTab)
+  const setBackstageTab = useBackstage((state) => state.setTab)
   const closeBackstage = useBackstage((state) => state.closeBackstage)
+  // Options is a dialog over the document, not a page of the File view.
+  const setTab = (id: BackstageTab) => {
+    if (id === "options") {
+      useOptionsDialog.getState().openOptions()
+      closeBackstage()
+    } else {
+      setBackstageTab(id)
+    }
+  }
   const closed = useBackstage((state) => state.closed)
   const themeBackground = useViewStore((state) => state.themeBackground)
   const colorMode = useViewStore((state) => state.colorMode)
@@ -213,8 +222,6 @@ function renderTab(tab: BackstageTab) {
       return <CloseAction />
     case "account":
       return <AccountView />
-    case "options":
-      return <OptionsView />
     default:
       return <HomeView />
   }

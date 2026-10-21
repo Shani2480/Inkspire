@@ -1,13 +1,13 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { useEditingOptions } from "@/document/editing-options"
 import { afterEach, describe, expect, it } from "vitest"
-import { OptionsView } from "@/components/backstage/views"
+import { OptionsPages } from "@/components/backstage/views"
 
 describe("Options pages (22.9)", () => {
   afterEach(cleanup)
 
   it("lists Word's pages and starts on General", () => {
-    render(<OptionsView />)
+    render(<OptionsPages />)
     const nav = screen.getByRole("navigation", { name: "Options pages" })
     expect(nav.textContent).toContain("Proofing")
     expect(nav.textContent).toContain("Quick Access Toolbar")
@@ -15,7 +15,7 @@ describe("Options pages (22.9)", () => {
   })
 
   it("shows unsupported proofing options switched off", () => {
-    render(<OptionsView />)
+    render(<OptionsPages />)
     fireEvent.click(screen.getByRole("button", { name: "Proofing" }))
     const box = screen.getByLabelText("Suggest from main dictionary only") as HTMLInputElement
     expect(box.disabled).toBe(true)
@@ -28,7 +28,7 @@ describe("Show Mini Toolbar option (22.9)", () => {
   afterEach(cleanup)
 
   it("is on by default and its choice is kept", () => {
-    render(<OptionsView />)
+    render(<OptionsPages />)
     const box = screen.getByLabelText("Show Mini Toolbar on selection") as HTMLInputElement
     expect(box.checked).toBe(true)
     fireEvent.click(box)
