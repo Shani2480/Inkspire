@@ -56,6 +56,8 @@ type PageBreak = {
   height: number
   manual: boolean
   labelTop: number
+  /** The top margin of the next page, the last part of the gap. */
+  tail: number
 }
 
 type PaginationSnapshot = {
@@ -443,11 +445,12 @@ function decorationsFor(
   for (const item of breaks) {
     const height = item.height
     const manual = item.manual
+    const tail = item.tail
     decorations.push(
-      Decoration.widget(item.pos, () => createGap(height, manual), {
+      Decoration.widget(item.pos, () => createGap(height, manual, tail), {
         side: -1,
         ignoreSelection: true,
-        key: `gap-${item.pos}-${height}-${manual ? 1 : 0}`,
+        key: `gap-${item.pos}-${height}-${manual ? 1 : 0}-${tail}`,
       }),
     )
   }
@@ -618,10 +621,13 @@ function blockLineRects(dom: HTMLElement) {
   return unique
 }
 
-function createGap(height: number, manual: boolean) {
+function createGap(height: number, manual: boolean, tail: number) {
   const gap = document.createElement("span")
   gap.className = manual ? "page-gap page-gap-manual" : "page-gap"
   gap.style.height = `${height}px`
+  // Where the grey between the pages starts and ends, so a shaded paragraph is cut there instead of running across it.
+  gap.style.setProperty("--gap-from", `${Math.max(0, height - PAGE_GAP - tail)}px`)
+  gap.style.setProperty("--gap-to", `${Math.max(0, height - tail)}px`)
   gap.contentEditable = "false"
   return gap
 }
@@ -708,6 +714,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       height: Math.ceil(fill + PAGE_GAP + metrics.marginTop + metrics.marginBottom),
       manual,
       labelTop: Math.round(fill + metrics.marginBottom + PAGE_GAP / 2),
+      tail: metrics.marginTop,
     })
     used = 0
   }

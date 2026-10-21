@@ -1369,6 +1369,19 @@ button.line-menu-row:focus-visible {
   pointer-events: none;
 }
 
+/* A shaded paragraph that continues on the next page is painted over by the gap: the page's colour where the pages are
+   and the workspace grey between them, so the shading stops at the bottom edge and starts again at the top of the next. */
+[style*="background"] .page-gap,
+[style*="background"] > .page-gap {
+  background: linear-gradient(
+    to bottom,
+    var(--page-color, #fff) var(--gap-from),
+    var(--app-workspace, #ebebeb) var(--gap-from),
+    var(--app-workspace, #ebebeb) var(--gap-to),
+    var(--page-color, #fff) var(--gap-to)
+  );
+}
+
 .page-header,
 .page-footer,
 .page-number {
