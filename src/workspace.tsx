@@ -59,7 +59,6 @@ import { useDocumentCommands } from "@/document/app-menu"
 import { getDocumentEditor } from "@/document/editor-ref"
 import { DocumentEditorProvider, useBodyEditor } from "@/editor/document-editor"
 import { installPaginationProfileCommand } from "@/editor/pagination-profile"
-import { ensureDictionary } from "@/editor/spellcheck"
 import { ensureSystemFonts } from "@/editor/system-fonts"
 import { useEditorState } from "@tiptap/react"
 
@@ -184,11 +183,12 @@ function DocumentShell({ onReady }: WorkspaceProps) {
     let cancelled = false
 
     async function boot() {
-      await ensureDictionary().catch(() => undefined)
       await new Promise<void>((resolve) => {
         requestAnimationFrame(() => resolve())
       })
       if (!cancelled) {
+        // The spelling dictionary is loaded by the spellcheck extension and underlines appear when it arrives, so
+        // the window does not wait for it: parsing it is the slowest thing the app does at start.
         onReady()
         // Read the system's fonts while the app is idle, so the font menu has them when it first opens.
         window.setTimeout(() => void ensureSystemFonts(), 1000)

@@ -7,7 +7,7 @@ import {
   type EquationGroup,
 } from "@/editor/equation-templates"
 import { EQUATION_PRESETS } from "@/editor/equation"
-import katex from "katex"
+import { loadKatex } from "@/lib/katex-lazy"
 import { useLayoutEffect, useRef, useState } from "react"
 
 /** An equation as KaTeX draws it, or the reason it cannot be drawn. */
@@ -19,12 +19,21 @@ export function EquationPreview({ tex, display = true }: { tex: string; display?
     if (!element) {
       return
     }
-    try {
-      katex.render(texFromTyped(tex) || "\\square", element, { throwOnError: true, displayMode: display })
-      setError("")
-    } catch (failure) {
-      katex.render(texFromTyped(tex) || "\\square", element, { throwOnError: false, displayMode: display })
-      setError(failure instanceof Error ? failure.message.replace(/^KaTeX parse error:\s*/, "") : "Cannot draw this")
+    let current = true
+    void loadKatex().then((katex) => {
+      if (!current) {
+        return
+      }
+      try {
+        katex.render(texFromTyped(tex) || "\\square", element, { throwOnError: true, displayMode: display })
+        setError("")
+      } catch (failure) {
+        katex.render(texFromTyped(tex) || "\\square", element, { throwOnError: false, displayMode: display })
+        setError(failure instanceof Error ? failure.message.replace(/^KaTeX parse error:\s*/, "") : "Cannot draw this")
+      }
+    })
+    return () => {
+      current = false
     }
   }, [tex, display])
   return (

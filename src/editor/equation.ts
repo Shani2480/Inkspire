@@ -2,8 +2,7 @@ import { Node, mergeAttributes } from "@tiptap/core"
 import type { Node as ProseNode } from "@tiptap/pm/model"
 import { BUILT_IN_EQUATIONS } from "@/editor/equation-gallery"
 import { texFromTyped } from "@/editor/equation-templates"
-import katex from "katex"
-import "katex/dist/katex.min.css"
+import { katexIfLoaded, loadKatex } from "@/lib/katex-lazy"
 
 export const EQUATION_PRESETS = BUILT_IN_EQUATIONS
 
@@ -16,11 +15,25 @@ declare module "@tiptap/core" {
 }
 
 function paintEquation(dom: HTMLElement, tex: string) {
-  try {
-    katex.render(texFromTyped(tex) || "x", dom, { throwOnError: false, displayMode: false })
-  } catch {
-    dom.textContent = tex
+  const draw = (katex: NonNullable<ReturnType<typeof katexIfLoaded>>) => {
+    try {
+      katex.render(texFromTyped(tex) || "x", dom, { throwOnError: false, displayMode: false })
+    } catch {
+      dom.textContent = tex
+    }
   }
+  const ready = katexIfLoaded()
+  if (ready) {
+    draw(ready)
+    return
+  }
+  // The source shows until the library arrives, which is moments after the first equation is asked for.
+  dom.textContent = tex
+  void loadKatex().then((katex) => {
+    if (dom.isConnected) {
+      draw(katex)
+    }
+  })
 }
 
 export const Equation = Node.create({

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { EquationEditor } from "@/components/equation-editor"
 
@@ -12,11 +12,12 @@ function open(initial = "x=") {
 }
 
 describe("the equation editor (21.23)", () => {
-  it("draws what is typed, live", () => {
+  it("draws what is typed, live", async () => {
     const { source } = open("a^2")
-    expect(document.querySelector(".equation-preview .katex")).not.toBeNull()
+    // KaTeX loads on first use, so the first drawing arrives a moment after the editor opens.
+    await waitFor(() => expect(document.querySelector(".equation-preview .katex")).not.toBeNull())
     fireEvent.change(source, { target: { value: "\\frac{1}{2}" } })
-    expect(document.querySelector(".equation-preview .mfrac")).not.toBeNull()
+    await waitFor(() => expect(document.querySelector(".equation-preview .mfrac")).not.toBeNull())
   })
 
   it("builds with a structure button, wrapping the selection", () => {
@@ -38,9 +39,9 @@ describe("the equation editor (21.23)", () => {
     expect(source.value).toBe("a^{2}+b^{2}=c^{2}")
   })
 
-  it("says why an equation cannot be drawn", () => {
+  it("says why an equation cannot be drawn", async () => {
     open("\\frac{1")
-    expect(screen.getByRole("status").textContent).not.toBe("")
+    expect((await screen.findByRole("status")).textContent).not.toBe("")
   })
 
   it("cancels without changing anything", () => {
