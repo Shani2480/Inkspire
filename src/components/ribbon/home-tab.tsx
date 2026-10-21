@@ -1,3 +1,4 @@
+import { AddInsMenu } from "@/components/addins"
 import { applyFontColor, toggleBold } from "@/editor/shape-text"
 import { openFontMenu } from "@/components/font-menu"
 import { ListDialogs, BulletLibrary, MultilevelLibrary, NumberingLibrary } from "@/components/list-library"
@@ -683,7 +684,7 @@ function ClassicHome() {
 
       {level >= 1 ? (
         <CollapsedGroup name="addins" label="Add-ins" icon={<AddInsIcon size={20} />}>
-          {() => <p className="w-44 px-2 py-1 text-xs text-neutral-600">No add-ins are installed.</p>}
+          {(close) => <AddInsMenu close={close} />}
         </CollapsedGroup>
       ) : (
         <RibbonGroup name="addins" label="Add-ins" className="shrink-0">
@@ -691,7 +692,7 @@ function ClassicHome() {
             <RibbonPopover
               label="Add-ins"
               className="ribbon-large h-auto w-[52px] flex-col px-1"
-              content={() => <p className="w-44 px-2 py-1 text-xs text-neutral-600">No add-ins are installed.</p>}
+              content={(close) => <AddInsMenu close={close} />}
             >
               <AddInsIcon />
               <span className="text-[11px]">Add-ins</span>

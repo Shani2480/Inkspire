@@ -1,3 +1,4 @@
+import { AddInsManager } from "@/components/addins"
 import { openCustomize } from "@/components/customize-dialog"
 import { ShortcutSettings } from "@/components/backstage/shortcut-settings"
 import { createStepLock, pageForKey, wheelStep } from "@/components/backstage/preview-steps"
@@ -1138,7 +1139,14 @@ function StubView({ title, detail }: { title: string; detail: string }) {
 }
 
 export function AddInsView() {
-  return <StubView title="Get Add-ins" detail="Add-ins are not available in this build." />
+  return (
+    <div className="backstage-pane">
+      <h1 className="backstage-greeting">Get Add-ins</h1>
+      <div className="backstage-card">
+        <AddInsManager />
+      </div>
+    </div>
+  )
 }
 
 export function HistoryView() {
@@ -1206,9 +1214,18 @@ export function AccountView() {
 }
 
 export type OptionsPage =
-  "general" | "display" | "proofing" | "save" | "language" | "accessibility" | "advanced" | "ribbon" | "quick-access"
+  | "general"
+  | "display"
+  | "proofing"
+  | "save"
+  | "language"
+  | "accessibility"
+  | "advanced"
+  | "ribbon"
+  | "quick-access"
+  | "addins"
 
-/** Word's Options list (22.9): the pages of the backstage Options view. */
+/** Word's Options list (22.9): the pages of the Options dialog. */
 const OPTION_PAGES: { id: OptionsPage; label: string }[] = [
   { id: "general", label: "General" },
   { id: "display", label: "Display" },
@@ -1219,6 +1236,7 @@ const OPTION_PAGES: { id: OptionsPage; label: string }[] = [
   { id: "advanced", label: "Advanced" },
   { id: "ribbon", label: "Customize Ribbon" },
   { id: "quick-access", label: "Quick Access Toolbar" },
+  { id: "addins", label: "Add-ins" },
 ]
 
 /** Options Word has that the app cannot honour yet: shown, switched off, with a note, rather than hidden. */

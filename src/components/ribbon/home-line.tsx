@@ -1,3 +1,4 @@
+import { AddInsMenu } from "@/components/addins"
 import { applyFontColor, toggleBold } from "@/editor/shape-text"
 import { useProofing } from "@/ai/proofing"
 import { openFontMenu } from "@/components/font-menu"
@@ -644,7 +645,7 @@ export function HomeLine() {
         id: "add-ins",
         label: "Add-ins",
         icon: <AddInsIcon size={16} />,
-        menu: () => <p className="w-44 px-2 py-1 text-xs text-neutral-600">No add-ins are installed.</p>,
+        menu: (close) => <AddInsMenu close={close} />,
       },
     ],
   ]
