@@ -3,7 +3,7 @@ import type { PageMetrics } from "@/document/page-setup"
 import { PAGE_GAP } from "@/editor/pages"
 import type { EditorView } from "@tiptap/pm/view"
 
-function holdObserver(view: EditorView, change: () => void) {
+export function holdObserver(view: EditorView, change: () => void) {
   const observer = (
     view as EditorView & {
       domObserver?: { stop: () => void; start: () => void }
@@ -189,5 +189,44 @@ export function placeObjectFrames(dom: HTMLElement, pageView: PageView, metrics:
     const cell = pageGridCell(page - 1, pageView, xStride, yStride)
     el.style.left = `${Math.round(cell.left + x)}px`
     el.style.top = `${Math.round(cell.top + y)}px`
+  })
+}
+
+/**
+ * A shaded paragraph that runs onto the next page is one box, so its shading would cross the grey between the pages.
+ * Each gap inside it is cut out of the paragraph with a mask, so the shading ends at the foot of one page and starts
+ * again at the top of the next, as Word draws it.
+ */
+export function cutShadedBlocks(view: EditorView) {
+  const dom = view.dom
+  const zoom = dom.offsetHeight > 0 ? dom.getBoundingClientRect().height / dom.offsetHeight || 1 : 1
+  const cuts = new Map<HTMLElement, [number, number][]>()
+  dom.querySelectorAll<HTMLElement>(".page-gap").forEach((gap) => {
+    const block = gap.parentElement?.closest<HTMLElement>("p, h1, h2, h3, h4, h5, h6")
+    if (!block || !block.style.backgroundColor) {
+      return
+    }
+    const top = (gap.getBoundingClientRect().top - block.getBoundingClientRect().top) / zoom
+    const list = cuts.get(block) ?? []
+    list.push([Math.round(top * 10) / 10, Math.round((top + gap.offsetHeight) * 10) / 10])
+    cuts.set(block, list)
+  })
+  holdObserver(view, () => {
+    dom.querySelectorAll<HTMLElement>("[data-gap-cut]").forEach((block) => {
+      if (!cuts.has(block)) {
+        block.removeAttribute("data-gap-cut")
+        block.style.removeProperty("mask-image")
+        block.style.removeProperty("-webkit-mask-image")
+      }
+    })
+    cuts.forEach((list, block) => {
+      const stops = list
+        .sort((a, b) => a[0] - b[0])
+        .map(([from, to]) => `#000 ${from}px, transparent ${from}px, transparent ${to}px, #000 ${to}px`)
+      const mask = `linear-gradient(to bottom, ${stops.join(", ")})`
+      block.dataset.gapCut = ""
+      block.style.setProperty("mask-image", mask)
+      block.style.setProperty("-webkit-mask-image", mask)
+    })
   })
 }
