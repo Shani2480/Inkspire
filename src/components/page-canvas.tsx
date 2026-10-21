@@ -10,7 +10,7 @@ import { TableHandles } from "@/components/table-handles"
 import { pageGridCell, pageGridColumns, pageGridRows } from "@/document/page-grid"
 import { paintDesignVars } from "@/document/design-format"
 import { ChromeBox, useChromePart } from "@/components/chrome-editors"
-import { chromeHasPageField } from "@/document/chrome-html"
+import { chromeHasContent, chromeHasPageField } from "@/document/chrome-html"
 import { useActiveChromeEditor } from "@/document/chrome-editing"
 import { chromeText } from "@/document/chrome-html"
 import { applyPageChrome, pageMetrics } from "@/document/page-setup"
@@ -69,12 +69,13 @@ export function PageCanvas() {
   const setEvenHeader = useDocumentStore((state) => state.setEvenHeader)
   const setEvenFooter = useDocumentStore((state) => state.setEvenFooter)
   const setDifferentFirstPage = useDocumentStore((state) => state.setDifferentFirstPage)
-  const headerPart = useChromePart(headerHtml, setHeader, "Header")
-  const footerPart = useChromePart(footerHtml, setFooter, "Footer")
-  const firstHeaderPart = useChromePart(firstHeaderHtml, setFirstHeader, "First page header")
-  const firstFooterPart = useChromePart(firstFooterHtml, setFirstFooter, "First page footer")
-  const evenHeaderPart = useChromePart(evenHeaderHtml, setEvenHeader, "Even page header")
-  const evenFooterPart = useChromePart(evenFooterHtml, setEvenFooter, "Even page footer")
+  const inUse = (html: string) => editingChrome || chromeHasContent(html)
+  const headerPart = useChromePart(headerHtml, setHeader, "Header", inUse(headerHtml))
+  const footerPart = useChromePart(footerHtml, setFooter, "Footer", inUse(footerHtml))
+  const firstHeaderPart = useChromePart(firstHeaderHtml, setFirstHeader, "First page header", inUse(firstHeaderHtml))
+  const firstFooterPart = useChromePart(firstFooterHtml, setFirstFooter, "First page footer", inUse(firstFooterHtml))
+  const evenHeaderPart = useChromePart(evenHeaderHtml, setEvenHeader, "Even page header", inUse(evenHeaderHtml))
+  const evenFooterPart = useChromePart(evenFooterHtml, setEvenFooter, "Even page footer", inUse(evenFooterHtml))
   const chromeTarget = useViewStore((state) => state.chromeTarget)
   const activeChrome = useActiveChromeEditor((state) => state.editor)
   const editChromeAt = useViewStore((state) => state.editChrome)
