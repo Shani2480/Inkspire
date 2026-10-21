@@ -1,4 +1,5 @@
-import { EditorContent, useEditor, type Editor } from "@tiptap/react"
+import { Editor } from "@tiptap/core"
+import { EditorContent } from "@tiptap/react"
 import { useEffect, useRef, useState, type CSSProperties } from "react"
 import { chromeHasContent, chromeOnPage } from "@/document/chrome-html"
 import { useActiveChromeEditor } from "@/document/chrome-editing"
@@ -10,7 +11,11 @@ import { createExtensions } from "@/editor/extensions"
 import { objectLeft, objectTop } from "@/editor/objects"
 
 /** The schema and behaviour of the body, without the checks that only make sense over a whole document. */
-const chromeExtensions = [...createExtensions().filter((extension) => extension.name !== "spellcheck"), ChromeFlow]
+let chromeExtensions: ReturnType<typeof createExtensions> | null = null
+function getChromeExtensions() {
+  chromeExtensions ??= [...createExtensions().filter((extension) => extension.name !== "spellcheck"), ChromeFlow]
+  return chromeExtensions
+}
 
 /**
  * What the editor drew, without what only the person editing sees: a selected picture's frame and its resize and rotate
@@ -38,21 +43,50 @@ export type ChromePart = {
  * A header or footer as an editor of its own. It is created once and kept; the page where it is being edited shows
  * the live editor, every other page shows a copy of what it draws, which follows as it is typed.
  */
-export function useChromePart(html: string, setHtml: (html: string) => void, label: string): ChromePart {
+export function useChromePart(
+  html: string,
+  setHtml: (html: string) => void,
+  label: string,
+  /** Whether the part is in use: it has content or a header or footer is being edited. */
+  wanted = true,
+): ChromePart {
   const emitted = useRef(html)
   const [snapshot, setSnapshot] = useState("")
-  const editor = useEditor({
-    extensions: chromeExtensions,
-    content: html || "<p></p>",
-    editable: false,
-    immediatelyRender: true,
-    editorProps: { attributes: { class: "page-editor chrome-editor", spellcheck: "false", "aria-label": label } },
-    onUpdate: ({ editor: current }) => {
-      const next = current.getHTML()
-      emitted.current = chromeHasContent(next) ? next : ""
-      setHtml(emitted.current)
+  const [editor, setEditor] = useState<Editor | null>(null)
+  const made = useRef<Editor | null>(null)
+  const latest = useRef({ html, setHtml, label })
+  latest.current = { html, setHtml, label }
+
+  // A header or footer is an editor with the whole body's schema, which is slow to build, and most documents use
+  // one or two of the six, so each is built when it first has something in it or is opened for editing, then kept.
+  useEffect(() => {
+    if (!wanted || made.current) {
+      return
+    }
+    const created = new Editor({
+      extensions: getChromeExtensions(),
+      content: latest.current.html || "<p></p>",
+      editable: false,
+      editorProps: {
+        attributes: { class: "page-editor chrome-editor", spellcheck: "false", "aria-label": latest.current.label },
+      },
+      onUpdate: ({ editor: current }) => {
+        const next = current.getHTML()
+        emitted.current = chromeHasContent(next) ? next : ""
+        latest.current.setHtml(emitted.current)
+      },
+    })
+    made.current = created
+    setEditor(created)
+  }, [wanted])
+
+  useEffect(
+    () => () => {
+      made.current?.destroy()
+      made.current = null
     },
-  })
+    [],
+  )
 
   useEffect(() => {
     if (!editor || html === emitted.current) {
