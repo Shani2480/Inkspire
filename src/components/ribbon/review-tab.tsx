@@ -24,7 +24,7 @@ import { checkSpellingNow } from "@/editor/spellcheck"
 import { acceptChanges, changeAtSelection, listChanges, rejectChanges } from "@/editor/track-changes"
 import { DOCUMENT_LANGUAGES } from "@/document/languages"
 import { useDocumentStore } from "@/document/store"
-import { listAccessibilityIssues } from "@/lib/accessibility"
+import { useAccessibility } from "@/ai/accessibility-check"
 import type { Editor } from "@tiptap/core"
 import { useEditorState } from "@tiptap/react"
 import { useState } from "react"
@@ -68,7 +68,7 @@ export function ReviewTab() {
   const openProofing = useProofing((state) => state.openPanel)
   const [countOpen, setCountOpen] = useState(false)
   const [compareOpen, setCompareOpen] = useState(false)
-  const [accessOpen, setAccessOpen] = useState(false)
+  const openAccessibility = useAccessibility((state) => state.openPane)
   const [notesOpen, setNotesOpen] = useState(false)
   const ribbonLayout = useViewStore((state) => state.ribbonLayout)
   const restricted = useViewStore((state) => state.restricted)
@@ -110,7 +110,7 @@ export function ReviewTab() {
     <div className="flex w-52 flex-col">
       <MenuButton
         onClick={() => {
-          setAccessOpen(true)
+          openAccessibility()
           close()
         }}
       >
@@ -118,7 +118,7 @@ export function ReviewTab() {
       </MenuButton>
       <MenuButton
         onClick={() => {
-          setAccessOpen(true)
+          openAccessibility()
           close()
         }}
       >
@@ -250,7 +250,6 @@ export function ReviewTab() {
     <>
       {countOpen ? <WordCountDialog editor={editor} onClose={() => setCountOpen(false)} /> : null}
       {compareOpen ? <CompareDialog editor={editor} onClose={() => setCompareOpen(false)} /> : null}
-      {accessOpen && editor ? <AccessibilityDialog editor={editor} onClose={() => setAccessOpen(false)} /> : null}
       {notesOpen && editor ? <LinkedNotesDialog editor={editor} onClose={() => setNotesOpen(false)} /> : null}
     </>
   )
@@ -289,7 +288,7 @@ export function ReviewTab() {
         label: "Check Accessibility",
         icon: <LineAccessibilityIcon />,
         showLabel: true,
-        onClick: () => setAccessOpen(true),
+        onClick: () => openAccessibility(),
       },
     ]
     const language: LineCommand[] = [
@@ -999,26 +998,6 @@ function NotesIcon() {
       <path d="M4 5h5.6M4 7.4h5.6M4 9.8h3.6" stroke="#8a6116" strokeWidth="0.7" />
       <path d="M12 6.2 14.4 8.6 10.2 13H8.4v-1.8z" fill="#0f6cbd" />
     </RibbonSvg>
-  )
-}
-
-function AccessibilityDialog({ editor, onClose }: { editor: Editor; onClose: () => void }) {
-  const found = listAccessibilityIssues(editor)
-  const issues = found.length === 0 ? ["No accessibility issues found."] : found
-  return (
-    <DialogFrame title="Accessibility Checker" width={420} onClose={onClose}>
-      <ul className="mt-3 max-h-64 list-disc space-y-1 overflow-auto pl-5 text-[13px] text-neutral-800">
-        {issues.map((issue) => (
-          <li key={issue}>{issue}</li>
-        ))}
-      </ul>
-      <div className="word-dialog-actions">
-        <span className="flex-1" />
-        <button type="button" className="dialog-btn is-primary" onClick={onClose}>
-          Close
-        </button>
-      </div>
-    </DialogFrame>
   )
 }
 

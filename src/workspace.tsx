@@ -26,6 +26,7 @@ import { Ribbon } from "@/components/ribbon/ribbon"
 import { FieldEditor } from "@/components/field-editor"
 import { TocDialogHost } from "@/components/toc-dialogs"
 import { ProofingPanel } from "@/components/proofing-panel"
+import { AccessibilityPane } from "@/components/accessibility-pane"
 import { ReviewPanel } from "@/components/review-panel"
 import { SpellMenu } from "@/components/spell-menu"
 import { SelectionPane } from "@/components/selection-pane"
@@ -268,6 +269,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
               <AiSidebar />
             </div>
             <ReviewPanel />
+            <AccessibilityPane />
           </DocumentRulers>
         </div>
         <StatusBar />
