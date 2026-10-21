@@ -1382,6 +1382,27 @@ export function OptionsPages({ initialPage = "general" }: { initialPage?: Option
               ))}
               <UnavailableOptions items={["Object anchors"]} />
             </fieldset>
+            <fieldset className="backstage-fieldset">
+              <legend>Printing options</legend>
+              {(
+                [
+                  ["printDrawings", "Print drawings and shapes"],
+                  ["printBackgrounds", "Print background colors"],
+                  ["printHidden", "Print hidden text"],
+                  ["printProperties", "Print document properties"],
+                ] as const
+              ).map(([name, label]) => (
+                <label key={name} className="backstage-check">
+                  <input
+                    type="checkbox"
+                    checked={editing[name]}
+                    onChange={(event) => editing.set({ [name]: event.target.checked })}
+                  />{" "}
+                  {label}
+                </label>
+              ))}
+              <UnavailableOptions items={["Update fields before printing", "Update linked data before printing"]} />
+            </fieldset>
             <label className="backstage-prop-edit">
               <span>Default zoom</span>
               <input

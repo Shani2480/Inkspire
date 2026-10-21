@@ -12338,3 +12338,47 @@ fieldset.columns-presets input {
   transition-duration: 0.001ms !important;
   transition-delay: 0s !important;
 }
+
+/* Options > Display > Printing options (22.9) */
+.print-properties {
+  display: none;
+}
+
+@media print {
+  :root[data-print-no-drawings] :is([data-drawing], figure[data-kind="shape"]) {
+    display: none !important;
+  }
+
+  :root[data-print-no-bg] :is(.page-canvas, .page-editor) {
+    background: #fff !important;
+  }
+
+  :root[data-print-hidden] .page-canvas .page-editor .text-hidden {
+    display: inline !important;
+  }
+
+  .print-properties {
+    display: block;
+    break-before: page;
+    padding: 24mm;
+    font-family: var(--font-sans, sans-serif);
+    color: #000;
+    background: #fff;
+  }
+
+  .print-properties h1 {
+    margin: 0 0 12pt;
+    font-size: 16pt;
+  }
+
+  .print-properties dl {
+    display: grid;
+    grid-template-columns: 40mm 1fr;
+    gap: 4pt 12pt;
+    font-size: 11pt;
+  }
+
+  .print-properties dd {
+    margin: 0;
+  }
+}

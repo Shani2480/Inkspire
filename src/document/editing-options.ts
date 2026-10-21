@@ -30,6 +30,11 @@ export type EditingOptions = {
   marksParagraph: boolean
   marksHidden: boolean
   marksHyphens: boolean
+  /** Printing: shapes and drawings, page colour, hidden text, and a page of document properties after the document. */
+  printDrawings: boolean
+  printBackgrounds: boolean
+  printHidden: boolean
+  printProperties: boolean
   /** The status bar keeps checking accessibility as you edit; off, it waits to be asked. */
   keepAccessibilityRunning: boolean
 }
@@ -52,6 +57,10 @@ export const EDITING_DEFAULTS: EditingOptions = {
   marksParagraph: false,
   marksHidden: false,
   marksHyphens: false,
+  printDrawings: true,
+  printBackgrounds: true,
+  printHidden: false,
+  printProperties: false,
 }
 
 export const RECOVERY_CHOICES = [5, 10, 30, 60, 300]
@@ -82,7 +91,12 @@ function pick(state: EditingOptions): EditingOptions {
 /** Options that act on the whole page rather than on one feature: marked on the root for CSS to follow. */
 function applyPageFlags(options: EditingOptions) {
   if (typeof document !== "undefined") {
-    document.documentElement.toggleAttribute("data-no-motion", !options.animation)
+    const root = document.documentElement
+    root.toggleAttribute("data-no-motion", !options.animation)
+    // Read by the print styles in index.css.
+    root.toggleAttribute("data-print-no-drawings", !options.printDrawings)
+    root.toggleAttribute("data-print-no-bg", !options.printBackgrounds)
+    root.toggleAttribute("data-print-hidden", options.printHidden)
   }
 }
 

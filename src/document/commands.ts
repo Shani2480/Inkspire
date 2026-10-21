@@ -29,6 +29,7 @@ import { describeFileProblem, useFileError, type FileOperation } from "@/documen
 import { playDocumentEntrance } from "@/document/motion"
 import { useSavePrompt } from "@/document/save-prompt"
 import { defaultStyles, packStyles, stylesFromWord, unpackStyles, useStyleStore } from "@/document/styles"
+import { useEditingOptions } from "@/document/editing-options"
 import { documentName, useDocumentStore, type DocumentProps } from "@/document/store"
 import { useViewStore } from "@/document/view"
 import {
@@ -609,7 +610,48 @@ export async function saveDocumentAsFormat(ext: string) {
   return (await runExclusive(() => saveAs(ext || DEFAULT_SAVE_EXT))) === true
 }
 
+/** The page of document properties some people print after the document (Options > Display > Print document properties). */
+export function propertiesPage(props: DocumentProps, name: string) {
+  const rows: [string, string][] = [
+    ["File", name],
+    ["Title", props.title],
+    ["Subject", props.subject],
+    ["Author", props.author],
+    ["Company", props.company],
+    ["Category", props.category],
+    ["Tags", props.tags],
+    ["Comments", props.comments],
+    ["Created", props.createdAt ? new Date(props.createdAt).toLocaleString() : ""],
+    ["Last printed", props.lastPrintedAt ? new Date(props.lastPrintedAt).toLocaleString() : ""],
+  ]
+  const page = document.createElement("div")
+  page.className = "print-properties"
+  const heading = document.createElement("h1")
+  heading.textContent = "Document properties"
+  const list = document.createElement("dl")
+  for (const [label, value] of rows) {
+    if (value) {
+      const term = document.createElement("dt")
+      term.textContent = label
+      const detail = document.createElement("dd")
+      detail.textContent = value
+      list.append(term, detail)
+    }
+  }
+  page.append(heading, list)
+  return page
+}
+
 export function printDocument() {
+  const { currentFilePath, documentProps } = useDocumentStore.getState()
+  const page = useEditingOptions.getState().printProperties
+    ? propertiesPage(documentProps, documentName(currentFilePath))
+    : null
+  document.querySelectorAll(".print-properties").forEach((old) => old.remove())
+  if (page) {
+    document.body.append(page)
+    window.addEventListener("afterprint", () => page.remove(), { once: true })
+  }
   useDocumentStore.getState().setDocumentProps({ lastPrintedAt: new Date().toISOString() })
   window.print()
 }
