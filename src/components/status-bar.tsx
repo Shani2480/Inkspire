@@ -2,6 +2,7 @@ import { DOCUMENT_LANGUAGES, languageLabel } from "@/document/languages"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
 import { useBodyEditor } from "@/editor/document-editor"
+import { useAccessibility } from "@/ai/accessibility-check"
 import { accessibilityStatus } from "@/lib/accessibility"
 import { useEditorState } from "@tiptap/react"
 import { BookOpen, Focus, Minus, Monitor, Plus, Printer } from "lucide-react"
@@ -20,7 +21,7 @@ export function StatusBar() {
   const focusMode = useViewStore((state) => state.focusMode)
   const setFocusMode = useViewStore((state) => state.setFocusMode)
   const [langOpen, setLangOpen] = useState(false)
-  const [accessOpen, setAccessOpen] = useState(false)
+  const openAccessibility = useAccessibility((state) => state.openPane)
   const counts = useEditorState({
     editor,
     selector: ({ editor: current }) => countText(current?.getText() ?? ""),
@@ -93,23 +94,10 @@ export function StatusBar() {
         <button
           type="button"
           className={`rounded px-1.5 py-0.5 hover:bg-black/5 dark:hover:bg-white/10 ${accessOk ? "" : "text-[#c19c00]"}`}
-          onClick={() => setAccessOpen((value) => !value)}
+          onClick={openAccessibility}
         >
           {accessLabel}
         </button>
-        {accessOpen ? (
-          <div className="absolute bottom-full left-0 z-40 mb-1 max-h-48 w-72 overflow-auto rounded-md border border-black/10 bg-white p-2 shadow-lg dark:border-white/10 dark:bg-[#2d2d2d]">
-            {accessOk || !access?.issues.length ? (
-              <p className="px-1 text-[12px]">No accessibility issues found.</p>
-            ) : (
-              <ul className="list-disc space-y-1 pl-4 text-[12px]">
-                {access.issues.map((issue) => (
-                  <li key={issue}>{issue}</li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ) : null}
       </div>
 
       <button
@@ -188,14 +176,13 @@ export function StatusBar() {
         </div>
       </div>
 
-      {langOpen || accessOpen ? (
+      {langOpen ? (
         <button
           type="button"
           aria-label="Dismiss"
           className="fixed inset-0 z-30 cursor-default"
           onClick={() => {
             setLangOpen(false)
-            setAccessOpen(false)
           }}
         />
       ) : null}
