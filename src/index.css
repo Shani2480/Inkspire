@@ -12284,3 +12284,27 @@ fieldset.columns-presets input {
 .inactive-selection {
   background-color: color-mix(in srgb, var(--app-theme-primary, #0f6cbd) 22%, transparent);
 }
+
+/* Add-ins: the catalogue in Get Add-ins and in Options */
+.addins-manager section + section {
+  margin-top: 16px;
+}
+.addins-group {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+}
+.addins-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--backstage-border, rgba(128, 128, 128, 0.25));
+}
+.addins-row .backstage-muted {
+  margin: 2px 0 0;
+}
