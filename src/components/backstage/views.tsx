@@ -986,7 +986,15 @@ function PreviewPage({
         }
       }
       clone.querySelectorAll(EDITING_ONLY).forEach((element) => element.remove())
-      clone.classList.remove("formatting-marks", "is-chrome-editing")
+      clone.classList.remove(
+        "formatting-marks",
+        "fm-tabs",
+        "fm-spaces",
+        "fm-paras",
+        "fm-hidden",
+        "fm-hyphens",
+        "is-chrome-editing",
+      )
       clone.querySelectorAll(".spell-error").forEach((element) => element.classList.remove("spell-error"))
       clone
         .querySelectorAll(".ProseMirror-selectednode, .selectedCell")
@@ -1352,6 +1360,28 @@ export function OptionsPages({ initialPage = "general" }: { initialPage?: Option
               <input type="checkbox" checked={showFormattingMarks} onChange={toggleFormattingMarks} /> Show formatting
               marks (¶)
             </label>
+            <fieldset className="backstage-fieldset">
+              <legend>Always show these formatting marks on the screen</legend>
+              {(
+                [
+                  ["marksTabs", "Tab characters"],
+                  ["marksSpaces", "Spaces"],
+                  ["marksParagraph", "Paragraph marks"],
+                  ["marksHidden", "Hidden text"],
+                  ["marksHyphens", "Optional hyphens"],
+                ] as const
+              ).map(([name, label]) => (
+                <label key={name} className="backstage-check">
+                  <input
+                    type="checkbox"
+                    checked={editing[name]}
+                    onChange={(event) => editing.set({ [name]: event.target.checked })}
+                  />{" "}
+                  {label}
+                </label>
+              ))}
+              <UnavailableOptions items={["Object anchors"]} />
+            </fieldset>
             <label className="backstage-prop-edit">
               <span>Default zoom</span>
               <input

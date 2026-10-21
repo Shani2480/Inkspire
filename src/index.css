@@ -1812,7 +1812,7 @@ button.line-menu-row:focus-visible {
   display: none;
 }
 
-.page-canvas.formatting-marks .page-editor .text-hidden {
+.page-canvas:is(.formatting-marks, .fm-hidden) .page-editor .text-hidden {
   display: inline;
   background: #ededed;
   text-decoration: underline dotted #888;
@@ -2843,13 +2843,13 @@ button.line-menu-row:focus-visible {
   }
 }
 
-.formatting-marks .fmt-space,
-.formatting-marks .fmt-nbsp,
-.formatting-marks .fmt-tab {
+:is(.formatting-marks, .fm-spaces) .fmt-space,
+:is(.formatting-marks, .fm-spaces) .fmt-nbsp,
+:is(.formatting-marks, .fm-tabs) .fmt-tab {
   position: relative;
 }
 
-.formatting-marks .fmt-space::before {
+:is(.formatting-marks, .fm-spaces) .fmt-space::before {
   content: "·";
   position: absolute;
   left: 50%;
@@ -2863,7 +2863,7 @@ button.line-menu-row:focus-visible {
   user-select: none;
 }
 
-.formatting-marks .fmt-nbsp::before {
+:is(.formatting-marks, .fm-spaces) .fmt-nbsp::before {
   content: "°";
   position: absolute;
   left: 50%;
@@ -2877,8 +2877,8 @@ button.line-menu-row:focus-visible {
   user-select: none;
 }
 
-.formatting-marks .fmt-tab::after,
-.formatting-marks .page-editor .doc-tab::after {
+:is(.formatting-marks, .fm-tabs) .fmt-tab::after,
+:is(.formatting-marks, .fm-tabs) .page-editor .doc-tab::after {
   content: "→";
   position: absolute;
   left: 0;
@@ -2892,16 +2892,32 @@ button.line-menu-row:focus-visible {
   user-select: none;
 }
 
-.formatting-marks .page-editor .doc-tab {
+:is(.formatting-marks, .fm-tabs) .page-editor .doc-tab {
   position: relative;
   overflow: visible;
+}
+
+:is(.formatting-marks, .fm-hyphens) .fmt-hyphen {
+  position: relative;
+}
+
+:is(.formatting-marks, .fm-hyphens) .fmt-hyphen::after {
+  content: "¬";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--fmt-mark-color);
+  font-family: var(--font-sans);
+  pointer-events: none;
+  user-select: none;
 }
 
 /*
  * Marks must not take space: an absolutely positioned box with no offsets sits where it would have been in the
  * line (its static position) but adds nothing to the line's width or height, so showing marks never reflows text.
  */
-.formatting-marks .page-editor :is(p, h1, h2, h3, h4, h5, h6)::after {
+:is(.formatting-marks, .fm-paras) .page-editor :is(p, h1, h2, h3, h4, h5, h6)::after {
   content: "¶";
   position: absolute;
   color: var(--fmt-mark-color);
@@ -2912,8 +2928,8 @@ button.line-menu-row:focus-visible {
   white-space: nowrap;
 }
 
-.formatting-marks .page-editor br::after,
-.formatting-marks .page-editor .fmt-break::after {
+:is(.formatting-marks, .fm-paras) .page-editor br::after,
+:is(.formatting-marks, .fm-paras) .page-editor .fmt-break::after {
   content: "↵";
   position: absolute;
   color: var(--fmt-mark-color);
@@ -4777,21 +4793,25 @@ button.line-menu-row:focus-visible {
     padding: 0;
   }
 
-  .formatting-marks .page-editor :is(p, h1, h2, h3, h4, h5, h6)::after,
-  .formatting-marks .page-editor br::after,
-  .formatting-marks .page-editor .fmt-break::after,
-  .formatting-marks .fmt-tab::after,
-  .formatting-marks .page-editor .doc-tab::after,
+  :is(.formatting-marks, .fm-paras) .page-editor :is(p, h1, h2, h3, h4, h5, h6)::after,
+  :is(.formatting-marks, .fm-paras) .page-editor br::after,
+  :is(.formatting-marks, .fm-paras) .page-editor .fmt-break::after,
+  :is(.formatting-marks, .fm-tabs) .fmt-tab::after,
+  :is(.formatting-marks, .fm-tabs) .page-editor .doc-tab::after,
   .formatting-marks .page-editor [data-page-break]::before,
   .formatting-marks .page-editor [data-page-break]::after,
-  .formatting-marks .page-editor table :is(td, th) > p:last-child::after,
-  .formatting-marks .page-editor table :is(td, th) > p:last-child::before,
-  .formatting-marks .page-editor table tr > :is(td, th):last-child::after {
+  :is(.formatting-marks, .fm-paras) .page-editor table :is(td, th) > p:last-child::after,
+  :is(.formatting-marks, .fm-paras) .page-editor table :is(td, th) > p:last-child::before,
+  :is(.formatting-marks, .fm-paras) .page-editor table tr > :is(td, th):last-child::after {
     content: none !important;
   }
 
-  .formatting-marks .fmt-space::before,
-  .formatting-marks .fmt-nbsp::before,
+  .fmt-hyphen::after {
+    content: none !important;
+  }
+
+  :is(.formatting-marks, .fm-spaces) .fmt-space::before,
+  :is(.formatting-marks, .fm-spaces) .fmt-nbsp::before,
   .page-editor .spell-error {
     content: none;
     text-decoration: none;
@@ -11918,27 +11938,27 @@ fieldset.columns-presets input {
  * With the marks on, every table shows Word's end-of-cell mark in place of the paragraph mark, and a mark at the right
  * end of each row, inside the last cell because the table clips what is outside it (22.19); otherwise only the table the caret is in shows the cell marks (above).
  */
-.formatting-marks .page-editor table :is(td, th) > p:last-child::after {
+:is(.formatting-marks, .fm-paras) .page-editor table :is(td, th) > p:last-child::after {
   content: "¤";
   margin-left: 0.15em;
   font-size: 0.8em;
 }
 
-.formatting-marks .page-editor table :is(td, th) > p:last-child:has(> br.ProseMirror-trailingBreak:only-child)::after {
+:is(.formatting-marks, .fm-paras) .page-editor table :is(td, th) > p:last-child:has(> br.ProseMirror-trailingBreak:only-child)::after {
   content: none;
 }
 
-.formatting-marks .page-editor table :is(td, th) > p:last-child:has(> br.ProseMirror-trailingBreak:only-child)::before {
+:is(.formatting-marks, .fm-paras) .page-editor table :is(td, th) > p:last-child:has(> br.ProseMirror-trailingBreak:only-child)::before {
   content: "¤";
   color: var(--fmt-mark-color);
   font-size: 0.8em;
 }
 
-.formatting-marks .page-editor table tr > :is(td, th):last-child {
+:is(.formatting-marks, .fm-paras) .page-editor table tr > :is(td, th):last-child {
   position: relative;
 }
 
-.formatting-marks .page-editor table tr > :is(td, th):last-child::after {
+:is(.formatting-marks, .fm-paras) .page-editor table tr > :is(td, th):last-child::after {
   content: "¤";
   position: absolute;
   top: 50%;
