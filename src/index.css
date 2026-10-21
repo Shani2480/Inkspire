@@ -12308,3 +12308,13 @@ fieldset.columns-presets input {
 .addins-row .backstage-muted {
   margin: 2px 0 0;
 }
+
+/* Options > Accessibility > Provide feedback with animation: off stops every animation and transition. */
+:root[data-no-motion] *,
+:root[data-no-motion] *::before,
+:root[data-no-motion] *::after {
+  animation-duration: 0.001ms !important;
+  animation-delay: 0s !important;
+  transition-duration: 0.001ms !important;
+  transition-delay: 0s !important;
+}

@@ -2,6 +2,9 @@
 export const EASE_DECELERATE = "cubic-bezier(0.1, 0.9, 0.2, 1)"
 
 export function prefersReducedMotion() {
+  if (typeof document !== "undefined" && document.documentElement.hasAttribute("data-no-motion")) {
+    return true
+  }
   return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true
 }
 
