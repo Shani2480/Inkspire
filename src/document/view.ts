@@ -1,5 +1,5 @@
 import type { PageView } from "@/document/page-grid"
-import { DEFAULT_THEME_BACKGROUND } from "@/document/theme"
+import { DEFAULT_THEME_BACKGROUND, THEME_OPTIONS } from "@/document/theme"
 import { create } from "zustand"
 
 export type { PageView }
@@ -15,6 +15,17 @@ export type RibbonLayout = "classic" | "single"
 
 const COLOR_MODE_KEY = "aiword-color-mode"
 const RIBBON_LAYOUT_KEY = "aiword-ribbon-layout"
+const THEME_KEY = "inkspire-theme-accent"
+
+/** The accent colour last chosen in any window (one of the offered themes), else the default. */
+function readThemeBackground(): string {
+  try {
+    const stored = localStorage.getItem(THEME_KEY)
+    return THEME_OPTIONS.some((theme) => theme.value === stored) ? (stored as string) : DEFAULT_THEME_BACKGROUND
+  } catch {
+    return DEFAULT_THEME_BACKGROUND
+  }
+}
 
 export function readRibbonLayout(): RibbonLayout {
   try {
@@ -151,7 +162,7 @@ export const useViewStore = create<ViewState>((set, get) => ({
   autoSave: true,
   colorMode: initialColorMode,
   ribbonLayout: readRibbonLayout(),
-  themeBackground: DEFAULT_THEME_BACKGROUND,
+  themeBackground: readThemeBackground(),
   layoutMode: "print",
   webWidth: 0,
   readColumnWidth: "default",
@@ -199,7 +210,14 @@ export const useViewStore = create<ViewState>((set, get) => ({
     storeRibbonLayout(ribbonLayout)
     set({ ribbonLayout })
   },
-  setThemeBackground: (themeBackground) => set({ themeBackground }),
+  setThemeBackground: (themeBackground) => {
+    try {
+      localStorage.setItem(THEME_KEY, themeBackground)
+    } catch {
+      // Without storage the colour lasts for this window.
+    }
+    set({ themeBackground })
+  },
   setLayoutMode: (layoutMode) =>
     set((state) => ({
       layoutMode,
@@ -242,11 +260,18 @@ export const useViewStore = create<ViewState>((set, get) => ({
 }))
 
 /**
- * Light or dark is for the app, not for a document: when another window changes it (the choice is kept in
- * localStorage, which tells the other windows through a `storage` event), this window follows.
+ * Light or dark and the accent colour are for the app, not for a document: when another window changes one (the choice
+ * is kept in localStorage, which tells the other windows through a `storage` event), this window follows.
  */
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (event) => {
+    if (event.key === THEME_KEY) {
+      const themeBackground = readThemeBackground()
+      if (useViewStore.getState().themeBackground !== themeBackground) {
+        useViewStore.setState({ themeBackground })
+      }
+      return
+    }
     if (event.key !== COLOR_MODE_KEY) {
       return
     }
