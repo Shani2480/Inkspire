@@ -1205,7 +1205,7 @@ export function AccountView() {
   )
 }
 
-type OptionsPage =
+export type OptionsPage =
   "general" | "display" | "proofing" | "save" | "language" | "accessibility" | "advanced" | "ribbon" | "quick-access"
 
 /** Word's Options list (22.9): the pages of the backstage Options view. */
@@ -1235,7 +1235,8 @@ function UnavailableOptions({ items }: { items: string[] }) {
   )
 }
 
-export function OptionsView() {
+/** The pages of the Options dialog (22.9). Choices apply as they are made. */
+export function OptionsPages({ initialPage = "general" }: { initialPage?: OptionsPage }) {
   const colorMode = useViewStore((state) => state.colorMode)
   const setColorMode = useViewStore((state) => state.setColorMode)
   const themeBackground = useViewStore((state) => state.themeBackground)
@@ -1258,220 +1259,213 @@ export function OptionsView() {
     locale: useUserSettings((state) => state.locale),
     dateFormat: useUserSettings((state) => state.dateFormat),
   }
-  const [page, setPage] = useState<OptionsPage>("general")
+  const [page, setPage] = useState<OptionsPage>(initialPage)
   const editing = useEditingOptions()
   const miniToolbar = editing.miniToolbar
 
   return (
-    <div className="backstage-pane">
-      <h1 className="backstage-greeting">Options</h1>
-      <div className="options-layout">
-        <nav className="options-nav" aria-label="Options pages">
-          {OPTION_PAGES.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              aria-current={page === item.id ? "page" : undefined}
-              onClick={() => setPage(item.id)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
-        <div className="backstage-options-grid">
-          {page === "general" && (
-            <section className="backstage-card">
-              <h2 className="backstage-card-title">General & Theme</h2>
-              <label className="backstage-check">
-                <input
-                  type="checkbox"
-                  checked={miniToolbar}
-                  onChange={(event) => useEditingOptions.getState().set({ miniToolbar: event.target.checked })}
-                />{" "}
-                Show Mini Toolbar on selection
+    <div className="options-layout">
+      <nav className="options-nav" aria-label="Options pages">
+        {OPTION_PAGES.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            aria-current={page === item.id ? "page" : undefined}
+            onClick={() => setPage(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </nav>
+      <div className="backstage-options-grid">
+        {page === "general" && (
+          <section className="backstage-card">
+            <h2 className="backstage-card-title">General & Theme</h2>
+            <label className="backstage-check">
+              <input
+                type="checkbox"
+                checked={miniToolbar}
+                onChange={(event) => useEditingOptions.getState().set({ miniToolbar: event.target.checked })}
+              />{" "}
+              Show Mini Toolbar on selection
+            </label>
+            <label className="backstage-check">
+              <input
+                type="checkbox"
+                checked={editing.livePreview}
+                onChange={(event) => editing.set({ livePreview: event.target.checked })}
+              />{" "}
+              Enable Live Preview
+            </label>
+            <label className="backstage-prop-edit">
+              <span>Author name</span>
+              <input value={props.author} onChange={(event) => setDocumentProps({ author: event.target.value })} />
+            </label>
+            <fieldset className="backstage-fieldset">
+              <legend>Theme mode</legend>
+              <label>
+                <input type="radio" checked={colorMode === "light"} onChange={() => setColorMode("light")} /> Light
               </label>
-              <label className="backstage-check">
-                <input
-                  type="checkbox"
-                  checked={editing.livePreview}
-                  onChange={(event) => editing.set({ livePreview: event.target.checked })}
-                />{" "}
-                Enable Live Preview
+              <label>
+                <input type="radio" checked={colorMode === "dark"} onChange={() => setColorMode("dark")} /> Dark
               </label>
-              <label className="backstage-prop-edit">
-                <span>Author name</span>
-                <input value={props.author} onChange={(event) => setDocumentProps({ author: event.target.value })} />
-              </label>
-              <fieldset className="backstage-fieldset">
-                <legend>Theme mode</legend>
-                <label>
-                  <input type="radio" checked={colorMode === "light"} onChange={() => setColorMode("light")} /> Light
-                </label>
-                <label>
-                  <input type="radio" checked={colorMode === "dark"} onChange={() => setColorMode("dark")} /> Dark
-                </label>
-              </fieldset>
-              <div className="backstage-theme-swatches">
-                {THEME_OPTIONS.map((theme) => (
-                  <button
-                    key={theme.name}
-                    type="button"
-                    title={theme.name}
-                    className={themeBackground === theme.value ? "is-active" : ""}
-                    style={{ background: theme.value }}
-                    onClick={() => setThemeBackground(theme.value)}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-          {page === "display" && (
-            <section className="backstage-card">
-              <h2 className="backstage-card-title">Display & Rulers</h2>
-              <label className="backstage-check">
-                <input type="checkbox" checked={showRuler} onChange={toggleRuler} /> Show ruler
-              </label>
-              <label className="backstage-check">
-                <input type="checkbox" checked={showFormattingMarks} onChange={toggleFormattingMarks} /> Show formatting
-                marks (¶)
-              </label>
-              <label className="backstage-prop-edit">
-                <span>Default zoom</span>
-                <input
-                  type="number"
-                  min={50}
-                  max={200}
-                  step={10}
-                  value={Math.round(zoom * 100)}
-                  onChange={(event) => setZoom((Number(event.target.value) || 100) / 100)}
+            </fieldset>
+            <div className="backstage-theme-swatches">
+              {THEME_OPTIONS.map((theme) => (
+                <button
+                  key={theme.name}
+                  type="button"
+                  title={theme.name}
+                  className={themeBackground === theme.value ? "is-active" : ""}
+                  style={{ background: theme.value }}
+                  onClick={() => setThemeBackground(theme.value)}
                 />
-              </label>
-            </section>
-          )}
-          {page === "ribbon" && (
-            <section className="backstage-card">
-              <h2 className="backstage-card-title">Ribbon</h2>
-              <fieldset className="backstage-fieldset">
-                <legend>Ribbon layout</legend>
-                <label>
-                  <input
-                    type="radio"
-                    checked={ribbonLayout === "classic"}
-                    onChange={() => setRibbonLayout("classic")}
-                  />{" "}
-                  Classic
-                </label>
-                <label>
-                  <input type="radio" checked={ribbonLayout === "single"} onChange={() => setRibbonLayout("single")} />{" "}
-                  Single line
-                </label>
-              </fieldset>
-              <button type="button" className="dialog-btn" onClick={() => openCustomize("ribbon")}>
-                Customize Ribbon and Quick Access Toolbar…
-              </button>
-            </section>
-          )}
-          {page === "advanced" && <NewDocumentDefaults />}
-          {page === "save" && (
-            <section className="backstage-card">
-              <h2 className="backstage-card-title">Save & AutoSave</h2>
-              <label className="backstage-check">
-                <input type="checkbox" checked={autoSave} onChange={toggleAutoSave} /> Keep a recovery copy of unsaved
-                changes (AutoSave)
-              </label>
-              <label className="backstage-prop-edit">
-                <span>Save recovery copy every</span>
-                <select
-                  value={editing.recoverySeconds}
-                  onChange={(event) => editing.set({ recoverySeconds: Number(event.target.value) })}
-                >
-                  {RECOVERY_CHOICES.map((seconds) => (
-                    <option key={seconds} value={seconds}>
-                      {seconds < 60 ? `${seconds} seconds` : `${seconds / 60} minute${seconds > 60 ? "s" : ""}`}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <p className="backstage-muted">
-                AutoSave is a safeguard: it never overwrites your file on disk. Your edits are kept in a recovery copy
-                until you save, and if the app closes before you do, Unsaved Documents offers them back. Closing a
-                document with unsaved changes asks whether to save them.
-              </p>
-              <p className="backstage-muted">
-                Default save format follows the Save As dialog filters (.docx, .html, .pdf, .md, .txt).
-              </p>
-            </section>
-          )}
-          {page === "advanced" && <ShortcutSettings />}
-          {page === "proofing" && (
-            <section className="backstage-card">
-              <h2 className="backstage-card-title">Proofing</h2>
-              <label className="backstage-check">
-                <input type="checkbox" checked={spellCheck} onChange={toggleSpellCheck} /> Check spelling as you type
-              </label>
-              {(
-                [
-                  ["ignoreUppercase", "Ignore words in UPPERCASE"],
-                  ["ignoreNumbers", "Ignore words that contain numbers"],
-                  ["ignoreAddresses", "Ignore Internet and file addresses"],
-                  ["flagRepeated", "Flag repeated words"],
-                ] as const
-              ).map(([name, label]) => (
-                <label key={name} className="backstage-check">
-                  <input
-                    type="checkbox"
-                    checked={editing[name]}
-                    onChange={(event) => editing.set({ [name]: event.target.checked })}
-                  />{" "}
-                  {label}
-                </label>
               ))}
-              <UnavailableOptions
-                items={[
-                  "Suggest from main dictionary only",
-                  "Mark grammar errors as you type",
-                  "Show readability statistics",
-                ]}
+            </div>
+          </section>
+        )}
+        {page === "display" && (
+          <section className="backstage-card">
+            <h2 className="backstage-card-title">Display & Rulers</h2>
+            <label className="backstage-check">
+              <input type="checkbox" checked={showRuler} onChange={toggleRuler} /> Show ruler
+            </label>
+            <label className="backstage-check">
+              <input type="checkbox" checked={showFormattingMarks} onChange={toggleFormattingMarks} /> Show formatting
+              marks (¶)
+            </label>
+            <label className="backstage-prop-edit">
+              <span>Default zoom</span>
+              <input
+                type="number"
+                min={50}
+                max={200}
+                step={10}
+                value={Math.round(zoom * 100)}
+                onChange={(event) => setZoom((Number(event.target.value) || 100) / 100)}
               />
-            </section>
-          )}
-          {page === "language" && (
-            <section className="backstage-card">
-              <h2 className="backstage-card-title">Language</h2>
-              <dl className="backstage-defaults">
-                <dt>Language</dt>
-                <dd>{settings.locale || "Not set"}</dd>
-                <dt>Date format</dt>
-                <dd>{settings.dateFormat || "Not set"}</dd>
-              </dl>
-              <p className="backstage-muted">These come from the first-run setup. Change them by running it again.</p>
-              <UnavailableOptions items={["Choose editing languages", "Display language", "Help language"]} />
-            </section>
-          )}
-          {page === "accessibility" && (
-            <section className="backstage-card">
-              <h2 className="backstage-card-title">Accessibility</h2>
-              <UnavailableOptions
-                items={[
-                  "Keep accessibility checker running while I edit",
-                  "Provide feedback with sound",
-                  "Provide feedback with animation",
-                  "Show shortcut keys in ScreenTips",
-                  "Automatically generate alt text for me",
-                ]}
-              />
-            </section>
-          )}
-          {page === "quick-access" && (
-            <section className="backstage-card">
-              <h2 className="backstage-card-title">Quick Access Toolbar</h2>
-              <p className="backstage-muted">Choose which commands sit beside the title and in what order.</p>
-              <button type="button" className="dialog-btn" onClick={() => openCustomize("quick-access")}>
-                Customize Quick Access Toolbar…
-              </button>
-            </section>
-          )}
-        </div>
+            </label>
+          </section>
+        )}
+        {page === "ribbon" && (
+          <section className="backstage-card">
+            <h2 className="backstage-card-title">Ribbon</h2>
+            <fieldset className="backstage-fieldset">
+              <legend>Ribbon layout</legend>
+              <label>
+                <input type="radio" checked={ribbonLayout === "classic"} onChange={() => setRibbonLayout("classic")} />{" "}
+                Classic
+              </label>
+              <label>
+                <input type="radio" checked={ribbonLayout === "single"} onChange={() => setRibbonLayout("single")} />{" "}
+                Single line
+              </label>
+            </fieldset>
+            <button type="button" className="dialog-btn" onClick={() => openCustomize("ribbon")}>
+              Customize Ribbon and Quick Access Toolbar…
+            </button>
+          </section>
+        )}
+        {page === "advanced" && <NewDocumentDefaults />}
+        {page === "save" && (
+          <section className="backstage-card">
+            <h2 className="backstage-card-title">Save & AutoSave</h2>
+            <label className="backstage-check">
+              <input type="checkbox" checked={autoSave} onChange={toggleAutoSave} /> Keep a recovery copy of unsaved
+              changes (AutoSave)
+            </label>
+            <label className="backstage-prop-edit">
+              <span>Save recovery copy every</span>
+              <select
+                value={editing.recoverySeconds}
+                onChange={(event) => editing.set({ recoverySeconds: Number(event.target.value) })}
+              >
+                {RECOVERY_CHOICES.map((seconds) => (
+                  <option key={seconds} value={seconds}>
+                    {seconds < 60 ? `${seconds} seconds` : `${seconds / 60} minute${seconds > 60 ? "s" : ""}`}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="backstage-muted">
+              AutoSave is a safeguard: it never overwrites your file on disk. Your edits are kept in a recovery copy
+              until you save, and if the app closes before you do, Unsaved Documents offers them back. Closing a
+              document with unsaved changes asks whether to save them.
+            </p>
+            <p className="backstage-muted">
+              Default save format follows the Save As dialog filters (.docx, .html, .pdf, .md, .txt).
+            </p>
+          </section>
+        )}
+        {page === "advanced" && <ShortcutSettings />}
+        {page === "proofing" && (
+          <section className="backstage-card">
+            <h2 className="backstage-card-title">Proofing</h2>
+            <label className="backstage-check">
+              <input type="checkbox" checked={spellCheck} onChange={toggleSpellCheck} /> Check spelling as you type
+            </label>
+            {(
+              [
+                ["ignoreUppercase", "Ignore words in UPPERCASE"],
+                ["ignoreNumbers", "Ignore words that contain numbers"],
+                ["ignoreAddresses", "Ignore Internet and file addresses"],
+                ["flagRepeated", "Flag repeated words"],
+              ] as const
+            ).map(([name, label]) => (
+              <label key={name} className="backstage-check">
+                <input
+                  type="checkbox"
+                  checked={editing[name]}
+                  onChange={(event) => editing.set({ [name]: event.target.checked })}
+                />{" "}
+                {label}
+              </label>
+            ))}
+            <UnavailableOptions
+              items={[
+                "Suggest from main dictionary only",
+                "Mark grammar errors as you type",
+                "Show readability statistics",
+              ]}
+            />
+          </section>
+        )}
+        {page === "language" && (
+          <section className="backstage-card">
+            <h2 className="backstage-card-title">Language</h2>
+            <dl className="backstage-defaults">
+              <dt>Language</dt>
+              <dd>{settings.locale || "Not set"}</dd>
+              <dt>Date format</dt>
+              <dd>{settings.dateFormat || "Not set"}</dd>
+            </dl>
+            <p className="backstage-muted">These come from the first-run setup. Change them by running it again.</p>
+            <UnavailableOptions items={["Choose editing languages", "Display language", "Help language"]} />
+          </section>
+        )}
+        {page === "accessibility" && (
+          <section className="backstage-card">
+            <h2 className="backstage-card-title">Accessibility</h2>
+            <UnavailableOptions
+              items={[
+                "Keep accessibility checker running while I edit",
+                "Provide feedback with sound",
+                "Provide feedback with animation",
+                "Show shortcut keys in ScreenTips",
+                "Automatically generate alt text for me",
+              ]}
+            />
+          </section>
+        )}
+        {page === "quick-access" && (
+          <section className="backstage-card">
+            <h2 className="backstage-card-title">Quick Access Toolbar</h2>
+            <p className="backstage-muted">Choose which commands sit beside the title and in what order.</p>
+            <button type="button" className="dialog-btn" onClick={() => openCustomize("quick-access")}>
+              Customize Quick Access Toolbar…
+            </button>
+          </section>
+        )}
       </div>
     </div>
   )
