@@ -1080,6 +1080,8 @@ function paintImage(dom: HTMLElement, node: ProseNode) {
   }
   image.src = String(node.attrs.src || "")
   image.alt = String(node.attrs.alt || "")
+  // Hovering a picture shows its alt text, as Word does.
+  image.title = image.alt
   const width = Number(node.attrs.width)
   const height = Number(node.attrs.height)
   image.style.width = width > 0 ? `${width}px` : ""
