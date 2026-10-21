@@ -260,6 +260,14 @@ function newHandoff(handoff: Handoff): WindowRequest {
   return { kind: "handoff", id }
 }
 
+/** Whether this window was opened to show something (a file, a new document), without taking the request. */
+export function hasWindowRequest() {
+  if ((window as Window & { __INKSPIRE_OPEN__?: unknown }).__INKSPIRE_OPEN__ !== undefined) {
+    return true
+  }
+  return new RegExp(`${HASH_KEY}=`).test(window.location.hash)
+}
+
 /** What this window was opened for; read once, at launch. */
 export function takeWindowRequest(): WindowRequest | null {
   const fromDesktop = (window as Window & { __INKSPIRE_OPEN__?: unknown }).__INKSPIRE_OPEN__
