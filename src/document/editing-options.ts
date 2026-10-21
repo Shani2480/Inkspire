@@ -24,6 +24,12 @@ export type EditingOptions = {
   showShortcutKeys: boolean
   /** Menus, dialogs and the File view animate; off, they appear at once. */
   animation: boolean
+  /** Marks drawn even with Show/Hide ¶ off (Display > Always show these formatting marks on the screen). */
+  marksTabs: boolean
+  marksSpaces: boolean
+  marksParagraph: boolean
+  marksHidden: boolean
+  marksHyphens: boolean
   /** The status bar keeps checking accessibility as you edit; off, it waits to be asked. */
   keepAccessibilityRunning: boolean
 }
@@ -41,6 +47,11 @@ export const EDITING_DEFAULTS: EditingOptions = {
   showShortcutKeys: true,
   animation: true,
   keepAccessibilityRunning: true,
+  marksTabs: false,
+  marksSpaces: false,
+  marksParagraph: false,
+  marksHidden: false,
+  marksHyphens: false,
 }
 
 export const RECOVERY_CHOICES = [5, 10, 30, 60, 300]

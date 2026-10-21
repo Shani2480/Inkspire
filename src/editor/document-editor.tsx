@@ -1,3 +1,4 @@
+import { useEditingOptions } from "@/document/editing-options"
 import { useEditor, type Editor } from "@tiptap/react"
 import { createContext, useContext, useEffect, type ReactNode } from "react"
 import { useActiveChromeEditor } from "@/document/chrome-editing"
@@ -68,8 +69,20 @@ export function DocumentEditorProvider({ children }: { children: ReactNode }) {
         refreshDisplayedMarks(editor)
       }
     })
+    const marksChanged = useEditingOptions.subscribe((state, previous) => {
+      if (
+        state.marksTabs !== previous.marksTabs ||
+        state.marksSpaces !== previous.marksSpaces ||
+        state.marksParagraph !== previous.marksParagraph ||
+        state.marksHidden !== previous.marksHidden ||
+        state.marksHyphens !== previous.marksHyphens
+      ) {
+        refreshDisplayedMarks(editor)
+      }
+    })
     return () => {
       unsubscribe()
+      marksChanged()
       editor.off("selectionUpdate", remember)
       editor.off("update", noteEdit)
       window.clearTimeout(timer)

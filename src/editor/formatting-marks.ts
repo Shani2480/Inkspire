@@ -1,3 +1,4 @@
+import { useEditingOptions, type EditingOptions } from "@/document/editing-options"
 import { useViewStore } from "@/document/view"
 import { Extension } from "@tiptap/core"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
@@ -6,6 +7,30 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view"
 const SPACE = 32
 const TAB = 9
 const NBSP = 160
+const SOFT_HYPHEN = 0xad
+
+const MARK_OPTIONS = ["marksTabs", "marksSpaces", "marksParagraph", "marksHidden", "marksHyphens"] as const
+
+/** True when any mark is drawn: Show/Hide ¶ is on (all of them), or one is chosen in Options > Display. */
+export function anyMarkShown(show: boolean, options: Pick<EditingOptions, (typeof MARK_OPTIONS)[number]>) {
+  return show || MARK_OPTIONS.some((name) => options[name])
+}
+
+/** The classes for the page: `formatting-marks` for all marks, or one `fm-…` class for each mark chosen on its own. */
+export function formattingMarkClasses(show: boolean, options: Pick<EditingOptions, (typeof MARK_OPTIONS)[number]>) {
+  if (show) {
+    return "formatting-marks"
+  }
+  return [
+    options.marksTabs && "fm-tabs",
+    options.marksSpaces && "fm-spaces",
+    options.marksParagraph && "fm-paras",
+    options.marksHidden && "fm-hidden",
+    options.marksHyphens && "fm-hyphens",
+  ]
+    .filter(Boolean)
+    .join(" ")
+}
 
 export const FormattingMarks = Extension.create({
   name: "formattingMarks",
@@ -16,7 +41,7 @@ export const FormattingMarks = Extension.create({
         key: new PluginKey("formattingMarks"),
         props: {
           decorations(state) {
-            if (!useViewStore.getState().showFormattingMarks) {
+            if (!anyMarkShown(useViewStore.getState().showFormattingMarks, useEditingOptions.getState())) {
               return null
             }
 
@@ -65,6 +90,8 @@ export const FormattingMarks = Extension.create({
                   className = "fmt-tab"
                 } else if (code === NBSP) {
                   className = "fmt-nbsp"
+                } else if (code === SOFT_HYPHEN) {
+                  className = "fmt-hyphen"
                 }
                 if (!className) {
                   continue

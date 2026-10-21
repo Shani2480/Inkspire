@@ -1,3 +1,5 @@
+import { useEditingOptions } from "@/document/editing-options"
+import { formattingMarkClasses } from "@/editor/formatting-marks"
 import { ChartPartLayer, ChartSideButtons } from "@/components/chart-overlay"
 import { LayoutDialog } from "@/components/layout-dialog"
 import { CommentMarkers } from "@/components/comment-markers"
@@ -43,6 +45,7 @@ export function PageCanvas() {
   const zoomMode = useViewStore((state) => state.zoomMode)
   const syncZoom = useViewStore((state) => state.syncZoom)
   const showFormattingMarks = useViewStore((state) => state.showFormattingMarks)
+  const markClasses = useEditingOptions((state) => formattingMarkClasses(showFormattingMarks, state))
   const showGridlines = useViewStore((state) => state.showGridlines)
   const movement = useViewStore((state) => state.movement)
   const pageView = useViewStore((state) => state.pageView)
@@ -341,7 +344,7 @@ export function PageCanvas() {
           ref={pageRef}
           onMouseDown={clearFloatingSelection}
           lang={pageSetup.language || "en"}
-          className={`page-canvas absolute top-0 left-0${showFormattingMarks ? " formatting-marks" : ""}${editingChrome ? " is-chrome-editing" : ""}`}
+          className={`page-canvas absolute top-0 left-0${markClasses ? ` ${markClasses}` : ""}${editingChrome ? " is-chrome-editing" : ""}`}
           onDoubleClick={(event) => {
             const target = event.target as HTMLElement
             if (editingChrome && !target.closest(".page-header, .page-footer, .page-chrome-zone, .page-first")) {
