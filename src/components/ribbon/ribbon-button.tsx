@@ -1,3 +1,4 @@
+import { useEditingOptions } from "@/document/editing-options"
 import { ribbonTip } from "@/components/ribbon/tips"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -25,7 +26,8 @@ export function RibbonTipContent({
 }) {
   const known = ribbonTip(label)
   const text = description ?? known?.description
-  const keys = shortcut ?? (known?.key ? commandShortcut(known.key, known.shift) : undefined)
+  const showKeys = useEditingOptions((state) => state.showShortcutKeys)
+  const keys = showKeys ? (shortcut ?? (known?.key ? commandShortcut(known.key, known.shift) : undefined)) : undefined
 
   return (
     <TooltipContent variant="office" side={side}>

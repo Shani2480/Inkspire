@@ -1439,13 +1439,23 @@ export function OptionsPages({ initialPage = "general" }: { initialPage?: Option
                 {label}
               </label>
             ))}
-            <UnavailableOptions
-              items={[
-                "Suggest from main dictionary only",
-                "Mark grammar errors as you type",
-                "Show readability statistics",
-              ]}
-            />
+            <label className="backstage-check">
+              <input
+                type="checkbox"
+                checked={editing.mainDictionaryOnly}
+                onChange={(event) => editing.set({ mainDictionaryOnly: event.target.checked })}
+              />{" "}
+              Suggest from main dictionary only
+            </label>
+            <label className="backstage-check">
+              <input
+                type="checkbox"
+                checked={editing.readability}
+                onChange={(event) => editing.set({ readability: event.target.checked })}
+              />{" "}
+              Show readability statistics (in Word Count)
+            </label>
+            <UnavailableOptions items={["Mark grammar errors as you type"]} />
           </section>
         )}
         {page === "language" && (
@@ -1464,15 +1474,23 @@ export function OptionsPages({ initialPage = "general" }: { initialPage?: Option
         {page === "accessibility" && (
           <section className="backstage-card">
             <h2 className="backstage-card-title">Accessibility</h2>
-            <UnavailableOptions
-              items={[
-                "Keep accessibility checker running while I edit",
-                "Provide feedback with sound",
-                "Provide feedback with animation",
-                "Show shortcut keys in ScreenTips",
-                "Automatically generate alt text for me",
-              ]}
-            />
+            {(
+              [
+                ["keepAccessibilityRunning", "Keep accessibility checker running while I edit"],
+                ["animation", "Provide feedback with animation"],
+                ["showShortcutKeys", "Show shortcut keys in ScreenTips"],
+              ] as const
+            ).map(([name, label]) => (
+              <label key={name} className="backstage-check">
+                <input
+                  type="checkbox"
+                  checked={editing[name]}
+                  onChange={(event) => editing.set({ [name]: event.target.checked })}
+                />{" "}
+                {label}
+              </label>
+            ))}
+            <UnavailableOptions items={["Provide feedback with sound", "Automatically generate alt text for me"]} />
           </section>
         )}
         {page === "quick-access" && (

@@ -1,4 +1,5 @@
 import { DOCUMENT_LANGUAGES, languageLabel } from "@/document/languages"
+import { useEditingOptions } from "@/document/editing-options"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
 import { useBodyEditor } from "@/editor/document-editor"
@@ -28,15 +29,21 @@ export function StatusBar() {
     editor,
     selector: ({ editor: current }) => currentPage(current),
   })
-  const access = useSettledEditorValue(editor, accessibilityStatus, null)
+  const keepChecking = useEditingOptions((state) => state.keepAccessibilityRunning)
+  const access = useSettledEditorValue(
+    editor,
+    (current) => (keepChecking ? accessibilityStatus(current) : null),
+    null,
+    [keepChecking],
+  )
   const words = counts?.words ?? 0
   const characters = counts?.characters ?? 0
   const page = pages?.page ?? 1
   const pageCount = pages?.pageCount ?? 1
   const percent = Math.round(zoom * 100)
   const saveLabel = saving ? "Saving..." : isDirty ? "Unsaved" : "Saved"
-  const accessLabel = access?.label ?? "Accessibility: Good to go"
-  const accessOk = access?.ok ?? true
+  const accessLabel = keepChecking ? (access?.label ?? "Accessibility: Good to go") : "Accessibility: Check"
+  const accessOk = keepChecking ? (access?.ok ?? true) : true
 
   function bumpZoom(delta: number) {
     setZoom((Math.round((zoom * 100 + delta) / 10) * 10) / 100)

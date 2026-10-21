@@ -1,3 +1,5 @@
+import { useEditingOptions } from "@/document/editing-options"
+import { readability } from "@/lib/readability"
 import { useProofing } from "@/ai/proofing"
 import { EditorIcon, RibbonSvg } from "@/components/ribbon/icons"
 import {
@@ -1069,6 +1071,10 @@ function WordCountDialog({ editor, onClose }: { editor: Editor | null; onClose: 
     }
   })
   const pages = editor?.storage.pagination?.pageCount ?? 1
+  const showReadability = useEditingOptions((state) => state.readability)
+  const scores = showReadability
+    ? readability(editor?.state.doc.textBetween(0, editor.state.doc.content.size, "\n", " ") ?? "")
+    : null
   return (
     <DialogFrame title="Word Count" width={288} onClose={onClose}>
       <dl className="mt-3 grid grid-cols-2 gap-y-1 text-sm">
@@ -1081,6 +1087,16 @@ function WordCountDialog({ editor, onClose }: { editor: Editor | null; onClose: 
         <dt>Paragraphs</dt>
         <dd>{paragraphs}</dd>
       </dl>
+      {showReadability ? (
+        <dl aria-label="Readability" className="mt-3 grid grid-cols-2 gap-y-1 border-t pt-2 text-sm">
+          <dt>Sentences</dt>
+          <dd>{scores?.sentences ?? 0}</dd>
+          <dt>Flesch Reading Ease</dt>
+          <dd>{scores?.ease ?? "—"}</dd>
+          <dt>Flesch-Kincaid Grade Level</dt>
+          <dd>{scores?.grade ?? "—"}</dd>
+        </dl>
+      ) : null}
       <div className="word-dialog-actions">
         <span className="flex-1" />
         <button type="button" className="dialog-btn is-primary" onClick={onClose}>

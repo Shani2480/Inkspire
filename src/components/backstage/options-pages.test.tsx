@@ -17,10 +17,25 @@ describe("Options pages (22.9)", () => {
   it("shows unsupported proofing options switched off", () => {
     render(<OptionsPages />)
     fireEvent.click(screen.getByRole("button", { name: "Proofing" }))
-    const box = screen.getByLabelText("Suggest from main dictionary only") as HTMLInputElement
+    const box = screen.getByLabelText("Mark grammar errors as you type") as HTMLInputElement
     expect(box.disabled).toBe(true)
+    expect((screen.getByLabelText("Suggest from main dictionary only") as HTMLInputElement).disabled).toBe(false)
     expect((screen.getByLabelText("Flag repeated words") as HTMLInputElement).disabled).toBe(false)
     expect((screen.getByLabelText("Check spelling as you type") as HTMLInputElement).disabled).toBe(false)
+  })
+})
+
+describe("Accessibility options (22.9)", () => {
+  afterEach(() => {
+    cleanup()
+    useEditingOptions.getState().set({ showShortcutKeys: true })
+  })
+
+  it("switches ScreenTip shortcut keys off and keeps what cannot be honoured off", () => {
+    render(<OptionsPages initialPage="accessibility" />)
+    fireEvent.click(screen.getByLabelText("Show shortcut keys in ScreenTips"))
+    expect(useEditingOptions.getState().showShortcutKeys).toBe(false)
+    expect((screen.getByLabelText("Provide feedback with sound") as HTMLInputElement).disabled).toBe(true)
   })
 })
 

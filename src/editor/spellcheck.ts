@@ -215,8 +215,12 @@ export function spellingSuggestions(word: string) {
     return []
   }
   try {
+    const own = useEditingOptions.getState().mainDictionaryOnly
+      ? customWordSet(activeLanguage ?? currentLanguage())
+      : null
     return activeSpell
       .suggest(target)
+      .filter((suggestion) => !own?.has(normalizeToken(suggestion)))
       .slice(0, SUGGESTION_LIMIT)
       .map((suggestion) => matchCase(word, suggestion))
   } catch {
