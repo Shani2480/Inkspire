@@ -27,7 +27,14 @@ import { addComment } from "@/editor/comments"
 import { useDocumentEditor } from "@/editor/document-editor"
 import { insertPageField } from "@/editor/page-fields"
 import { insertImageFile } from "@/editor/actions"
-import { COVER_PAGES, deleteSavedCover, saveCover, savedCovers, type CoverVariant } from "@/editor/cover-page"
+import {
+  COVER_PAGES,
+  deleteSavedCover,
+  renameSavedCover,
+  saveCover,
+  savedCovers,
+  type CoverVariant,
+} from "@/editor/cover-page"
 import { formatDate, type DateFormat } from "@/editor/formula"
 import { ChartThumb, useChartTypeDialog } from "@/components/chart-menus"
 import { defaultChartSpec } from "@/editor/chart-spec"
@@ -346,6 +353,73 @@ const SYMBOLS = [
   "Ω",
 ]
 
+/** A saved cover in the gallery, with buttons to rename it (the name turns into a field) and to delete it. */
+function SavedCoverTile({ name, onChanged, children }: { name: string; onChanged: () => void; children: ReactNode }) {
+  const [renaming, setRenaming] = useState(false)
+  const cancelled = useRef(false)
+  const finish = (value: string) => {
+    setRenaming(false)
+    if (cancelled.current) {
+      cancelled.current = false
+      return
+    }
+    renameSavedCover(name, value)
+    onChanged()
+  }
+  const buttonClass = "absolute top-1 rounded px-1 text-[11px] leading-none text-[#555] hover:bg-[#e5e5e5]"
+  return (
+    <div className="relative">
+      {children}
+      <button
+        type="button"
+        className={`${buttonClass} right-5`}
+        aria-label={`Rename ${name}`}
+        title="Rename"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => {
+          cancelled.current = false
+          setRenaming(true)
+        }}
+      >
+        ✎
+      </button>
+      <button
+        type="button"
+        className={`${buttonClass} right-1`}
+        aria-label={`Delete ${name} from the gallery`}
+        title="Delete from the gallery"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => {
+          deleteSavedCover(name)
+          onChanged()
+        }}
+      >
+        ×
+      </button>
+      {renaming ? (
+        <input
+          autoFocus
+          aria-label={`New name for ${name}`}
+          defaultValue={name}
+          maxLength={24}
+          className="absolute inset-x-1 bottom-1 h-6 rounded border border-[#999] bg-white px-1 text-[11px] text-black"
+          onFocus={(event) => event.currentTarget.select()}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              finish(event.currentTarget.value)
+            } else if (event.key === "Escape") {
+              event.stopPropagation()
+              cancelled.current = true
+              setRenaming(false)
+            }
+          }}
+          onBlur={(event) => finish(event.currentTarget.value)}
+        />
+      ) : null}
+    </div>
+  )
+}
+
 export function InsertTab() {
   const editor = useDocumentEditor()
   const fileInput = useRef<HTMLInputElement>(null)
@@ -401,22 +475,9 @@ export function InsertTab() {
         <div className="grid max-h-[420px] grid-cols-3 gap-1 overflow-auto p-1">
           {COVER_PAGES.map((cover) => tile(cover.id, cover.id, cover.label))}
           {saved.map((cover) => (
-            <div key={`saved-${cover.name}`} className="relative">
+            <SavedCoverTile key={`saved-${cover.name}`} name={cover.name} onChanged={close}>
               {tile(`saved-${cover.name}`, cover.variant, cover.name, cover.title, cover.subtitle)}
-              <button
-                type="button"
-                className="absolute right-1 top-1 rounded px-1 text-[11px] leading-none text-[#555] hover:bg-[#e5e5e5]"
-                aria-label={`Delete ${cover.name} from the gallery`}
-                title="Delete from the gallery"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => {
-                  deleteSavedCover(cover.name)
-                  close()
-                }}
-              >
-                ×
-              </button>
-            </div>
+            </SavedCoverTile>
           ))}
         </div>
         <MenuButton

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest"
-import { COVER_PAGES, deleteSavedCover, saveCover, savedCovers } from "@/editor/cover-page"
+import { COVER_PAGES, deleteSavedCover, renameSavedCover, saveCover, savedCovers } from "@/editor/cover-page"
 
 describe("Cover page gallery (22.16)", () => {
   beforeEach(() => localStorage.clear())
@@ -41,5 +41,24 @@ describe("Cover page gallery (22.16)", () => {
       JSON.stringify([{ name: 1 }, { name: "x", variant: "nope", title: "", subtitle: "" }]),
     )
     expect(savedCovers()).toEqual([])
+  })
+})
+
+describe("renaming a saved cover", () => {
+  beforeEach(() => localStorage.clear())
+
+  it("changes the name and keeps the cover", () => {
+    saveCover({ name: "Mine", variant: "austin", title: "T", subtitle: "S" })
+    const covers = renameSavedCover("Mine", "  Report  ")
+    expect(covers).toEqual([{ name: "Report", variant: "austin", title: "T", subtitle: "S" }])
+    expect(savedCovers()[0]?.name).toBe("Report")
+  })
+
+  it("ignores an empty name and a name already in the gallery", () => {
+    saveCover({ name: "A", variant: "austin", title: "", subtitle: "" })
+    saveCover({ name: "B", variant: "austin", title: "", subtitle: "" })
+    renameSavedCover("A", "  ")
+    renameSavedCover("A", "B")
+    expect(savedCovers().map((cover) => cover.name)).toEqual(["A", "B"])
   })
 })

@@ -7,6 +7,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react"
+import { useHelp } from "@/document/help"
 
 /**
  * The frame of a Word-style dialog (Paragraph, Font).
@@ -218,7 +219,13 @@ function TitleBar({
   return (
     <div className="word-dialog-title" onPointerDown={onPointerDown}>
       <h2 id={id}>{title}</h2>
-      <button type="button" aria-label="Help" title="Help" tabIndex={-1}>
+      <button
+        type="button"
+        aria-label="Help"
+        title="Help"
+        tabIndex={-1}
+        onClick={() => useHelp.getState().openHelp("help")}
+      >
         ?
       </button>
       <button type="button" aria-label="Close" title="Close" tabIndex={-1} onClick={onClose}>
