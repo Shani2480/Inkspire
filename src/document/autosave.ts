@@ -34,14 +34,20 @@ export function useAutosave() {
       return
     }
 
+    const write = () => void writeRecoveryDraft().catch(() => undefined)
+    // Packing a long document takes a moment, so a timed save waits for a gap in typing; leaving the page cannot wait.
     const flush = () => {
-      void writeRecoveryDraft().catch(() => undefined)
+      if (window.requestIdleCallback) {
+        window.requestIdleCallback(write, { timeout: 4000 })
+      } else {
+        write()
+      }
     }
 
     const debounce = window.setTimeout(flush, SNAPSHOT_DEBOUNCE_MS)
     const interval = window.setInterval(flush, recoverySeconds * 1000)
 
-    const onHide = () => flush()
+    const onHide = () => write()
     window.addEventListener("pagehide", onHide)
     window.addEventListener("beforeunload", onHide)
 

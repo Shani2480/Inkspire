@@ -256,6 +256,15 @@ function wordCountFromHtml(html: string) {
   return text.split(/\s+/).filter(Boolean).length
 }
 
+/** The preview and word count of a draft, from one pass over its text rather than one each. */
+function summaryOf(html: string) {
+  const text = plainText(html)
+  return {
+    preview: text ? (text.length > 96 ? `${text.slice(0, 96).trimEnd()}…` : text) : "Empty document",
+    wordCount: text ? text.split(/\s+/).filter(Boolean).length : 0,
+  }
+}
+
 function toOffer(record: SnapshotRecord): RecoveryOffer {
   return {
     id: record.id,
@@ -306,8 +315,7 @@ function buildSnapshotRecord(id: string): SnapshotRecord | null {
     json,
     isDirty: true,
     writtenAt: Date.now(),
-    preview: previewFromHtml(packed),
-    wordCount: wordCountFromHtml(packed),
+    ...summaryOf(packed),
   }
 }
 
@@ -396,8 +404,7 @@ async function migrateTauriDraft(): Promise<SnapshotRecord | null> {
       json: null,
       isDirty: true,
       writtenAt: meta.writtenAt,
-      preview: previewFromHtml(packedHtml),
-      wordCount: wordCountFromHtml(packedHtml),
+      ...summaryOf(packedHtml),
     }
     await putSnapshot(record)
     return record

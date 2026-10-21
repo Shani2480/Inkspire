@@ -2491,7 +2491,9 @@ function keepsAsWritten(part: OpcPart) {
 
 /** A kept part's bytes, converted when it is Strict XML. */
 function transitionalPart(part: { name: string; contentType?: string; data: Uint8Array }) {
-  if (!/xml/i.test(part.contentType ?? "") && !part.name.toLowerCase().endsWith(".xml")) {
+  // XML by its type ("...+xml", "text/xml") or name. "openxmlformats" is in the type of binary parts too (an OLE
+  // object can be tens of megabytes), so the type is not searched for "xml" as a substring.
+  if (!/(^|[/+])xml(;|$)/i.test(part.contentType ?? "") && !part.name.toLowerCase().endsWith(".xml")) {
     return part.data
   }
   const xml = decodeXml(part.data)
