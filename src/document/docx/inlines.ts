@@ -2322,11 +2322,17 @@ function decodeDataUrl(src: string) {
 }
 
 export function encodeBase64(data: Uint8Array) {
-  let binary = ""
-  for (let index = 0; index < data.length; index += 0x8000) {
-    binary += String.fromCharCode(...data.subarray(index, index + 0x8000))
+  const native = (data as Uint8Array & { toBase64?: () => string }).toBase64
+  if (typeof native === "function") {
+    return native.call(data)
   }
-  return btoa(binary)
+  // Each piece is a whole number of 3-byte groups, so the pieces join into one valid string; joining the encoded
+  // pieces is several times faster than building the whole binary string first.
+  const pieces: string[] = []
+  for (let index = 0; index < data.length; index += 0x7ffe) {
+    pieces.push(btoa(String.fromCharCode.apply(null, data.subarray(index, index + 0x7ffe) as unknown as number[])))
+  }
+  return pieces.join("")
 }
 
 export function escapeHtml(value: string) {
