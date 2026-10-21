@@ -9948,13 +9948,16 @@ html.dark .asset-library .asset-library-icon {
   animation: motion-tab-in var(--motion-tab) var(--motion-ease-in);
 }
 
+@keyframes motion-slide-out {
+  to {
+    opacity: 0;
+    transform: translateX(-32px);
+  }
+}
+
 /* File (backstage): the pane slides in from the left, its page follows; on close it slides back out. */
 .backstage {
-  opacity: 0;
-}
-.backstage.is-in {
-  opacity: 1;
-  transition: opacity var(--motion-panel) var(--motion-ease-in);
+  animation: motion-fade-in var(--motion-panel) var(--motion-ease-in);
 }
 .backstage .backstage-nav {
   animation: motion-slide-in var(--motion-panel) var(--motion-ease-in);
@@ -9964,11 +9967,7 @@ html.dark .asset-library .asset-library-icon {
 }
 .backstage.is-leaving {
   pointer-events: none;
-  opacity: 0;
-  transform: translateX(-32px);
-  transition:
-    opacity 160ms var(--motion-ease-out),
-    transform 160ms var(--motion-ease-out);
+  animation: motion-slide-out 160ms var(--motion-ease-out) forwards;
 }
 
 /*
@@ -10032,8 +10031,10 @@ html.dark .asset-library .asset-library-icon {
 
 @media (prefers-reduced-motion: reduce) {
   .ribbon-card[data-tab-motion="on"] [data-slot="tabs-content"],
+  .backstage,
   .backstage .backstage-nav,
   .backstage .backstage-content,
+  .backstage.is-leaving,
   .spell-menu,
   .object-menu,
   .mini-menu,
@@ -10041,9 +10042,7 @@ html.dark .asset-library .asset-library-icon {
   .word-dialog {
     animation: none;
   }
-  [data-slot="popover-content"].ribbon-menu,
-  .backstage.is-in,
-  .backstage.is-leaving {
+  [data-slot="popover-content"].ribbon-menu {
     transition: none;
   }
 }
