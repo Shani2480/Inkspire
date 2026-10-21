@@ -32,7 +32,7 @@ import { WRAP_CHOICES } from "@/editor/objects"
 import { useBodyEditor } from "@/editor/document-editor"
 import { useEditorState } from "@tiptap/react"
 import { MARGIN_PRESETS, marginPresetId, pageMetrics } from "@/document/page-setup"
-import { RECOVERY_CHOICES, useEditingOptions } from "@/document/editing-options"
+import { PASTE_CHOICES, RECOVERY_CHOICES, useEditingOptions } from "@/document/editing-options"
 import { useUserSettings } from "@/document/user-settings"
 import { FileDown, FileText, FolderOpen, Monitor, Printer } from "lucide-react"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
@@ -1433,6 +1433,59 @@ export function OptionsPages({ initialPage = "general" }: { initialPage?: Option
             <button type="button" className="dialog-btn" onClick={() => openCustomize("ribbon")}>
               Customize Ribbon and Quick Access Toolbar…
             </button>
+          </section>
+        )}
+        {page === "advanced" && (
+          <section className="backstage-card">
+            <h2 className="backstage-card-title">Editing options</h2>
+            {(
+              [
+                ["typingReplacesSelection", "Typing replaces selected text"],
+                ["dragAndDrop", "Allow text to be dragged and dropped"],
+                ["ctrlClickLink", "Use Ctrl + Click to follow hyperlink"],
+                ["insertKeyOvertype", "Use the Insert key to control overtype mode"],
+                ["overtype", "Use overtype mode"],
+              ] as const
+            ).map(([name, label]) => (
+              <label key={name} className="backstage-check">
+                <input
+                  type="checkbox"
+                  checked={editing[name]}
+                  onChange={(event) => editing.set({ [name]: event.target.checked })}
+                />{" "}
+                {label}
+              </label>
+            ))}
+            <h3 className="backstage-card-title">Cut, copy, and paste</h3>
+            {(
+              [
+                ["pasteSameDocument", "Pasting within the same document"],
+                ["pasteOtherPrograms", "Pasting from other programs"],
+              ] as const
+            ).map(([name, label]) => (
+              <label key={name} className="backstage-prop-edit">
+                <span>{label}</span>
+                <select value={editing[name]} onChange={(event) => editing.set({ [name]: event.target.value })}>
+                  {PASTE_CHOICES.map((choice) => (
+                    <option key={choice.id} value={choice.id}>
+                      {choice.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+            <UnavailableOptions
+              items={[
+                "When selecting, automatically select entire word",
+                "Use smart paragraph selection",
+                "Use smart cursoring",
+                "Prompt to update style",
+                "Keep track of formatting",
+                "Enable click and type",
+                "Show Paste Options button when content is pasted",
+                "Show AutoComplete suggestions",
+              ]}
+            />
           </section>
         )}
         {page === "advanced" && <NewDocumentDefaults />}
