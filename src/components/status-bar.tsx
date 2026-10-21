@@ -29,6 +29,8 @@ export function StatusBar() {
     editor,
     selector: ({ editor: current }) => currentPage(current),
   })
+  const overtype = useEditingOptions((state) => state.overtype)
+  const insertKey = useEditingOptions((state) => state.insertKeyOvertype)
   const keepChecking = useEditingOptions((state) => state.keepAccessibilityRunning)
   const access = useSettledEditorValue(
     editor,
@@ -91,6 +93,17 @@ export function StatusBar() {
           </div>
         ) : null}
       </div>
+
+      {insertKey || overtype ? (
+        <button
+          type="button"
+          className="rounded px-1.5 py-0.5 hover:bg-black/5 dark:hover:bg-white/10"
+          title="Click, or press Insert, to switch between Insert and Overtype"
+          onClick={() => useEditingOptions.getState().set({ overtype: !overtype })}
+        >
+          {overtype ? "Overtype" : "Insert"}
+        </button>
+      ) : null}
 
       <div className="relative">
         <button

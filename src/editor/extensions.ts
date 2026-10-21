@@ -41,6 +41,7 @@ import {
   insertBlockCommands,
 } from "@/editor/insert-blocks"
 import { ShortcutKeymap } from "@/editor/shortcut-keymap"
+import { EditingBehavior } from "@/editor/editing-behavior"
 import { MergeField } from "@/editor/merge-field"
 import { DocumentTheme } from "@/editor/document-theme"
 import { SectionBreak } from "@/editor/section-break"
@@ -72,6 +73,7 @@ export function createExtensions() {
     IndentedListItem.configure(),
     IndentKeymap.configure(),
     ShortcutKeymap.configure(),
+    EditingBehavior.configure(),
     DocxSource.configure(),
     DocxRun.configure(),
     WordInline.configure(),

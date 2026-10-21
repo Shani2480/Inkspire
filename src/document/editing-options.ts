@@ -35,6 +35,16 @@ export type EditingOptions = {
   printBackgrounds: boolean
   printHidden: boolean
   printProperties: boolean
+  /** Advanced > Editing: typing over a selection replaces it, text can be dragged, a link needs Ctrl+Click. */
+  typingReplacesSelection: boolean
+  dragAndDrop: boolean
+  ctrlClickLink: boolean
+  /** The Insert key switches between inserting and overtyping; and overtype mode itself. */
+  insertKeyOvertype: boolean
+  overtype: boolean
+  /** Advanced > Cut, copy, paste: "keep" the source formatting, "merge" it with the destination, or keep "text" only. */
+  pasteSameDocument: string
+  pasteOtherPrograms: string
   /** The status bar keeps checking accessibility as you edit; off, it waits to be asked. */
   keepAccessibilityRunning: boolean
 }
@@ -61,7 +71,20 @@ export const EDITING_DEFAULTS: EditingOptions = {
   printBackgrounds: true,
   printHidden: false,
   printProperties: false,
+  typingReplacesSelection: true,
+  dragAndDrop: true,
+  ctrlClickLink: true,
+  insertKeyOvertype: false,
+  overtype: false,
+  pasteSameDocument: "keep",
+  pasteOtherPrograms: "keep",
 }
+
+export const PASTE_CHOICES = [
+  { id: "keep", label: "Keep Source Formatting" },
+  { id: "merge", label: "Merge Formatting" },
+  { id: "text", label: "Keep Text Only" },
+]
 
 export const RECOVERY_CHOICES = [5, 10, 30, 60, 300]
 

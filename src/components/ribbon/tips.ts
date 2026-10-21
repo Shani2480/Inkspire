@@ -236,7 +236,10 @@ export const RIBBON_TIPS: Record<string, RibbonTip> = {
   "Fill Variables": { description: "Fill the template variables in this document." },
   Provider: { description: "Choose Local Ollama, OpenAI, or Anthropic for AI tools." },
   Model: { description: "Set the model name used by the selected provider." },
-  "AI Settings": { description: "Choose the AI provider (built-in engine, Ollama, LM Studio, a custom endpoint, OpenAI or Anthropic), its model and address, and save API keys in the system keyring." },
+  "AI Settings": {
+    description:
+      "Choose the AI provider (built-in engine, Ollama, LM Studio, a custom endpoint, OpenAI or Anthropic), its model and address, and save API keys in the system keyring.",
+  },
   Stop: { description: "Stop the AI text that is being generated." },
 }
 
