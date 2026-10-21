@@ -87,6 +87,7 @@ export function Backstage() {
   }, [open, closeBackstage])
 
   const shown = usePresence(open, LEAVE_MS)
+  const settled = useEntered(open && shown)
 
   if (!shown) {
     return null
@@ -94,7 +95,7 @@ export function Backstage() {
 
   return (
     <div
-      className={`backstage${open ? "" : " is-leaving"}`}
+      className={`backstage${open ? (settled ? " is-in" : "") : " is-leaving"}`}
       style={themeAccentVars(themeBackground, colorMode)}
       role="dialog"
       aria-label="File"
@@ -138,6 +139,31 @@ export function Backstage() {
 
 /** How long the File view takes to slide away; kept in step with backstage-out in index.css. */
 const LEAVE_MS = 160
+
+/**
+ * False for the first two frames after the File view is put on the page, then true. The view fades in by a transition
+ * from that state: a keyframe entrance (or swapping one animation for another when it closes) showed the page behind it
+ * for a frame in the desktop webview, as the File view came and went.
+ */
+function useEntered(present: boolean) {
+  // Already in when the app starts on it: the splash screen covers that, and the page behind must not show first.
+  const [entered, setEntered] = useState(present)
+  useEffect(() => {
+    if (!present) {
+      setEntered(false)
+      return
+    }
+    let second = 0
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => setEntered(true))
+    })
+    return () => {
+      cancelAnimationFrame(first)
+      cancelAnimationFrame(second)
+    }
+  }, [present])
+  return entered
+}
 
 /** True while `open`, and for `leaveMs` after it closes, so the closing animation can play before unmounting. */
 function usePresence(open: boolean, leaveMs: number) {
