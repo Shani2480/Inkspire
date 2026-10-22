@@ -70,7 +70,10 @@ export const RIBBON_TIPS: Record<string, RibbonTip> = {
   Editing: { description: "Find, replace, and select text." },
   "Add-ins": { description: "Add-ins for this document. None are installed." },
 
-  "Cover Page": { description: "Insert a designed first page, or remove the current cover page." },
+  "Cover Page": {
+    description:
+      "Insert a designed first page, have the AI write one from a title and tone, or remove the current cover page.",
+  },
   "Blank Page": { description: "Insert a blank page at the cursor." },
   "Page Break": { description: "Start the next page at the cursor.", key: "Enter" },
   Table: { description: "Insert a table and choose how many rows and columns." },

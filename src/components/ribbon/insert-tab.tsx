@@ -1,3 +1,4 @@
+import { openCoverGenerator } from "@/components/cover-page-dialog"
 import { IconLibrary } from "@/components/icon-library"
 import { ModelLibrary } from "@/components/model-library"
 import { SmartArtDialog, SmartArtMenu } from "@/components/smartart-gallery"
@@ -480,6 +481,14 @@ export function InsertTab() {
             </SavedCoverTile>
           ))}
         </div>
+        <MenuButton
+          onClick={() => {
+            editor && openCoverGenerator(editor)
+            close()
+          }}
+        >
+          Generate with AI…
+        </MenuButton>
         <MenuButton
           onClick={() => {
             editor?.chain().focus().removeCoverPage().run()
