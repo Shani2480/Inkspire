@@ -8,7 +8,6 @@ import {
   newDocumentWindow,
   openDocument,
   openRecentDocument,
-  printDocument,
   saveDocument,
   saveDocumentAs,
 } from "@/document/commands"
@@ -91,9 +90,10 @@ export function useDocumentCommands() {
         return
       }
 
+      // Word's Ctrl+P is File > Print, with its preview and settings; the Print button there prints.
       if (key === "p" && !event.shiftKey) {
         event.preventDefault()
-        printDocument()
+        useBackstage.getState().openBackstage("print")
         return
       }
 
@@ -256,7 +256,7 @@ async function installApplicationMenu() {
         id: "print",
         text: "Print…",
         accelerator: "CmdOrCtrl+P",
-        action: () => printDocument(),
+        action: () => useBackstage.getState().openBackstage("print"),
       },
       ...recentItems,
     ],
