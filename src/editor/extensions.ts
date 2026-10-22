@@ -48,6 +48,7 @@ import { SectionBreak } from "@/editor/section-break"
 import { SheetBlock } from "@/editor/sheet-block"
 import { SmartArt } from "@/editor/smartart"
 import { InactiveSelection } from "@/editor/inactive-selection"
+import { Grammar } from "@/editor/grammar"
 import { Spellcheck } from "@/editor/spellcheck"
 import { TripleClickSelectAll } from "@/editor/triple-click-select"
 import { TellMeFlash } from "@/tell-me/flash"
@@ -122,6 +123,7 @@ export function createExtensions() {
     InactiveSelection,
     FormattingMarks.configure(),
     Spellcheck.configure(),
+    Grammar.configure(),
     TripleClickSelectAll.configure(),
     TellMeFlash.configure(),
     DocumentTheme.configure(),

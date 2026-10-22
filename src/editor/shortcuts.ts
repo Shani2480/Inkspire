@@ -1,6 +1,6 @@
 import { askText } from "@/components/text-prompt"
 import { requestFormatDialog } from "@/components/format-dialogs"
-import { useProofing } from "@/ai/proofing"
+import { useEditorPane } from "@/editor/grammar"
 import { useEditingOptions } from "@/document/editing-options"
 import { useReviewStore } from "@/document/review"
 import { changeCase, changeIndent, setLineSpacing, stepFontSize } from "@/editor/actions"
@@ -219,7 +219,7 @@ export const SHORTCUTS: ShortcutDef[] = [
     label: "Spelling and Grammar",
     group: "Tools",
     keys: ["F7"],
-    run: () => (useProofing.getState().openPanel("grammar"), true),
+    run: () => (useEditorPane.getState().openPane(), true),
   },
   {
     id: "field-codes",

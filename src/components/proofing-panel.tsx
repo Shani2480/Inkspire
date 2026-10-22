@@ -1,5 +1,5 @@
 import { cancelAiRequest } from "@/ai/generate"
-import { requestGrammar, requestSynonyms, requestTranslation, TRANSLATION_LANGUAGES, useProofing } from "@/ai/proofing"
+import { requestSynonyms, requestTranslation, TRANSLATION_LANGUAGES, useProofing } from "@/ai/proofing"
 import { useAiSettings } from "@/ai/settings"
 import { languageThesaurusName } from "@/document/languages"
 import { errorMessage } from "@/document/commands"
@@ -17,7 +17,6 @@ export function ProofingPanel() {
   const error = useProofing((state) => state.error)
   const synonyms = useProofing((state) => state.synonyms)
   const translation = useProofing((state) => state.translation)
-  const grammarIssues = useProofing((state) => state.grammarIssues)
   const language = useProofing((state) => state.language)
   const documentLanguage = useDocumentStore((state) => state.pageSetup.language)
   const closePanel = useProofing((state) => state.closePanel)
@@ -27,7 +26,6 @@ export function ProofingPanel() {
   const setError = useProofing((state) => state.setError)
   const setSynonyms = useProofing((state) => state.setSynonyms)
   const setTranslation = useProofing((state) => state.setTranslation)
-  const setGrammarIssues = useProofing((state) => state.setGrammarIssues)
   const setRequestId = useProofing((state) => state.setRequestId)
   const setKeysOpen = useAiSettings((state) => state.setKeysOpen)
   const requestRef = useRef("")
@@ -43,7 +41,7 @@ export function ProofingPanel() {
       return ""
     }
     const { from, to, empty } = editor.state.selection
-    if ((open === "translation" || open === "grammar") && empty) {
+    if (open === "translation" && empty) {
       const text = editor.state.doc.textBetween(0, editor.state.doc.content.size, "\n\n")
       rangeRef.current = { from: 0, to: editor.state.doc.content.size, text, whole: true }
       return text
@@ -74,7 +72,6 @@ export function ProofingPanel() {
     setError("")
     setSynonyms([])
     setTranslation("")
-    setGrammarIssues([])
     const text = rememberRange()
     try {
       if (open === "thesaurus") {
@@ -87,22 +84,6 @@ export function ProofingPanel() {
           return
         }
         setSynonyms(result.synonyms)
-        return
-      }
-      if (open === "grammar") {
-        const result = await requestGrammar(text, requestId)
-        if (requestRef.current !== requestId) {
-          return
-        }
-        if (result.blocked) {
-          setNotice(result.blocked)
-          return
-        }
-        if (result.issues.length === 0) {
-          setNotice("No grammar issues found.")
-          return
-        }
-        setGrammarIssues(result.issues)
         return
       }
       const result = await requestTranslation(text, useProofing.getState().language, requestId)
@@ -144,26 +125,6 @@ export function ProofingPanel() {
     closePanel()
   }
 
-  function applyGrammarIssue(issue: { text: string; suggestion: string }) {
-    if (!editor) {
-      return
-    }
-    const range = rangeRef.current
-    const max = editor.state.doc.content.size
-    const from = Math.min(range.from, max)
-    const to = Math.min(Math.max(range.to, from), max)
-    const haystack = editor.state.doc.textBetween(from, to, "\n")
-    const offset = haystack.indexOf(issue.text)
-    if (offset < 0) {
-      setError("That text is no longer in the selection.")
-      return
-    }
-    const replaceFrom = from + offset
-    const replaceTo = replaceFrom + issue.text.length
-    editor.chain().focus().setTextSelection({ from: replaceFrom, to: replaceTo }).insertContent(issue.suggestion).run()
-    setGrammarIssues(grammarIssues.filter((item) => item !== issue))
-  }
-
   function insertTranslation() {
     if (!editor || !translation) {
       return
@@ -192,7 +153,7 @@ export function ProofingPanel() {
     closePanel()
   }
 
-  const title = open === "thesaurus" ? "Thesaurus" : open === "grammar" ? "Grammar" : "Translate"
+  const title = open === "thesaurus" ? "Thesaurus" : "Translate"
   const proofingLanguage = languageThesaurusName(documentLanguage)
 
   return (
@@ -226,11 +187,7 @@ export function ProofingPanel() {
           </select>
         </label>
       ) : (
-        <p className="mb-3 text-xs text-neutral-500">
-          {open === "thesaurus"
-            ? `Select one word, then look up ${proofingLanguage} synonyms.`
-            : `Checks ${proofingLanguage} grammar for the selection, or the whole document if nothing is selected.`}
-        </p>
+        <p className="mb-3 text-xs text-neutral-500">Select one word, then look up {proofingLanguage} synonyms.</p>
       )}
       <div className="mb-3 flex items-center gap-2">
         <button
@@ -239,7 +196,7 @@ export function ProofingPanel() {
           disabled={!editor || running}
           onClick={() => void run()}
         >
-          {open === "thesaurus" ? "Find synonyms" : open === "grammar" ? "Check grammar" : "Translate"}
+          {open === "thesaurus" ? "Find synonyms" : "Translate"}
         </button>
         {running ? (
           <button type="button" className="text-xs text-neutral-600 underline" onClick={stop}>
@@ -251,11 +208,9 @@ export function ProofingPanel() {
       {notice ? (
         <div className="space-y-2">
           <p className="text-xs text-neutral-600">{notice}</p>
-          {notice !== "No grammar issues found." ? (
-            <button type="button" className="text-xs text-neutral-800 underline" onClick={() => setKeysOpen(true)}>
-              AI keys
-            </button>
-          ) : null}
+          <button type="button" className="text-xs text-neutral-800 underline" onClick={() => setKeysOpen(true)}>
+            AI keys
+          </button>
         </div>
       ) : null}
       {error ? <p className="text-xs text-red-700">{error}</p> : null}
@@ -269,27 +224,6 @@ export function ProofingPanel() {
                 onClick={() => insertSynonym(word)}
               >
                 {word}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {grammarIssues.length > 0 ? (
-        <ul className="mt-2 max-h-64 space-y-2 overflow-auto">
-          {grammarIssues.map((issue) => (
-            <li key={`${issue.text}-${issue.suggestion}`} className="rounded-md border border-black/8 p-2">
-              <p className="text-xs text-neutral-500">{issue.reason || "Suggested change"}</p>
-              <p className="mt-1 text-sm text-neutral-800">
-                <span className="line-through opacity-70">{issue.text}</span>
-                {" → "}
-                <span className="font-medium">{issue.suggestion}</span>
-              </p>
-              <button
-                type="button"
-                className="mt-1.5 text-xs text-neutral-800 underline"
-                onClick={() => applyGrammarIssue(issue)}
-              >
-                Apply
               </button>
             </li>
           ))}

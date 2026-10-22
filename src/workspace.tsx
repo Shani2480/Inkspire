@@ -28,6 +28,7 @@ import { FieldEditor } from "@/components/field-editor"
 import { TocDialogHost } from "@/components/toc-dialogs"
 import { ProofingPanel } from "@/components/proofing-panel"
 import { AccessibilityPane } from "@/components/accessibility-pane"
+import { EditorPane } from "@/components/editor-pane"
 import { ReviewPanel } from "@/components/review-panel"
 import { SpellMenu } from "@/components/spell-menu"
 import { SelectionPane } from "@/components/selection-pane"
@@ -271,6 +272,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
             </div>
             <ReviewPanel />
             <AccessibilityPane />
+            <EditorPane />
           </DocumentRulers>
         </div>
         <StatusBar />

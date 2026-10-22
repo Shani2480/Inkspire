@@ -430,6 +430,31 @@ export async function checkSpellingNow(editor: Editor) {
   return spellcheckKey.getState(editor.state)?.find().length ?? 0
 }
 
+export type SpellingError = { from: number; to: number; word: string }
+
+/** Every misspelt word on the page: what checking as you type underlines, or what the last manual check found. */
+export function listSpellingErrors(editor: Editor): SpellingError[] {
+  if (editor.isDestroyed) {
+    return []
+  }
+  const set = useViewStore.getState().spellCheck
+    ? activeSpell && activeLanguage === currentLanguage()
+      ? spellingDecorations(editor.state.doc)
+      : null
+    : spellcheckKey.getState(editor.state)
+  if (!set) {
+    return []
+  }
+  return set
+    .find()
+    .map((decoration) => ({
+      from: decoration.from,
+      to: decoration.to,
+      word: editor.state.doc.textBetween(decoration.from, decoration.to),
+    }))
+    .filter((error) => error.word)
+}
+
 /** Drops a manual check's underlines, as when checking as you type is switched on or off. */
 export function clearManualSpelling(editor: Editor) {
   if (!editor.isDestroyed && spellcheckKey.getState(editor.state)) {
