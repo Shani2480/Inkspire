@@ -1,6 +1,7 @@
 import { useEditingOptions } from "@/document/editing-options"
 import { readability } from "@/lib/readability"
 import { useProofing } from "@/ai/proofing"
+import { useEditorPane } from "@/editor/grammar"
 import { EditorIcon, RibbonSvg } from "@/components/ribbon/icons"
 import {
   LineAccessibilityIcon,
@@ -68,6 +69,7 @@ export function ReviewTab() {
   const hideInk = useViewStore((state) => state.hideInk)
   const setHideInk = useViewStore((state) => state.setHideInk)
   const openProofing = useProofing((state) => state.openPanel)
+  const openEditorPane = useEditorPane((state) => state.openPane)
   const [countOpen, setCountOpen] = useState(false)
   const [compareOpen, setCompareOpen] = useState(false)
   const openAccessibility = useAccessibility((state) => state.openPane)
@@ -100,11 +102,11 @@ export function ReviewTab() {
       </MenuButton>
       <MenuButton
         onClick={() => {
-          openProofing("grammar")
+          openEditorPane()
           close()
         }}
       >
-        Check Grammar
+        Editor (spelling and grammar)
       </MenuButton>
     </div>
   )
@@ -267,7 +269,7 @@ export function ReviewTab() {
         showLabel: true,
         priority: 2,
         description: "Check spelling, grammar and writing suggestions.",
-        onClick: () => openProofing("grammar"),
+        onClick: () => openEditorPane(),
       },
       {
         id: "spelling",

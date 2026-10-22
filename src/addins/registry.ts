@@ -1,6 +1,7 @@
 import { parseCitations } from "@/addins/citations"
 import { useAddins } from "@/addins/store"
 import { useProofing } from "@/ai/proofing"
+import { useEditorPane } from "@/editor/grammar"
 import { openDocument, reportError, saveDocumentAsFormat } from "@/document/commands"
 import { useBackstage } from "@/document/backstage"
 import { loadSources, saveSource } from "@/document/sources"
@@ -75,7 +76,7 @@ export const BUILT_IN_ADDINS: AddIn[] = [
     description: "Check spelling and grammar, and translate the document, with the AI provider you set up.",
     group: "Writing",
     commands: [
-      { id: "grammar", label: "Check spelling and grammar", run: () => useProofing.getState().openPanel("grammar") },
+      { id: "grammar", label: "Check spelling and grammar", run: () => useEditorPane.getState().openPane() },
       { id: "translate", label: "Translate the document", run: () => useProofing.getState().openPanel("translation") },
     ],
   },

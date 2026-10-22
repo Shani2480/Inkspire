@@ -2782,6 +2782,18 @@ button.line-menu-row:focus-visible {
   text-underline-offset: 2px;
 }
 
+/* Grammar (rules as you type, and what the AI found), listed in the Editor pane. */
+.page-editor .grammar-error {
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: #2563eb;
+  text-underline-offset: 2px;
+}
+
+.page-editor .grammar-error.is-ai {
+  text-decoration-style: double;
+}
+
 .spell-menu {
   position: fixed;
   z-index: 50;
@@ -4856,7 +4868,8 @@ button.line-menu-row:focus-visible {
 
   :is(.formatting-marks, .fm-spaces) .fmt-space::before,
   :is(.formatting-marks, .fm-spaces) .fmt-nbsp::before,
-  .page-editor .spell-error {
+  .page-editor .spell-error,
+  .page-editor .grammar-error {
     content: none;
     text-decoration: none;
   }

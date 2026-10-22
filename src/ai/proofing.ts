@@ -21,7 +21,7 @@ export const TRANSLATION_LANGUAGES = [
   "Korean",
 ] as const
 
-export type ProofingMode = "thesaurus" | "translation" | "grammar"
+export type ProofingMode = "thesaurus" | "translation"
 
 export type GrammarIssue = {
   text: string
@@ -36,7 +36,6 @@ type ProofingState = {
   error: string
   synonyms: string[]
   translation: string
-  grammarIssues: GrammarIssue[]
   language: string
   requestId: string
   openPanel: (mode: ProofingMode) => void
@@ -47,7 +46,6 @@ type ProofingState = {
   setError: (error: string) => void
   setSynonyms: (synonyms: string[]) => void
   setTranslation: (translation: string) => void
-  setGrammarIssues: (issues: GrammarIssue[]) => void
   setRequestId: (requestId: string) => void
 }
 
@@ -68,7 +66,6 @@ export const useProofing = create<ProofingState>((set) => ({
   error: "",
   synonyms: [],
   translation: "",
-  grammarIssues: [],
   language: "Spanish",
   requestId: "",
   openPanel: (open) =>
@@ -79,7 +76,6 @@ export const useProofing = create<ProofingState>((set) => ({
       error: "",
       synonyms: [],
       translation: "",
-      grammarIssues: [],
       requestId: "",
     }),
   closePanel: () => {
@@ -94,7 +90,6 @@ export const useProofing = create<ProofingState>((set) => ({
       error: "",
       synonyms: [],
       translation: "",
-      grammarIssues: [],
       requestId: "",
     })
   },
@@ -104,7 +99,6 @@ export const useProofing = create<ProofingState>((set) => ({
   setError: (error) => set({ error }),
   setSynonyms: (synonyms) => set({ synonyms }),
   setTranslation: (translation) => set({ translation }),
-  setGrammarIssues: (grammarIssues) => set({ grammarIssues }),
   setRequestId: (requestId) => set({ requestId }),
 }))
 

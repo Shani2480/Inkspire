@@ -1,6 +1,6 @@
 import { AddInsMenu } from "@/components/addins"
 import { applyFontColor, toggleBold } from "@/editor/shape-text"
-import { useProofing } from "@/ai/proofing"
+import { useEditorPane } from "@/editor/grammar"
 import { openFontMenu } from "@/components/font-menu"
 import { requestFormatDialog } from "@/components/format-dialogs"
 import { BulletLibrary, ListDialogs, MultilevelLibrary, NumberingLibrary } from "@/components/list-library"
@@ -108,7 +108,6 @@ export function HomeLine() {
   const showFormattingMarks = useViewStore((state) => state.showFormattingMarks)
   const toggleFormattingMarks = useViewStore((state) => state.toggleFormattingMarks)
   const openFind = useViewStore((state) => state.openFind)
-  const openProofing = useProofing((state) => state.openPanel)
   const listening = useDictation((state) => state.listening)
   const painting = useSyncExternalStore(subscribeFormatPainter, formatPainterActive)
   const [listDialog, setListDialog] = useState<null | "number-format" | "number-value" | "bullet" | "multilevel">(null)
@@ -637,7 +636,7 @@ export function HomeLine() {
         showLabel: true,
         description: "Check spelling, grammar and writing suggestions.",
         disabled: off,
-        onClick: () => openProofing("grammar"),
+        onClick: () => useEditorPane.getState().openPane(),
       },
     ],
     [

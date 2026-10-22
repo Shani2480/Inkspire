@@ -1,4 +1,5 @@
 import { useProofing } from "@/ai/proofing"
+import { useEditorPane } from "@/editor/grammar"
 import { askText } from "@/components/text-prompt"
 import { useAiSettings } from "@/ai/settings"
 import { captureTemplatePlace } from "@/ai/template-place"
@@ -492,11 +493,11 @@ function buildCommands(): TellMeCommand[] {
     },
     {
       id: "review.grammar",
-      label: "Check Grammar",
-      description: "Run a grammar check in the document language.",
-      keywords: ["grammar", "proofing"],
+      label: "Editor (spelling and grammar)",
+      description: "Open the Editor pane: spelling and grammar with suggestions to apply.",
+      keywords: ["grammar", "spelling", "proofing", "editor"],
       category: "Review",
-      run: () => useProofing.getState().openPanel("grammar"),
+      run: () => useEditorPane.getState().openPane(),
     },
     {
       id: "review.thesaurus",
