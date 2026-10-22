@@ -27,6 +27,7 @@ import { THEME_OPTIONS } from "@/document/theme"
 import { defaultStyles, resetDefaultStyles, savedDefaultIds } from "@/document/styles"
 import { loadPageSetupDefault, resetPageSetupDefault } from "@/document/design-format"
 import { useViewStore } from "@/document/view"
+import { placeCopy, printCopy } from "@/document/print-copy"
 import { defaultPictureWrap, setDefaultPictureWrap } from "@/document/object-layout"
 import { WRAP_CHOICES } from "@/editor/objects"
 import { useBodyEditor } from "@/editor/document-editor"
@@ -927,19 +928,6 @@ export function PrintView() {
   )
 }
 
-/** What the editor draws over its pages for editing, and is never printed. */
-const EDITING_ONLY = [
-  ".page-first",
-  ".page-margin-guide",
-  ".page-column-guides",
-  ".toc-update-tab",
-  ".object-rotate",
-  ".three-d-orbit",
-  ".ProseMirror-gapcursor",
-  ".ProseMirror-separator",
-  ".ProseMirror-trailingBreak + .ProseMirror-separator",
-].join(", ")
-
 /**
  * One page of the print preview, copied from the pages the editor has laid out, so it shows exactly what the
  * editor shows (page breaks, section breaks, headers, footers, page numbers, watermark, borders) without the
@@ -962,14 +950,6 @@ function PreviewPage({
   const cloneRef = useRef<HTMLElement | null>(null)
   const [live, setLive] = useState(true)
 
-  const place = (clone: HTMLElement | null, index: number) => {
-    const sheet = clone?.querySelectorAll<HTMLElement>(":scope > .page-sheet")[index]
-    if (clone && sheet) {
-      clone.style.left = `${-sheet.offsetLeft}px`
-      clone.style.top = `${-sheet.offsetTop}px`
-    }
-  }
-
   useEffect(() => {
     const host = hostRef.current
     if (!host) {
@@ -978,43 +958,16 @@ function PreviewPage({
     // After the editor has paginated the latest change.
     const frame = window.requestAnimationFrame(() => {
       const source = document.querySelector<HTMLElement>("#document-scroll .page-canvas")
-      if (!source?.querySelector(":scope > .page-sheet")) {
+      const clone = source ? printCopy(source) : null
+      if (!clone) {
         cloneRef.current = null
         host.replaceChildren()
         setLive(false)
         return
       }
-      const clone = source.cloneNode(true) as HTMLElement
-      // Keep the pages, the text; drop the toolbars, menus and handles.
-      for (const child of [...clone.children]) {
-        const keep = child.classList.contains("page-sheet") || child.querySelector(".ProseMirror")
-        if (!keep) {
-          child.remove()
-        }
-      }
-      clone.querySelectorAll(EDITING_ONLY).forEach((element) => element.remove())
-      clone.classList.remove(
-        "formatting-marks",
-        "fm-tabs",
-        "fm-spaces",
-        "fm-paras",
-        "fm-hidden",
-        "fm-hyphens",
-        "is-chrome-editing",
-      )
-      clone.querySelectorAll(".spell-error").forEach((element) => element.classList.remove("spell-error"))
-      clone
-        .querySelectorAll(".ProseMirror-selectednode, .selectedCell")
-        .forEach((element) => element.classList.remove("ProseMirror-selectednode", "selectedCell"))
-      clone.querySelectorAll("[contenteditable]").forEach((element) => element.removeAttribute("contenteditable"))
-      clone.removeAttribute("id")
-      // Print Layout, whichever view the editor is in.
-      clone.dataset.layout = "print"
-      clone.classList.add("is-print-copy")
-      Object.assign(clone.style, { position: "absolute", transform: "none", margin: "0" })
       host.replaceChildren(clone)
       cloneRef.current = clone
-      place(clone, pageIndex)
+      placeCopy(clone, pageIndex)
       setLive(true)
     })
     return () => window.cancelAnimationFrame(frame)
@@ -1022,7 +975,9 @@ function PreviewPage({
   }, [html, pageSetup])
 
   useEffect(() => {
-    place(cloneRef.current, pageIndex)
+    if (cloneRef.current) {
+      placeCopy(cloneRef.current, pageIndex)
+    }
   }, [pageIndex])
 
   return (

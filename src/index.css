@@ -1637,7 +1637,7 @@ button.line-menu-row:focus-visible {
   border-radius: 3px 3px 0 0;
 }
 
-.is-print-copy :is(.page-header, .page-footer, .page-number, .page-editor) {
+.is-print-copy :is(.page-header, .page-footer, .page-number, .page-editor, .chrome-editor > *) {
   opacity: 1 !important;
 }
 
@@ -1650,7 +1650,7 @@ button.line-menu-row:focus-visible {
 }
 
 @media print {
-  .page-canvas :is(.page-header, .page-footer, .page-number, .page-editor) {
+  .page-canvas :is(.page-header, .page-footer, .page-number, .page-editor, .chrome-editor > *) {
     opacity: 1 !important;
   }
 
@@ -4718,20 +4718,20 @@ button.line-menu-row:focus-visible {
     display: none !important;
   }
 
-  #document-scroll {
+  :root:not([data-print-pages]) #document-scroll {
     height: auto !important;
     overflow: visible !important;
     padding: 0 !important;
     background: transparent !important;
   }
 
-  .page-zoom {
+  :root:not([data-print-pages]) .page-zoom {
     width: auto !important;
     height: auto !important;
     margin: 0 !important;
   }
 
-  .page-canvas {
+  :root:not([data-print-pages]) .page-canvas {
     position: static !important;
     transform: none !important;
     width: auto !important;
@@ -4743,18 +4743,18 @@ button.line-menu-row:focus-visible {
     box-shadow: none !important;
   }
 
-  .page-editor {
+  :root:not([data-print-pages]) .page-editor {
     background: var(--page-color, #fff) !important;
   }
 
-  .page-canvas .page-editor {
+  :root:not([data-print-pages]) .page-canvas .page-editor {
     min-height: 0 !important;
     padding-bottom: 0 !important;
     width: auto !important;
     max-width: none !important;
   }
 
-  .page-editor [data-grid-placed] {
+  :root:not([data-print-pages]) .page-editor [data-grid-placed] {
     position: static !important;
     left: auto !important;
     top: auto !important;
@@ -4768,12 +4768,12 @@ button.line-menu-row:focus-visible {
     overflow: visible !important;
   }
 
-  .page-stage {
+  :root:not([data-print-pages]) .page-stage {
     width: auto !important;
     margin: 0 !important;
   }
 
-  .page-sheet,
+  :root:not([data-print-pages]) .page-sheet,
   .ruler-slot,
   .ruler-dock,
   .ruler-corner,
@@ -4796,7 +4796,7 @@ button.line-menu-row:focus-visible {
     border-color: transparent !important;
   }
 
-  .print-mark,
+  :root:not([data-print-pages]) .print-mark,
   .print-frame {
     display: block;
     position: fixed;
@@ -4805,41 +4805,41 @@ button.line-menu-row:focus-visible {
     z-index: 0;
   }
 
-  .print-mark {
+  :root:not([data-print-pages]) .print-mark {
     display: flex;
     align-items: center;
     justify-content: center;
     border: none;
   }
 
-  .page-gap {
+  :root:not([data-print-pages]) .page-gap {
     display: block !important;
     height: 0 !important;
     break-before: page;
     page-break-before: always;
   }
 
-  .page-gap-manual {
+  :root:not([data-print-pages]) .page-gap-manual {
     break-before: auto !important;
     page-break-before: auto !important;
   }
 
-  .page-editor [data-page-break] {
+  :root:not([data-print-pages]) .page-editor [data-page-break] {
     height: 0;
     margin: 0;
     border: none;
   }
 
-  .page-editor [data-page-break]::after {
+  :root:not([data-print-pages]) .page-editor [data-page-break]::after {
     content: none;
   }
 
-  .page-editor .blank-page {
+  :root:not([data-print-pages]) .page-editor .blank-page {
     height: 0 !important;
     outline: none !important;
   }
 
-  .page-editor .blank-page::after {
+  :root:not([data-print-pages]) .page-editor .blank-page::after {
     content: none;
   }
 
@@ -4872,6 +4872,60 @@ button.line-menu-row:focus-visible {
   .page-editor .grammar-error {
     content: none;
     text-decoration: none;
+  }
+}
+
+/* Printing the pages as the editor laid them out (see print-copy.ts): one box the size of the paper per page, each
+   holding a copy of the canvas moved so that page shows, clipped. The app itself is not printed then, and the
+   margin boxes of the page stay empty: the header and footer are on the sheet, as on screen. */
+.print-pages {
+  display: none;
+}
+
+@media print {
+  :root[data-print-pages] .app-window-frame {
+    display: none !important;
+  }
+
+  :root[data-print-pages] .print-pages {
+    display: block;
+  }
+
+  .print-page {
+    position: relative;
+    overflow: hidden;
+    break-after: page;
+    page-break-after: always;
+    background: var(--page-color, #fff);
+  }
+
+  .print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  /* The canvas keeps its padding: the sheets sit at its padding edge and the text flows inside the margins. It is
+     moved with relative offsets: an absolutely placed canvas taller than the paper is broken over the pages that
+     follow, which an overflow of hidden does not stop. */
+  .print-page > .page-canvas {
+    position: relative !important;
+    transform: none !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  .print-page .page-sheet {
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .print-page :is(.print-mark, .print-frame, .page-chrome-zone, .page-chrome-tag, .page-margin-guide, .page-crop-mark) {
+    display: none !important;
+  }
+
+  :root[data-print-pages] .print-properties {
+    padding: 20mm;
   }
 }
 

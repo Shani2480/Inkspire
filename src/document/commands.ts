@@ -32,6 +32,7 @@ import { defaultStyles, packStyles, stylesFromWord, unpackStyles, useStyleStore 
 import { useEditingOptions } from "@/document/editing-options"
 import { documentName, useDocumentStore, type DocumentProps } from "@/document/store"
 import { useViewStore } from "@/document/view"
+import { paperSize, printPages } from "@/document/print-copy"
 import {
   fileExtension,
   openDroppedFile,
@@ -642,16 +643,54 @@ export function propertiesPage(props: DocumentProps, name: string) {
   return page
 }
 
+/**
+ * Lays the pages out for printing as the editor drew them (see print-copy.ts): the header and footer with their
+ * pictures and fields, the first and even pages' own, page numbers, watermark and border print as on screen. Resolves
+ * to a function that takes it all down again. Without laid-out pages (Web Layout, Read Mode) the body flows through
+ * the browser's own pagination, with the header and footer text in the page's margin boxes, as before.
+ */
+export function stagePrintPages() {
+  const source = document.querySelector<HTMLElement>("#document-scroll .page-canvas")
+  const pages = source && useViewStore.getState().layoutMode === "print" ? printPages(source) : null
+  const paper = source ? paperSize(source) : null
+  if (!pages || !paper) {
+    return () => {}
+  }
+  const style = document.createElement("style")
+  style.id = "print-pages-paper"
+  // The margin boxes hold the header and footer text of the flow path; here they are on the sheets.
+  const boxes = ["@top-center", "@bottom-center", "@bottom-right"]
+    .map((box) => `    ${box} {\n      content: none;\n    }`)
+    .join("\n")
+  style.textContent = `@media print {\n  @page {\n    size: ${paper.width} ${paper.height};\n    margin: 0;\n${boxes}\n  }\n  @page :first {\n${boxes}\n  }\n}`
+  document.head.append(style)
+  document.body.append(pages)
+  document.documentElement.dataset.printPages = "1"
+  return () => {
+    delete document.documentElement.dataset.printPages
+    pages.remove()
+    style.remove()
+  }
+}
+
 export function printDocument() {
   const { currentFilePath, documentProps } = useDocumentStore.getState()
   const page = useEditingOptions.getState().printProperties
     ? propertiesPage(documentProps, documentName(currentFilePath))
     : null
-  document.querySelectorAll(".print-properties").forEach((old) => old.remove())
+  document.querySelectorAll(".print-properties, .print-pages").forEach((old) => old.remove())
+  const unstage = stagePrintPages()
   if (page) {
     document.body.append(page)
-    window.addEventListener("afterprint", () => page.remove(), { once: true })
   }
+  window.addEventListener(
+    "afterprint",
+    () => {
+      page?.remove()
+      unstage()
+    },
+    { once: true },
+  )
   useDocumentStore.getState().setDocumentProps({ lastPrintedAt: new Date().toISOString() })
   window.print()
 }
