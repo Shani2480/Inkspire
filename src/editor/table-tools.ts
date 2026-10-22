@@ -1116,6 +1116,42 @@ function writeColumnWidths(view: EditorView, tablePos: number, widths: number[])
   }
 }
 
+/** The columns' widths as drawn, in the page's own pixels (not the zoomed ones on screen), from the first row. */
+export function tableColumnWidths(table: HTMLTableElement) {
+  const first = table.rows[0]
+  if (!first) {
+    return []
+  }
+  const widths: number[] = []
+  for (const cell of first.cells) {
+    const count = Math.max(1, cell.colSpan || 1)
+    const each = cell.offsetWidth / count
+    for (let index = 0; index < count; index += 1) {
+      widths.push(each)
+    }
+  }
+  return widths
+}
+
+/**
+ * Word's resize square at the table's bottom-right corner: the whole table grows or shrinks by `factor`, every column
+ * in step, none below the narrowest a column can be.
+ */
+export function scaledColumnWidths(start: number[], factor: number) {
+  const safe = Number.isFinite(factor) && factor > 0 ? factor : 1
+  return start.map((width) => Math.max(MIN_COLUMN, Math.round(width * safe)))
+}
+
+/** Draws the widths on the table while the square is dragged, before they are written. */
+export function previewTableColumns(table: HTMLTableElement, widths: number[]) {
+  paintColumns(table, widths)
+}
+
+/** Writes the widths into the table's cells (one history step), as letting the square go does. */
+export function commitTableColumns(editor: Editor, tablePos: number, widths: number[]) {
+  writeColumnWidths(editor.view, tablePos, widths)
+}
+
 function paintRow(row: HTMLTableRowElement, height: number) {
   row.style.height = `${height}px`
   row.style.minHeight = `${height}px`

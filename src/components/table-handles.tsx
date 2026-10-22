@@ -1,8 +1,12 @@
 import { TableToolbar } from "@/components/table-toolbar"
 import {
+  commitTableColumns,
   insertTableColumn,
   insertTableRow,
+  previewTableColumns,
+  scaledColumnWidths,
   selectTablePart,
+  tableColumnWidths,
   tableElement,
   tableSelectionAnchor,
   currentTable,
@@ -256,12 +260,20 @@ export function TableHandles({ editor }: { editor: Editor | null }) {
       />
       <HandleButton
         label="Select table"
-        className="fixed z-30 size-4 rounded-sm bg-[#0f6cbd] text-[9px] text-white"
+        className="table-move-handle fixed z-30"
         style={{ left: grid.table.left - 18, top: grid.table.top - 18 }}
         onClick={() => selectTablePart(editor, "table")}
       >
-        ⊞
+        <MoveArrows />
       </HandleButton>
+      <div
+        role="separator"
+        aria-label="Resize table"
+        title="Resize table"
+        className="table-resize-handle fixed z-30"
+        style={{ left: grid.table.right + 2, top: grid.table.bottom + 2 }}
+        onMouseDown={(event) => startTableResize(event, editor)}
+      />
       {column && !wholeRow ? (
         <HandleButton
           label="Select column"
@@ -375,6 +387,60 @@ function gapPointAt(gap: Gap, grid: Grid) {
     return null
   }
   return { x: grid.table.left - outside, y: edge }
+}
+
+/** Word's table move handle: a four-way arrow in a small box at the table's top-left corner. */
+function MoveArrows() {
+  return (
+    <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden>
+      <path
+        d="M6 1v10M1 6h10M6 1 4.3 2.7M6 1l1.7 1.7M6 11l-1.7-1.7M6 11l1.7-1.7M1 6l1.7-1.7M1 6l1.7 1.7M11 6 9.3 4.3M11 6 9.3 7.7"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.1"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+/**
+ * Dragging Word's resize square at the bottom-right corner: the table grows or shrinks with the pointer, every column
+ * in step, drawn as it goes and written when the square is let go.
+ */
+function startTableResize(event: React.MouseEvent<HTMLElement>, editor: Editor) {
+  event.preventDefault()
+  const table = currentTable(editor)
+  const found = table ? tableElement(editor, table.pos) : null
+  if (!table || !(found instanceof HTMLTableElement)) {
+    return
+  }
+  const element = found
+  const start = tableColumnWidths(element)
+  const total = start.reduce((sum, width) => sum + width, 0)
+  if (!total) {
+    return
+  }
+  // Screen pixels per page pixel: the page is zoomed.
+  const zoom = element.getBoundingClientRect().width / Math.max(1, element.offsetWidth) || 1
+  const startX = event.clientX
+  let widths = start
+  document.body.classList.add("is-table-resizing")
+  const onMove = (move: MouseEvent) => {
+    const factor = (total + (move.clientX - startX) / zoom) / total
+    widths = scaledColumnWidths(start, factor)
+    previewTableColumns(element, widths)
+  }
+  const onUp = () => {
+    window.removeEventListener("mousemove", onMove)
+    window.removeEventListener("mouseup", onUp)
+    document.body.classList.remove("is-table-resizing")
+    if (widths !== start) {
+      commitTableColumns(editor, table.pos, widths)
+    }
+  }
+  window.addEventListener("mousemove", onMove)
+  window.addEventListener("mouseup", onUp)
 }
 
 function HandleButton({
