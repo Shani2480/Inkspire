@@ -1,6 +1,7 @@
 import { useEditingOptions, type EditingOptions } from "@/document/editing-options"
 import { useViewStore } from "@/document/view"
 import { Extension } from "@tiptap/core"
+import type { Node as ProseNode } from "@tiptap/pm/model"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
 import { Decoration, DecorationSet } from "@tiptap/pm/view"
 
@@ -9,7 +10,14 @@ const TAB = 9
 const NBSP = 160
 const SOFT_HYPHEN = 0xad
 
-const MARK_OPTIONS = ["marksTabs", "marksSpaces", "marksParagraph", "marksHidden", "marksHyphens"] as const
+const MARK_OPTIONS = [
+  "marksTabs",
+  "marksSpaces",
+  "marksParagraph",
+  "marksHidden",
+  "marksHyphens",
+  "marksAnchors",
+] as const
 
 /** True when any mark is drawn: Show/Hide ¶ is on (all of them), or one is chosen in Options > Display. */
 export function anyMarkShown(show: boolean, options: Pick<EditingOptions, (typeof MARK_OPTIONS)[number]>) {
@@ -27,9 +35,36 @@ export function formattingMarkClasses(show: boolean, options: Pick<EditingOption
     options.marksParagraph && "fm-paras",
     options.marksHidden && "fm-hidden",
     options.marksHyphens && "fm-hyphens",
+    options.marksAnchors && "fm-anchors",
   ]
     .filter(Boolean)
     .join(" ")
+}
+
+/**
+ * The paragraphs floating objects are anchored to: the block that follows each object that is not in line with the
+ * text. With object anchors shown, each gets Word's anchor mark in the margin beside it.
+ */
+export function anchorParagraphs(doc: ProseNode) {
+  const anchors: { from: number; to: number }[] = []
+  const walk = (parent: ProseNode, base: number) => {
+    let pending = false
+    parent.forEach((child, offset) => {
+      const pos = base + offset
+      if (pending && child.isBlock) {
+        anchors.push({ from: pos, to: pos + child.nodeSize })
+        pending = false
+      }
+      const wrap = child.attrs.wrap
+      if (child.isBlock && typeof wrap === "string" && wrap !== "inline") {
+        pending = true
+      } else if (child.isBlock && !child.isTextblock) {
+        walk(child, pos + 1)
+      }
+    })
+  }
+  walk(doc, 0)
+  return anchors
 }
 
 export const FormattingMarks = Extension.create({
@@ -46,6 +81,9 @@ export const FormattingMarks = Extension.create({
             }
 
             const decorations: Decoration[] = []
+            for (const anchor of anchorParagraphs(state.doc)) {
+              decorations.push(Decoration.node(anchor.from, anchor.to, { class: "fmt-anchor" }))
+            }
             state.doc.descendants((node, pos) => {
               if (node.type.name === "docTab") {
                 decorations.push(

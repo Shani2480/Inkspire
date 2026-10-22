@@ -30,6 +30,7 @@ export type EditingOptions = {
   marksParagraph: boolean
   marksHidden: boolean
   marksHyphens: boolean
+  marksAnchors: boolean
   /** Printing: shapes and drawings, page colour, hidden text, and a page of document properties after the document. */
   printDrawings: boolean
   printBackgrounds: boolean
@@ -83,6 +84,7 @@ export const EDITING_DEFAULTS: EditingOptions = {
   marksParagraph: false,
   marksHidden: false,
   marksHyphens: false,
+  marksAnchors: false,
   printDrawings: true,
   printBackgrounds: true,
   printHidden: false,

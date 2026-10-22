@@ -4891,7 +4891,8 @@ button.line-menu-row:focus-visible {
   .formatting-marks .page-editor [data-page-break]::after,
   :is(.formatting-marks, .fm-paras) .page-editor table :is(td, th) > p:last-child::after,
   :is(.formatting-marks, .fm-paras) .page-editor table :is(td, th) > p:last-child::before,
-  :is(.formatting-marks, .fm-paras) .page-editor table tr > :is(td, th):last-child::after {
+  :is(.formatting-marks, .fm-paras) .page-editor table tr > :is(td, th):last-child::after,
+  :is(.formatting-marks, .fm-anchors) .page-editor .fmt-anchor::before {
     content: none !important;
   }
 
@@ -12130,16 +12131,87 @@ fieldset.columns-presets input {
   position: relative;
 }
 
+/* The row's end mark sits just outside the table, as Word draws it; the table's wrapper lets it show. */
 :is(.formatting-marks, .fm-paras) .page-editor table tr > :is(td, th):last-child::after {
   content: "¤";
   position: absolute;
   top: 50%;
-  right: 3px;
+  right: -1.1em;
   transform: translateY(-50%);
   color: var(--fmt-mark-color);
   font-family: var(--font-sans);
   font-size: 0.8em;
   pointer-events: none;
+  user-select: none;
+}
+
+:is(.formatting-marks, .fm-paras) .page-editor .tableWrapper {
+  overflow-x: visible;
+}
+
+:is(.formatting-marks, .fm-paras) .page-editor table {
+  overflow: visible;
+}
+
+/* Object anchors (Options > Display): an anchor beside the paragraph a floating object is anchored to, the block
+   that follows it (`fmt-anchor` from the formatting marks plugin). */
+:is(.formatting-marks, .fm-anchors) .page-editor .fmt-anchor {
+  position: relative;
+}
+
+:is(.formatting-marks, .fm-anchors) .page-editor .fmt-anchor::before {
+  /* The anchor as a text glyph (U+FE0E), not the colour emoji. */
+  content: "⚓\FE0E";
+  position: absolute;
+  top: 0;
+  left: -1.4em;
+  color: var(--fmt-mark-color);
+  font-family: var(--font-sans);
+  font-size: 0.85em;
+  line-height: 1.4;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Word's table handles: the move box at the top-left corner and the resize square at the bottom-right. */
+.table-move-handle {
+  display: flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #8a8a8a;
+  border-radius: 2px;
+  background: #fff;
+  color: #333;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.15);
+}
+
+.table-move-handle:hover {
+  background: #f3f9fd;
+  border-color: #0f6cbd;
+  color: #0f6cbd;
+}
+
+.table-resize-handle {
+  width: 9px;
+  height: 9px;
+  border: 1px solid #8a8a8a;
+  background: #fff;
+  cursor: nwse-resize;
+}
+
+.table-resize-handle:hover,
+.is-table-resizing .table-resize-handle {
+  border-color: #0f6cbd;
+}
+
+.is-table-resizing,
+.is-table-resizing * {
+  cursor: nwse-resize !important;
+}
+
+.is-table-resizing .page-editor {
   user-select: none;
 }
 

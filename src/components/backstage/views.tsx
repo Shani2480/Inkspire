@@ -1331,6 +1331,7 @@ export function OptionsPages({ initialPage = "general" }: { initialPage?: Option
                   ["marksParagraph", "Paragraph marks"],
                   ["marksHidden", "Hidden text"],
                   ["marksHyphens", "Optional hyphens"],
+                  ["marksAnchors", "Object anchors"],
                 ] as const
               ).map(([name, label]) => (
                 <label key={name} className="backstage-check">
@@ -1342,7 +1343,6 @@ export function OptionsPages({ initialPage = "general" }: { initialPage?: Option
                   {label}
                 </label>
               ))}
-              <UnavailableOptions items={["Object anchors"]} />
             </fieldset>
             <fieldset className="backstage-fieldset">
               <legend>Printing options</legend>
