@@ -92,7 +92,7 @@ function lineAt(editor: Editor, x: number, y: number, marginMm: number, zoom: nu
   }
   const probeX = Math.min(sheet.right - 8, Math.max(textLeft + 8, marginOnly ? textLeft + 8 : x))
   const found = editor.view.posAtCoords({ left: probeX, top: y })
-  if (!found) {
+  if (!found || inTable(editor, found.pos)) {
     return null
   }
   let coords: { left: number; right: number; top: number; bottom: number }
@@ -113,6 +113,17 @@ function lineAt(editor: Editor, x: number, y: number, marginMm: number, zoom: nu
     Math.max(8, coords.right - coords.left),
     Math.max(1, coords.bottom - coords.top),
   )
+}
+
+/** A table row is selected by its own handle at the left of the table, so the margin arrow stays off there. */
+function inTable(editor: Editor, pos: number) {
+  const $pos = editor.state.doc.resolve(Math.min(pos, editor.state.doc.content.size))
+  for (let depth = $pos.depth; depth > 0; depth -= 1) {
+    if ($pos.node(depth).type.name === "table") {
+      return true
+    }
+  }
+  return false
 }
 
 function sheetByY(y: number) {
