@@ -192,7 +192,10 @@ export const RIBBON_TIPS: Record<string, RibbonTip> = {
   "Reviewing Pane": { description: "Open or close the pane that lists comments and tracked changes." },
   Accept: { description: "Accept the current tracked change and move to the next, or accept every change." },
   Reject: { description: "Reject the current tracked change and move to the next, or reject every change." },
-  Compare: { description: "Compare this document with another version you paste in." },
+  Compare: {
+    description:
+      "Compare this document with another file. The differences are marked as tracked changes, with an AI summary.",
+  },
   "Block Authors": { description: "Block editing by other authors, or unblock everyone." },
   "Restrict Editing": { description: "Make the document read-only, or turn protection off." },
   "Hide Ink": { description: "Hide or show ink strokes drawn on drawing canvases." },

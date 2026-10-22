@@ -12680,3 +12680,82 @@ fieldset.columns-presets input {
     margin: 0;
   }
 }
+
+/* Review > Compare: the two documents side by side as rows, then the result. */
+.compare-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.compare-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.compare-label {
+  color: var(--dlg-muted, var(--dlg-text));
+}
+
+.compare-this {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--dlg-button-border);
+  border-radius: 2px;
+  background: var(--dlg-disabled-bg);
+  opacity: 0.8;
+}
+
+.compare-choose {
+  justify-self: start;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compare-swap {
+  align-self: flex-end;
+  border: 0;
+  background: none;
+  color: var(--dlg-accent);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.compare-swap:hover {
+  text-decoration: underline;
+}
+
+.compare-note {
+  color: var(--dlg-muted, var(--dlg-text));
+  line-height: 1.4;
+}
+
+.compare-error {
+  color: #c42b1c;
+}
+
+.compare-result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.compare-counts {
+  font-weight: 600;
+}
+
+.compare-summary {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.45;
+}
