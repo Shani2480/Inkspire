@@ -139,7 +139,8 @@ export const DEFAULT_PAGE_SETUP: PageSetup = {
   borderWidth: 0.5,
   borderLine: "solid",
   pageColor: "",
-  pageNumber: "bottom-center",
+  // No page number until one is put in the header or footer (Insert > Page Number), as in Word.
+  pageNumber: "none",
   hyphenation: false,
   language: "en-US",
   bodyFont: "",
