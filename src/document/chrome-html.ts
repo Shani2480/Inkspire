@@ -60,10 +60,12 @@ export function chromeWithoutPageFields(html: string) {
 
 /** Each page number and page count field in `html` showing the number of the page it is drawn on. */
 export function chromeOnPage(html: string, page: number, pages: number) {
-  return html.replace(
-    /(<span\b[^>]*data-page-field="(page|pages)"[^>]*>)[^<]*(<\/span>)/g,
-    (_match, open: string, kind: string, close: string) => `${open}${kind === "pages" ? pages : page}${close}`,
-  )
+  const number = (_match: string, open: string, kind: string, close: string) =>
+    `${open}${kind === "pages" ? pages : page}${close}`
+  // As the editor draws a field (its result in a .field-value span), then as it is saved (the number alone).
+  return html
+    .replace(/(<span\b[^>]*data-page-field="(page|pages)"[^>]*><span class="field-value">)[^<]*(<\/span>)/g, number)
+    .replace(/(<span\b[^>]*data-page-field="(page|pages)"[^>]*>)[^<]*(<\/span>)/g, number)
 }
 
 /** A page number or page count field as the editor holds one, kept as Word's PAGE or NUMPAGES; in a paragraph when `align` is given. */

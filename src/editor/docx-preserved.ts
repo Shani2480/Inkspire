@@ -1,4 +1,5 @@
 import { Mark, Node, mergeAttributes } from "@tiptap/core"
+import { paintField, preservedFieldCode } from "@/editor/field-codes"
 
 /**
  * Word content the editor shows but does not edit. The original model is carried as JSON in `payload` and written
@@ -64,6 +65,47 @@ export const WordInline = Node.create({
 
   renderText({ node }) {
     return String(node.attrs.text ?? "")
+  },
+
+  addNodeView() {
+    return ({ node }) => {
+      const tag = node.attrs.role === "note" ? "sup" : "span"
+      const dom = document.createElement(tag)
+      dom.setAttribute("data-word-inline", "")
+      dom.className = "word-inline"
+      dom.contentEditable = "false"
+      const paint = (current: typeof node) => {
+        const text = String(current.attrs.text ?? "")
+        const payload = String(current.attrs.payload ?? "")
+        const role = String(current.attrs.role || "raw")
+        dom.setAttribute("data-role", role)
+        dom.setAttribute("data-payload", payload)
+        dom.setAttribute("data-text", text)
+        if (current.attrs.pageField) {
+          dom.setAttribute("data-page-field", String(current.attrs.pageField))
+        } else {
+          dom.removeAttribute("data-page-field")
+        }
+        if (role === "field") {
+          // The result in a span of its own, and the code beside it, for Show field codes (Alt+F9).
+          paintField(dom, text, preservedFieldCode(payload))
+        } else if (dom.textContent !== text) {
+          dom.textContent = text
+        }
+      }
+      paint(node)
+      return {
+        dom,
+        ignoreMutation: () => true,
+        update(current) {
+          if (current.type.name !== "wordInline" || (current.attrs.role === "note") !== (tag === "sup")) {
+            return false
+          }
+          paint(current)
+          return true
+        },
+      }
+    }
   },
 })
 

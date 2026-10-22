@@ -47,6 +47,7 @@ export function PageCanvas() {
   const showFormattingMarks = useViewStore((state) => state.showFormattingMarks)
   const markClasses = useEditingOptions((state) => formattingMarkClasses(showFormattingMarks, state))
   const showGridlines = useViewStore((state) => state.showGridlines)
+  const cropMarks = useEditingOptions((state) => state.cropMarks)
   const movement = useViewStore((state) => state.movement)
   const pageView = useViewStore((state) => state.pageView)
   const highlightMerge = useViewStore((state) => state.highlightMerge)
@@ -462,6 +463,11 @@ export function PageCanvas() {
               ) : null}
               {/* Body text margins only — not header/footer from-edge offsets. */}
               <div className="page-margin-guide" aria-hidden />
+              {cropMarks && !web
+                ? ["tl", "tr", "bl", "br"].map((corner) => (
+                    <span key={corner} className={`page-crop-mark is-${corner}`} aria-hidden />
+                  ))
+                : null}
               {pageSetup.border !== "none" ? (
                 <div
                   className="page-border"

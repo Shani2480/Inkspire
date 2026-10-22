@@ -17,7 +17,7 @@ import { shapeMarkup } from "@/editor/insert-blocks"
 import { hasPictureFormat } from "@/editor/picture-format"
 import { fontOf, fontStack, themeFontsOf, type ThemeFonts } from "@/document/docx/word-styles"
 import { chartSpecOf, renderChart, serializeChartSpec, variantOf, type ChartSpec } from "@/editor/chart-spec"
-import { dateFormat, formatDate } from "@/editor/formula"
+import { DATE_PICTURES, dateFormat, formatDate } from "@/editor/formula"
 import {
   INKSPIRE_OBJECT_NS,
   paragraphsIn,
@@ -1109,7 +1109,6 @@ export type InlineBuild = {
 }
 
 /** Word's date pictures for the automatic date and time the editor offers. */
-const DATE_PICTURES = { date: "M/d/yyyy", time: "h:mm am/pm", datetime: "M/d/yyyy h:mm am/pm" } as const
 
 export function inlinesFromEditor(nodes: JsonNode[], build: InlineBuild): Inline[] {
   const pieces: Piece[] = []

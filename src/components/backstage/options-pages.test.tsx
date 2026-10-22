@@ -52,3 +52,25 @@ describe("Show Mini Toolbar option (22.9)", () => {
     useEditingOptions.getState().set({ miniToolbar: true })
   })
 })
+
+describe("Show document content (22.9)", () => {
+  afterEach(() => {
+    cleanup()
+    useEditingOptions.getState().set({ showBookmarks: false, fieldShading: "selected", draftFont: false })
+  })
+
+  it("switches bookmarks, field shading and the draft font from Options > Advanced", () => {
+    render(<OptionsPages initialPage="advanced" />)
+    fireEvent.click(screen.getByLabelText("Show bookmarks"))
+    expect(useEditingOptions.getState().showBookmarks).toBe(true)
+    fireEvent.change(screen.getByLabelText("Field shading"), { target: { value: "never" } })
+    expect(useEditingOptions.getState().fieldShading).toBe("never")
+    const name = screen.getByLabelText("Draft font name") as HTMLSelectElement
+    expect(name.disabled).toBe(true)
+    fireEvent.click(screen.getByLabelText("Use draft font in Draft and Outline views"))
+    expect(name.disabled).toBe(false)
+    expect((screen.getByLabelText("Show text wrapped within the document window") as HTMLInputElement).disabled).toBe(
+      true,
+    )
+  })
+})
