@@ -1,4 +1,5 @@
-import { useAiChat } from "@/ai/chat"
+import type { Correction } from "@/ai/assist"
+import { useAiChat, type ReviewCard } from "@/ai/chat"
 import { PROMPT_TIPS, promptTip } from "@/ai/prompt-tips"
 import { AiThinking } from "@/components/ai-working"
 import { rewritePreviewText } from "@/ai/rewrite"
@@ -20,6 +21,10 @@ export function AiSidebar() {
   const errorSettings = useAiChat((state) => state.errorSettings)
   const failedId = useAiChat((state) => state.failedId)
   const thinking = useAiChat((state) => state.thinking)
+  const suggestFixes = useAiChat((state) => state.suggestFixes)
+  const declineFixes = useAiChat((state) => state.declineFixes)
+  const applyFix = useAiChat((state) => state.applyFix)
+  const applyAllFixes = useAiChat((state) => state.applyAllFixes)
   const setKeysOpen = useAiSettings((state) => state.setKeysOpen)
   const stop = useAiChat((state) => state.stop)
   const setError = useAiChat((state) => state.setError)
@@ -165,6 +170,17 @@ export function AiSidebar() {
               ) : (
                 message.text
               )}
+              {message.review ? (
+                <ReviewReply
+                  id={message.id}
+                  review={message.review}
+                  canApply={Boolean(editor)}
+                  onYes={() => suggestFixes(message.id)}
+                  onNo={() => declineFixes(message.id)}
+                  onApply={(index) => editor && applyFix(editor, message.id, index)}
+                  onApplyAll={() => editor && applyAllFixes(editor, message.id)}
+                />
+              ) : null}
               {message.role === "user" && !running && editing?.id !== message.id ? (
                 <div className="mt-1 flex justify-end">
                   <button
@@ -265,7 +281,7 @@ export function AiSidebar() {
           }}
         />
         <div className="mt-2 flex justify-end gap-2">
-          {running ? (
+          {running || thinking ? (
             <button
               type="button"
               className="rounded border border-[#d0d0d0] px-3 py-1 text-[12px] dark:border-[#484644] dark:text-[#e1dfdd]"
@@ -276,7 +292,7 @@ export function AiSidebar() {
           ) : null}
           <button
             type="submit"
-            disabled={running || !draft.trim()}
+            disabled={running || thinking || !draft.trim()}
             className="rounded bg-[#0f6cbd] px-3 py-1 text-[12px] text-white disabled:opacity-40"
           >
             Send
@@ -284,5 +300,117 @@ export function AiSidebar() {
         </div>
       </form>
     </aside>
+  )
+}
+
+const CHOICE =
+  "rounded border border-[#0f6cbd] px-2 py-0.5 text-[12px] text-[#0f6cbd] hover:bg-[#f3f9fd] disabled:opacity-40 dark:hover:bg-white/10"
+const PLAIN =
+  "rounded border border-[#d0d0d0] px-2 py-0.5 text-[12px] text-[#444] hover:bg-[#f3f3f3] dark:text-[#e1dfdd] dark:hover:bg-white/10"
+
+/** A fix that only adds or takes away a space, or removes the text, said in words: an arrow between spaces shows nothing. */
+function fixLabel(item: Correction) {
+  if (item.suggestion === "") {
+    return `Remove “${item.text}”`
+  }
+  if (item.suggestion === " " && !item.text.trim()) {
+    return "One space"
+  }
+  if (item.suggestion === `${item.text} `) {
+    return `Add a space after “${item.text}”`
+  }
+  return null
+}
+
+/**
+ * The verdict on the selected text. After "is this correct?" it asks whether to suggest fixes; after "proofread"
+ * (or Yes) it lists each fix with what it replaces and an Apply button that puts it in the document.
+ */
+function ReviewReply({
+  id,
+  review,
+  canApply,
+  onYes,
+  onNo,
+  onApply,
+  onApplyAll,
+}: {
+  id: string
+  review: ReviewCard
+  canApply: boolean
+  onYes: () => void
+  onNo: () => void
+  onApply: (index: number) => void
+  onApplyAll: () => void
+}) {
+  const left = review.corrections.filter((_, index) => !review.applied.includes(index)).length
+  return (
+    <div className="mt-1.5 space-y-1.5" data-testid={`review-${review.stage}`}>
+      {review.stage === "status" && !review.ok ? (
+        review.answered ? (
+          <p className="text-[12px] text-[#616161] dark:text-[#a19f9d]">
+            Should I suggest fixes? {review.answered === "yes" ? "Yes" : "No"}
+          </p>
+        ) : (
+          <div className="space-y-1">
+            <p>Should I suggest fixes?</p>
+            <div className="flex gap-1.5">
+              <button type="button" className={CHOICE} onClick={onYes}>
+                Yes
+              </button>
+              <button type="button" className={PLAIN} onClick={onNo}>
+                No
+              </button>
+            </div>
+          </div>
+        )
+      ) : null}
+      {review.stage === "fixes" && review.corrections.length > 0 ? (
+        <ul className="space-y-1.5" aria-label="Corrections">
+          {review.corrections.map((item, index) => {
+            const applied = review.applied.includes(index)
+            const label = fixLabel(item)
+            return (
+              <li
+                key={`${id}-${index}`}
+                className="rounded border border-black/10 bg-white px-2 py-1.5 dark:border-white/10 dark:bg-[#2b2b2b]"
+              >
+                {label ? (
+                  <p className="text-[13px] leading-5 font-medium">{label}</p>
+                ) : (
+                  <p className="text-[13px] leading-5">
+                    <s className="text-[#a4262c] dark:text-[#f1707b]">{item.text}</s>
+                    <span aria-hidden> → </span>
+                    <span className="font-medium text-[#0f7b0f] dark:text-[#6ccb5f]">{item.suggestion}</span>
+                  </p>
+                )}
+                {item.reason ? (
+                  <p className="text-[11px] leading-4 text-[#616161] dark:text-[#a19f9d]">{item.reason}</p>
+                ) : null}
+                <div className="mt-1 flex justify-end">
+                  <button
+                    type="button"
+                    className={CHOICE}
+                    disabled={applied || !canApply}
+                    aria-label={`${applied ? "Applied" : "Apply"}: ${label ?? item.suggestion}`}
+                    onClick={() => onApply(index)}
+                  >
+                    {applied ? "Applied" : "Apply"}
+                  </button>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      ) : null}
+      {review.stage === "fixes" && review.corrections.length > 1 ? (
+        <div className="flex justify-end">
+          <button type="button" className={CHOICE} disabled={left === 0 || !canApply} onClick={onApplyAll}>
+            {left === 0 ? "All applied" : "Apply all"}
+          </button>
+        </div>
+      ) : null}
+      {review.note ? <p className="text-[11px] leading-4 text-[#616161] dark:text-[#a19f9d]">{review.note}</p> : null}
+    </div>
   )
 }
