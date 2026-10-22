@@ -16,6 +16,13 @@ describe("page number fields in a header or footer", () => {
     expect(shown).toMatch(/data-page-field="pages"[^>]*>12<\/span>/)
   })
 
+  it("shows the number of the page in a copy of what the editor drew", () => {
+    const drawn = pageFieldHtml("page").replace(">1</span>", '><span class="field-value">1</span></span>')
+    const shown = chromeOnPage(`<p>Page ${drawn}</p>`, 7, 9)
+    expect(shown).toContain('<span class="field-value">7</span></span>')
+    expect(shown).not.toContain(">1<")
+  })
+
   it("is content by itself, and can be taken out", () => {
     const only = pageFieldHtml("page", "center")
     expect(chromeHasPageField(only)).toBe(true)

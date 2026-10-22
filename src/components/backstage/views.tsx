@@ -32,7 +32,14 @@ import { WRAP_CHOICES } from "@/editor/objects"
 import { useBodyEditor } from "@/editor/document-editor"
 import { useEditorState } from "@tiptap/react"
 import { MARGIN_PRESETS, marginPresetId, pageMetrics } from "@/document/page-setup"
-import { PASTE_CHOICES, RECOVERY_CHOICES, useEditingOptions } from "@/document/editing-options"
+import {
+  DRAFT_FONT_NAMES,
+  DRAFT_FONT_SIZES,
+  FIELD_SHADING_CHOICES,
+  PASTE_CHOICES,
+  RECOVERY_CHOICES,
+  useEditingOptions,
+} from "@/document/editing-options"
 import { useUserSettings } from "@/document/user-settings"
 import { FileDown, FileText, FolderOpen, Monitor, Printer } from "lucide-react"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
@@ -1486,6 +1493,79 @@ export function OptionsPages({ initialPage = "general" }: { initialPage?: Option
                 "Show AutoComplete suggestions",
               ]}
             />
+            <h3 className="backstage-card-title">Show document content</h3>
+            {(
+              [
+                ["showBackgrounds", "Show background colors and images in Print Layout view"],
+                ["picturePlaceholders", "Show picture placeholders"],
+                ["showDrawings", "Show drawings and text boxes on screen"],
+                ["showBookmarks", "Show bookmarks"],
+                ["textBoundaries", "Show text boundaries"],
+                ["cropMarks", "Show crop marks"],
+                ["fieldCodes", "Show field codes instead of their values"],
+              ] as const
+            ).map(([name, label]) => (
+              <label key={name} className="backstage-check">
+                <input
+                  type="checkbox"
+                  checked={editing[name]}
+                  onChange={(event) => editing.set({ [name]: event.target.checked })}
+                />{" "}
+                {label}
+              </label>
+            ))}
+            <label className="backstage-prop-edit">
+              <span>Field shading</span>
+              <select
+                value={editing.fieldShading}
+                onChange={(event) => editing.set({ fieldShading: event.target.value })}
+              >
+                {FIELD_SHADING_CHOICES.map((choice) => (
+                  <option key={choice.id} value={choice.id}>
+                    {choice.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="backstage-check">
+              <input
+                type="checkbox"
+                checked={editing.draftFont}
+                onChange={(event) => editing.set({ draftFont: event.target.checked })}
+              />{" "}
+              Use draft font in Draft and Outline views
+            </label>
+            <label className="backstage-prop-edit">
+              <span>Name</span>
+              <select
+                aria-label="Draft font name"
+                value={editing.draftFontName}
+                disabled={!editing.draftFont}
+                onChange={(event) => editing.set({ draftFontName: event.target.value })}
+              >
+                {DRAFT_FONT_NAMES.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="backstage-prop-edit">
+              <span>Size</span>
+              <select
+                aria-label="Draft font size"
+                value={editing.draftFontSize}
+                disabled={!editing.draftFont}
+                onChange={(event) => editing.set({ draftFontSize: Number(event.target.value) })}
+              >
+                {DRAFT_FONT_SIZES.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <UnavailableOptions items={["Show text wrapped within the document window"]} />
           </section>
         )}
         {page === "advanced" && <NewDocumentDefaults />}

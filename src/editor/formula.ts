@@ -9,6 +9,13 @@ export type IfOperator = (typeof IF_OPERATORS)[number]
 
 const FORMULA_CHARS = /^[\d\s.+\-*/()]+$/
 
+/** Word's date picture for each of the editor's date formats (`DATE \@ "…"`). */
+export const DATE_PICTURES: Record<DateFormat, string> = {
+  date: "M/d/yyyy",
+  time: "h:mm am/pm",
+  datetime: "M/d/yyyy h:mm am/pm",
+}
+
 export function dateFormat(value: unknown): DateFormat {
   return value === "time" || value === "datetime" ? value : "date"
 }

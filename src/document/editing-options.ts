@@ -47,6 +47,22 @@ export type EditingOptions = {
   pasteOtherPrograms: string
   /** The status bar keeps checking accessibility as you edit; off, it waits to be asked. */
   keepAccessibilityRunning: boolean
+  /** Advanced > Show document content: the page colour and watermark on screen; pictures as empty frames; shapes, text boxes and drawings. */
+  showBackgrounds: boolean
+  picturePlaceholders: boolean
+  showDrawings: boolean
+  /** Bookmarks as grey brackets; dotted lines at the text margins; corner marks where the margins meet. */
+  showBookmarks: boolean
+  textBoundaries: boolean
+  cropMarks: boolean
+  /** Fields show their code, as `{ DATE \@ "d MMMM yyyy" }`, in place of their result (Alt+F9). */
+  fieldCodes: boolean
+  /** Fields are shaded "never", "always", or when "selected". */
+  fieldShading: string
+  /** Draft and Outline views use one plain font, by name and size in points. */
+  draftFont: boolean
+  draftFontName: string
+  draftFontSize: number
 }
 
 export const EDITING_DEFAULTS: EditingOptions = {
@@ -78,6 +94,17 @@ export const EDITING_DEFAULTS: EditingOptions = {
   overtype: false,
   pasteSameDocument: "keep",
   pasteOtherPrograms: "keep",
+  showBackgrounds: true,
+  picturePlaceholders: false,
+  showDrawings: true,
+  showBookmarks: false,
+  textBoundaries: false,
+  cropMarks: false,
+  fieldCodes: false,
+  fieldShading: "selected",
+  draftFont: false,
+  draftFontName: "Courier New",
+  draftFontSize: 10,
 }
 
 export const PASTE_CHOICES = [
@@ -87,6 +114,16 @@ export const PASTE_CHOICES = [
 ]
 
 export const RECOVERY_CHOICES = [5, 10, 30, 60, 300]
+
+export const FIELD_SHADING_CHOICES = [
+  { id: "never", label: "Never" },
+  { id: "always", label: "Always" },
+  { id: "selected", label: "When selected" },
+]
+
+export const DRAFT_FONT_NAMES = ["Courier New", "Consolas", "Arial", "Calibri", "Times New Roman"]
+
+export const DRAFT_FONT_SIZES = [8, 9, 10, 11, 12, 14]
 
 function load(): EditingOptions {
   try {
@@ -120,6 +157,18 @@ function applyPageFlags(options: EditingOptions) {
     root.toggleAttribute("data-print-no-drawings", !options.printDrawings)
     root.toggleAttribute("data-print-no-bg", !options.printBackgrounds)
     root.toggleAttribute("data-print-hidden", options.printHidden)
+    // Advanced > Show document content, read by the page styles.
+    root.toggleAttribute("data-no-page-bg", !options.showBackgrounds)
+    root.toggleAttribute("data-picture-placeholders", options.picturePlaceholders)
+    root.toggleAttribute("data-no-drawings", !options.showDrawings)
+    root.toggleAttribute("data-show-bookmarks", options.showBookmarks)
+    root.toggleAttribute("data-text-boundaries", options.textBoundaries)
+    root.toggleAttribute("data-crop-marks", options.cropMarks)
+    root.toggleAttribute("data-field-codes", options.fieldCodes)
+    root.setAttribute("data-field-shading", options.fieldShading)
+    root.toggleAttribute("data-draft-font", options.draftFont)
+    root.style.setProperty("--draft-font", `"${options.draftFontName.replace(/"/g, "")}"`)
+    root.style.setProperty("--draft-font-size", `${options.draftFontSize}pt`)
   }
 }
 

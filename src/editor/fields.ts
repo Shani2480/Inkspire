@@ -1,6 +1,7 @@
 import { Node, mergeAttributes } from "@tiptap/core"
 import { NodeSelection } from "@tiptap/pm/state"
 import type { Transaction } from "@tiptap/pm/state"
+import { dateFieldCode, formulaFieldCode, ifFieldCode, paintField } from "@/editor/field-codes"
 import {
   clipFieldText,
   dateFormat,
@@ -64,7 +65,8 @@ export const DateField = Node.create({
       const dom = document.createElement("span")
       const paint = (current: typeof node) => {
         dom.className = "date-field"
-        dom.textContent = formatDate(dateFormat(current.attrs.format))
+        const format = dateFormat(current.attrs.format)
+        paintField(dom, formatDate(format), dateFieldCode(format))
       }
       paint(node)
       return {
@@ -140,8 +142,10 @@ export const FormulaField = Node.create({
   addNodeView() {
     return ({ node }) => {
       const dom = document.createElement("span")
-      const paint = (current: typeof node) =>
-        paintResult(dom, "formula-field", evaluateFormula(String(current.attrs.expression ?? "")))
+      const paint = (current: typeof node) => {
+        const expression = String(current.attrs.expression ?? "")
+        paintResult(dom, "formula-field", evaluateFormula(expression), formulaFieldCode(expression))
+      }
       paint(node)
       return {
         dom,
@@ -225,16 +229,16 @@ export const IfField = Node.create({
     return ({ node }) => {
       const dom = document.createElement("span")
       const paint = (current: typeof node) => {
+        const left = String(current.attrs.left ?? "")
+        const operator = String(current.attrs.operator ?? "=")
+        const right = String(current.attrs.right ?? "")
+        const thenText = String(current.attrs.thenText ?? "")
+        const elseText = String(current.attrs.elseText ?? "")
         paintResult(
           dom,
           "if-field",
-          evaluateIf(
-            String(current.attrs.left ?? ""),
-            String(current.attrs.operator ?? "="),
-            String(current.attrs.right ?? ""),
-            String(current.attrs.thenText ?? ""),
-            String(current.attrs.elseText ?? ""),
-          ),
+          evaluateIf(left, operator, right, thenText, elseText),
+          ifFieldCode(left, operator, right, thenText, elseText),
         )
       }
       paint(node)
@@ -302,9 +306,10 @@ function paintResult(
   dom: HTMLElement,
   className: string,
   result: { ok: true; value: string } | { ok: false; error: string },
+  code: string,
 ) {
   dom.className = result.ok ? className : `${className} is-error`
-  dom.textContent = result.ok ? result.value : result.error
+  paintField(dom, result.ok ? result.value : result.error, code)
 }
 
 function selectInserted(tr: Transaction, typeName: string, from: number) {

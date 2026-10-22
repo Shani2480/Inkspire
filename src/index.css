@@ -2579,7 +2579,6 @@ button.line-menu-row:focus-visible {
   min-width: 0.6em;
   padding: 0 0.15em;
   border-radius: 0.2em;
-  background: #f4f4f5;
   white-space: nowrap;
   line-height: inherit;
 }
@@ -4107,6 +4106,7 @@ button.line-menu-row:focus-visible {
 
 /* Light guide for page body margins (distinct from header/footer from-edge).
    Always drawn against the paper, which stays light even in dark app chrome. */
+/* Options > Advanced > Show text boundaries: dotted lines at the text margins, off as in Word. */
 .page-margin-guide {
   position: absolute;
   top: var(--page-margin-top, 24mm);
@@ -4114,9 +4114,53 @@ button.line-menu-row:focus-visible {
   bottom: var(--page-margin-bottom, 24mm);
   left: var(--page-margin-left, 24mm);
   z-index: 0;
+  display: none;
   box-sizing: border-box;
-  border: 1px solid rgb(0 0 0 / 0.12);
+  border: 1px dotted rgb(0 0 0 / 0.45);
   pointer-events: none;
+}
+
+:root[data-text-boundaries] .page-canvas[data-layout="print"] .page-margin-guide {
+  display: block;
+}
+
+/* Show crop marks: a short line along each text edge, out into the margin, where the margins meet. */
+.page-crop-mark {
+  position: absolute;
+  z-index: 0;
+  box-sizing: border-box;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  --crop-line: 1px solid rgb(0 0 0 / 0.55);
+}
+
+.page-crop-mark.is-tl {
+  top: calc(var(--page-margin-top, 24mm) - 14px);
+  left: calc(var(--page-margin-left, 24mm) - 14px);
+  border-right: var(--crop-line);
+  border-bottom: var(--crop-line);
+}
+
+.page-crop-mark.is-tr {
+  top: calc(var(--page-margin-top, 24mm) - 14px);
+  right: calc(var(--page-margin-right, 24mm) - 14px);
+  border-left: var(--crop-line);
+  border-bottom: var(--crop-line);
+}
+
+.page-crop-mark.is-bl {
+  bottom: calc(var(--page-margin-bottom, 24mm) - 14px);
+  left: calc(var(--page-margin-left, 24mm) - 14px);
+  border-right: var(--crop-line);
+  border-top: var(--crop-line);
+}
+
+.page-crop-mark.is-br {
+  bottom: calc(var(--page-margin-bottom, 24mm) - 14px);
+  right: calc(var(--page-margin-right, 24mm) - 14px);
+  border-left: var(--crop-line);
+  border-top: var(--crop-line);
 }
 
 .page-border {
@@ -4726,6 +4770,7 @@ button.line-menu-row:focus-visible {
   .object-handle,
   .object-rotate,
   .page-margin-guide,
+  .page-crop-mark,
   .page-column-guides,
   .column-guides {
     display: none !important;
@@ -4789,7 +4834,6 @@ button.line-menu-row:focus-visible {
   .page-editor .date-field,
   .page-editor .formula-field,
   .page-editor .if-field {
-    background: transparent;
     padding: 0;
   }
 
@@ -5311,8 +5355,8 @@ body,
   text-decoration: none;
 }
 
-/* Word fields, note references, and content controls kept from an opened .docx. */
-.page-editor .word-inline {
+/* Note references, bookmarks and content controls kept from an opened .docx; a field is shaded by Field shading below. */
+.page-editor .word-inline:not([data-role="field"]) {
   background: color-mix(in oklch, var(--muted-foreground) 14%, transparent);
   border-radius: 2px;
 }
@@ -5805,8 +5849,25 @@ li[data-drop-cap="margin"]::first-letter {
   font-size: 0.75em;
 }
 
-.bookmark-anchor {
-  border-bottom: 1px dashed #0f6cbd;
+/* Options > Advanced > Show bookmarks: grey brackets around bookmarked text, an I-beam at a bookmark with none. */
+:root[data-show-bookmarks] .page-editor .bookmark-anchor::before,
+:root[data-show-bookmarks] .page-editor .bookmark-anchor::after,
+:root[data-show-bookmarks] .page-editor .word-inline[data-role="bookmark"]::before {
+  color: #8a8a8a;
+  font-weight: 400;
+  font-style: normal;
+}
+
+:root[data-show-bookmarks] .page-editor .bookmark-anchor::before {
+  content: "[";
+}
+
+:root[data-show-bookmarks] .page-editor .bookmark-anchor::after {
+  content: "]";
+}
+
+:root[data-show-bookmarks] .page-editor .word-inline[data-role="bookmark"]::before {
+  content: "Ⅰ";
 }
 
 .figure-table {
@@ -11944,11 +12005,19 @@ fieldset.columns-presets input {
   font-size: 0.8em;
 }
 
-:is(.formatting-marks, .fm-paras) .page-editor table :is(td, th) > p:last-child:has(> br.ProseMirror-trailingBreak:only-child)::after {
+:is(.formatting-marks, .fm-paras)
+  .page-editor
+  table
+  :is(td, th)
+  > p:last-child:has(> br.ProseMirror-trailingBreak:only-child)::after {
   content: none;
 }
 
-:is(.formatting-marks, .fm-paras) .page-editor table :is(td, th) > p:last-child:has(> br.ProseMirror-trailingBreak:only-child)::before {
+:is(.formatting-marks, .fm-paras)
+  .page-editor
+  table
+  :is(td, th)
+  > p:last-child:has(> br.ProseMirror-trailingBreak:only-child)::before {
   content: "¤";
   color: var(--fmt-mark-color);
   font-size: 0.8em;
@@ -12339,13 +12408,67 @@ fieldset.columns-presets input {
   transition-delay: 0s !important;
 }
 
+/* Options > Advanced > Show document content (22.9) */
+/* Show background colors and images: off, the page is white on screen and the watermark is not drawn. */
+:root[data-no-page-bg] .page-canvas .page-sheet {
+  background: #fff !important;
+}
+
+:root[data-no-page-bg] .page-canvas :is(.page-watermark, .print-mark) {
+  display: none;
+}
+
+/* Show picture placeholders: an empty frame the size of each picture. */
+:root[data-picture-placeholders] .page-editor :is(.page-image, .image-frame) img {
+  visibility: hidden;
+}
+
+:root[data-picture-placeholders] .page-editor :is(.page-image, .image-frame) {
+  box-shadow: inset 0 0 0 1px #8a8a8a;
+}
+
+/* Show drawings and text boxes on screen: off, they keep their place but are not drawn. */
+:root[data-no-drawings] .page-editor :is([data-drawing], .insert-figure[data-kind="shape"], .text-box, .smartart) {
+  visibility: hidden;
+}
+
+/* Field shading: when selected (Word's default), always, or never. */
+:root[data-field-shading="always"]
+  .page-editor
+  :is(.date-field, .formula-field, .if-field, .word-inline[data-role="field"]),
+:root[data-field-shading="selected"]
+  .page-editor
+  :is(.date-field, .formula-field, .if-field, .word-inline[data-role="field"]).ProseMirror-selectednode {
+  background: color-mix(in oklch, var(--muted-foreground) 18%, transparent);
+  border-radius: 2px;
+}
+
+/* Show field codes instead of their values (Alt+F9): the code in braces in place of the result. */
+:root[data-field-codes] .page-editor [data-field-code] > .field-value {
+  display: none;
+}
+
+:root[data-field-codes] .page-editor [data-field-code]::before {
+  content: attr(data-field-code);
+}
+
+/* Use draft font in Draft and Outline views: one plain font for all the text there. */
+:root[data-draft-font] .page-canvas:is([data-layout="draft"], [data-layout="outline"]) .page-editor,
+:root[data-draft-font]
+  .page-canvas:is([data-layout="draft"], [data-layout="outline"])
+  .page-editor
+  :not(svg, svg *, .insert-figure, .insert-figure *) {
+  font-family: var(--draft-font, "Courier New"), monospace !important;
+  font-size: var(--draft-font-size, 10pt) !important;
+}
+
 /* Options > Display > Printing options (22.9) */
 .print-properties {
   display: none;
 }
 
 @media print {
-  :root[data-print-no-drawings] :is([data-drawing], figure[data-kind="shape"]) {
+  :root[data-print-no-drawings] :is([data-drawing], .insert-figure[data-kind="shape"], .text-box, .smartart) {
     display: none !important;
   }
 

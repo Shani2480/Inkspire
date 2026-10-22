@@ -188,8 +188,9 @@ export function ChromeBox({
     const show = () => {
       box.current?.querySelectorAll<HTMLElement>("[data-page-field]").forEach((field) => {
         const text = String(field.dataset.pageField === "pages" ? pages : page)
-        if (field.textContent !== text) {
-          field.textContent = text
+        const slot = field.querySelector<HTMLElement>(":scope > .field-value") ?? field
+        if (slot.textContent !== text) {
+          slot.textContent = text
         }
       })
     }
