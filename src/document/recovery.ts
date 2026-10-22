@@ -1,7 +1,8 @@
 import { APP_DATA, ensureAppData } from "@/document/app-data"
+import { isBlankHtml, isBlankNewDocument } from "@/document/blank"
 import { flushPendingEdit, getDocumentEditor } from "@/document/editor-ref"
-import { packDocument } from "@/document/header"
-import { packStyles, useStyleStore } from "@/document/styles"
+import { packDocument, unpackDocument } from "@/document/header"
+import { packStyles, unpackStyles, useStyleStore } from "@/document/styles"
 import { documentName, useDocumentStore } from "@/document/store"
 import { WINDOW_ID, openWindows } from "@/document/windows"
 import { isTauriRuntime } from "@/lib/platform"
@@ -222,7 +223,10 @@ async function listSnapshots(): Promise<SnapshotRecord[]> {
   try {
     const tx = db.transaction(STORE, "readonly")
     const values = await idbRequest(tx.objectStore(STORE).getAll())
-    return (values as SnapshotRecord[]).filter((item) => item?.isDirty && item.packedHtml?.trim())
+    // A copy of a blank page, from before blank documents stopped being kept, is not worth offering back.
+    return (values as SnapshotRecord[]).filter(
+      (item) => item?.isDirty && item.packedHtml?.trim() && !isBlankHtml(unpackedBody(item.packedHtml)),
+    )
   } finally {
     db.close()
   }
@@ -280,10 +284,20 @@ function toOffer(record: SnapshotRecord): RecoveryOffer {
   }
 }
 
+/** Whether the document has anything worth a recovery copy: unsaved changes in a document that is not blank. */
+export function recoveryWanted(state = useDocumentStore.getState()) {
+  return state.isDirty && !state.saving && !isBlankNewDocument(state)
+}
+
+/** The body of a packed snapshot, without the styles and the header, footer and page marks. */
+function unpackedBody(packed: string) {
+  return unpackDocument(unpackStyles(packed).html).html
+}
+
 function buildSnapshotRecord(id: string): SnapshotRecord | null {
   flushPendingEdit()
   const state = useDocumentStore.getState()
-  if (!state.isDirty || state.saving) {
+  if (!recoveryWanted(state)) {
     return null
   }
 
@@ -414,7 +428,9 @@ async function migrateTauriDraft(): Promise<SnapshotRecord | null> {
 }
 
 export async function writeRecoveryDraft() {
-  if (!useDocumentStore.getState().isDirty || useDocumentStore.getState().saving) {
+  // An edit still waiting to be recorded decides whether there is anything to keep.
+  flushPendingEdit()
+  if (!recoveryWanted()) {
     return
   }
   const id = ensureActiveSnapshotId()
@@ -423,7 +439,7 @@ export async function writeRecoveryDraft() {
     return
   }
   // Bail if the user already saved or started a new document while we were packing.
-  if (!useDocumentStore.getState().isDirty || useDocumentStore.getState().saving) {
+  if (!recoveryWanted()) {
     return
   }
   try {
