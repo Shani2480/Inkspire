@@ -1,4 +1,5 @@
 import { chromeHtml } from "@/document/chrome-html"
+import { isBlankNewDocument } from "@/document/blank"
 import { clearWordDocument } from "@/document/docx/session"
 import type { DocumentChrome } from "@/document/header"
 import { pageSetupForNewDocument } from "@/document/design-format"
@@ -27,6 +28,10 @@ type ChromeState = {
 }
 
 function isUnsaved(state: ChromeState, next: Partial<ChromeState> = {}) {
+  // A blank new document is never unsaved: there is nothing in it to lose.
+  if (isBlankNewDocument({ ...state, ...next })) {
+    return false
+  }
   const html = next.documentHTML ?? state.documentHTML
   const header = next.headerHtml ?? state.headerHtml
   const footer = next.footerHtml ?? state.footerHtml

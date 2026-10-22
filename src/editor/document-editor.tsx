@@ -1,4 +1,5 @@
 import { useEditingOptions } from "@/document/editing-options"
+import { isBlankProseDoc } from "@/document/blank"
 import { useEditor, type Editor } from "@tiptap/react"
 import { createContext, useContext, useEffect, type ReactNode } from "react"
 import { useActiveChromeEditor } from "@/document/chrome-editing"
@@ -47,7 +48,9 @@ export function DocumentEditorProvider({ children }: { children: ReactNode }) {
       useDocumentStore.getState().noteEdit(editor.getHTML())
     }
     const noteEdit = () => {
-      if (!useDocumentStore.getState().isDirty) {
+      const { isDirty, currentFilePath } = useDocumentStore.getState()
+      // A blank new document is never unsaved (there is nothing in it to lose), so it is not marked until it has content.
+      if (!isDirty && !(currentFilePath === null && isBlankProseDoc(editor.state.doc))) {
         useDocumentStore.setState({ isDirty: true })
       }
       window.clearTimeout(timer)
