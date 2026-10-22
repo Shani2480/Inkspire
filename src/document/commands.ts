@@ -274,6 +274,47 @@ function applyEditorHtml(
   return true
 }
 
+/** The filters of File > Open: what Compare can read as the other version too. */
+export function openFilters() {
+  return OPEN_FILTERS
+}
+
+/**
+ * A file as editor HTML, without opening it: what Review > Compare reads the other version with. Styles and Word's
+ * own markup stay with the open document; only the content is read.
+ */
+export async function readFileHtml(file: OpenedFile) {
+  const ext = fileExtension(file.name || file.path || "")
+  if (ext === "docx") {
+    const opened = await (await docxIo()).openDocxBytes(file.bytes, file.name || file.path || "document.docx")
+    return opened.view.html
+  }
+  if (ext === "odt" || (ext === "rtf" && isTauriRuntime() && file.path)) {
+    if (!isTauriRuntime() || !file.path) {
+      throw new Error("Reading .odt requires the desktop app.")
+    }
+    return invokeWithTools<string>("import_document", { path: file.path })
+  }
+  const raw = file.text ?? new TextDecoder().decode(file.bytes)
+  if (ext === "rtf") {
+    return rtfToHtml(raw)
+  }
+  if (ext === "html" || ext === "htm") {
+    return unpackDocument(unpackStyles(raw).html).html
+  }
+  if (ext === "md") {
+    return markdownToHtml(raw)
+  }
+  if (ext !== "txt") {
+    throw new Error("Inkspire can only compare .docx, .odt, .rtf, .html, .md and .txt files.")
+  }
+  const escaped = raw.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  return escaped
+    .split(/\r?\n/)
+    .map((line) => `<p>${line}</p>`)
+    .join("")
+}
+
 async function loadOpenedFile(file: OpenedFile) {
   const editor = getDocumentEditor()
   if (!editor) {

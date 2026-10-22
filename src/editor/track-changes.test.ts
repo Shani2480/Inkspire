@@ -41,6 +41,25 @@ describe("track changes accept/reject", () => {
     expect(editor.getText()).not.toContain("new")
   })
 
+  it("takes a whole paragraph away with its text when it came or went, keeping the only paragraph", () => {
+    editor = createTrackEditor(
+      '<p>Stays.</p><p><span data-insertion="" data-id="para" data-author="Me" data-time="t">Whole new paragraph.</span></p><p><span data-deletion="" data-id="old" data-author="Me" data-time="t">Old paragraph.</span></p>',
+    )
+    expect(rejectChanges(editor, ["para"])).toBe(true)
+    expect(editor.getHTML()).toBe(
+      '<p>Stays.</p><p><span data-id="old" data-author="Me" data-time="t" data-deletion="" class="track-deletion">Old paragraph.</span></p>',
+    )
+    expect(acceptChanges(editor)).toBe(true)
+    expect(editor.getHTML()).toBe("<p>Stays.</p>")
+
+    editor.destroy()
+    editor = createTrackEditor(
+      '<p><span data-insertion="" data-id="only" data-author="Me" data-time="t">All of it.</span></p>',
+    )
+    expect(rejectChanges(editor)).toBe(true)
+    expect(editor.getHTML()).toBe("<p></p>")
+  })
+
   it("accepts only the requested change id", () => {
     editor = createTrackEditor(
       '<p><span data-insertion="" data-id="keep" data-author="Me" data-time="t">A</span><span data-insertion="" data-id="drop" data-author="Me" data-time="t">B</span></p>',

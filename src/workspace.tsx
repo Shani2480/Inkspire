@@ -11,6 +11,7 @@ import { AiSidebar } from "@/components/ai-sidebar"
 import { AiKeysDialog } from "@/components/ai-keys"
 import { ClipboardPane, useClipboardCapture } from "@/components/clipboard-pane"
 import { ColorDialogHost } from "@/components/color-dialog"
+import { CompareDialogHost } from "@/components/compare-dialog"
 import { ModelFormatDialogHost } from "@/components/model-format-dialog"
 import { SetDefaultDialogHost } from "@/components/set-default-dialog"
 import { FormatDialogHost } from "@/components/format-dialogs"
@@ -304,6 +305,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
       <FirstRunSetup />
       <HelperToolsDialog />
       <BordersShadingHost />
+      <CompareDialogHost />
       <TablePropertiesHost />
       <ColumnsDialogHost />
       <SmartArtTextPane />

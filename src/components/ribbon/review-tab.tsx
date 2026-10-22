@@ -28,6 +28,7 @@ import { acceptChanges, changeAtSelection, listChanges, rejectChanges } from "@/
 import { DOCUMENT_LANGUAGES } from "@/document/languages"
 import { useDocumentStore } from "@/document/store"
 import { useAccessibility } from "@/ai/accessibility-check"
+import { openCompare } from "@/components/compare-dialog"
 import type { Editor } from "@tiptap/core"
 import { useEditorState } from "@tiptap/react"
 import { useState } from "react"
@@ -71,7 +72,6 @@ export function ReviewTab() {
   const openProofing = useProofing((state) => state.openPanel)
   const openEditorPane = useEditorPane((state) => state.openPane)
   const [countOpen, setCountOpen] = useState(false)
-  const [compareOpen, setCompareOpen] = useState(false)
   const openAccessibility = useAccessibility((state) => state.openPane)
   const [notesOpen, setNotesOpen] = useState(false)
   const ribbonLayout = useViewStore((state) => state.ribbonLayout)
@@ -233,16 +233,18 @@ export function ReviewTab() {
   const compareMenu = (close: () => void) => (
     <div className="flex w-52 flex-col">
       <MenuButton
+        disabled={!editor}
         onClick={() => {
-          setCompareOpen(true)
+          editor && openCompare(editor)
           close()
         }}
       >
         Compare…
       </MenuButton>
       <MenuButton
+        disabled={!editor}
         onClick={() => {
-          setCompareOpen(true)
+          editor && openCompare(editor)
           close()
         }}
       >
@@ -253,7 +255,6 @@ export function ReviewTab() {
   const dialogs = (
     <>
       {countOpen ? <WordCountDialog editor={editor} onClose={() => setCountOpen(false)} /> : null}
-      {compareOpen ? <CompareDialog editor={editor} onClose={() => setCompareOpen(false)} /> : null}
       {notesOpen && editor ? <LinkedNotesDialog editor={editor} onClose={() => setNotesOpen(false)} /> : null}
     </>
   )
@@ -1103,51 +1104,6 @@ function WordCountDialog({ editor, onClose }: { editor: Editor | null; onClose: 
         <span className="flex-1" />
         <button type="button" className="dialog-btn is-primary" onClick={onClose}>
           Close
-        </button>
-      </div>
-    </DialogFrame>
-  )
-}
-
-function CompareDialog({ editor, onClose }: { editor: Editor | null; onClose: () => void }) {
-  const [other, setOther] = useState("")
-  const [lines, setLines] = useState<string[]>([])
-  return (
-    <DialogFrame
-      title="Compare"
-      width={480}
-      onClose={onClose}
-      onSubmit={(event) => {
-        event.preventDefault()
-        const current = (editor?.state.doc.textContent ?? "").split(/\n+/)
-        const incoming = other.split(/\n+/)
-        const diff = incoming.filter((line) => line.trim() && !current.includes(line)).map((line) => `Added: ${line}`)
-        const removed = current
-          .filter((line) => line.trim() && !incoming.includes(line))
-          .map((line) => `Removed: ${line}`)
-        setLines([...diff, ...removed].slice(0, 40))
-      }}
-    >
-      <textarea
-        aria-label="Other document"
-        value={other}
-        placeholder="Paste the other version"
-        className="mt-3 h-28 w-full rounded border border-black/15 px-2 py-1 text-sm"
-        onChange={(event) => setOther(event.target.value)}
-      />
-      <div className="mt-2 max-h-40 overflow-auto text-xs text-neutral-700">
-        {lines.length === 0 ? (
-          <p>Paste another version, then compare.</p>
-        ) : (
-          lines.map((line) => <p key={line}>{line}</p>)
-        )}
-      </div>
-      <div className="word-dialog-actions">
-        <button type="button" className="dialog-btn" onClick={onClose}>
-          Close
-        </button>
-        <button type="submit" className="dialog-btn is-primary">
-          Compare
         </button>
       </div>
     </DialogFrame>

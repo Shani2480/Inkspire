@@ -1,5 +1,6 @@
 import { useProofing } from "@/ai/proofing"
 import { useEditorPane } from "@/editor/grammar"
+import { openCompare } from "@/components/compare-dialog"
 import { askText } from "@/components/text-prompt"
 import { useAiSettings } from "@/ai/settings"
 import { captureTemplatePlace } from "@/ai/template-place"
@@ -525,6 +526,14 @@ function buildCommands(): TellMeCommand[] {
         const state = useReviewStore.getState()
         state.setTracking(!state.tracking)
       },
+    },
+    {
+      id: "review.compare",
+      label: "Compare",
+      description: tip("Compare"),
+      keywords: ["compare", "combine", "versions", "diff", "review"],
+      category: "Review",
+      run: () => withEditor((current) => openCompare(current)),
     },
     {
       id: "review.show-comments",

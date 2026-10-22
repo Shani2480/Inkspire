@@ -150,7 +150,13 @@ function settleChanges(editor: Editor, action: "accept" | "reject", ids?: string
         .filter((change) => (action === "accept" ? change.kind === "deletion" : change.kind === "insertion"))
         .sort((left, right) => right.from - left.from)
       for (const change of removals) {
-        tr.delete(change.from, change.to)
+        const block = wholeBlock(tr.doc, change.from, change.to)
+        if (block) {
+          // A paragraph that came or went whole goes with its text, not leaving an empty line behind.
+          tr.delete(block.from, block.to)
+        } else {
+          tr.delete(change.from, change.to)
+        }
       }
       const marks = changes.filter((change) =>
         action === "accept" ? change.kind === "insertion" : change.kind === "deletion",
@@ -163,6 +169,22 @@ function settleChanges(editor: Editor, action: "accept" | "reject", ids?: string
       return true
     })
     .run()
+}
+
+/**
+ * The textblock from `from` to `to` is the whole content of, when its parent has other children too: settling the
+ * change removes the block itself. Null otherwise.
+ */
+function wholeBlock(doc: ProseNode, from: number, to: number) {
+  const $from = doc.resolve(from)
+  const parent = $from.parent
+  if (!parent.isTextblock || $from.parentOffset !== 0 || to !== $from.end() || $from.depth === 0) {
+    return null
+  }
+  if ($from.node($from.depth - 1).childCount < 2) {
+    return null
+  }
+  return { from: $from.before(), to: $from.after() }
 }
 
 export const TrackChanges = Extension.create({
