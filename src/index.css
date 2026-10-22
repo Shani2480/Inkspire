@@ -10288,7 +10288,8 @@ html.dark .asset-library .asset-library-icon {
  */
 .titlebar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) fit-content(46%) minmax(0, 1fr);
+  /* The end keeps its content (search, Share, Account, window buttons) whole; the name truncates before it. */
+  grid-template-columns: minmax(0, 1fr) fit-content(46%) minmax(min-content, 1fr);
   align-items: center;
   column-gap: 8px;
   container: titlebar / inline-size;
@@ -10304,7 +10305,8 @@ html.dark .asset-library .asset-library-icon {
   position: relative;
   display: flex;
   height: 28px;
-  min-width: 0;
+  /* Room for the magnifier, a few letters and the options button, so the two never overlap. */
+  min-width: 128px;
   align-items: center;
   flex: 0 1 240px;
   justify-content: flex-end;
@@ -10460,6 +10462,7 @@ html.dark .asset-library .asset-library-icon {
   .titlebar-search {
     flex: none;
     width: 28px;
+    min-width: 0;
   }
   .titlebar-search .tell-me {
     width: 28px;
