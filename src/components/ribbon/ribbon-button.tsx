@@ -347,6 +347,50 @@ export function RibbonCommand({
     )
   }
 
+  // A split button, as Word's Paste or Borders: the picture and the label do the command, the arrow opens the menu.
+  if (menu && onClick) {
+    const press = () => {
+      if (!disabled) {
+        onClick()
+      }
+    }
+    return (
+      <div className={`ribbon-command-split${active ? " is-active" : ""}`}>
+        <Tooltip>
+          <TooltipTrigger
+            type="button"
+            aria-label={label}
+            aria-pressed={active || undefined}
+            aria-disabled={disabled || undefined}
+            tabIndex={disabled ? -1 : undefined}
+            className="ribbon-large"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={press}
+          >
+            <span className="ribbon-command-icon">{children}</span>
+          </TooltipTrigger>
+          <RibbonTipContent label={label} description={description} shortcut={shortcut} />
+        </Tooltip>
+        <div className="flex items-center">
+          <button
+            type="button"
+            aria-label={label}
+            aria-disabled={disabled || undefined}
+            tabIndex={disabled ? -1 : undefined}
+            className="ribbon-command-split-text"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={press}
+          >
+            {label}
+          </button>
+          <RibbonPopover label={`${label} options`} className="h-3 w-2.5 gap-0 px-0" disabled={disabled} content={menu}>
+            <ChevronMark />
+          </RibbonPopover>
+        </div>
+      </div>
+    )
+  }
+
   if (menu) {
     return (
       <RibbonPopover
@@ -480,6 +524,9 @@ function launcherDescription(name: string) {
   }
   if (name === "Clipboard") {
     return "Show text copied while the app has been running."
+  }
+  if (name === "Borders") {
+    return "Show the Borders and Shading dialog box to set the borders and the fill of the selected cells, or of the whole table."
   }
   return `Show the ${name} dialog box.`
 }
