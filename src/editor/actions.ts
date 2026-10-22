@@ -1,4 +1,5 @@
 import { stepShapeTextSize } from "@/editor/shape-text"
+import { assistIntent } from "@/ai/assist"
 import { useAiChat } from "@/ai/chat"
 import { generateAiText, isAiCancelled, isAiStopped } from "@/ai/generate"
 import { useRewrite, type DraftInsert, type DraftKind } from "@/ai/rewrite"
@@ -500,6 +501,15 @@ export async function askAi(editor: Editor, prompt: string, range?: { from: numb
   }
 
   const chosen = range ?? currentRange(editor)
+  // A question about the selected text ("is this correct?", "proofread this") is answered in the chat, with the
+  // verdict and the fixes to apply; the Rewrite popover is for new wording.
+  if (chosen.from !== chosen.to) {
+    const intent = assistIntent(trimmed)
+    if (intent !== "other") {
+      await useAiChat.getState().reviewSelection(editor, trimmed, intent, chosen)
+      return true
+    }
+  }
   // With text selected the request is about that text and its result replaces it; Insert below keeps it.
   if (chosen.from !== chosen.to || trimmed.toLowerCase().includes("rewrite")) {
     await rewriteSelection(editor, range, trimmed)

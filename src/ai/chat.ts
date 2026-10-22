@@ -1,6 +1,15 @@
+import {
+  applyCorrection,
+  assistIntent,
+  requestReview,
+  reviewStatus,
+  type AssistIntent,
+  type Correction,
+  type ReviewRange,
+} from "@/ai/assist"
 import { aiUnavailableReason } from "@/ai/availability"
 import { explainAiError } from "@/ai/errors"
-import { generateAiText, isAiStopped, stopActiveGeneration } from "@/ai/generate"
+import { cancelAiRequest, generateAiText, isAiStopped, stopActiveGeneration } from "@/ai/generate"
 import { rewritePreviewText } from "@/ai/rewrite"
 import { useAiSettings } from "@/ai/settings"
 import type { Editor } from "@tiptap/core"
@@ -15,6 +24,21 @@ export type ChatMessage = {
   insertText: string
   /** The request had text selected, so the wording can replace it. */
   replaceable: boolean
+  /** A verdict on the selected text, with the fixes or the offer of them. */
+  review?: ReviewCard
+}
+
+export type ReviewCard = {
+  /** A verdict that asks whether to suggest fixes, or the list of fixes with their Apply buttons. */
+  stage: "status" | "fixes"
+  ok: boolean
+  corrections: Correction[]
+  range: ReviewRange
+  /** The fixes already put in the document, by index. */
+  applied: number[]
+  /** The answer to "Should I suggest fixes?", once given. */
+  answered: "yes" | "no" | ""
+  note: string
 }
 
 /** The wording the model marked for the document, and the whole reply with the marks taken out. */
@@ -43,6 +67,8 @@ type AiChat = {
   failedId: string
   /** A request from the chat is being answered. */
   thinking: boolean
+  /** The review request under way, so Stop can cancel it. */
+  reviewRequestId: string
   setOpen: (open: boolean) => void
   toggle: () => void
   setDraft: (draft: string) => void
@@ -52,6 +78,19 @@ type AiChat = {
   resend: (editor: Editor | null, id: string, edit?: { text?: string; fromHere?: boolean }) => Promise<void>
   /** Puts a request made elsewhere (Rewrite) in the thread. */
   askAbout: (label: string, prompt: string, context: string) => Promise<void>
+  /** Answers a question about the selected text with a verdict: fixes offered, or listed at once for a proofread. */
+  reviewSelection: (
+    editor: Editor,
+    prompt: string,
+    intent: AssistIntent,
+    range?: { from: number; to: number },
+  ) => Promise<void>
+  /** The Yes under "Should I suggest fixes?": the fixes follow in a new reply. */
+  suggestFixes: (id: string) => void
+  declineFixes: (id: string) => void
+  /** Puts one fix, or all that are left, in the document. False when the text is no longer there. */
+  applyFix: (editor: Editor, id: string, index: number) => boolean
+  applyAllFixes: (editor: Editor, id: string) => boolean
   stop: () => void
 }
 
@@ -142,15 +181,30 @@ export const useAiChat = create<AiChat>((set, get) => {
     errorSettings: false,
     failedId: "",
     thinking: false,
+    reviewRequestId: "",
     setOpen: (open) => set({ open }),
     toggle: () => set((state) => ({ open: !state.open })),
     setDraft: (draft) => set({ draft }),
     setError: (error) => set({ error, errorSettings: false }),
-    stop: () => stopActiveGeneration(),
+    stop: () => {
+      const requestId = get().reviewRequestId
+      if (requestId) {
+        cancelAiRequest(requestId)
+      }
+      stopActiveGeneration()
+    },
     send: async (editor) => {
       const prompt = get().draft.trim()
-      if (!prompt || useAiSettings.getState().running) {
+      if (!prompt || useAiSettings.getState().running || get().thinking) {
         return
+      }
+      if (editor && !editor.state.selection.empty) {
+        const intent = assistIntent(prompt)
+        if (intent !== "other") {
+          set({ draft: "" })
+          await get().reviewSelection(editor, prompt, intent)
+          return
+        }
       }
       const history = get().messages
       const user: ChatMessage = {
@@ -212,6 +266,150 @@ export const useAiChat = create<AiChat>((set, get) => {
       }
       set((state) => ({ open: true, messages: [...state.messages, user] }))
       await run(user, prompt, context, { whole: true, selected: true })
+    },
+    reviewSelection: async (editor, prompt, intent, range) => {
+      if (useAiSettings.getState().running || get().thinking) {
+        return
+      }
+      const { from, to } = range ?? editor.state.selection
+      const text = editor.state.doc.textBetween(from, to, "\n")
+      if (!text.trim()) {
+        set({ open: true, error: "Select the text to check first.", errorSettings: false })
+        return
+      }
+      const user: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "user",
+        text: prompt.trim(),
+        insertText: "",
+        replaceable: false,
+      }
+      const requestId = crypto.randomUUID()
+      set((state) => ({
+        open: true,
+        draft: "",
+        error: "",
+        errorSettings: false,
+        failedId: "",
+        thinking: true,
+        reviewRequestId: requestId,
+        messages: [...state.messages, user],
+      }))
+      try {
+        const review = await requestReview(text, requestId)
+        if (get().reviewRequestId !== requestId) {
+          return
+        }
+        const status = reviewStatus(review, text)
+        const card: ReviewCard = {
+          stage: intent === "proofread" || review.ok ? "fixes" : "status",
+          ok: review.ok,
+          corrections: review.corrections,
+          range: { from, to, text },
+          applied: [],
+          answered: "",
+          note: review.note,
+        }
+        const lead = review.ok
+          ? `${status} There is nothing to fix.`
+          : intent === "proofread"
+            ? `${status} Here are the corrections:`
+            : status
+        set((state) => ({
+          messages: [
+            ...state.messages,
+            {
+              id: crypto.randomUUID(),
+              role: "assistant",
+              text: lead,
+              insertText: "",
+              replaceable: false,
+              review: card,
+            },
+          ],
+        }))
+      } catch (error) {
+        if (!isAiStopped(error) && get().reviewRequestId === requestId) {
+          const problem = explainAiError(error, useAiSettings.getState().provider)
+          set({ error: problem.message, errorSettings: problem.settings, failedId: user.id })
+        }
+      } finally {
+        if (get().reviewRequestId === requestId) {
+          set({ thinking: false, reviewRequestId: "" })
+        }
+      }
+    },
+    suggestFixes: (id) => {
+      const message = get().messages.find((item) => item.id === id)
+      const review = message?.review
+      if (!review || review.stage !== "status" || review.answered) {
+        return
+      }
+      const fixes: ReviewCard = { ...review, stage: "fixes", answered: "" }
+      const answered: ReviewCard = { ...review, answered: "yes" }
+      set((state) => ({
+        messages: [
+          ...state.messages.map((item) => (item.id === id ? { ...item, review: answered } : item)),
+          {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            text: review.corrections.length === 1 ? "Here is the fix:" : "Here are the fixes:",
+            insertText: "",
+            replaceable: false,
+            review: fixes,
+          },
+        ],
+      }))
+    },
+    declineFixes: (id) =>
+      set((state) => ({
+        messages: state.messages.map((item) =>
+          item.id === id && item.review?.stage === "status" && !item.review.answered
+            ? { ...item, review: { ...item.review, answered: "no" as const } }
+            : item,
+        ),
+      })),
+    applyFix: (editor, id, index) => {
+      const message = get().messages.find((item) => item.id === id)
+      const review = message?.review
+      const correction = review?.corrections[index]
+      if (!review || !correction || review.applied.includes(index)) {
+        return false
+      }
+      const applied = applyCorrection(editor, review.range, correction)
+      if (!applied) {
+        set({ error: "That text is no longer in the document.", errorSettings: false })
+        return false
+      }
+      // The fixes after this one in the text move with it.
+      const corrections = review.corrections.map((item) =>
+        item.at !== undefined && item.at > applied.offset ? { ...item, at: item.at + applied.delta } : item,
+      )
+      set((state) => ({
+        error: "",
+        messages: state.messages.map((item) =>
+          item.id === id && item.review
+            ? {
+                ...item,
+                review: { ...item.review, corrections, range: applied.range, applied: [...item.review.applied, index] },
+              }
+            : item,
+        ),
+      }))
+      return true
+    },
+    applyAllFixes: (editor, id) => {
+      const review = get().messages.find((item) => item.id === id)?.review
+      if (!review) {
+        return false
+      }
+      let done = true
+      review.corrections.forEach((_, index) => {
+        if (!review.applied.includes(index) && !get().applyFix(editor, id, index)) {
+          done = false
+        }
+      })
+      return done
     },
   }
 })
