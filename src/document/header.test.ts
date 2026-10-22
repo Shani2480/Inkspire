@@ -61,10 +61,20 @@ describe("document chrome pack/unpack", () => {
     expect(unpacked.header).toBe("<p>Old header</p>")
   })
 
-  it("leaves plain html alone", () => {
+  it("leaves plain html alone, numbering the pages as the file was written with", () => {
     const raw = "<p>No chrome</p>"
     const unpacked = unpackDocument(raw)
     expect(unpacked.html).toBe(raw)
-    expect(unpacked).toMatchObject(emptyChrome())
+    // Files from before new documents stopped with a page number carry no mark for it; they keep their number.
+    const chrome = emptyChrome()
+    expect(unpacked).toMatchObject({ ...chrome, pageSetup: { ...chrome.pageSetup, pageNumber: "bottom-center" } })
+  })
+
+  it("keeps a new document without a page number", () => {
+    const chrome = emptyChrome()
+    expect(chrome.pageSetup.pageNumber).toBe("none")
+    const packed = packDocument("<p>Body</p>", chrome)
+    expect(packed).toContain("<!-- aiword-pagenum:none -->")
+    expect(unpackDocument(packed).pageSetup.pageNumber).toBe("none")
   })
 })

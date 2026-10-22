@@ -109,6 +109,8 @@ function decodeMark(value: string) {
 export function unpackDocument(raw: string) {
   let html = raw
   const chrome = emptyChrome()
+  // Files written while a new document was numbered at the bottom centre carry no page number mark; they keep it.
+  chrome.pageSetup = { ...chrome.pageSetup, pageNumber: "bottom-center" }
 
   for (;;) {
     const match = html.match(CHROME_MARK)
