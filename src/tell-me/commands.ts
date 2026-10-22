@@ -1,6 +1,7 @@
 import { useProofing } from "@/ai/proofing"
 import { useEditorPane } from "@/editor/grammar"
 import { openCompare } from "@/components/compare-dialog"
+import { openCoverGenerator } from "@/components/cover-page-dialog"
 import { askText } from "@/components/text-prompt"
 import { useAiSettings } from "@/ai/settings"
 import { captureTemplatePlace } from "@/ai/template-place"
@@ -526,6 +527,14 @@ function buildCommands(): TellMeCommand[] {
         const state = useReviewStore.getState()
         state.setTracking(!state.tracking)
       },
+    },
+    {
+      id: "insert.cover-ai",
+      label: "Generate Cover Page with AI",
+      description: "Have the AI write a cover page from a title, a subtitle and a tone.",
+      keywords: ["cover", "page", "ai", "generate", "title", "front"],
+      category: "Insert",
+      run: () => withEditor((current) => openCoverGenerator(current)),
     },
     {
       id: "review.compare",
