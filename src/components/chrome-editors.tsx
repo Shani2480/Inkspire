@@ -104,8 +104,9 @@ export function useChromePart(
     const capture = () => {
       window.cancelAnimationFrame(frame)
       frame = window.requestAnimationFrame(() => {
-        // Once the editor is taken off the page (the header is closed) its markup is no longer what was drawn.
-        if (editor.view.dom.isConnected) {
+        // While open, the markup counts only on the page; closed, the editor draws off the page (a header set from
+        // the gallery or read from a file is never on it until it is opened), and that is what the pages copy.
+        if (editor.view.dom.isConnected || !editor.isEditable) {
           setSnapshot(drawnMarkup(editor.view.dom))
         }
       })
