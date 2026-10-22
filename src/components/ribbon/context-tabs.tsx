@@ -1,4 +1,5 @@
 import { openTableProperties } from "@/components/table-properties-dialog"
+import { openBordersAndShading } from "@/components/borders-shading-dialog"
 import { ModelLibrary } from "@/components/model-library"
 import { askText } from "@/components/text-prompt"
 import { ContextGlyph } from "@/components/ribbon/context-icons"
@@ -30,6 +31,7 @@ import {
 } from "@/components/ribbon/line-icons"
 import { SingleLineBar, type LineCommand, type LineGroup } from "@/components/ribbon/single-line"
 import {
+  applyBorders,
   BORDER_STYLE_PRESETS,
   DEFAULT_PEN,
   paintCellEdge,
@@ -37,11 +39,13 @@ import {
   tableStyleOptions,
   toggleTableStyleOption,
   TABLE_LOOKS,
+  type BorderKind,
   type BorderPen,
   type TableStyleOption,
 } from "@/editor/table-tools"
 import {
   BordersMenu,
+  borderLabel,
   PenColorMenu,
   PenStyleMenu,
   PenWeightMenu,
@@ -115,6 +119,9 @@ export function TableDesignTab() {
   const ribbonLayout = useViewStore((state) => state.ribbonLayout)
   const [pen, setPen] = useState<BorderPen>(DEFAULT_PEN)
   const [painter, setPainter] = useState(false)
+  // The Borders button does again what was last chosen from its menu; Bottom Border to begin with, as in Word.
+  const [lastBorder, setLastBorder] = useState<BorderKind>("bottom")
+  const applyLastBorder = () => editor && applyBorders(editor, lastBorder, pen)
   const options = useEditorState({
     editor,
     selector: ({ editor: current }) => (current ? tableStyleOptions(current) : null),
@@ -147,6 +154,7 @@ export function TableDesignTab() {
       close={close}
       gridlines={Boolean(gridlines)}
       onGridlines={() => editor && toggleGridlines(editor)}
+      onPick={setLastBorder}
     />
   )
   // The Border Painter: while on, a click draws the pen on the cell edge nearest to it. Escape, or leaving the tab, ends it.
@@ -222,7 +230,15 @@ export function TableDesignTab() {
       { id: "shading", label: "Shading", icon: <ShadingIcon />, disabled: !editor, menu: shadingMenu },
     ]
     const borders: LineCommand[] = [
-      { id: "borders", label: "Borders", icon: <LineBordersIcon />, disabled: !editor, menu: bordersMenu },
+      {
+        id: "borders",
+        label: "Borders",
+        description: borderLabel(lastBorder),
+        icon: <LineBordersIcon />,
+        disabled: !editor,
+        onClick: applyLastBorder,
+        menu: bordersMenu,
+      },
       {
         id: "border-styles",
         label: "Border Styles",
@@ -297,7 +313,11 @@ export function TableDesignTab() {
           more={stylesMenu}
         />
       </RibbonGroup>
-      <RibbonGroup label="Borders">
+      <RibbonGroup
+        label="Borders"
+        launchLabel="Borders and Shading"
+        onLaunch={() => editor && openBordersAndShading(editor)}
+      >
         <RibbonCommand label="Shading" disabled={!editor} menu={shadingMenu}>
           <ShadingIcon />
         </RibbonCommand>
@@ -312,7 +332,13 @@ export function TableDesignTab() {
             <span className="table-pen-color" style={{ background: pen.color }} aria-hidden />
           </RibbonCommand>
         </div>
-        <RibbonCommand label="Borders" disabled={!editor} menu={bordersMenu}>
+        <RibbonCommand
+          label="Borders"
+          description={`${borderLabel(lastBorder)}. The arrow lists the borders of the selected cells.`}
+          disabled={!editor}
+          onClick={applyLastBorder}
+          menu={bordersMenu}
+        >
           <BordersIcon />
         </RibbonCommand>
         <div className="flex flex-col py-0.5">

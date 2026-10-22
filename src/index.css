@@ -978,6 +978,39 @@ button.line-menu-row:focus-visible {
   white-space: normal;
 }
 
+/* A large split command (Borders): the picture and the label do the command, the arrow beside the label opens the menu. */
+.ribbon-command-split {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 52px;
+  padding-top: 2px;
+}
+
+.ribbon-command-split > .ribbon-large {
+  padding-bottom: 2px;
+}
+
+.ribbon-command-split-text {
+  padding: 0 2px;
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 1.15;
+  color: var(--app-ribbon-text);
+}
+
+.ribbon-command-split-text:hover {
+  background: var(--app-hover);
+}
+
+.ribbon-command-split-text[aria-disabled="true"] {
+  color: var(--app-ribbon-disabled);
+}
+
+.ribbon-command-split.is-active > .ribbon-large {
+  background: var(--app-pressed);
+}
+
 .ribbon-command-icon {
   display: flex;
   height: 32px;

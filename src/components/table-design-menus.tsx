@@ -182,18 +182,26 @@ const BORDER_ROWS: { kind: BorderKind; label: string }[] = [
   { kind: "diagUp", label: "Diagonal Up Border" },
 ]
 
+/** The label of a border kind, as the Borders menu lists it: what the Borders button does again when pressed. */
+export function borderLabel(kind: BorderKind) {
+  return BORDER_ROWS.find((row) => row.kind === kind)?.label ?? "Borders"
+}
+
 export function BordersMenu({
   editor,
   pen,
   close,
   gridlines,
   onGridlines,
+  onPick,
 }: {
   editor: Editor | null
   pen: BorderPen
   close: () => void
   gridlines: boolean
   onGridlines: () => void
+  /** Told which border was chosen: the Borders button applies it again next time it is pressed. */
+  onPick?: (kind: BorderKind) => void
 }) {
   return (
     <div className="flex w-56 flex-col">
@@ -202,6 +210,7 @@ export function BordersMenu({
           key={row.kind}
           onClick={() => {
             if (editor) applyBorders(editor, row.kind, pen)
+            onPick?.(row.kind)
             close()
           }}
         >
@@ -216,6 +225,14 @@ export function BordersMenu({
         }}
       >
         Horizontal Line
+      </MenuButton>
+      <MenuButton
+        onClick={() => {
+          editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+          close()
+        }}
+      >
+        Draw Table
       </MenuButton>
       <MenuButton
         selected={gridlines}
