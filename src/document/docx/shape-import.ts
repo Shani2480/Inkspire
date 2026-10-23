@@ -52,6 +52,7 @@ export const VARIANT_OF_PRESET: Record<string, string> = {
   plaque: "plaque",
   blockArc: "block-arc",
   noSmoking: "no-sign",
+  irregularSeal1: "burst",
 }
 
 export type WordShape = {
@@ -181,15 +182,19 @@ export function readWordShape(xml: string, themeXml: string | null): WordShape |
   const own = properties.replace(line, "")
   const gradient = readGradient(own)
   const ownSolid = /<a:solidFill>([\s\S]*?)<\/a:solidFill>/.exec(own)?.[1]
+  // A gradient the app has no equal of (three stops, theme colours) shows as its first colour.
+  const firstStop = /<a:gradFill\b[\s\S]*?<a:gs pos="\d+">([\s\S]*?)<\/a:gs>/.exec(own)?.[1]
   const fill = gradient
     ? gradient.fill
     : /<a:noFill\s*\/>/.test(own)
       ? "none"
       : ownSolid
         ? colorOf(ownSolid, scheme)
-        : fillRef
-          ? colorOf(fillRef[2] ?? "", scheme)
-          : ""
+        : firstStop
+          ? colorOf(firstStop, scheme)
+          : fillRef
+            ? colorOf(fillRef[2] ?? "", scheme)
+            : ""
 
   const lineSolid = /<a:solidFill>([\s\S]*?)<\/a:solidFill>/.exec(line)?.[1]
   const stroke = /<a:noFill\s*\/>/.test(line)
@@ -202,7 +207,7 @@ export function readWordShape(xml: string, themeXml: string | null): WordShape |
   const width = Number(/<a:ln [^>]*\bw="(\d+)"/.exec(line)?.[1])
   const styleIndex = Number(lineRef?.[1] ?? 0)
   const emu = Number.isFinite(width) && width > 0 ? width : (STYLE_LINE_EMU[styleIndex] ?? 0)
-  const effects = readEffects(properties)
+  const effects = readEffects(properties, scheme)
   const body = /<w:txbxContent>([\s\S]*?)<\/w:txbxContent>/.exec(shape)?.[1] ?? ""
   const text = [...body.matchAll(/<w:p[\s>][\s\S]*?<\/w:p>/g)]
     .map((paragraph) =>

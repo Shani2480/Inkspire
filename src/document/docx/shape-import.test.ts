@@ -66,6 +66,23 @@ describe("Word's drawn shapes (21.35)", () => {
     expect(readWordShape(own.replace('prst="ellipse"', 'prst="mathMultiply"'), THEME)).toBeNull()
   })
 
+  it("reads Explosion: 8 Points with a theme gradient and a theme glow as Word writes them", () => {
+    const xml =
+      `<wps:wsp><wps:spPr><a:prstGeom prst="irregularSeal1"><a:avLst/></a:prstGeom>` +
+      `<a:gradFill flip="none" rotWithShape="1"><a:gsLst>` +
+      `<a:gs pos="0"><a:schemeClr val="accent1"><a:lumMod val="67000"/></a:schemeClr></a:gs>` +
+      `<a:gs pos="48000"><a:schemeClr val="accent1"><a:lumMod val="97000"/><a:lumOff val="3000"/></a:schemeClr></a:gs>` +
+      `<a:gs pos="100000"><a:schemeClr val="accent1"><a:lumMod val="60000"/><a:lumOff val="40000"/></a:schemeClr></a:gs>` +
+      `</a:gsLst><a:lin ang="16200000" scaled="1"/></a:gradFill><a:ln><a:noFill/></a:ln>` +
+      `<a:effectLst><a:glow rad="139700"><a:schemeClr val="accent1"><a:satMod val="175000"/><a:alpha val="40000"/></a:schemeClr></a:glow></a:effectLst>` +
+      `</wps:spPr></wps:wsp><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">`
+    const read = readWordShape(xml, THEME)
+    // The three-stop theme gradient is not one of the app's, so the shape takes its first colour (accent1 at 67%).
+    expect(read).toMatchObject({ preset: "irregularSeal1", variant: "burst", fill: "#0e4057", stroke: "none" })
+    expect(read?.gradient).toBe("")
+    expect(read?.glow).toBe("#156082:11")
+  })
+
   it("opens Word's Frame and Heart as editable shapes at their size and place", async () => {
     const opened = await open()
     const found = objects(opened.view.html)

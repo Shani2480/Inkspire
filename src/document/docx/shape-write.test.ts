@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { shapeMarkup } from "@/editor/insert-blocks"
 import { openDocxBytes, saveDocxBytes } from "@/document/docx/io"
 import { findPart, openPackage } from "@/document/docx/opc"
 import { readWordShape } from "@/document/docx/shape-import"
@@ -43,6 +44,19 @@ describe("shapes written as Word's own (22.11)", () => {
     expect(plainShapePreset({ variant: "heart", bevel: "circle" })).toBeNull()
     expect(plainShapePreset({ variant: "heart", shadow: "perspective" })).toBeNull()
     expect(plainShapePreset({ variant: "heart", shadow: "outer-br", glow: "#4472c4:8" })).toBe("heart")
+  })
+
+  it("draws Lightning and Explosion as Word's presets, filling their box", () => {
+    expect(plainShapePreset({ variant: "lightning" })).toBe("lightningBolt")
+    expect(plainShapePreset({ variant: "burst" })).toBe("irregularSeal1")
+    // Word stretches a preset over its whole extent, so the drawings reach every edge of the 80 by 56 frame.
+    for (const variant of ["lightning", "burst"]) {
+      const points = [...shapeMarkup(variant).matchAll(/([\d.]+),([\d.]+)/g)].map((m) => [Number(m[1]), Number(m[2])])
+      expect(Math.min(...points.map((p) => p[0]!))).toBe(0)
+      expect(Math.max(...points.map((p) => p[0]!))).toBe(80)
+      expect(Math.min(...points.map((p) => p[1]!))).toBe(0)
+      expect(Math.max(...points.map((p) => p[1]!))).toBe(56)
+    }
   })
 
   it("writes the preset, fill and outline as a wps shape", () => {

@@ -85,7 +85,7 @@ const SHAPE_SVG: Record<string, string> = {
   terminator: `<rect x="8" y="14" width="64" height="28" rx="14" fill="#e2efda" stroke="#548235" stroke-width="2"/>`,
   data: `<polygon points="18,12 74,12 62,44 6,44" fill="#deecf9" stroke="#0f6cbd" stroke-width="2"/>`,
   star: `<polygon points="40,4 48,22 68,22 52,34 58,52 40,42 22,52 28,34 12,22 32,22" fill="#ffc000" stroke="#bf8f00" stroke-width="2"/>`,
-  burst: `<polygon points="40,4 46,18 62,10 54,24 72,28 56,34 64,50 46,42 40,54 34,42 16,50 24,34 8,28 26,24 18,10 34,18" fill="#ed7d31" stroke="#c45911"/>`,
+  burst: `<polygon points="40,15 30.9,6 27.1,16.4 1.4,6 17.1,19.7 0,22.3 13.8,30.5 0.5,37.8 21,36.1 17.6,45.7 28.6,40.5 31.4,56 39,38.7 49.1,51.2 51.9,37.5 67.2,46.9 62.4,33.6 80,34.5 65.2,27.2 78.1,21.1 61.9,19 68.1,11.6 52.4,13.8 53.8,0" fill="#ed7d31" stroke="#c45911" stroke-width="2"/>`,
   banner: `<path d="M6 16h68v24H6l8-12z" fill="#5b9bd5" stroke="#2e75b6" stroke-width="2"/>`,
   callout: `<path d="M8 8h64v28H28l-10 12v-12H8z" fill="#fff" stroke="#0f6cbd" stroke-width="2"/>`,
   "oval-callout": `<ellipse cx="40" cy="24" rx="30" ry="16" fill="#fff" stroke="#0f6cbd" stroke-width="2"/><path d="M24 36 16 50l14-8" fill="#fff" stroke="#0f6cbd" stroke-width="2"/>`,
@@ -100,7 +100,7 @@ const SHAPE_SVG: Record<string, string> = {
   moon: `<path d="M48 8 A22 22 0 1 0 48 48 A16 16 0 1 1 48 8Z" fill="#fff4ce" stroke="#8a6116" stroke-width="2"/>`,
   cloud: `<path d="M24 40h36a12 12 0 0 0 2-23 16 16 0 0 0-30-2 10 10 0 0 0-8 25Z" fill="#deecf9" stroke="#0f6cbd" stroke-width="2"/>`,
   donut: `<path d="M40 8 A20 20 0 1 0 40.1 8 Z M40 18 A10 10 0 1 1 39.9 18 Z" fill="#f4b183" fill-rule="evenodd" stroke="#c45911" stroke-width="2"/>`,
-  lightning: `<polygon points="34,4 18,30 34,30 28,52 58,24 40,24 50,4" fill="#ffc000" stroke="#bf8f00" stroke-width="2"/>`,
+  lightning: `<polygon points="31.4,0 0,10.1 28.2,21.7 18.6,25.2 45.3,36 37.1,38.7 80,56 54.7,33.4 61.4,31.1 40.9,17.6 47.6,15.8" fill="#ffc000" stroke="#bf8f00" stroke-width="2"/>`,
   "cube-shape": `<polygon points="18,20 40,8 62,20 40,32" fill="#9cc7f0" stroke="#0f6cbd"/><polygon points="18,20 40,32 40,50 18,38" fill="#0f6cbd"/><polygon points="62,20 40,32 40,50 62,38" fill="#5aa2e0"/>`,
   can: `<ellipse cx="40" cy="16" rx="22" ry="8" fill="#deecf9" stroke="#0f6cbd" stroke-width="2"/><path d="M18 16 v24 a22 8 0 0 0 44 0 V16" fill="#9cc7f0" stroke="#0f6cbd" stroke-width="2"/>`,
   smiley: `<circle cx="40" cy="28" r="20" fill="#fff4ce" stroke="#c4a35a" stroke-width="2"/><circle cx="32" cy="22" r="2" fill="#242424"/><circle cx="48" cy="22" r="2" fill="#242424"/><path d="M30 32 Q40 42 50 32" fill="none" stroke="#242424" stroke-width="2"/>`,
@@ -179,6 +179,46 @@ export function shapeMarkup(kind: string) {
 
 function shapeSvg(kind: string) {
   return shapeMarkup(kind)
+}
+
+const VIEW_BOXES = new Map<string, string>()
+
+/**
+ * The box a shape's drawing fills, as Word fills a preset's extent: the drawing's own bounds (its strokes aside),
+ * measured once in a hidden SVG. The drawings' 80 by 56 frame where nothing can measure (jsdom).
+ */
+export function shapeViewBox(variant: string) {
+  const cached = VIEW_BOXES.get(variant)
+  if (cached) {
+    return cached
+  }
+  let box = "0 0 80 56"
+  const measurable =
+    typeof document !== "undefined" &&
+    typeof SVGGraphicsElement !== "undefined" &&
+    typeof SVGGraphicsElement.prototype.getBBox === "function"
+  if (measurable) {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+    svg.setAttribute("viewBox", "0 0 80 56")
+    svg.setAttribute("width", "80")
+    svg.setAttribute("height", "56")
+    svg.style.cssText = "position:absolute;left:-1000px;top:-1000px;visibility:hidden;pointer-events:none"
+    svg.innerHTML = shapeMarkup(variant)
+    document.body.append(svg)
+    try {
+      const bounds = svg.getBBox()
+      if (bounds.width > 0 && bounds.height > 0) {
+        const round = (value: number) => Math.round(value * 100) / 100
+        box = `${round(bounds.x)} ${round(bounds.y)} ${round(bounds.width)} ${round(bounds.height)}`
+      }
+    } catch {
+      // Not measurable here; the frame stays.
+    } finally {
+      svg.remove()
+    }
+  }
+  VIEW_BOXES.set(variant, box)
+  return box
 }
 
 export const MODEL_NAMES: ModelKind[] = ["cube", "cylinder", "pyramid", "cone", "sphere"]
@@ -274,7 +314,16 @@ function paintFigure(dom: HTMLElement, node: ProseNode) {
     // A chart is drawn at its own size, so its text stays the size Word gives it (20.8).
     body = renderChart(chartSpecOf(node.attrs), width, height)
   }
-  const box = kind === "icon" ? "0 0 16 16" : kind === "chart" ? `0 0 ${width} ${height}` : "0 0 80 56"
+  const box =
+    kind === "icon"
+      ? "0 0 16 16"
+      : kind === "chart"
+        ? `0 0 ${width} ${height}`
+        : kind === "shape"
+          ? shapeViewBox(variant)
+          : "0 0 80 56"
+  // A shape fills its box whatever the box's proportions, as Word stretches a preset to its extent (22.11).
+  const stretch = kind === "shape" ? ' preserveAspectRatio="none"' : ""
   const src = String(node.attrs.src || "")
   if ((kind === "model" || kind === "icon") && src) {
     const image = document.createElement("img")
@@ -285,7 +334,7 @@ function paintFigure(dom: HTMLElement, node: ProseNode) {
     image.height = height
     dom.replaceChildren(image)
   } else {
-    dom.innerHTML = `<svg viewBox="${box}" width="${width}" height="${height}" aria-hidden>${body}</svg>`
+    dom.innerHTML = `<svg viewBox="${box}"${stretch} width="${width}" height="${height}" aria-hidden>${body}</svg>`
   }
   // Shapes and icons take Word's shape formatting (20.9): fill, outline, arrows, effects and flips.
   const styled = kind === "shape" || (kind === "icon" && !src)
