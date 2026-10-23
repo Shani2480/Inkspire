@@ -458,11 +458,15 @@ let filterIds = 0
 export function paintShapeSvg(svg: SVGSVGElement, attrs: Attrs, size: { width: number; height: number }) {
   const id = `shape-${(filterIds += 1)}`
   const box = svg.viewBox.baseVal
+  const viewX = box?.x || 0
+  const viewY = box?.y || 0
   const viewWidth = box?.width || 80
   const viewHeight = box?.height || 56
   // Units of the viewBox per CSS pixel (the SVG keeps its aspect).
   const scale = Math.min(size.width / viewWidth, size.height / viewHeight) || 1
   const unit = 1 / scale
+  // A stretched drawing (a shape filling its box) keeps its strokes in pixels, so they do not stretch with it.
+  const stretched = svg.getAttribute("preserveAspectRatio") === "none"
   const fill = String(attrs.fill || "")
   const stroke = String(attrs.stroke || "")
   const gradient = String(attrs.fillGradient || "")
@@ -489,7 +493,7 @@ export function paintShapeSvg(svg: SVGSVGElement, attrs: Attrs, size: { width: n
     paint = `url(#${id}-gradient)`
   }
   const widthPt = Number(attrs.strokeWidth) || 0
-  const strokeUnits = widthPt ? ((widthPt * 4) / 3) * unit : 0
+  const strokeUnits = widthPt ? ((widthPt * 4) / 3) * (stretched ? 1 : unit) : 0
   const dash = String(attrs.strokeDash || "")
   const begin = String(attrs.arrowBegin || "")
   const end = String(attrs.arrowEnd || "")
@@ -514,6 +518,9 @@ export function paintShapeSvg(svg: SVGSVGElement, attrs: Attrs, size: { width: n
     }
     if (strokeUnits && (element.getAttribute("stroke") ?? "none") !== "none") {
       element.setAttribute("stroke-width", String(strokeUnits))
+    }
+    if (stretched && (element.getAttribute("stroke") ?? "none") !== "none") {
+      element.setAttribute("vector-effect", "non-scaling-stroke")
     }
     if (dash && (element.getAttribute("stroke") ?? "none") !== "none") {
       element.setAttribute("stroke-dasharray", dashArray(dash, Number(element.getAttribute("stroke-width")) || 2))
@@ -560,7 +567,7 @@ export function paintShapeSvg(svg: SVGSVGElement, attrs: Attrs, size: { width: n
   const flipV = Boolean(attrs.flipV)
   const transform =
     flipH || flipV
-      ? `translate(${flipH ? viewWidth : 0} ${flipV ? viewHeight : 0}) scale(${flipH ? -1 : 1} ${flipV ? -1 : 1})`
+      ? `translate(${flipH ? viewX * 2 + viewWidth : 0} ${flipV ? viewY * 2 + viewHeight : 0}) scale(${flipH ? -1 : 1} ${flipV ? -1 : 1})`
       : ""
   if (defs.length || transform) {
     const group = document.createElementNS("http://www.w3.org/2000/svg", "g")

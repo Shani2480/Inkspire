@@ -1,4 +1,5 @@
 import { gradientStops, gradientVector } from "@/editor/shape-style"
+import { colorOf } from "@/document/docx/shape-import"
 
 /**
  * The parts of a shape's look that DrawingML has a plain counterpart for, beyond its colours: outer shadows, glow,
@@ -79,7 +80,7 @@ export function effectListXml(attrs: Attrs) {
 }
 
 /** The effects an `a:effectLst` holds, as the app's own attributes (only what the app itself would have written). */
-export function readEffects(properties: string) {
+export function readEffects(properties: string, scheme: Map<string, string> = new Map()) {
   const list = /<a:effectLst>([\s\S]*?)<\/a:effectLst>/.exec(properties)?.[1] ?? ""
   const found = { shadow: "", glow: "", softEdge: 0, reflection: "" }
   const shadow = /<a:outerShdw\b[^>]*\bdist="(\d+)"[^>]*\bdir="(\d+)"/.exec(list)
@@ -90,9 +91,10 @@ export function readEffects(properties: string) {
     const dy = Math.round(Math.sin(angle) * distance)
     found.shadow = Object.entries(SHADOW_DIRECTIONS).find(([, [x, y]]) => x === dx && y === dy)?.[0] ?? ""
   }
-  const glow = /<a:glow rad="(\d+)"><a:srgbClr val="([0-9A-Fa-f]{6})"/.exec(list)
-  if (glow) {
-    found.glow = `#${glow[2]!.toLowerCase()}:${Math.round(Number(glow[1]) / EMU_PER_PT)}`
+  const glow = /<a:glow rad="(\d+)">([\s\S]*?)<\/a:glow>/.exec(list)
+  const glowColor = glow ? colorOf(glow[2] ?? "", scheme) : ""
+  if (glow && glowColor) {
+    found.glow = `${glowColor}:${Math.round(Number(glow[1]) / EMU_PER_PT)}`
   }
   const soft = /<a:softEdge rad="(\d+)"/.exec(list)
   if (soft) {
@@ -101,8 +103,9 @@ export function readEffects(properties: string) {
   const reflection = /<a:reflection\b[^>]*\bendPos="(\d+)"[^>]*\bdist="(\d+)"/.exec(list)
   if (reflection) {
     found.reflection =
+      // Word's own presets end a little off these values (Tight ends at 55500), so the nearest one is taken.
       Object.entries(REFLECTIONS).find(
-        ([, [end, gap]]) => end === Number(reflection[1]) && gap === Number(reflection[2]),
+        ([, [end, gap]]) => Math.abs(end - Number(reflection[1])) <= 1000 && gap === Number(reflection[2]),
       )?.[0] ?? ""
   }
   return found

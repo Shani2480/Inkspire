@@ -191,7 +191,7 @@ const SHAPE_GROUPS: { title: string; items: { id: string; label: string }[] }[] 
       { id: "star8", label: "8-Point Star" },
       { id: "star12", label: "12-Point Star" },
       { id: "star16", label: "16-Point Star" },
-      { id: "burst", label: "Explosion" },
+      { id: "burst", label: "Explosion: 8 Points" },
       { id: "banner", label: "Ribbon" },
       { id: "ribbon-up", label: "Up Ribbon" },
       { id: "wave", label: "Wave" },

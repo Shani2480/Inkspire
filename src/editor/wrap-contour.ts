@@ -1,4 +1,4 @@
-import { shapeMarkup } from "@/editor/insert-blocks"
+import { shapeMarkup, shapeViewBox } from "@/editor/insert-blocks"
 import type { Node as ProseNode } from "@tiptap/pm/model"
 
 /**
@@ -162,7 +162,7 @@ function sourceOf(node: ProseNode): Source | null {
   if (node.type.name === "figure" && node.attrs.kind === "shape" && node.attrs.variant) {
     const variant = String(node.attrs.variant)
     const flips: [boolean, boolean] = [node.attrs.flipH === true, node.attrs.flipV === true]
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 56" width="160" height="112" preserveAspectRatio="none">${shapeMarkup(variant)}</svg>`
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${shapeViewBox(variant)}" width="160" height="112" preserveAspectRatio="none">${shapeMarkup(variant)}</svg>`
     return {
       key: `shape:${variant}:${flips.join()}`,
       source: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
