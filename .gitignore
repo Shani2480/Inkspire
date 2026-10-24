@@ -34,9 +34,9 @@ tools/docx-validate/obj/
 # Pandoc/Typst temp output
 src-tauri/toPdfViaTempFile*
 
-# Kept on this computer only: reference screenshots, working notes and docs, check tooling, editor rules, test documents.
+# Kept on this computer only: reference screenshots, check tooling, editor rules, test documents.
+# docs/ (the to-do list, verify list and changes log) is tracked so the notes travel with the repository.
 /screenshots/
-/docs/
 /tools/
 /scripts/
 /.cursor/
