@@ -68,19 +68,22 @@ cargo test --lib
 
 ## 5. What does not come with the repository
 
+The notes travel with the repository: `docs/next-todo.md` (the plan and every dated fix), `docs/verify-list.md`
+(what still needs a check in Word, Chrome or the desktop app) and `docs/changes.md` (chronological log).
+
 These folders are ignored by git on purpose and live only on the Linux machine. Copy them by hand (USB stick,
 cloud folder) into the same places if you want them on Windows:
 
-| Folder or file               | What it is                                                                                                                                                                     |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `docs/`                      | working notes: `next-todo.md` (the plan and every dated fix), `verify-list.md` (what still needs a check in Word, Chrome or the desktop app), `changes.md` (chronological log) |
-| `screenshots/`               | reference screenshots of Word the UI is matched against                                                                                                                        |
-| `tools/`                     | check tooling, including the .NET docx validator                                                                                                                               |
-| `scripts/`                   | local helper scripts                                                                                                                                                           |
-| `.cursor/`                   | editor rules                                                                                                                                                                   |
-| `123.docx`, `Document1.docx` | test documents                                                                                                                                                                 |
+| Folder or file               | What it is                                              |
+| ---------------------------- | ------------------------------------------------------- |
+| `screenshots/`               | reference screenshots of Word the UI is matched against |
+| `tools/`                     | check tooling, including the .NET docx validator        |
+| `scripts/`                   | local helper scripts                                    |
+| `.cursor/`                   | editor rules                                            |
+| `123.docx`, `Document1.docx` | test documents                                          |
 
-The AI chat history and the Claude Code conversation do not move with the folder; the code and the git history do.
+The AI chat history and the Claude Code conversation do not move with the folder; the code, the git history and
+the notes do.
 
 ## 6. What to check on Windows first
 
