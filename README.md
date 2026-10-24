@@ -20,6 +20,8 @@ Inkspire is a local, AI-first desktop word processor. It looks and behaves like 
 
 ## Setup
 
+On Windows, follow [WINDOWS.md](WINDOWS.md) (tools to install, cloning with LF line endings, the desktop build and installers, and what does not travel with the repository).
+
 ```bash
 npm install
 ```
