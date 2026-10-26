@@ -1624,7 +1624,8 @@ Source: the 48 top-level files in `screenshots/` taken on 2026-10-19 (`screensho
   `w:tcBorders`). Left: Page Border Art, per-side page borders, the page Options check boxes, reading a Word cell's
   fill and pattern back into the dialog.
 
-  **Found 2026-10-26 (not fixed):** with View Gridlines on, the dashed guide (`outline` on every cell in
+  **Found 2026-10-26, fixed the same day (see `changes.md`; the guide is now drawn under the borders):** with View
+  Gridlines on, the dashed guide (`outline` on every cell in
   `index.css`, `table[data-gridlines="1"]`) is drawn over drawn borders too, so solid lines look dashed; Word shows
   gridlines only where a side has no border. Needs the guide drawn per side from the cell's actual borders (app
   `borders` and Word's `data-word-cell` / table frame), not one outline per cell.
@@ -1634,8 +1635,7 @@ Source: the 48 top-level files in `screenshots/` taken on 2026-10-19 (`screensho
   borders, the page Options check boxes, the View Gridlines guide over drawn borders.
 
   **Done 2026-10-26** (see `changes.md`): Page Border sides from the preview's edge buttons, read and written per
-  side. Left: Page Border Art, a different line per page side, the page Options check boxes, the View Gridlines
-  guide over drawn borders.
+  side. Left: Page Border Art, a different line per page side, the page Options check boxes.
 
 #### 22.5 — Customize Ribbon and Quick Access Toolbar (screenshots 083125, 083136)
 

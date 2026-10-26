@@ -52,6 +52,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [x] **View Gridlines under drawn borders (2026-10-26)** — checked 2026-10-26 in headless Chrome (light).
 - [x] **Page Border sides from the preview (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Word cell shading in Borders and Shading (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Grid setting in Borders and Shading (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
