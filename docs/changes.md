@@ -7,6 +7,21 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### Page Border: sides set from the preview (22.4)
+
+- **Missing:** a page border was always drawn on all four sides; Page Border's preview had no edge buttons, and a
+  Word page border on some sides only opened as a full box.
+- **Changed:** the page setup has `borderSides` (`page-setup.ts`, `pageSides`), kept in the app's own file (fourth
+  field of the `borderplace` mark, `header.ts`), read from the sides Word drew and written for the sides set
+  (`project.ts`). Each page draws no line on the sides left out (`pageBorderStyle`, `page-canvas.tsx`; also the
+  print frame). Page Border's preview has Word's four edge buttons (`design-dialogs.tsx`): a click turns a side off
+  or on; from None it draws that side alone; clicking the last side off leaves no border.
+- **Tests:** `page-borders.test.ts` (reads Word's two sides, writes only the setup's sides, no line on the others,
+  the app's own file), `borders-shading-dialog.test.tsx` (a side off; one side from None). All 797 pass; typecheck,
+  ESLint and Prettier clean.
+- **Checked:** headless Chrome: Dashed with Left and Right clicked off draws top and bottom only on both pages; the
+  preview shows the same.
+
 ### A Word cell's fill and pattern: Borders and Shading opens on them, and changes to them show and save (22.4)
 
 - **Wrong / missing:** in a Word document a cell's shading is drawn from Word's own cell style (`wordCell`), which

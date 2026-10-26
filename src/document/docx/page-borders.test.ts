@@ -5,7 +5,7 @@ import { openDocxBytes, saveDocxBytes } from "@/document/docx/io"
 import { findPart, openPackage, writePackage } from "@/document/docx/opc"
 import { decodeXml } from "@/document/docx/xml"
 import { emptyChrome, packDocument, unpackDocument } from "@/document/header"
-import { pageBorderInset, showsPageBorder, type PageSetup } from "@/document/page-setup"
+import { pageBorderInset, pageBorderStyle, showsPageBorder, type PageSetup } from "@/document/page-setup"
 
 const AUTHORED = path.resolve(process.cwd(), "tests/docx-fixtures/authored")
 const NAME = "f20_word_shapes.docx"
@@ -88,6 +88,34 @@ describe("page borders in .docx (22.4)", () => {
     expect(await saved(WORD_BORDERS, { borderLine: "dotted" })).toContain(
       '<w:pgBorders w:display="notFirstPage" w:offsetFrom="page"><w:top w:val="dotted" w:sz="12" w:space="24" w:color="C00000"/>',
     )
+  })
+})
+
+describe("a page border on some sides (22.4)", () => {
+  const TOP_AND_BOTTOM =
+    '<w:pgBorders w:offsetFrom="page"><w:top w:val="single" w:sz="4" w:space="24" w:color="auto"/>' +
+    '<w:bottom w:val="single" w:sz="4" w:space="24" w:color="auto"/></w:pgBorders>'
+
+  it("reads the sides Word drew, and writes only the sides the setup has", async () => {
+    expect((await withBorders(TOP_AND_BOTTOM)).view.chrome.pageSetup.borderSides).toEqual(["top", "bottom"])
+    const xml = await saved("", { border: "single", borderSides: ["left", "right"] })
+    const borders = /<w:pgBorders.*<\/w:pgBorders>/.exec(xml)?.[0] ?? ""
+    expect(borders).toContain("<w:left ")
+    expect(borders).toContain("<w:right ")
+    expect(borders).not.toContain("<w:top ")
+    expect(borders).not.toContain("<w:bottom ")
+  })
+
+  it("draws no line on the sides left out, and keeps them in the app's own file", () => {
+    const setup = { ...emptyChrome().pageSetup, border: "single" as const, borderSides: ["top" as const] }
+    expect(pageBorderStyle(setup)).toMatchObject({
+      borderRightStyle: "none",
+      borderBottomStyle: "none",
+      borderLeftStyle: "none",
+    })
+    expect(pageBorderStyle(setup)).not.toHaveProperty("borderTopStyle")
+    const chrome = { ...emptyChrome(), pageSetup: setup }
+    expect(unpackDocument(packDocument("<p>x</p>", chrome)).pageSetup.borderSides).toEqual(["top"])
   })
 })
 

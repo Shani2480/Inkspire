@@ -7,9 +7,11 @@ import {
   cmToMm,
   mmToCm,
   paperBox,
+  PAGE_SIDES,
   type BorderDisplay,
   type BorderLine,
   type PageBorder,
+  type PageSide,
   type PageSetup,
   type PaperSize,
 } from "@/document/page-setup"
@@ -22,7 +24,14 @@ import { BorderOptionsDialog } from "@/components/border-options-dialog"
 
 export type BorderPatch = Pick<
   PageSetup,
-  "border" | "borderColor" | "borderWidth" | "borderLine" | "borderDisplay" | "borderFrom" | "borderSpace"
+  | "border"
+  | "borderColor"
+  | "borderWidth"
+  | "borderLine"
+  | "borderDisplay"
+  | "borderFrom"
+  | "borderSpace"
+  | "borderSides"
 >
 
 /** The page border fields of a page setup, as the Page Border tab edits them. */
@@ -35,7 +44,15 @@ export function borderPatchOf(setup: PageSetup): BorderPatch {
     borderDisplay: setup.borderDisplay,
     borderFrom: setup.borderFrom,
     borderSpace: setup.borderSpace,
+    borderSides: setup.borderSides,
   }
+}
+
+const SIDE_LABELS: Record<PageSide, string> = {
+  top: "Top Border",
+  bottom: "Bottom Border",
+  left: "Left Border",
+  right: "Right Border",
 }
 
 /** Page Border > Apply to: one section here, so the whole document and this section are the same pages. */
@@ -223,20 +240,39 @@ export function PageBorderPanel({
         />
         <div className="mt-3">
           <p className="mb-1 text-[11px] font-semibold text-neutral-500">Preview</p>
-          <div
-            data-keep-light
-            className="mx-auto h-28 w-40 bg-white"
-            style={{
-              borderColor: draft.border === "none" ? "transparent" : draft.borderColor,
-              borderStyle: draft.border === "none" ? "none" : draft.border === "double" ? "double" : draft.borderLine,
-              borderWidth:
-                draft.border === "none"
-                  ? 0
-                  : draft.border === "double"
-                    ? Math.max(3, draft.borderWidth * 3)
-                    : draft.borderWidth * (96 / 25.4),
-            }}
-          />
+          <p className="bs-hint">Click on diagram below or use buttons to apply borders.</p>
+          <div className="bs-preview" data-keep-light aria-label="Page border preview">
+            <div
+              className="bs-page"
+              style={{
+                borderColor: draft.border === "none" ? "transparent" : draft.borderColor,
+                borderStyle: PAGE_SIDES.map((side) =>
+                  draft.border === "none" || !draft.borderSides.includes(side)
+                    ? "none"
+                    : draft.border === "double"
+                      ? "double"
+                      : draft.borderLine,
+                ).join(" "),
+                borderWidth:
+                  draft.border === "none"
+                    ? 0
+                    : draft.border === "double"
+                      ? Math.max(3, draft.borderWidth * 3)
+                      : draft.borderWidth * (96 / 25.4),
+              }}
+            />
+            {PAGE_SIDES.map((side) => (
+              <button
+                key={side}
+                type="button"
+                className={`bs-edge bs-edge-${side}`}
+                aria-label={SIDE_LABELS[side]}
+                title={SIDE_LABELS[side]}
+                aria-pressed={draft.border !== "none" && draft.borderSides.includes(side)}
+                onClick={() => setDraft((current) => toggleSide(current, side))}
+              />
+            ))}
+          </div>
         </div>
         <div className="bs-apply-row mt-3">
           <label className="bs-apply">
@@ -278,6 +314,22 @@ export function PageBorderPanel({
         : null}
     </div>
   )
+}
+
+/**
+ * A click on one side in Page Border's preview: off when it is drawn, on when it is not. With no border, the side is
+ * drawn alone, in a single line; the last side clicked off leaves no border.
+ */
+function toggleSide(current: BorderPatch, side: PageSide): BorderPatch {
+  if (current.border === "none") {
+    return { ...current, border: "single", borderSides: [side] }
+  }
+  const sides = current.borderSides.includes(side)
+    ? current.borderSides.filter((item) => item !== side)
+    : PAGE_SIDES.filter((item) => item === side || current.borderSides.includes(item))
+  return sides.length === 0
+    ? { ...current, border: "none", borderSides: PAGE_SIDES }
+    : { ...current, borderSides: sides }
 }
 
 function PageSetupDialog({

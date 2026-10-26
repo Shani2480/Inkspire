@@ -9,6 +9,7 @@ import {
   borderDisplay,
   borderLine,
   borderSpace,
+  pageSides,
   effectPreset,
   pageBorder,
   pageNumberPlace,
@@ -84,7 +85,7 @@ export function packDocument(html: string, chrome: DocumentChrome) {
     chrome.pageSetup.borderLine === "solid" ? "" : `<!-- aiword-borderline:${chrome.pageSetup.borderLine} -->`,
     chrome.pageSetup.border === "none"
       ? ""
-      : `<!-- aiword-borderplace:${chrome.pageSetup.borderDisplay},${chrome.pageSetup.borderFrom},${chrome.pageSetup.borderSpace.join(" ")} -->`,
+      : `<!-- aiword-borderplace:${chrome.pageSetup.borderDisplay},${chrome.pageSetup.borderFrom},${chrome.pageSetup.borderSpace.join(" ")},${chrome.pageSetup.borderSides.join(" ")} -->`,
     chrome.pageSetup.pageColor ? `<!-- aiword-pagecolor:${encodeURIComponent(chrome.pageSetup.pageColor)} -->` : "",
     chrome.pageSetup.pageNumber === "bottom-center" ? "" : `<!-- aiword-pagenum:${chrome.pageSetup.pageNumber} -->`,
     chrome.pageSetup.hyphenation ? "<!-- aiword-hyphens:1 -->" : "",
@@ -178,13 +179,14 @@ export function unpackDocument(raw: string) {
     } else if (match[1] === "borderline") {
       chrome.pageSetup = { ...chrome.pageSetup, borderLine: borderLine(value) }
     } else if (match[1] === "borderplace") {
-      const [display, from, space] = value.split(",")
+      const [display, from, space, sides] = value.split(",")
       borderPlaced = true
       chrome.pageSetup = {
         ...chrome.pageSetup,
         borderDisplay: borderDisplay(display),
         borderFrom: from === "text" ? "text" : "page",
         borderSpace: borderSpace(String(space ?? "").split(" ")) ?? DEFAULT_PAGE_SETUP.borderSpace,
+        borderSides: pageSides(sides),
       }
     } else if (match[1] === "pagecolor") {
       chrome.pageSetup = { ...chrome.pageSetup, pageColor: /^#[0-9a-fA-F]{6}$/.test(value) ? value : "" }

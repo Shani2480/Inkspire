@@ -14,7 +14,7 @@ import { ChromeBox, useChromePart } from "@/components/chrome-editors"
 import { chromeHasContent, chromeHasPageField } from "@/document/chrome-html"
 import { useActiveChromeEditor } from "@/document/chrome-editing"
 import { chromeText } from "@/document/chrome-html"
-import { applyPageChrome, pageBorderInset, pageMetrics, showsPageBorder } from "@/document/page-setup"
+import { applyPageChrome, pageBorderStyle, pageMetrics, showsPageBorder } from "@/document/page-setup"
 import { useDocumentStore } from "@/document/store"
 import { clampZoom, useViewStore } from "@/document/view"
 import { useBodyEditor } from "@/editor/document-editor"
@@ -468,11 +468,7 @@ export function PageCanvas() {
                   ))
                 : null}
               {showsPageBorder(pageSetup, index) ? (
-                <div
-                  className="page-border"
-                  data-border={pageSetup.border}
-                  style={{ borderColor: pageSetup.borderColor, ...pageBorderInset(pageSetup) }}
-                />
+                <div className="page-border" data-border={pageSetup.border} style={pageBorderStyle(pageSetup)} />
               ) : null}
             </div>
           ))}
@@ -482,11 +478,7 @@ export function PageCanvas() {
             </div>
           ) : null}
           {pageSetup.border !== "none" && pageSetup.borderDisplay === "all" ? (
-            <div
-              className="print-frame"
-              data-border={pageSetup.border}
-              style={{ borderColor: pageSetup.borderColor }}
-            />
+            <div className="print-frame" data-border={pageSetup.border} style={pageBorderStyle(pageSetup, false)} />
           ) : null}
           <EditorContent editor={editor} />
           {editor ? <CommentMarkers /> : null}
