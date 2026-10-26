@@ -1539,7 +1539,10 @@ Part 1 is implementation work (bugs and features). Part 2 is discovery: analyse 
   - **Not done:** a live run with the real engine and model (needs the download; see below), macOS and Windows builds of the engine, more model tiers (a 7B needs a split-file download), GPU choice (the first Vulkan device is used), a chat template or context size per model (8192 tokens), and the older Ollama and key-based providers did not get new streaming tests. **Follow-up (2026-10-26).** Streamed
     replies were decoded per network chunk, so a character split between two chunks came out as "��"; the parser now
     keeps bytes and decodes whole lines. Ollama and Anthropic streams now have tests across chunks (split characters,
-    pings, `\r\n`, an error mid-stream).
+    pings, `\r\n`, an error mid-stream) Each built-in model now has its own context size (16K tokens for the three Qwen2.5 models,
+    `ModelInfo.context`), and a request over any provider's window says the text is too long and what to do. The 7B
+    tier was already listed (one file, 4.7 GB). Still not done: the live run, macOS and Windows engines, GPU choice,
+    a chat template per model (llama-server uses the one in the GGUF).
 
 #### 21.27 — Add-ins
 

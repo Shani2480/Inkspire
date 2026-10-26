@@ -113,6 +113,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **Built-in engine context (21.26, 2026-10-26)** — with the built-in engine downloaded, rewrite a long section
+      (about 20,000 characters): it answers instead of failing; `engine.log` shows `n_ctx = 16384`.
 - [ ] **AI reply in Hebrew or with accents (21.26, 2026-10-26)** — ask any provider to rewrite a paragraph in Hebrew
       (or French): the inserted text has no "�" in it.
 - [ ] **3D Model Views tiles in the desktop webview (22.15, 2026-10-26)** — the tiles are drawn with WebGL; check

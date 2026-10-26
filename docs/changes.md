@@ -7,6 +7,18 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### Built-in engine: a context size per model, and a plain message when the text is too long (21.26)
+
+- **Missing:** every built-in model ran with an 8,192-token window, while the app sends up to 24,000 characters of
+  context. In Hebrew and other scripts that take more tokens per character, or with a long reply, the request
+  overflowed and llama-server's raw "exceeds the available context size" was shown.
+- **Changed:** each model in `local_ai.rs` has its own `context` (16,384 tokens for the three Qwen2.5 models, which
+  take 32K; the cache stays under about a gigabyte even for 7B), passed to `llama-server -c`. A request over any
+  provider's window (llama.cpp, OpenAI-style "maximum context length", Anthropic and Ollama "prompt is too long") now
+  reads "The text is too long for this model. Select a shorter part of the document, or choose a model with a larger
+  context in AI Settings." (`provider_message` in `ai.rs`). Tests: server arguments carry the model's context; the
+  three error shapes map to the message and others pass through.
+
 ### AI replies no longer garble a character split between network chunks (21.26)
 
 - **Bug:** the streamed reply was decoded chunk by chunk (`String::from_utf8_lossy` on each network chunk in
