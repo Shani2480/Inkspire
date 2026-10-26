@@ -51,4 +51,15 @@ describe("the ribbon tab animation (21.40)", () => {
     vi.advanceTimersByTime(100)
     expect(card.dataset.tabMotion).toBeUndefined()
   })
+
+  it("stays still in the Linux desktop app, whose webview replays a frame of it after it has settled", () => {
+    document.documentElement.setAttribute("data-no-entrance", "")
+    try {
+      const { card, start } = setup()
+      start()
+      expect(card.dataset.tabMotion).toBeUndefined()
+    } finally {
+      document.documentElement.removeAttribute("data-no-entrance")
+    }
+  })
 })

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, type RefObject } from "react"
+import { prefersReducedMotion } from "@/document/motion"
 
 /** How long a tab's commands take to settle, in ms; the same as `--motion-tab` in the stylesheet. */
 export const TAB_MOTION_MS = 150
@@ -19,7 +20,7 @@ export function useTabMotion(card: RefObject<HTMLElement | null>) {
 
   const start = useCallback(() => {
     const element = card.current
-    if (!element) {
+    if (!element || prefersReducedMotion()) {
       return
     }
     window.clearTimeout(timer.current)

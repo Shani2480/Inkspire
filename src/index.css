@@ -332,7 +332,7 @@ html.is-maximized .app-window-frame,
   border-radius: 3px 3px 0 0;
   background: transparent;
   opacity: 1;
-  transition: background-color 120ms ease;
+  /* Moves to the chosen tab at once, with its commands, as Word's does; a fade left it trailing them. */
 }
 
 .app-ribbon [data-slot="tabs-trigger"]:hover {
@@ -10285,6 +10285,27 @@ html.dark .asset-library .asset-library-icon {
   .ribbon-card[data-tab-motion="waiting"] [data-slot="tabs-content"] {
     opacity: 1;
   }
+}
+
+/*
+ * The same, in the Linux desktop app (data-no-entrance, main.tsx): WebKitGTK shows the content in place first and then
+ * replays a frame of the animation's start after it has settled, a jump in every tab switch, menu and dialog.
+ */
+:root[data-no-entrance]
+  :is(
+    .ribbon-card [data-slot="tabs-content"],
+    .backstage .backstage-nav,
+    .backstage .backstage-content,
+    .spell-menu,
+    .object-menu,
+    .mini-menu,
+    .line-menu-sub,
+    .word-dialog
+  ) {
+  animation: none;
+}
+:root[data-no-entrance] [data-slot="popover-content"].ribbon-menu {
+  transition: none;
 }
 
 /* Format 3D Model */
