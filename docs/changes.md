@@ -7,6 +7,32 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Launch, File view and ribbon tab switches no longer stutter (desktop app)
+
+- **Bug** (from the screencast `screenshots/Screencast_20261026_205830.mp4`):
+  - At launch, an empty grey splash card with "Starting..." showed before its picture.
+  - Then for about a third of a second the splash, the start screen and the editor were drawn through one another:
+    a grey ghost of the start screen over the document, and a stale splash frame.
+  - Closing the File view after Blank document showed it half transparent, with the page as a pale box through it.
+  - Switching ribbon tabs lagged: the new tab was built from scratch on every switch, 30-116 ms in Chrome and
+    several times that in WebKitGTK.
+- **Changed:**
+  - The splash card stays hidden until its picture loads, and the splash goes the moment the app is ready instead
+    of fading out over the start screen (`splash-screen.tsx`, `index.css`).
+  - The File view covers the window at once; only its pane and page slide in. The start screen the app opens on
+    has no motion at all (`is-instant`), and closing is instant, as in Word (`backstage.tsx`; the whole-window fade
+    in and `motion-slide-out` are gone).
+  - The ten main ribbon tabs stay built once shown, hidden behind the one in front (`Activity` and `keepMounted` in
+    `ribbon.tsx`), and the rest are built while the app is idle after launch. Each is wrapped in `memo`, so the
+    hidden ones never draw while typing. The ribbon scroll buttons now watch the toolbar of the tab in front. The
+    tab content keeps its compositing layer, like dialogs and menus, so the end of the slide-in does not blink.
+- **Checked:** headless Chrome: a tab switch is now one frame (16-25 ms to paint, from 31-116 ms). At launch the
+  splash card is hidden while empty, then shows its picture, then the start screen appears at full opacity with no
+  animation. File opened later runs only the pane and page slides; Escape removes it at once. Typing 135 characters costs about 0.6 ms
+  more per keystroke in browser style work from the larger hidden ribbon DOM (no script runs for the hidden tabs).
+  2 new splash tests; 842 tests pass.
+- **Open:** confirm in the desktop app (verify-list).
+
 ### A pill over a table's last row on hover (desktop app)
 
 - **Bug:** hovering over a table's last row showed a rounded "pill" box that did nothing when clicked. It was the
