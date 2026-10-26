@@ -297,7 +297,7 @@ function EnginePanel() {
       <p>
         {status.backend === "vulkan"
           ? "Uses your graphics card (Vulkan)."
-          : "Uses your processor. No Vulkan graphics card was found, so it will be slower."}
+          : "Uses your processor. A separate graphics card would be faster; one built into the processor is not."}
       </p>
       <label className="flex items-center gap-2">
         <span className="w-20 shrink-0">Model</span>

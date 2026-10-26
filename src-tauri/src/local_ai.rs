@@ -149,17 +149,38 @@ fn supported_here() -> Result<&'static str, String> {
 
 // --- Which build to run ---------------------------------------------------------------------------------------
 
-/// Whether there is a real Vulkan GPU to use: the loader library, a GPU render node, and at least one driver (ICD)
-/// that is not a software renderer (llvmpipe), which would be slower than the CPU build.
-pub fn vulkan_available_in(lib_dirs: &[PathBuf], icd_dirs: &[PathBuf], render_dir: &Path) -> bool {
+/// Video memory below which a GPU is taken as integrated: an APU reports only its small carve-out (512 MB on a
+/// Radeon 680M), a discrete card its real memory.
+const DISCRETE_VRAM: u64 = 4 << 30;
+
+/// Whether a render node (`/sys/class/drm/renderD*`) is a discrete GPU: NVIDIA (its driver does not report the
+/// memory), or any card with at least 4 GB of its own memory. Integrated graphics share the computer's memory, so the
+/// GPU build is no faster than the CPU one there, and on some drivers (RADV on a Radeon 680M) it writes garbage.
+fn is_discrete_gpu(node: &Path) -> bool {
+    let device = node.join("device");
+    let vendor = std::fs::read_to_string(device.join("vendor")).unwrap_or_default();
+    if vendor.trim() == "0x10de" {
+        return true;
+    }
+    std::fs::read_to_string(device.join("mem_info_vram_total"))
+        .ok()
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .is_some_and(|bytes| bytes >= DISCRETE_VRAM)
+}
+
+/// Whether there is a real Vulkan GPU worth using: the loader library, a discrete GPU (see `is_discrete_gpu`; the
+/// render nodes are read from `drm_dir`, `/sys/class/drm`), and at least one driver (ICD) that is not a software
+/// renderer (llvmpipe), which would be slower than the CPU build.
+pub fn vulkan_available_in(lib_dirs: &[PathBuf], icd_dirs: &[PathBuf], drm_dir: &Path) -> bool {
     let loader = lib_dirs
         .iter()
         .any(|dir| dir.join("libvulkan.so.1").exists() || dir.join("libvulkan.so").exists());
-    let has_gpu = std::fs::read_dir(render_dir)
+    let has_gpu = std::fs::read_dir(drm_dir)
         .map(|entries| {
-            entries
-                .flatten()
-                .any(|entry| entry.file_name().to_string_lossy().starts_with("renderD"))
+            entries.flatten().any(|entry| {
+                entry.file_name().to_string_lossy().starts_with("renderD")
+                    && is_discrete_gpu(&entry.path())
+            })
         })
         .unwrap_or(false);
     let driver = icd_dirs.iter().any(|dir| {
@@ -207,7 +228,7 @@ pub fn vulkan_available() -> bool {
     } else if let Some(home) = std::env::var_os("HOME") {
         icds.push(PathBuf::from(home).join(".local/share/vulkan/icd.d"));
     }
-    vulkan_available_in(&libs, &icds, Path::new("/dev/dri"))
+    vulkan_available_in(&libs, &icds, Path::new("/sys/class/drm"))
 }
 
 /// The build to use: Vulkan when the GPU is there and it has not already failed to start here, else the CPU build.
@@ -232,11 +253,11 @@ fn root(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(dir)
 }
 
-fn engine_dir(root: &Path, backend: Backend) -> PathBuf {
+pub fn engine_dir(root: &Path, backend: Backend) -> PathBuf {
     root.join(format!("engine-{ENGINE_TAG}-{}", backend.name()))
 }
 
-fn models_dir(root: &Path) -> PathBuf {
+pub fn models_dir(root: &Path) -> PathBuf {
     root.join("models")
 }
 
@@ -512,9 +533,6 @@ async fn install(
     model: &'static ModelInfo,
 ) -> Result<(), String> {
     let root = root(app)?;
-    let backend = pick_backend(vulkan_available(), failed_marker(&root).exists());
-    let asset = engine_asset(arch, backend)
-        .ok_or_else(|| "No engine build for this computer.".to_string())?;
     let emit = |stage: &'static str, label: &str, received: u64, total: u64| {
         let _ = app.emit(
             "local-ai-progress",
@@ -526,8 +544,22 @@ async fn install(
             },
         );
     };
+    install_into(&root, arch, model, &emit).await
+}
 
-    let engine = engine_dir(&root, backend);
+/// Downloads the engine (when this computer's build is not there yet) and the model into `root`, checked against
+/// their pinned SHA-256, reporting progress as (stage, label, received, total).
+pub async fn install_into(
+    root: &Path,
+    arch: &str,
+    model: &'static ModelInfo,
+    emit: &(dyn Fn(&'static str, &str, u64, u64) + Sync),
+) -> Result<(), String> {
+    let backend = pick_backend(vulkan_available(), failed_marker(root).exists());
+    let asset = engine_asset(arch, backend)
+        .ok_or_else(|| "No engine build for this computer.".to_string())?;
+
+    let engine = engine_dir(root, backend);
     if find_server(&engine).is_none() {
         let archive = root.join(asset.file);
         let url = format!(
@@ -555,7 +587,7 @@ async fn install(
     download_file(
         download_client(),
         model.url,
-        &models_dir(&root).join(model.file),
+        &models_dir(root).join(model.file),
         model.sha256,
         model.size,
         &CANCEL_INSTALL,
@@ -837,6 +869,16 @@ mod tests {
         std::fs::write(dir.join(name), b"x").unwrap();
     }
 
+    /// A fake `/sys/class/drm/renderD128` for a GPU from `vendor` with `vram` bytes of its own (none: not reported).
+    fn fake_gpu(drm: &Path, vendor: &str, vram: Option<u64>) {
+        let device = drm.join("renderD128/device");
+        std::fs::create_dir_all(&device).unwrap();
+        std::fs::write(device.join("vendor"), format!("{vendor}\n")).unwrap();
+        if let Some(bytes) = vram {
+            std::fs::write(device.join("mem_info_vram_total"), format!("{bytes}\n")).unwrap();
+        }
+    }
+
     #[test]
     fn vulkan_needs_the_loader_a_gpu_and_a_hardware_driver() {
         let tmp = tempfile::tempdir().unwrap();
@@ -847,7 +889,7 @@ mod tests {
         );
         touch_file(&lib, "libvulkan.so.1");
         touch_file(&icd, "radeon_icd.x86_64.json");
-        touch_file(&dri, "renderD128");
+        fake_gpu(&dri, "0x1002", Some(8 << 30));
         assert!(vulkan_available_in(&[lib.clone()], &[icd.clone()], &dri));
         // Each missing piece turns it off.
         assert!(!vulkan_available_in(
@@ -877,8 +919,30 @@ mod tests {
         );
         touch_file(&lib, "libvulkan.so.1");
         touch_file(&icd, "lvp_icd.x86_64.json");
-        touch_file(&dri, "renderD128");
+        fake_gpu(&dri, "0x1002", Some(8 << 30));
         assert!(!vulkan_available_in(&[lib], &[icd], &dri));
+    }
+
+    #[test]
+    fn integrated_graphics_use_the_cpu_build() {
+        let check = |vendor: &str, vram: Option<u64>| {
+            let tmp = tempfile::tempdir().unwrap();
+            let (lib, icd, drm) = (
+                tmp.path().join("lib"),
+                tmp.path().join("icd"),
+                tmp.path().join("drm"),
+            );
+            touch_file(&lib, "libvulkan.so.1");
+            touch_file(&icd, "radeon_icd.x86_64.json");
+            fake_gpu(&drm, vendor, vram);
+            vulkan_available_in(&[lib], &[icd], &drm)
+        };
+        // A Radeon 680M APU reports its 512 MB carve-out; an Intel iGPU reports nothing.
+        assert!(!check("0x1002", Some(512 << 20)));
+        assert!(!check("0x8086", None));
+        // A discrete Radeon, and NVIDIA (whose driver does not report the memory).
+        assert!(check("0x1002", Some(16 << 30)));
+        assert!(check("0x10de", None));
     }
 
     #[test]

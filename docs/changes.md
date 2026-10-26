@@ -7,6 +7,27 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### Built-in engine run live: CPU build on integrated graphics, and a cap on reply length (21.26)
+
+- **Found in the first live run** (Linux x86-64, AMD Radeon 680M, RADV, Mesa 26.2): the app's own download resumed a
+  half-finished model and verified it, and the Vulkan engine started in 2 s and rewrote English correctly. But a
+  Hebrew translation came back as "????…" and never ended: there was no limit on the reply, so it ran for minutes
+  until the context was full. The same request on the CPU path ended properly, and the GPU path was no faster
+  (12.3 against 11.2 tokens/s) because integrated graphics share the computer's memory. A newer llama.cpp (b11671)
+  on the same GPU was worse.
+- **Changed:** the Vulkan build is chosen only for a discrete GPU: NVIDIA, or a card reporting at least 4 GB of its
+  own memory (`is_discrete_gpu` in `local_ai.rs`, read from `/sys/class/drm/renderD*/device`; an APU reports only
+  its carve-out, 512 MB here). Every request to the built-in engine and to compatible endpoints asks for at most
+  4,096 tokens (`max_tokens`), and Ollama for the same (`num_predict`); OpenAI is left alone, as its newer models
+  reject `max_tokens`. AI Settings no longer says "No Vulkan graphics card was found" on the CPU build. `install` is
+  split so its body (`install_into`) runs from a folder, and an ignored live test (`live_builtin_engine` in `ai.rs`)
+  downloads, verifies, starts and streams through the app's own code.
+- **Live results after the change (CPU build):** the engine archive (16 MB) installed in 2 s and started in 2 s;
+  Qwen2.5 3B: formal rewrite in 4.0 s, a translation in 3.4 s, both ending by themselves; Qwen2.5 7B: started in
+  6.7 s, rewrite in 7.2 s, Hebrew translation in 4.2 s (mostly Hebrew; the 3B model mixes other scripts in, which is
+  the model's limit, not the app's). Tests: integrated graphics use the CPU build (Radeon APU, Intel), a discrete
+  Radeon and NVIDIA use Vulkan; the request body carries the cap.
+
 ### Built-in engine: a context size per model, and a plain message when the text is too long (21.26)
 
 - **Missing:** every built-in model ran with an 8,192-token window, while the app sends up to 24,000 characters of

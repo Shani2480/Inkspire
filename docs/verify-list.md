@@ -113,6 +113,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **Built-in engine on a discrete GPU (21.26, 2026-10-26)** — on a computer with an NVIDIA card or a Radeon with
+      4 GB or more, AI Settings says the engine uses the graphics card, and a Hebrew translation is real text that
+      ends (not "????"). On integrated graphics it says "Uses your processor".
 - [ ] **Built-in engine context (21.26, 2026-10-26)** — with the built-in engine downloaded, rewrite a long section
       (about 20,000 characters): it answers instead of failing; `engine.log` shows `n_ctx = 16384`.
 - [ ] **AI reply in Hebrew or with accents (21.26, 2026-10-26)** — ask any provider to rewrite a paragraph in Hebrew

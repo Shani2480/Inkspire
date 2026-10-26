@@ -9,7 +9,7 @@ export type LocalModel = { id: string; label: string; size: number; installed: b
 export type LocalStatus = {
   supported: boolean
   reason: string
-  /** The build that will run: "vulkan" on a machine with a real Vulkan GPU, otherwise "cpu". */
+  /** The build that will run: "vulkan" on a machine with a discrete Vulkan GPU, otherwise "cpu". */
   backend: "vulkan" | "cpu"
   vulkan: boolean
   engineInstalled: boolean
