@@ -95,6 +95,15 @@ describe("paragraph borders and fill in .docx (21.30)", () => {
     expect(view.html).toContain('data-border-shadow="1"')
   })
 
+  it("writes Word's 3-D setting as the frame effect, after the shadow, and opens it again (22.4)", async () => {
+    const { bytes, xml } = await save({ border: "all", borderPen: "2px solid #000000", borderFrame: true })
+    expect(xml).toContain('<w:left w:val="single" w:sz="12" w:space="4" w:color="000000" w:frame="1"/>')
+    expect(xml.match(/w:frame="1"/g)).toHaveLength(4)
+    const { view } = await openDocxBytes(bytes, "t.docx")
+    expect(view.html).toContain('data-border-frame="1"')
+    expect((await save({ border: "all" })).xml).not.toContain("w:frame")
+  })
+
   it("keeps the app's own line as no pen, so a border made in the app opens as it was made", async () => {
     const { bytes, xml } = await save({ border: "bottom" })
     expect(xml).not.toContain("w:shadow")

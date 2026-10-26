@@ -27,6 +27,8 @@ export type BlockFormat = {
   borderPen: string | null
   /** Word's Shadow setting: the border casts a shadow to the bottom right. */
   borderShadow: boolean
+  /** Word's 3-D setting: the border's frame effect. */
+  borderFrame: boolean
   /** The gap between the text and each side, in points ("top right bottom left"); null for Word's 1, 4, 1, 4. */
   borderSpace: string | null
   /** The editor's paragraph fill as #rrggbb; null for none. */
@@ -57,6 +59,7 @@ export const PLAIN_BLOCK: BlockFormat = {
   border: null,
   borderPen: null,
   borderShadow: false,
+  borderFrame: false,
   borderSpace: null,
   shading: null,
   shadingPattern: null,
@@ -88,7 +91,7 @@ const GROUPS: (keyof BlockFormat)[][] = [
   ["dontHyphenate"],
   ["mirrorIndents"],
   ["tightWrap"],
-  ["border", "borderPen", "borderShadow", "borderSpace"],
+  ["border", "borderPen", "borderShadow", "borderFrame", "borderSpace"],
   ["shading", "shadingPattern"],
 ]
 
@@ -143,6 +146,7 @@ export function blockFromProperties(pPr: ParagraphProperties): BlockFormat {
   block.borderPen = penOfProperties(pPr.borders)
   block.borderSpace = spaceOfProperties(pPr.borders)
   block.borderShadow = BORDER_SIDES.some((side) => drawn(pPr.borders?.[side]) && pPr.borders?.[side]?.shadow)
+  block.borderFrame = BORDER_SIDES.some((side) => drawn(pPr.borders?.[side]) && pPr.borders?.[side]?.frame)
   block.shading = shadingOfProperties(pPr.shading)
   block.shadingPattern = shadingPatternOf(pPr.shading)
   return block
@@ -215,7 +219,7 @@ function paragraphFill(css: unknown): string | null {
 }
 
 function bordersFromBlock(block: BlockFormat): ParagraphProperties["borders"] {
-  const { border, borderPen: pen, borderShadow: shadow } = block
+  const { border, borderPen: pen, borderShadow: shadow, borderFrame: frame } = block
   if (!border || border === "none") {
     return undefined
   }
@@ -229,7 +233,7 @@ function bordersFromBlock(block: BlockFormat): ParagraphProperties["borders"] {
       const index = BORDER_SIDES.indexOf(side)
       // w:space is whole points, at most 31.
       const space = Math.min(31, Math.max(0, Math.round(gaps.length === 4 ? gaps[index] : DEFAULT_SPACE[index])))
-      return [side, { ...line, space, ...(shadow ? { shadow: true } : {}) }]
+      return [side, { ...line, space, ...(shadow ? { shadow: true } : {}), ...(frame ? { frame: true } : {}) }]
     }),
   )
 }
@@ -299,6 +303,9 @@ export function blockHtmlAttributes(block: BlockFormat, key?: string) {
   if (block.borderShadow) {
     data.push(`data-border-shadow="1"`)
   }
+  if (block.borderFrame) {
+    data.push(`data-border-frame="1"`)
+  }
   if (block.borderSpace) {
     data.push(`data-border-space="${block.borderSpace}"`)
   }
@@ -356,6 +363,7 @@ export function blockFromAttrs(attrs: Record<string, unknown> | undefined): Bloc
     border: text("border", "") && text("border", "") !== "none" ? text("border", "") : null,
     borderPen: text("borderPen", "") || null,
     borderShadow: value.borderShadow === true,
+    borderFrame: value.borderFrame === true,
     borderSpace: text("borderSpace", "") || null,
     shading: paragraphFill(value.shading),
     shadingPattern: patternOf(value.shadingPattern) ? text("shadingPattern", "") : null,

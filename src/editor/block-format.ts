@@ -94,6 +94,13 @@ export function blockFormatAttributes() {
       renderHTML: (attributes: { borderShadow?: boolean }) =>
         attributes.borderShadow ? { "data-border-shadow": "1" } : {},
     },
+    /** Word's 3-D border setting: the frame effect, drawn here as the box (22.4). */
+    borderFrame: {
+      default: false,
+      parseHTML: (element: HTMLElement) => element.getAttribute("data-border-frame") === "1",
+      renderHTML: (attributes: { borderFrame?: boolean }) =>
+        attributes.borderFrame ? { "data-border-frame": "1" } : {},
+    },
     spaceBefore: {
       default: null as number | null,
       parseHTML: (element: HTMLElement) => pointValue(element.style.marginTop.replace("pt", "")),
