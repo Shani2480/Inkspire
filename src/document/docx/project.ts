@@ -3,7 +3,7 @@ import type { DocumentChrome } from "@/document/header"
 import { emptyChrome } from "@/document/header"
 import { chromeHasContent, chromeHasPageField } from "@/document/chrome-html"
 import { chromeJson } from "@/document/chrome-json"
-import { bordersOf, shadingOf } from "@/document/docx/cell-edits"
+import { bordersOf, shadingOf, sidePensOf } from "@/document/docx/cell-edits"
 import { cellCss, tableLookTokens, tableVariables, themeFontsOf } from "@/document/docx/word-styles"
 import type { PageSetup, PaperSize, SectionStart } from "@/document/page-setup"
 import { DEFAULT_PAGE_SETUP } from "@/document/page-setup"
@@ -1437,7 +1437,7 @@ function tableFromNode(node: JsonNode, build: Build): Table {
 /** The fill and borders the person gave a cell in the editor. */
 function shadedAndBordered(attrs: JsonNode["attrs"]) {
   const shading = shadingOf(attrs?.backgroundColor, attrs?.shadingPattern)
-  const borders = bordersOf(attrs?.borders, attrs?.borderPen)
+  const borders = bordersOf(attrs?.borders, attrs?.borderPen, sidePensOf(attrs?.sidePens))
   return {
     ...(shading ? { shading } : {}),
     ...(borders ? { look: { borders } } : {}),

@@ -7,6 +7,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Table Grid border (22.4, 2026-10-26)** — a table set to Grid at 3 pt in the app opens in Word with the thick
+      outside and ½ pt inside lines.
 - [ ] **Paragraph 3-D border (22.4, 2026-10-26)** — a paragraph set to 3-D in the app opens in Word with Borders and
       Shading showing 3-D; a Word paragraph set to 3-D keeps it after an edit and save in the app.
 - [ ] **Cell shading patterns (22.4, 2026-10-26)** — cells given yellow + red Dk Up Diagonal, 25% and Lt Grid in the
@@ -46,6 +48,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [x] **Grid setting in Borders and Shading (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **3-D setting in Borders and Shading (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Cell shading patterns (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome (light).
 - [x] **Right-click in a table keeps to the cell (2026-10-26)** — checked 2026-10-26 in headless Chrome.

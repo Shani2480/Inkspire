@@ -1,3 +1,4 @@
+import { sidePensOf, sidePensValue } from "@/document/docx/cell-edits"
 import { patternImage, patternOf } from "@/document/docx/shading-pattern"
 import type { Editor } from "@tiptap/core"
 import { Table, TableCell, TableHeader, TableRow, TableView } from "@tiptap/extension-table"
@@ -44,6 +45,26 @@ const borderPen = {
           style: `--cell-border: ${attributes.borderPen}; --cell-border-color: ${attributes.borderPen.split(" ")[2] ?? "#404040"}`,
         }
       : {},
+}
+
+/**
+ * Lines on some sides of a cell drawn with a pen of their own, over `borderPen` (as Borders and Shading's Grid draws
+ * the inside lines thinner than the outside): "top=0.67px solid #404040;left=…".
+ */
+const sidePens = {
+  default: null as string | null,
+  parseHTML: (element: HTMLElement) => element.getAttribute("data-side-pens") || null,
+  renderHTML: (attributes: { sidePens?: string | null }) => {
+    const pens = sidePensOf(attributes.sidePens)
+    const sides = SIDES.filter((side) => pens[side])
+    if (sides.length === 0) {
+      return {}
+    }
+    return {
+      "data-side-pens": attributes.sidePens,
+      style: sides.map((side) => `--cell-border-${side}: ${pens[side]}`).join("; "),
+    }
+  },
 }
 
 const textDir = {
@@ -282,6 +303,7 @@ export const ShadedTableCell = TableCell.extend({
       shadingPattern,
       borders,
       borderPen,
+      sidePens,
       textDir,
       valign,
       wordCell,
@@ -297,6 +319,7 @@ export const ShadedTableHeader = TableHeader.extend({
       shadingPattern,
       borders,
       borderPen,
+      sidePens,
       textDir,
       valign,
       wordCell,
@@ -674,6 +697,7 @@ export function applyBorders(editor: Editor, kind: BorderKind, pen: BorderPen = 
       ...node.attrs,
       borders: next,
       borderPen: kind === "none" ? null : line,
+      sidePens: null,
     })
   })
   editor.view.dispatch(tr)
@@ -715,7 +739,13 @@ function scopedCells(editor: Editor, scope: TableScope) {
  * replacing what was there: an edge between two cells follows `insideH` / `insideV`, an edge on the outside of the
  * selection follows its own side. The pen applies to every line drawn.
  */
-export function setBordersOnCells(editor: Editor, scope: TableScope, edges: Set<BorderEdge>, pen: BorderPen): boolean {
+export function setBordersOnCells(
+  editor: Editor,
+  scope: TableScope,
+  edges: Set<BorderEdge>,
+  pen: BorderPen,
+  insidePen?: BorderPen,
+): boolean {
   const found = scopedCells(editor, scope)
   if (!found) {
     return false
@@ -727,6 +757,7 @@ export function setBordersOnCells(editor: Editor, scope: TableScope, edges: Set<
   const left = Math.min(...rects.map((rect) => rect.left))
   const right = Math.max(...rects.map((rect) => rect.right))
   const line = penLine(pen)
+  const insideLine = insidePen ? penLine(insidePen) : line
   let tr = editor.state.tr
   offsets.forEach((offset, index) => {
     const rect = rects[index]
@@ -741,10 +772,21 @@ export function setBordersOnCells(editor: Editor, scope: TableScope, edges: Set<
     if (edges.has(rect.right === right ? "right" : "insideV")) sides.add("right")
     const diagonals = new Set<Diagonal>(DIAGONALS.filter((name) => edges.has(name)))
     const value = bordersValue(sides, diagonals)
+    // The lines between cells take the inside pen, when there is one (Grid).
+    const inside: Record<Side, boolean> = {
+      top: rect.top !== top,
+      bottom: rect.bottom !== bottom,
+      left: rect.left !== left,
+      right: rect.right !== right,
+    }
+    const pens = insidePen
+      ? Object.fromEntries(SIDES.filter((side) => sides.has(side) && inside[side]).map((side) => [side, insideLine]))
+      : {}
     tr = tr.setNodeMarkup(table.start + offset, undefined, {
       ...node.attrs,
       borders: value ?? "none",
       borderPen: value ? line : null,
+      sidePens: sidePensValue(pens),
     })
   })
   editor.view.dispatch(tr)
@@ -829,6 +871,19 @@ export function readScopedBorders(editor: Editor, scope: TableScope) {
     }
   }
   const pen = cells.map((cell) => parsePen(cell.attrs.borderPen)).find(Boolean) ?? DEFAULT_PEN
+  // The pen of the lines between cells, when it is not the outside one (Grid).
+  const insidePens = cells.flatMap((cell) => {
+    const pens = sidePensOf(cell.attrs.sidePens)
+    return (["top", "left"] as const)
+      .filter((side) => (side === "top" ? cell.rect.top !== top : cell.rect.left !== left) && cell.sides.has(side))
+      .map((side) => parsePen(pens[side] ?? cell.attrs.borderPen))
+  })
+  const insidePen =
+    insidePens.length > 0 &&
+    insidePens.every((item) => item && penLine(item) === penLine(insidePens[0]!)) &&
+    penLine(insidePens[0]!) !== penLine(pen)
+      ? insidePens[0]!
+      : null
   const fills = new Set(
     cells.map((cell) => (typeof cell.attrs.backgroundColor === "string" ? cell.attrs.backgroundColor : null)),
   )
@@ -838,6 +893,7 @@ export function readScopedBorders(editor: Editor, scope: TableScope) {
   return {
     edges,
     pen,
+    insidePen,
     fill: fills.size === 1 ? [...fills][0] : null,
     pattern: patterns.size === 1 ? patternOf([...patterns][0]) : null,
   }
@@ -924,11 +980,14 @@ export function paintCellEdge(editor: Editor, x: number, y: number, pen: BorderP
   const diagonals = node.attrs.borders === "none" ? new Set<Diagonal>() : cellDiagonals(node.attrs.borders)
   sides.add(side)
   const line = penLine(pen)
+  const pens = sidePensOf(node.attrs.sidePens)
+  delete pens[side]
   editor.view.dispatch(
     editor.state.tr.setNodeMarkup($cell.pos, undefined, {
       ...node.attrs,
       borders: bordersValue(sides, diagonals),
       borderPen: line,
+      sidePens: sidePensValue(pens),
     }),
   )
   return true

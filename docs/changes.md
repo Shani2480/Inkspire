@@ -7,6 +7,23 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### Borders and Shading > Setting: Grid for a table (22.4, eighth part)
+
+- **Missing:** for a table the Setting column had None, Box, All and Custom; Word's Grid (the chosen line outside,
+  thin single lines between the cells) was not there, and a cell could hold only one pen for all its sides.
+- **Changed:** a cell has `sidePens`, a pen for some of its sides over its `borderPen` (`table-tools.ts`), drawn per
+  side (`--cell-border-top` … in `index.css`) and written per side in `w:tcBorders` (`bordersOf`, `sidePensOf` and
+  `sidePensValue` in `cell-edits.ts`). `setBordersOnCells` takes an inside pen; `readScopedBorders` reads it back
+  when it differs from the outside one. The dialog lists Grid after All for Apply to: Table, previews the inside
+  lines thin, applies the chosen line outside and ½ pt single lines in its colour inside, and opens on Grid when
+  Apply to moves to Table. All, the Borders menu and an edge click give a cell one pen again; the Border Painter
+  replaces only the side it paints.
+- **Tests:** `borders-shading-dialog.test.tsx` (Grid's pens, reopened as Grid, All goes back to one pen),
+  `cell-edits.test.ts` (a side's own pen in `w:tcBorders`, drawn reopened); `table-lines.test.ts` updated for the
+  per-side rule (the line token still applies). All 790 pass; typecheck, ESLint and Prettier clean.
+- **Checked:** headless Chrome: a 3×2 table set to Grid at 3 pt draws 4 px outside and 1 px inside; the preview shows
+  the thin inside lines.
+
 ### Borders and Shading > Setting: 3-D for a paragraph (22.4, seventh part)
 
 - **Missing:** the Setting column had no 3-D; Word's frame effect on a border (`w:frame`, what 3-D writes) was not

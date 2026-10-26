@@ -61,8 +61,38 @@ export function borderOf(pen: unknown): Border {
 
 const SIDE_NAMES = ["top", "left", "bottom", "right"] as const
 
-/** The cell borders the editor drew (borders and borderPen), as w:tcBorders. */
-export function bordersOf(borders: unknown, pen: unknown): TableBorders | undefined {
+const CELL_SIDES = ["top", "right", "bottom", "left"] as const
+type CellSide = (typeof CELL_SIDES)[number]
+
+/** A `sidePens` value as the pen of each side it names. */
+export function sidePensOf(value: unknown): Partial<Record<CellSide, string>> {
+  const pens: Partial<Record<CellSide, string>> = {}
+  for (const part of typeof value === "string" ? value.split(";") : []) {
+    const [side, pen] = part.split("=")
+    if ((CELL_SIDES as readonly string[]).includes(side) && pen?.trim()) {
+      pens[side as CellSide] = pen.trim()
+    }
+  }
+  return pens
+}
+
+/** The `sidePens` value for some sides' pens; null for none. */
+export function sidePensValue(pens: Partial<Record<CellSide, string>>) {
+  return (
+    CELL_SIDES.filter((side) => pens[side])
+      .map((side) => `${side}=${pens[side]}`)
+      .join(";") || null
+  )
+}
+
+/**
+ * The cell borders the editor drew (borders and borderPen, with any side's own pen from `sidePens`), as w:tcBorders.
+ */
+export function bordersOf(
+  borders: unknown,
+  pen: unknown,
+  sidePens: Partial<Record<string, string>> = {},
+): TableBorders | undefined {
   if (typeof borders !== "string" || borders === "") {
     return undefined
   }
@@ -82,5 +112,5 @@ export function bordersOf(borders: unknown, pen: unknown): TableBorders | undefi
     return undefined
   }
   const border = borderOf(pen)
-  return Object.fromEntries(sides.map((side) => [side, { ...border }]))
+  return Object.fromEntries(sides.map((side) => [side, sidePens[side] ? borderOf(sidePens[side]) : { ...border }]))
 }
