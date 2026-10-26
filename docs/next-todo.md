@@ -1624,6 +1624,11 @@ Source: the 48 top-level files in `screenshots/` taken on 2026-10-19 (`screensho
   `w:tcBorders`). Left: Page Border Art, per-side page borders, the page Options check boxes, reading a Word cell's
   fill and pattern back into the dialog.
 
+  **Found 2026-10-26 (not fixed):** with View Gridlines on, the dashed guide (`outline` on every cell in
+  `index.css`, `table[data-gridlines="1"]`) is drawn over drawn borders too, so solid lines look dashed; Word shows
+  gridlines only where a side has no border. Needs the guide drawn per side from the cell's actual borders (app
+  `borders` and Word's `data-word-cell` / table frame), not one outline per cell.
+
 #### 22.5 — Customize Ribbon and Quick Access Toolbar (screenshots 083125, 083136)
 
 - None exists. Two lists with "Choose commands from" (Popular, All, Not in the Ribbon, tabs…), Add / Remove, up/down, New Tab / New Group / Rename, Reset, Import/Export, per-tab visibility check boxes; Quick Access Toolbar with Separator, "Show Quick Access Toolbar", Toolbar Position (Above/Below Ribbon), "Always show command labels", For all documents / this document. Keep the choice in the user config.
