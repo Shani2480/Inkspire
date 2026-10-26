@@ -7,7 +7,8 @@ import { findPart, openPackage } from "@/document/docx/opc"
 import { createExtensions } from "@/editor/extensions"
 
 const AUTHORED = path.resolve(process.cwd(), "tests/docx-fixtures/authored")
-const NAME = "f22_model3d.docx"
+// The creature of 123.docx with a stub .glb, in f22 alone and in f24 among the paragraph exceptions.
+const NAMES = ["f22_model3d.docx", "f24_paragraph_exceptions.docx"]
 
 const original = URL.createObjectURL
 
@@ -18,8 +19,8 @@ afterEach(() => {
   URL.createObjectURL = original
 })
 
-async function open() {
-  return openDocxBytes(new Uint8Array(readFileSync(path.join(AUTHORED, NAME))), NAME)
+async function open(name: string) {
+  return openDocxBytes(new Uint8Array(readFileSync(path.join(AUTHORED, name))), name)
 }
 
 function modelOf(html: string) {
@@ -45,9 +46,9 @@ async function save(opened: Awaited<ReturnType<typeof open>>, editor: Editor) {
   return openPackage(saved.bytes, "edited.docx")
 }
 
-describe("3-D models from Word (21.38)", () => {
+describe.each(NAMES)("3-D models from Word (21.38) in %s", (name) => {
   it("opens the model as the app's own, from the .glb and with Word's picture", async () => {
-    const model = modelOf((await open()).view.html)
+    const model = modelOf((await open(name)).view.html)
     expect(model?.type).toBe("threeDModel")
     expect(model?.attrs).toMatchObject({ src: "blob:model-test", alt: "Emotive creature", wordModel: "0,0" })
     expect(String(model?.attrs.snapshot)).toMatch(/^data:image\/png;base64,/)
@@ -55,7 +56,7 @@ describe("3-D models from Word (21.38)", () => {
   })
 
   it("keeps Word's drawing and model part while the model is not turned", async () => {
-    const opened = await open()
+    const opened = await open(name)
     const editor = new Editor({
       extensions: createExtensions().filter((extension) => extension.name !== "spellcheck"),
       content: opened.view.html,
@@ -71,7 +72,7 @@ describe("3-D models from Word (21.38)", () => {
   })
 
   it("saves a turned model as the app's picture carrying the model, never a blob address", async () => {
-    const opened = await open()
+    const opened = await open(name)
     const editor = new Editor({
       extensions: createExtensions().filter((extension) => extension.name !== "spellcheck"),
       content: opened.view.html,

@@ -25,6 +25,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [x] **Online 3D model inserts the model picked (2026-10-26)** — checked 2026-10-26 in Chrome (Arm Chair 01 loads live with its texture) — Insert > 3D Models > Online, pick a model: the
+      footer counts the download, the library closes, the model (not a cube) appears and turns.
+- [x] **3-D model whose file has nothing to draw keeps Word's picture (2026-10-24)** — checked 2026-10-24 in Chrome
+      with f24 (stub `.glb`) and `123.docx` (live model).
 - [ ] **Chart error bars / drop lines / high-low lines / up-down bars (20.8)** — drawn, offered in Add Chart
       Element and the Chart Elements pane.
 - [ ] **Chart axis labels never collide (21.25)** — long category names thin out and truncate; a scatter
@@ -53,6 +57,14 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - [ ] **Native shapes (see Word section)** — also not looked at in Chrome after the preset batch.
 
 ## Needs the desktop app (Tauri build)
+
+- [ ] **Online 3D models and icons in the desktop webview (2026-10-26)** — Insert > 3D Models > Online lists
+      Poly Haven with thumbnails and inserts the model picked; Insert > Icons lists Iconify. Both hosts were missing
+      from the desktop CSP before.
+- [ ] **3-D model from Word loads in the desktop webview (2026-10-24)** — open `123.docx` in the desktop app: the
+      creature loads live and turns with the orbit handle (CSP `connect-src` now allows `blob:`; before, only Word's
+      picture showed and a turn blanked it). Also open `f24_paragraph_exceptions.docx` (stub `.glb`): Word's picture
+      stays after a turn.
 
 - [ ] **Rotated shape from Word (2026-10-24)** — a Lightning turned 185° in Word and reopened was reported cut off;
       fully visible in Chrome after the shape fixes, so check the desktop webview.

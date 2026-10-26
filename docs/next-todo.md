@@ -577,6 +577,11 @@ Status bar. Word count, page “Page 1 of 1”, and a zoom slider with a percent
 
 **Done.** Stock/local/online 3D browser; TipTap `threeDModel` with Three.js orbit + snapshot for print/docx; contextual 3D Model ribbon (camera, lighting, pan/zoom, reset).
 
+**Fixed 2026-10-26** (see `changes.md`): the Online tab inserted a cube with the thumbnail; it now downloads the
+Poly Haven glTF with its `.bin` and textures, packs them into one `.glb` (`editor/gltf-pack.ts`,
+`editor/polyhaven.ts`) and inserts that model. Open: a model inserted from the library or a local file is saved to
+`.docx` as its picture only.
+
 ## Phase 17 — Single line ribbon
 
 Word for the web's two ribbon layouts. Reference: `screenshots/ribbon/` (seven single line shots, then the same seven tabs in the classic layout). Classic stays the default; the choice is remembered. Each sub-phase lands on its own and is started only when requested.
@@ -1425,6 +1430,11 @@ Part 1 is implementation work (bugs and features). Part 2 is discovery: analyse 
 - Tests: the model part is found from the relationship and the object keeps its `.glb` bytes through a save. Check in Chrome with `123.docx`: the creature turns when dragged.
 
   **Done.** A Word 3-D model opens as the app's own model (`modelPictureHtml` in `docx/inlines.ts`): the `.glb` is found through the model relationship and handed to the viewer as a blob URL (the 29 MB file is not copied into the page), Word's fallback picture is the poster while it loads and the print picture, the alt text and the place, size and wrap come from the drawing, and it draws without the app's grey backdrop. Not turned, a save writes Word's `am3d:model3d` drawing and the `.glb` part back as they were; turned or resized, it is written as the app's picture of the model with the `.glb` inside it (no blob address). Viewer: any loaded model is now centred on its own middle and fitted to the view when its units are far from the viewer's (Word's are), a model with a file shows its last picture instead of the stand-in cube while it loads, and a load failure is logged. Also fixed on the way: saving a new picture into a file whose Word media numbering skips (`image1` gone, `image2` kept) reused `image2.png` and failed with "File already exists"; it now takes the next free number. Not done: Word's camera, rotation and lights (`am3d:camera`, `am3d:trans`) are not used, so the first view is the app's default, not Word's pose; animation (`a3danim`) is not played. Tests: `model3d-import.test.ts` on the new fixture `f22_model3d.docx` (the creature of `123.docx` with a 12-byte `.glb`, 73 KB). Checked in Chrome with the real `123.docx`: the creature loads in 3-D, transparent, and turns with the orbit handle; the reload after a turn takes as long as the first load.
+
+  **Fixed 2026-10-24** (see `changes.md`): the desktop CSP blocked the loader's fetch of the model's blob URL
+  (`connect-src` lacked `blob:`), and a file with nothing to draw (the fixtures' stub `.glb`) left an empty view
+  whose first turn was captured as the model's picture. The viewer now keeps the stand-in and the picture until a
+  model has loaded (`three-d-fit.ts`), and `model3d-import.test.ts` runs on f24 as well.
 
 #### 21.39 — Two-page spread follows odd and even pages
 

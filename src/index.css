@@ -9254,6 +9254,16 @@ html[data-theme="dark"] .asset-library {
 .asset-library-tile.tall {
   min-height: 96px;
 }
+/* While an online model downloads, the other tiles wait and the chosen one keeps its highlight. */
+.asset-library-tile:disabled {
+  cursor: progress;
+  opacity: 0.55;
+}
+.asset-library-tile.is-downloading {
+  border-color: var(--al-chip-active);
+  background: var(--al-hover);
+  opacity: 1;
+}
 .asset-library-icon {
   width: 24px;
   height: 24px;

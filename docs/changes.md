@@ -5,7 +5,53 @@ wrong or missing, what changed, where (files, tests), how it was checked, and wh
 story of each feature stays in `next-todo.md` under its section; `verify-list.md` holds what still needs a check
 in Word, Chrome or the desktop app.
 
+## 2026-10-26
+
+### Insert > 3D Models > Online inserts the model picked, not a cube
+
+- **Wrong:** picking a Poly Haven model in the 3D Models library inserted the "cube" preset with the catalog
+  thumbnail as its picture; the model file was never downloaded, so the page showed a cube where the tile showed
+  a chair. In the desktop app the catalog and the thumbnails were blocked as well: the Content Security Policy
+  listed neither Poly Haven's hosts nor Iconify's.
+- **Changed:** `src/editor/polyhaven.ts` downloads the model's glTF at the smallest resolution offered with the
+  `.bin` and textures it includes (`api.polyhaven.com/files/{id}`, files on `dl.polyhaven.org`, CORS open), and
+  `src/editor/gltf-pack.ts` packs them into one `.glb` (buffers and images moved into a single BIN chunk) so the
+  viewer, the local-file path and a Word model part all take the same thing. The library
+  (`src/components/model-library.tsx`) stays open with the progress in its footer while the file comes in, then
+  inserts the model with the thumbnail as its poster; a failure is reported in the footer and leaves the library
+  open; the tiles wait meanwhile (`.asset-library-tile:disabled`). `src-tauri/tauri.conf.json`: `connect-src`
+  gains `api.polyhaven.com`, `dl.polyhaven.org` and `api.iconify.design`, `img-src` gains `cdn.polyhaven.com`, in
+  both `csp` and `devCsp`.
+- **Checked:** `gltf-pack.test.ts` (buffers and images packed with their offsets, data URIs, file lookup by path
+  or name, a missing file refused, a buffer-less glTF). Chrome: Insert > 3D Models > Online > Arm Chair 01
+  downloads and appears as the live, textured chair that turns; tsc, ESLint and Prettier clean.
+- **Open:** a model inserted from the library or a local file is still saved to `.docx` as its picture only; the
+  `.glb` travels only for a model opened from Word (`modelPart` in `docx/inlines.ts`). The downloaded file is not
+  cached, so inserting the same model again downloads it again.
+
 ## 2026-10-24
+
+### A Word 3-D model that fails to load no longer turns blank; the desktop app can load it at all
+
+- **Wrong:** reported as "the 3D model did not show up" in f24. In Chrome the model showed (Word's picture for the
+  fixtures' stub `.glb`, the live creature for `123.docx`), but two defects stood behind the report. The desktop
+  app's Content Security Policy had `blob:` in `img-src` and not in `connect-src`, so the GLTF loader's fetch of
+  the model's blob URL was blocked and a Word model could never load there. And the viewer removed the stand-in
+  before measuring the loaded scene: a file with no scene (the fixtures' 52-byte `.glb`) threw after the removal,
+  leaving an empty view, and the first turn, resize, format change or Play 3D captured that empty canvas as the
+  model's picture, which then stood for it in the page, in print and in the saved `.docx` (a turned model is
+  written as the app's picture).
+- **Changed:** `blob:` added to `connect-src` in both `csp` and `devCsp` (`src-tauri/tauri.conf.json`).
+  `src/editor/three-d-fit.ts` (`fitLoadedModel`) measures the loaded scene and says when there is nothing to
+  draw; the viewer (`three-d-viewer.ts`) then keeps the stand-in and the picture, takes no snapshot until a model
+  has loaded (`modelReady`), carries the pose the stand-in was turned to over to the loaded model, and sets Word's
+  picture as the poster before the WebGL renderer is made; the node view (`three-d-model.ts`) shows the picture
+  when the viewer cannot start (no WebGL).
+- **Checked:** `three-d-fit.test.ts` (no scene, no extent, near units, far units); `model3d-import.test.ts` now runs
+  on f22 and f24. Chrome: f24 keeps Word's picture after a turn; `123.docx` turns live. 12 tests pass; tsc and
+  ESLint clean.
+- **Open:** the desktop app was not run (listed in `verify-list.md`); Word's camera pose and animation are still not
+  used, so the live model's pose differs from Word's poster frame.
 
 ### Shapes to Word and back (Document1.docx) — commit 8f1c262
 

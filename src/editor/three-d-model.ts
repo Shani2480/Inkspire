@@ -77,14 +77,23 @@ function lazyViewer(
   let real: Viewer | null = null
   let disposed = false
   let queued: ((viewer: Viewer) => void)[] = []
-  void import("@/editor/three-d-viewer").then((module) => {
-    if (disposed) {
-      return
-    }
-    real = module.mountViewer(body, node, onSnapshot)
-    queued.forEach((call) => call(real!))
-    queued = []
-  })
+  void import("@/editor/three-d-viewer")
+    .then((module) => {
+      if (disposed) {
+        return
+      }
+      real = module.mountViewer(body, node, onSnapshot)
+      queued.forEach((call) => call(real!))
+      queued = []
+    })
+    .catch((error: unknown) => {
+      // No WebGL (a webview without it): the model's last picture stands in for the view.
+      console.error("The 3D viewer could not start", error)
+      const snapshot = String(node.attrs.snapshot || "")
+      if (snapshot && !disposed) {
+        body.style.background = `center / contain no-repeat url("${snapshot.replace(/"/g, "%22")}")`
+      }
+    })
   const run = (call: (viewer: Viewer) => void) => (real ? call(real) : queued.push(call))
   return {
     dispose: () => {
