@@ -7,6 +7,25 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### Borders and Shading > Shading > Patterns: Word's 37 patterns over a paragraph's fill (22.4, third part)
+
+- **Missing:** the Shading tab said "Patterns are not supported". A Word paragraph shaded with a pattern (a
+  percentage, stripes, grid or trellis) showed only its fill, and a `w:shd` with `val="solid"` and a colour showed
+  nothing of the colour; the pattern was lost when the paragraph was edited.
+- **Changed:** new `document/docx/shading-pattern.ts`: Word's list in the dialog's order (Clear, Solid (100%), 5% …
+  95% with 12.5 / 37.5 / 62.5 / 87.5, Dk and Lt Horizontal, Vertical, Dwn and Up Diagonal, Grid, Trellis), the
+  `shadingPattern` value ("pct25 #c00000", colour left out for Automatic), and the CSS that draws it over the fill
+  (a percentage as that share of the colour, the rest as repeating gradients). Paragraphs have `shadingPattern`
+  (`editor/block-format.ts`, cleared by Clear Formatting). `.docx`: read from and written to `w:shd` `val` and
+  `color`, with `fill="auto"` when there is no fill (`docx/block-format.ts`; fill and pattern change together).
+  Dialog: Patterns Style and Color (Automatic) under Fill, drawn in the preview; OK applies only the fill or pattern
+  that was changed. Inside a table the pattern controls are disabled (cells keep fill only).
+- **Checked:** `shading-pattern.test.ts`, `borders-shading-dialog.test.tsx` (a pattern over a fill, reopened and
+  cleared; disabled in a table), `paragraph-box.test.ts` (`w:shd` with pattern, colour and fill, and with none, opened
+  again). Headless Chrome: yellow fill with red Dk Up Diagonal, 25% automatic and blue Lt Grid each drawn as set,
+  dialog preview matches. 771 tests pass; tsc, ESLint and Prettier clean.
+- **Open:** patterns on table cells; percentages are drawn as a flat blend, not Word's dots; not compared with Word.
+
 ### Borders and Shading > Options…: a paragraph's box stands Word's distance from its text (22.4, second part)
 
 - **Wrong:** a paragraph's border was drawn right on the edge of its text box, so the box touched the letters and,

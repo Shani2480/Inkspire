@@ -114,4 +114,16 @@ describe("paragraph borders and fill in .docx (21.30)", () => {
     const reopened = await openDocxBytes(plain.bytes, "t.docx")
     expect(reopened.view.html).not.toContain("data-border-space")
   })
+
+  it("writes a shading pattern and its colour over the fill, and opens it again (22.4)", async () => {
+    const { bytes, xml } = await save({ shading: "#ffeb9c", shadingPattern: "diagStripe #c00000" })
+    expect(xml).toContain('<w:shd w:val="diagStripe" w:color="C00000" w:fill="FFEB9C"/>')
+    const { view } = await openDocxBytes(bytes, "t.docx")
+    expect(view.html).toContain('data-shading-pattern="diagStripe #c00000"')
+    expect(view.html).toContain("background-color: #ffeb9c")
+    const bare = await save({ shadingPattern: "pct25" })
+    expect(bare.xml).toContain('<w:shd w:val="pct25" w:color="auto" w:fill="auto"/>')
+    const reopened = await openDocxBytes(bare.bytes, "t.docx")
+    expect(reopened.view.html).toContain('data-shading-pattern="pct25"')
+  })
 })

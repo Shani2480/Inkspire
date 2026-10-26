@@ -1,6 +1,7 @@
 import { ColorMenu } from "@/components/color-menu"
 import { PageBorderPanel, type BorderPatch } from "@/components/design-dialogs"
 import { DialogButtons, DialogFrame, SpinField } from "@/components/word-dialog"
+import { SHADING_PATTERNS, patternImage, patternOf, patternValue } from "@/document/docx/shading-pattern"
 import { useDocumentStore } from "@/document/store"
 import { borderSpaceOf, updateBlocks } from "@/editor/block-format"
 import {
@@ -158,12 +159,14 @@ function ColorField({
   label,
   color,
   clearLabel,
+  disabled = false,
   onClear,
   onSelect,
 }: {
   label: string
   color: string
   clearLabel: string
+  disabled?: boolean
   onClear: () => void
   onSelect: (color: string) => void
 }) {
@@ -171,7 +174,13 @@ function ColorField({
   return (
     <div>
       <p className="mb-1 text-[11px] font-semibold text-neutral-500">{label}</p>
-      <button type="button" className="bs-color-button" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
+      <button
+        type="button"
+        className="bs-color-button"
+        aria-expanded={open}
+        disabled={disabled}
+        onClick={() => setOpen((value) => !value)}
+      >
         <span className="bs-swatch" style={{ background: color || "transparent" }} aria-hidden />
         {color || clearLabel}
       </button>
@@ -217,6 +226,7 @@ function BordersShadingDialog({
       pen: parsePen(attrs.borderPen) ?? DEFAULT_PEN,
       fill: typeof attrs.shading === "string" ? attrs.shading : null,
       shadow: attrs.borderShadow === true,
+      pattern: patternOf(attrs.shadingPattern),
     }
   })
   const [edges, setEdges] = useState<Set<BorderEdge>>(current?.edges ?? new Set())
@@ -228,6 +238,10 @@ function BordersShadingDialog({
   const [target, setTarget] = useState<Target>(table ? "cell" : "paragraph")
   const [fill, setFill] = useState<string | null>(current?.fill ?? null)
   const [fillTouched, setFillTouched] = useState(false)
+  const openPattern = current && "pattern" in current ? current.pattern : null
+  const [patternStyle, setPatternStyle] = useState(openPattern?.pattern ?? "clear")
+  const [patternColor, setPatternColor] = useState<string | null>(openPattern?.color ?? null)
+  const [patternTouched, setPatternTouched] = useState(false)
   const [bordersTouched, setBordersTouched] = useState(false)
   const [pageDraft, setPageDraft] = useState<BorderPatch>({
     border: setup.border,
@@ -283,12 +297,16 @@ function BordersShadingDialog({
         setBordersOnCells(editor, target, edges, pen)
       }
     }
-    if (fillTouched) {
-      if (target === "paragraph") {
-        updateBlocks(editor, { shading: fill })
-      } else {
-        shadeScope(editor, target, fill)
+    if (target === "paragraph") {
+      if (fillTouched || patternTouched) {
+        // Only what was changed, so a fill or pattern left alone stays as each selected paragraph has it.
+        updateBlocks(editor, {
+          ...(fillTouched ? { shading: fill } : {}),
+          ...(patternTouched ? { shadingPattern: patternValue(patternStyle, patternColor) } : {}),
+        })
       }
+    } else if (fillTouched) {
+      shadeScope(editor, target, fill)
     }
     if (pageTouched) {
       setPageSetup({ ...setup, ...pageDraft })
@@ -499,14 +517,53 @@ function BordersShadingDialog({
                   setFill(color)
                 }}
               />
-              <p className="bs-hint">Patterns are not supported.</p>
+              <fieldset className="bs-patterns">
+                <legend>Patterns</legend>
+                <label className="bs-option">
+                  Style:
+                  <select
+                    aria-label="Pattern style"
+                    value={patternStyle}
+                    disabled={target !== "paragraph"}
+                    onChange={(event) => {
+                      setPatternTouched(true)
+                      setPatternStyle(event.target.value)
+                    }}
+                  >
+                    {SHADING_PATTERNS.map((pattern) => (
+                      <option key={pattern.value} value={pattern.value}>
+                        {pattern.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <ColorField
+                  label="Color"
+                  color={patternColor ?? ""}
+                  clearLabel="Automatic"
+                  disabled={target !== "paragraph" || patternStyle === "clear"}
+                  onClear={() => {
+                    setPatternTouched(true)
+                    setPatternColor(null)
+                  }}
+                  onSelect={(color) => {
+                    setPatternTouched(true)
+                    setPatternColor(color)
+                  }}
+                />
+                {target !== "paragraph" ? <p className="bs-hint">Patterns apply to a paragraph.</p> : null}
+              </fieldset>
             </div>
             <div className="bs-preview-column">
               <p className="bs-heading">Preview</p>
               <div
                 className="bs-shade-preview"
                 data-keep-light
-                style={{ background: fill ?? "#ffffff" }}
+                style={{
+                  backgroundColor: fill ?? "#ffffff",
+                  backgroundImage:
+                    (target === "paragraph" && patternImage(patternValue(patternStyle, patternColor))) || undefined,
+                }}
                 aria-label="Preview"
               />
               {applyTo}
