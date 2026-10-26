@@ -7,6 +7,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Paragraph shading patterns (22.4, 2026-10-26)** — a paragraph with yellow fill and red Dk Up Diagonal, one
+      with 25% and one with Lt Grid open in Word with the same pattern (Shading tab shows it); a Word paragraph with a
+      pattern looks the same in the app (percentages are a flat tint here).
 - [ ] **Paragraph border distance from text (22.4, 2026-10-26)** — a paragraph set in Options… to 6 / 12 pt opens in
       Word with the same gap (Options shows it); a Word paragraph's box sits as far from its text in the app as in
       Word.
@@ -31,6 +34,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [x] **Shading Patterns in Borders and Shading (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Paragraph box gap and Border and Shading Options (22.4, 2026-10-26)** — checked 2026-10-26 in headless
       Chrome, light and dark.
 - [x] **Paragraph Shadow border from Borders and Shading (22.4, 2026-10-26)** — checked 2026-10-26 in headless

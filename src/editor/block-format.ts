@@ -1,3 +1,4 @@
+import { patternImage } from "@/document/docx/shading-pattern"
 import type { Editor } from "@tiptap/core"
 
 const MM_TO_PX = 96 / 25.4
@@ -38,6 +39,18 @@ export function blockFormatAttributes() {
           return {}
         }
         return { style: `background-color: ${attributes.shading}` }
+      },
+    },
+    /** Word's shading pattern over the fill (22.4): its w:shd value and, unless automatic, its colour. */
+    shadingPattern: {
+      default: null as string | null,
+      parseHTML: (element: HTMLElement) => element.getAttribute("data-shading-pattern"),
+      renderHTML: (attributes: { shadingPattern?: string | null }) => {
+        const image = patternImage(attributes.shadingPattern)
+        if (!image) {
+          return {}
+        }
+        return { "data-shading-pattern": attributes.shadingPattern, style: `background-image: ${image}` }
       },
     },
     border: {

@@ -1,5 +1,6 @@
 import { borderOf, hexOf } from "@/document/docx/cell-edits"
-import type { Indent, ParagraphProperties, Spacing } from "@/document/docx/model"
+import type { Indent, ParagraphProperties, ShadingValue, Spacing } from "@/document/docx/model"
+import { patternImage, patternOf, patternValue } from "@/document/docx/shading-pattern"
 
 /** Editor paragraph attributes (src/editor/block-format.ts, indent.ts, LineHeight, TextAlign) that map to w:pPr. */
 export type BlockFormat = {
@@ -30,6 +31,8 @@ export type BlockFormat = {
   borderSpace: string | null
   /** The editor's paragraph fill as #rrggbb; null for none. */
   shading: string | null
+  /** Word's shading pattern over the fill, as `shading-pattern.ts` keeps it ("pct25 #c00000"); null for Clear. */
+  shadingPattern: string | null
 }
 
 /** What the editor holds for a paragraph nobody formatted. */
@@ -56,6 +59,7 @@ export const PLAIN_BLOCK: BlockFormat = {
   borderShadow: false,
   borderSpace: null,
   shading: null,
+  shadingPattern: null,
 }
 
 const TWIPS_PER_POINT = 20
@@ -85,7 +89,7 @@ const GROUPS: (keyof BlockFormat)[][] = [
   ["mirrorIndents"],
   ["tightWrap"],
   ["border", "borderPen", "borderShadow", "borderSpace"],
-  ["shading"],
+  ["shading", "shadingPattern"],
 ]
 
 /** Editor attributes for a paragraph's direct formatting. */
@@ -140,6 +144,7 @@ export function blockFromProperties(pPr: ParagraphProperties): BlockFormat {
   block.borderSpace = spaceOfProperties(pPr.borders)
   block.borderShadow = BORDER_SIDES.some((side) => drawn(pPr.borders?.[side]) && pPr.borders?.[side]?.shadow)
   block.shading = shadingOfProperties(pPr.shading)
+  block.shadingPattern = shadingPatternOf(pPr.shading)
   return block
 }
 
@@ -192,6 +197,15 @@ function spaceOfProperties(borders: ParagraphProperties["borders"]): string | nu
 
 function shadingOfProperties(shading: ParagraphProperties["shading"]): string | null {
   return shading?.fill && /^[0-9A-Fa-f]{6}$/.test(shading.fill) ? `#${shading.fill.toLowerCase()}` : null
+}
+
+/** The pattern of a w:shd and its colour, unless automatic; null for Clear. */
+function shadingPatternOf(shading: ParagraphProperties["shading"]): string | null {
+  if (!shading) {
+    return null
+  }
+  const color = shading.color && /^[0-9A-Fa-f]{6}$/.test(shading.color) ? `#${shading.color}` : null
+  return patternValue(shading.value, color)
 }
 
 /** The editor's fill (a hex or rgb() colour, as the picker or the browser gives it) as #rrggbb, or null. */
@@ -291,6 +305,11 @@ export function blockHtmlAttributes(block: BlockFormat, key?: string) {
   if (block.shading) {
     style.push(`background-color: ${block.shading}`)
   }
+  const pattern = patternImage(block.shadingPattern)
+  if (pattern) {
+    style.push(`background-image: ${pattern}`)
+    data.push(`data-shading-pattern="${block.shadingPattern}"`)
+  }
   if (key) {
     data.push(`data-docx="${key}"`)
   }
@@ -339,6 +358,7 @@ export function blockFromAttrs(attrs: Record<string, unknown> | undefined): Bloc
     borderShadow: value.borderShadow === true,
     borderSpace: text("borderSpace", "") || null,
     shading: paragraphFill(value.shading),
+    shadingPattern: patternOf(value.shadingPattern) ? text("shadingPattern", "") : null,
   }
 }
 
@@ -403,8 +423,14 @@ export function propertiesFromBlock(edited: BlockFormat, source: ParagraphProper
   }
   if (changed.has("shading")) {
     const fill = edited.shading?.replace("#", "").toUpperCase()
-    if (fill && /^[0-9A-F]{6}$/.test(fill)) {
-      base.shading = { value: "clear", color: "auto", fill }
+    const pattern = patternOf(edited.shadingPattern)
+    const hasFill = Boolean(fill && /^[0-9A-F]{6}$/.test(fill))
+    if (hasFill || pattern) {
+      base.shading = {
+        value: (pattern?.pattern ?? "clear") as ShadingValue,
+        color: pattern?.color?.replace("#", "").toUpperCase() ?? "auto",
+        fill: hasFill ? fill : "auto",
+      }
     } else {
       delete base.shading
     }

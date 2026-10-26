@@ -218,6 +218,36 @@ describe("the Borders and Shading dialog (22.4)", () => {
     expect(editor.state.doc.firstChild?.attrs).toMatchObject({ border: "all", borderSpace: "6 4 1 10" })
   })
 
+  it("lays a pattern in its colour over a paragraph's fill, and opens on it (22.4)", () => {
+    const editor = make("<p>one</p><p>two</p>")
+    editor.commands.setTextSelection(2)
+    editor.commands.updateAttributes("paragraph", { shading: "#ffff00" })
+    render(<BordersShadingHost />)
+    act(() => openBordersAndShading(editor, "shading"))
+    fireEvent.change(screen.getByLabelText("Pattern style"), { target: { value: "pct25" } })
+    fireEvent.click(screen.getByRole("button", { name: /Automatic/ }))
+    fireEvent.click(screen.getByLabelText("#ff0000"))
+    fireEvent.click(screen.getByText("OK"))
+    // The fill was not touched, so it stays.
+    expect(editor.state.doc.firstChild?.attrs).toMatchObject({ shading: "#ffff00", shadingPattern: "pct25 #ff0000" })
+    expect(editor.getHTML()).toContain('data-shading-pattern="pct25 #ff0000"')
+    cleanup()
+    render(<BordersShadingHost />)
+    act(() => openBordersAndShading(editor, "shading"))
+    expect((screen.getByLabelText("Pattern style") as HTMLSelectElement).value).toBe("pct25")
+    fireEvent.change(screen.getByLabelText("Pattern style"), { target: { value: "clear" } })
+    fireEvent.click(screen.getByText("OK"))
+    expect(editor.state.doc.firstChild?.attrs.shadingPattern).toBeNull()
+  })
+
+  it("leaves patterns to paragraphs inside a table", () => {
+    const editor = make(TABLE)
+    editor.commands.setTextSelection(4)
+    render(<BordersShadingHost />)
+    act(() => openBordersAndShading(editor, "shading"))
+    expect((screen.getByLabelText("Pattern style") as HTMLSelectElement).disabled).toBe(true)
+  })
+
   it("offers Options… for a paragraph only", () => {
     const editor = make(TABLE)
     editor.commands.setTextSelection(4)
