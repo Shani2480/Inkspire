@@ -25,6 +25,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [ ] **Chart side buttons level with the chart's top (2026-10-26)** — select a chart: Chart Elements, Chart Styles
+      and Chart Filters sit beside its top right edge, styled as before, each opening its panel.
 - [x] **3D Model Views gallery (22.15, 2026-10-26)** — checked 2026-10-26 in Chrome with a cube and a cone: named
       tiles drawn from each side, Top applied, paging and the full menu.
 - [x] **Comment anchor line and red active range (22.18, 2026-10-26)** — checked 2026-10-26 in Chrome, light and

@@ -7,6 +7,21 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### The Layout Options button beside a selected object is gone
+
+- **Wrong:** a small square button sat at the top right of a selected picture, shape, text box, chart or 3D model and
+  opened the wrap choices; it vanished as soon as it was clicked, and everything it offered is already in the
+  object's toolbar (Wrap Text: the wraps, Move with Text / Fix Position on Page, More Layout Options…), the ribbon
+  and the right-click menu.
+- **Changed:** removed at the owner's request. `src/components/layout-options.tsx` deleted with its mount in
+  `page-canvas.tsx`; the object toolbar no longer steps aside for it (`object-bar.tsx`); its CSS is gone. The chart's
+  Chart Elements, Chart Styles and Chart Filters buttons used its button class and sat 32 px down to leave it room:
+  they now have their own class (`chart-side-button`) and start level with the chart's top.
+- **Checked:** headless Chrome: a selected 3D model shows only the toolbar above it, no `.layout-options` element.
+  756 tests pass; tsc, ESLint and Prettier clean.
+- **Open:** the chart's side buttons in their new place were not seen (the scripted browser could not select a
+  chart); listed in `verify-list.md`.
+
 ### 3D Model Views: Word's named views, drawn by the viewer; Pause and Scenes icons (22.15)
 
 - **Wrong:** the 3D Model Views gallery was six tiles of the model's picture turned flat in the page (0°, 45°, 90°…),

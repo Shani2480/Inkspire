@@ -5,7 +5,6 @@ import { LayoutDialog } from "@/components/layout-dialog"
 import { CommentMarkers } from "@/components/comment-markers"
 import { ObjectContextMenu } from "@/components/object-context-menu"
 import { MiniToolbar } from "@/components/mini-toolbar"
-import { LayoutOptions } from "@/components/layout-options"
 import { ObjectBar } from "@/components/object-bar"
 import { TextContextMenu } from "@/components/text-context-menu"
 import { TableHandles } from "@/components/table-handles"
@@ -511,7 +510,6 @@ export function PageCanvas() {
           ) : null}
           {formatted ? <MiniToolbar editor={formatted} /> : null}
           {formatted ? <ObjectBar editor={formatted} /> : null}
-          {formatted ? <LayoutOptions editor={formatted} /> : null}
           {editor ? <ChartSideButtons editor={editor} /> : null}
           {editor ? <ChartPartLayer editor={editor} /> : null}
           {editor ? <ObjectContextMenu editor={editor} /> : null}
