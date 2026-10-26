@@ -12,6 +12,7 @@ import { gridToSheet, sheetToGrid } from "@/editor/chart-sheet"
 import {
   CHART_VARIANTS,
   chartParts,
+  surfaceBands,
   defaultChartSpec,
   renderChart,
   specToSheet,
@@ -206,5 +207,42 @@ describe("Treemap and Sunburst (22.6)", () => {
     expect(next.series[0]!.values).toEqual(spec.series[0]!.values)
     // Other charts keep one label column.
     expect(gridToSheet(sheetToGrid(specToSheet(defaultChartSpec("column")))).levels).toBeUndefined()
+  })
+})
+
+describe("Surface (22.6)", () => {
+  it("colours by value band, one per step of the value axis, as Word's legend lists them", () => {
+    const spec = defaultChartSpec("surface-3d")
+    expect(surfaceBands(spec).map((band) => band.name)).toEqual(["0-1", "1-2", "2-3", "3-4", "4-5", "5-6"])
+    const svg = renderChart(spec, 576, 336)
+    expect(svg).toContain(">0-1<")
+    expect(svg).toContain(">Series 3<")
+    expect(svg).not.toContain("NaN")
+  })
+
+  it("draws a contour from above, filled or as band edges", () => {
+    const filled = renderChart(defaultChartSpec("surface-contour"), 576, 336)
+    expect(filled.match(/<rect x=/g)!.length).toBeGreaterThan(20)
+    const wire = renderChart(defaultChartSpec("surface-wireframe-contour"), 576, 336)
+    expect(wire).toMatch(/<path d="M[\d. ]+L/)
+    expect(wire).not.toContain("NaN")
+  })
+
+  it("saves each variant as Word's surface chart and reads it back as the same variant", () => {
+    for (const id of ["surface-3d", "surface-wireframe", "surface-contour", "surface-wireframe-contour"]) {
+      const spec = defaultChartSpec(id)
+      const xml = chartSpaceXml(spec)
+      expect(xml, id).toContain(id.includes("contour") ? "<c:surfaceChart>" : "<c:surface3DChart>")
+      expect(xml, id).toContain(`<c:wireframe val="${id.includes("wireframe") ? 1 : 0}"/>`)
+      expect(xml, id).toContain("<c:serAx>")
+      expect(xml, id).toContain(id.includes("contour") ? '<c:rotX val="90"/>' : '<c:rotX val="15"/>')
+      const back = readChartSpace(xml)!
+      expect(variantOf(back), id).toBe(id)
+      expect(
+        back.series.map((serie) => serie.values),
+        id,
+      ).toEqual(spec.series.map((serie) => serie.values))
+      expect(back.axes, id).toEqual(spec.axes)
+    }
   })
 })

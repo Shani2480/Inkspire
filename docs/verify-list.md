@@ -7,6 +7,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Surface charts (22.6, 2026-10-26)** — each of the four variants saved from the app opens in Word as that
+      surface type with the same bands; a Word surface or contour chart opens in the app as the same variant.
 - [ ] **Treemap and Sunburst (22.6, 2026-10-26)** — saved from the app, they open in Word as a column chart and a
       doughnut of the leaves.
 - [ ] **Box & Whisker (22.6, 2026-10-26)** — a Box & Whisker chart saved from the app opens in Word as a clustered
@@ -67,6 +69,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - [x] **Stock charts and Insert Chart previews (22.6, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Box & Whisker chart (22.6, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Treemap and Sunburst charts (22.6, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
+- [x] **Surface chart previews (22.6, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [ ] **Treemap / Sunburst data sheet (22.6, 2026-10-26)** — Edit Data shows Branch, Stem, Leaf and Size columns; retyping a stem regroups the tiles.
 - [x] **Header & Footer Previous / Next (2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Tall header or footer pushes the body (2026-10-26)** — checked 2026-10-26 in headless Chrome.

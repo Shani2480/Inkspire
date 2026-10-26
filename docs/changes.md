@@ -7,6 +7,21 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### Surface charts: 3-D Surface, Wireframe 3-D Surface, Contour, Wireframe Contour (22.6)
+
+- **Missing:** Insert Chart had no Surface, and a Word surface chart opened as an area chart.
+- **Changed:** a Surface family (`chart-spec.ts`, new `contour` flag; `filled` off is the wireframe). Coloured by
+  value band, one per step of the value axis, listed in the legend as Word does ("0-1", "1-2" …; `surfaceBands`).
+  3-D Surface: an oblique view with floor, back and side walls and band gridlines, the grid interpolated and filled
+  back to front, or a band-coloured wire mesh. Contour: seen from above, filled by band, or the band edges as lines
+  (marching squares). Saved as Word's own `c:surface3DChart` / `c:surfaceChart` with `c:wireframe`, a series axis
+  (`c:serAx`) and Word's `c:view3D` (rotX 15 / rotY 20, or straight down for a contour), and read back as the same
+  variant, so these round-trip natively. Tests in `chart-expand.test.ts` (bands, drawing, the four variants written
+  and read back); the parts test now expects a surface to have no series parts or data labels, as in Word. Checked
+  in headless Chrome: the four previews in Insert Chart.
+- **Open:** the filled contour's band edges are stepped (sampled, not traced) and the 3-D view's ordering is
+  approximate where the surface folds; no rotation (3-D Rotation); band colours past the palette are its shades.
+
 ### Treemap and Sunburst charts (22.6)
 
 - **Missing:** Insert Chart had no Treemap or Sunburst, and a chart's data had one column of labels only.
