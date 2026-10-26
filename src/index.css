@@ -2057,9 +2057,21 @@ button.line-menu-row:focus-visible {
   font-weight: 700;
 }
 
-.page-editor table[data-gridlines="1"] :is(td, th) {
-  outline: 1px dashed var(--table-gridline);
-  outline-offset: -1px;
+/*
+ * View Gridlines: a dashed guide on each cell's edges, drawn under the cell borders (the table is its own layer and
+ * the guide sits at its back), so a drawn line hides it and it shows only where a side has no border, as in Word.
+ */
+.page-editor table[data-gridlines="1"] {
+  isolation: isolate;
+}
+
+.page-editor table[data-gridlines="1"] :is(td, th)::before {
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border: 1px dashed var(--table-gridline);
+  content: "";
+  pointer-events: none;
 }
 
 /*

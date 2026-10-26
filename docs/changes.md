@@ -7,6 +7,19 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### View Gridlines shows only where a cell side has no border
+
+- **Wrong:** the gridline guide was an `outline` on every cell, painted over the borders, so drawn solid lines (a
+  new table's, Grid, a Word table's) looked dashed; and a table with no frame turned the guide off altogether, the one
+  case where Word shows it.
+- **Changed:** the table is its own layer (`isolation: isolate`) and each cell's guide is a dashed `::before` at the
+  back of it (`index.css`), so a drawn line covers the guide and it shows only where a side has no border, as in
+  Word. A shaded cell also covers it.
+- **Tests:** `table-lines.test.ts` (the guide is under the borders; no outline). All 798 pass; ESLint and Prettier
+  clean.
+- **Checked:** headless Chrome with three new tables: the default one shows its light solid lines, a 3 pt Grid one
+  is solid throughout, and one set to None shows the dashed guides.
+
 ### Page Border: sides set from the preview (22.4)
 
 - **Missing:** a page border was always drawn on all four sides; Page Border's preview had no edge buttons, and a

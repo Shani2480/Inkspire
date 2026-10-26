@@ -43,4 +43,13 @@ describe("table line contrast (21.43)", () => {
     )
     expect(css).not.toContain("border: 1px solid #d4d4d8;\n  padding: 0.4em")
   })
+
+  it("draws View Gridlines under the cell borders, so a drawn line hides the guide", () => {
+    const rule = (selector: string) => css.slice(css.indexOf(`${selector} {`)).split("}")[0]
+    expect(rule('.page-editor table[data-gridlines="1"]')).toContain("isolation: isolate")
+    const guide = rule('.page-editor table[data-gridlines="1"] :is(td, th)::before')
+    expect(guide).toContain("z-index: -1")
+    expect(guide).toContain("border: 1px dashed var(--table-gridline)")
+    expect(css).not.toContain("outline: 1px dashed var(--table-gridline)")
+  })
 })
