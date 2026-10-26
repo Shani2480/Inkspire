@@ -7,6 +7,42 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### Table Properties: on the table's right-click, laid out as Word's dialog
+
+- **Missing:** right-clicking a selected table offered only a small form (alignment, a column width), and the
+  Table Properties dialog from the ribbon was a simplified one. **Changed:** "Table Properties..." on the table
+  right-click menu (and on the text menu inside a table) opens Word's dialog (`table-properties-dialog.tsx`):
+  - **Table:** Size (Preferred width, Measure in Centimeters / Percent), Alignment (Left / Center / Right tiles,
+    Indent from left), Text wrapping (None; Around and Positioning... shown but disabled, since floating tables are
+    not built), Borders and Shading... and Options... (Table Options: default cell margins, Allow spacing between
+    cells, Automatically resize to fit contents).
+  - **Row:** "Row N:" or "Rows 1-2:", Specify height, Row height is At least / Exactly, Allow row to break across
+    pages, Repeat as header row (first row only), Previous Row / Next Row.
+  - **Column:** "Column N:", Preferred width and Measure in, Previous Column / Next Column.
+  - **Cell:** Preferred width, Vertical alignment tiles (Top / Center / Bottom), Options... (Cell Options: Same as
+    the whole table, cell margins, Wrap text, Fit text).
+  - **Alt Text:** Title, Description.
+- The dialog keeps a draft (`table-dialog.ts`) and OK writes it in one transaction, so one undo. An untouched dialog
+  changes nothing.
+- The new settings are table, row and cell attributes (`table-props.ts`), drawn by the table view and `index.css`,
+  and saved and reopened in .docx (`table-props-docx.ts`, `wml-read.ts`, `wml-write.ts`, `project.ts`):
+  `w:tblW`, `w:tblInd`, `w:tblCellSpacing`, `w:tblCellMar`, `w:tblLayout` fixed, `w:cantSplit`, `w:trHeight`
+  hRule, `w:tcMar`, `w:noWrap` and `w:tcFitText`. Word's exact value is kept while the editor still shows the same
+  centimetres.
+- **Bugs found while doing this:**
+  - A right-click in a table opened the table menu and the text menu together, with the text menu drawn over it.
+    The table menu now takes the right-click first (capture phase) and the text menu leaves a right-click already
+    taken.
+  - Every table action on the right-click menu moved the caret to the clicked point, dropping a cell selection. A
+    right-click inside the selection now keeps it, as in Word.
+- **Checked:** `table-properties-dialog.test.tsx` (draft, one-step apply and undo, tabs, Previous / Next Row, Table
+  and Cell Options), `docx/table-props.test.ts` (values, exact-value keeping, .docx round trip). Headless Chrome: a
+  selected 2×3 table, right-click shows a single menu with Table Properties...; each tab and both option dialogs
+  were looked at; indent 1 cm, cell spacing, a 0.3 cm top margin and Center vertical alignment applied to all six
+  cells, and one undo removed them. 831 tests pass.
+- **Open:** text wrapping around a table (Around, Positioning...); Fit text is saved but not drawn (the text is not
+  squeezed into the cell); a preferred width is applied by resizing the columns once, not kept as a live rule.
+
 ### Tables in a header or footer could not be clicked into or resized
 
 - **Bug:** while a header or footer was open, its margin's zone (`.page-chrome-zone`, z-index 3, the double-click

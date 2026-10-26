@@ -1091,6 +1091,14 @@ function readTable(node: MarkupNode, notes: WordNote[], raw: RawCursor = NO_RAW)
   if (width) {
     table.width = width
   }
+  const indent = readTableWidth(wordChild(properties, "tblInd"))
+  if (indent) {
+    table.indent = indent
+  }
+  const spacing = readTableWidth(wordChild(properties, "tblCellSpacing"))
+  if (spacing) {
+    table.cellSpacing = spacing
+  }
   const borders = readBorders(wordChild(properties, "tblBorders"))
   if (borders) {
     table.borders = borders
@@ -1136,6 +1144,10 @@ function readTable(node: MarkupNode, notes: WordNote[], raw: RawCursor = NO_RAW)
     }
     if (header) {
       row.header = readOnOff(header) ?? true
+    }
+    const cantSplit = wordChild(rowProperties, "cantSplit")
+    if (cantSplit && (readOnOff(cantSplit) ?? true)) {
+      row.cantSplit = true
     }
     const heightNode = wordChild(rowProperties, "trHeight")
     const heightValue = readUMeasure(attr(heightNode, "val"))
@@ -1187,6 +1199,15 @@ function readCell(node: MarkupNode, notes: WordNote[], raw: RawCursor = NO_RAW) 
   const look = readCellLook(properties)
   if (look) {
     cell.look = look
+  }
+  for (const [name, key] of [
+    ["noWrap", "noWrap"],
+    ["tcFitText", "fitText"],
+  ] as const) {
+    const flag = wordChild(properties, name)
+    if (flag && (readOnOff(flag) ?? true)) {
+      cell[key] = true
+    }
   }
   const source = elementSource(properties, cellPropertiesInput(cell))
   if (source) {

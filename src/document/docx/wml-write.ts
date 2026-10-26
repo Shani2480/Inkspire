@@ -853,7 +853,7 @@ function writeRowProperties(input: ReturnType<typeof rowPropertiesInput>) {
   const height = input.height
     ? `<w:trHeight w:val="${input.height.value}"${input.height.rule ? ` w:hRule="${input.height.rule}"` : ""}/>`
     : ""
-  return `${height}${input.header ? "<w:tblHeader/>" : ""}`
+  return `${input.cantSplit ? "<w:cantSplit/>" : ""}${height}${input.header ? "<w:tblHeader/>" : ""}`
 }
 
 function writeTableProperties(table: Table) {
@@ -865,8 +865,13 @@ function writeTableProperties(table: Table) {
         input.styleId ? `<w:tblStyle w:val="${escapeXml(input.styleId)}"/>` : "",
         input.width ? `<w:tblW w:w="${input.width.value}" w:type="${input.width.type}"/>` : "",
         input.align ? `<w:jc w:val="${input.align}"/>` : "",
+        input.cellSpacing
+          ? `<w:tblCellSpacing w:w="${input.cellSpacing.value}" w:type="${input.cellSpacing.type}"/>`
+          : "",
+        input.indent ? `<w:tblInd w:w="${input.indent.value}" w:type="${input.indent.type}"/>` : "",
         writeBorders(input.borders),
         input.layout ? `<w:tblLayout w:type="${input.layout}"/>` : "",
+        writeCellMargins(input.cellMargins),
         writeLook(input.look),
         input.caption ? `<w:tblCaption w:val="${escapeXml(input.caption)}"/>` : "",
         input.description ? `<w:tblDescription w:val="${escapeXml(input.description)}"/>` : "",
@@ -942,10 +947,13 @@ function generateCellProperties(cell: ReturnType<typeof cellPropertiesInput>) {
     ? `<w:shd w:val="${cell.shading.value}"${cell.shading.color ? ` w:color="${cell.shading.color}"` : ""}${cell.shading.fill ? ` w:fill="${cell.shading.fill}"` : ""}/>`
     : ""
   const vAlign = cell.vAlign ? `<w:vAlign w:val="${cell.vAlign}"/>` : ""
-  return `${width}${span}${merge}${borders}${shading}${vAlign}`
+  const noWrap = cell.noWrap ? "<w:noWrap/>" : ""
+  const margins = writeCellMargins(cell.margins, "tcMar")
+  const fit = cell.fitText ? "<w:tcFitText/>" : ""
+  return `${width}${span}${merge}${borders}${shading}${noWrap}${margins}${fit}${vAlign}`
 }
 
-function writeCellMargins(margins: CellMargins | undefined) {
+function writeCellMargins(margins: CellMargins | undefined, name = "tblCellMar") {
   if (!margins) {
     return ""
   }
@@ -955,7 +963,7 @@ function writeCellMargins(margins: CellMargins | undefined) {
       return edge ? `<w:${side} w:w="${edge.value}" w:type="${edge.type}"/>` : ""
     })
     .join("")
-  return edges ? `<w:tblCellMar>${edges}</w:tblCellMar>` : ""
+  return edges ? `<w:${name}>${edges}</w:${name}>` : ""
 }
 
 function writeNumberingPart(numbering: NumberingDefinitions) {

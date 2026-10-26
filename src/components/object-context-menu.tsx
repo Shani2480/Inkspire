@@ -1,3 +1,4 @@
+import { openTableProperties } from "@/components/table-properties-dialog"
 import { openBordersAndShading } from "@/components/borders-shading-dialog"
 import { useCropMode } from "@/editor/picture-crop"
 import { useLayoutDialog } from "@/document/object-layout"
@@ -47,7 +48,7 @@ type Target = {
   click: number
 }
 
-type DialogName = "alt" | "table" | "wordart" | "equation" | "figure" | "signature" | "date" | "if" | "note" | "textbox"
+type DialogName = "alt" | "wordart" | "equation" | "figure" | "signature" | "date" | "if" | "note" | "textbox"
 
 export function ObjectContextMenu({ editor }: { editor: Editor }) {
   const [menu, setMenu] = useState<{ x: number; y: number; target: Target } | null>(null)
@@ -95,10 +96,11 @@ export function ObjectContextMenu({ editor }: { editor: Editor }) {
       openMenu(found, placeMenu(editor, found))
     }
     const root = editor.view.dom
-    root.addEventListener("contextmenu", onContext)
+    // Before the text menu, which listens on the same element and leaves a right-click this menu took.
+    root.addEventListener("contextmenu", onContext, true)
     root.addEventListener("keydown", onKeyMenu)
     return () => {
-      root.removeEventListener("contextmenu", onContext)
+      root.removeEventListener("contextmenu", onContext, true)
       root.removeEventListener("keydown", onKeyMenu)
     }
   }, [editor, openMenu])
@@ -294,7 +296,7 @@ function itemsFor(
         ])}
         {sep()}
         {leaf("Borders and Shading...", () => run(() => openBordersAndShading(editor)))}
-        {leaf("Table Properties...", () => openDialog("table"))}
+        {leaf("Table Properties...", () => run(() => openTableProperties(editor)))}
       </>
     )
   }
@@ -601,36 +603,6 @@ function ObjectDialogs({
         <label>
           Description
           <input name="alt" defaultValue={String(attrs.alt ?? "")} />
-        </label>
-      </FormDialog>
-    )
-  }
-  if (dialog === "table") {
-    return (
-      <FormDialog
-        title="Table Properties"
-        onClose={onClose}
-        onSubmit={(data) => {
-          selectTarget(editor, target)
-          const align = data.get("align") || "left"
-          const width = Number(data.get("width"))
-          editor.chain().focus().setCellAttribute("align", align).run()
-          if (width > 0) {
-            editor.chain().focus().setCellAttribute("colwidth", [width]).run()
-          }
-        }}
-      >
-        <label>
-          Alignment
-          <select name="align" defaultValue={String(attrs.align || "left")}>
-            <option value="left">Left</option>
-            <option value="center">Center</option>
-            <option value="right">Right</option>
-          </select>
-        </label>
-        <label>
-          Column width
-          <input name="width" type="number" min={24} placeholder="Auto" />
         </label>
       </FormDialog>
     )
@@ -1092,6 +1064,13 @@ function placeMenu(editor: Editor, target: Target) {
 
 function selectTarget(editor: Editor, target: Target) {
   if (target.name === "table") {
+    // A right-click inside the selection keeps it (selected cells stay selected), as in Word.
+    const kept = editor.state.selection.ranges.some(
+      (range) => range.$from.pos !== range.$to.pos && target.click >= range.$from.pos && target.click <= range.$to.pos,
+    )
+    if (kept) {
+      return
+    }
     const pos = Math.max(1, Math.min(target.click, editor.state.doc.content.size))
     editor.commands.setTextSelection(pos)
     return

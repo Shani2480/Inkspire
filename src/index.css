@@ -2174,6 +2174,16 @@ button.line-menu-row:focus-visible {
   padding: 10px 14px;
 }
 
+/* Table Options' default cell margins (22.10), over the presets; a cell's own margins (Cell Options) are inline. */
+.page-editor table[data-margins] > tbody > tr > :is(td, th) {
+  padding: var(--cell-margin-top) var(--cell-margin-right) var(--cell-margin-bottom) var(--cell-margin-left);
+}
+
+/* Cell Options: Wrap text off. */
+.page-editor :is(td, th)[data-no-wrap="1"] {
+  white-space: nowrap;
+}
+
 .table-size-field {
   display: flex;
   align-items: center;
@@ -12154,53 +12164,142 @@ fieldset.columns-presets input {
   margin-top: 4px;
 }
 
-/* Table Properties (22.10). */
-.tp-panel {
+/* Table Properties (22.10), laid out as Word's. */
+.tp-body {
   display: flex;
   flex-direction: column;
+  color: var(--dlg-text);
+}
+
+.tp-stack {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tp-size-row {
+  display: grid;
+  grid-template-columns: auto 92px auto 112px;
+  align-items: center;
+  gap: 6px 10px;
+  justify-content: start;
+}
+
+.tp-tiles-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+}
+
+.tp-tiles {
+  display: flex;
   gap: 10px;
+}
+
+.tp-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  padding: 3px 4px 2px;
   color: var(--dlg-text);
   font-size: 12px;
 }
 
-.tp-field {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+.tp-tile svg {
+  width: 44px;
+  height: 36px;
+  border: 1px solid var(--dlg-control-border);
+  background: var(--dlg-surface);
 }
 
-.tp-field textarea,
-.tp-field select,
-.tp-field input {
-  width: 140px;
+.tp-tile:hover:not(:disabled) svg {
+  border-color: var(--dlg-accent);
+}
+
+.tp-tile[aria-pressed="true"] svg {
+  outline: 2px solid var(--dlg-accent);
+  outline-offset: 1px;
+}
+
+.tp-tile:disabled {
+  color: var(--dlg-disabled-text);
+}
+
+.tp-tile:disabled svg {
+  opacity: 0.5;
+}
+
+.tp-tile-line {
+  stroke: var(--dlg-glyph);
+  stroke-width: 1.5;
+  opacity: 0.55;
+}
+
+.tp-tile-margin {
+  stroke: var(--dlg-rule);
+  stroke-dasharray: 2 2;
+}
+
+.tp-tile-table {
+  fill: var(--dlg-surface);
+  stroke: var(--dlg-accent);
+  stroke-width: 1.2;
+}
+
+.tp-tile-grid {
+  stroke: var(--dlg-accent);
+  stroke-width: 0.8;
+}
+
+.tp-indent {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 112px;
+  margin-bottom: 18px;
+}
+
+.tp-end {
+  margin-bottom: 18px;
+  margin-left: auto;
+}
+
+.tp-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.tp-range {
+  margin: 0;
+  font-weight: 600;
+}
+
+.tp-margins {
+  display: grid;
+  grid-template-columns: auto 92px auto 92px;
+  align-items: center;
+  gap: 6px 10px;
+  justify-content: start;
+}
+
+.tp-input {
+  width: 100%;
   border: 1px solid var(--dlg-control-border);
   border-radius: 3px;
   background: var(--dlg-surface);
   padding: 4px 6px;
   color: var(--dlg-text);
+  font-size: 12px;
 }
 
-.tp-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.tp-heading,
-.tp-note {
-  margin: 0;
-  opacity: 0.8;
-}
-
-.tp-choices {
-  display: flex;
-  gap: 6px;
-}
-
-.tp-choices .dialog-btn[aria-pressed="true"] {
-  border-color: var(--dlg-accent);
-  background: var(--dlg-item-hover);
+textarea.tp-input {
+  resize: none;
 }
 
 /* Breaks and Columns menus (22.20, 22.21). */

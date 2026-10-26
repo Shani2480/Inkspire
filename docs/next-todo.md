@@ -1720,6 +1720,12 @@ table; dragging a row's border resizes it live. Checked in headless Chrome.
 With the whole table selected, a column border's double-click fits every column within the page; a row border's
 double-click fits the row (every row with the table selected).
 
+**Done (2026-10-26, Table Properties as Word's).** Table Properties... is on the table right-click menu, and the
+dialog has Word's layout: Size, Alignment with Indent from left, Text wrapping, Borders and Shading..., Options...
+(Table Options); Row with Row height is and Allow row to break across pages, Previous / Next Row; Column with
+Previous / Next Column; Cell with Preferred width, Vertical alignment and Options... (Cell Options); Alt Text. All of
+it is saved to .docx. Not done: wrapping text around a table, and drawing Fit text. See `changes.md`.
+
 - Present and matching: all groups. Missing: Properties button (Table Properties dialog), Cell Size dialog launcher and Rows & Columns launcher, Height and Width spin boxes shown beside AutoFit in cm with a live value, 3×3 alignment grid sized as Word's (three-by-three, 22 px), Select menu items (Cell, Column, Row, Table).
 - The floating table toolbar (081826 shows Word's own) should be Font, Size, Grow/Shrink, bullets, numbering, Bold, Italic, alignment, highlight, font color, shading, borders, format painter, Insert, Delete, New Comment, Insert Below, Delete Rows, Merge Cells (21.7 covers dark mode only).
 

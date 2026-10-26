@@ -5,6 +5,14 @@ import { chromeHasContent, chromeHasPageField } from "@/document/chrome-html"
 import { chromeJson } from "@/document/chrome-json"
 import { bordersOf, editedShading, sidePensOf, wordShadingValue } from "@/document/docx/cell-edits"
 import { cellCss, tableLookTokens, tableVariables, themeFontsOf } from "@/document/docx/word-styles"
+import {
+  lengthFromWord,
+  lengthToWord,
+  marginsFromWord,
+  marginsToWord,
+  preferredFromWord,
+  preferredToWord,
+} from "@/document/docx/table-props-docx"
 import type { PageSetup, PaperSize, SectionStart } from "@/document/page-setup"
 import { DEFAULT_PAGE_SETUP } from "@/document/page-setup"
 import type { DocumentProps } from "@/document/store"
@@ -534,11 +542,18 @@ function tableHtml(table: Table, ctx: Projection) {
           const word = look.length > 0 ? ` data-word-cell="${escapeAttribute(look.join("; "))}"` : ""
           const shade = wordShadingValue(cell.shading)
           const shading = shade ? ` data-word-shading="${shade}"` : ""
-          return `<td${span}${rowspan}${colwidth}${valign ? ` data-valign="${valign}"` : ""}${word}${shading}>${inner}</td>`
+          const ownMargins = marginsFromWord(cell.look?.margins)
+          const options =
+            (ownMargins ? ` data-cell-margins="${ownMargins}"` : "") +
+            (cell.noWrap ? ` data-no-wrap="1"` : "") +
+            (cell.fitText ? ` data-fit-text="1"` : "")
+          return `<td${span}${rowspan}${colwidth}${valign ? ` data-valign="${valign}"` : ""}${word}${shading}${options}>${inner}</td>`
         })
         .join("")
       const height = row.height ? ` style="height: ${Math.round(row.height.value / TWIP_PER_PX)}px"` : ""
-      return `<tr${height}>${cells}</tr>`
+      const rule = row.height?.rule === "exact" ? ` data-height-rule="exact"` : ""
+      const split = row.cantSplit ? ` data-cant-split="1"` : ""
+      return `<tr${height}${rule}${split}>${cells}</tr>`
     })
     .join("")
   const key = table.key ? ` data-docx="${table.key}"` : ""
@@ -548,7 +563,17 @@ function tableHtml(table: Table, ctx: Projection) {
   const alt =
     (table.caption ? ` data-alt-title="${escapeAttribute(table.caption)}"` : "") +
     (table.description ? ` data-alt-desc="${escapeAttribute(table.description)}"` : "")
-  const attrs = `${key} data-word-table="1"${style} data-word-look="${tableLookTokens(table.look)}"${align}${alt}${
+  const preferred = preferredFromWord(table.width)
+  const indent = lengthFromWord(table.indent)
+  const spacing = lengthFromWord(table.cellSpacing)
+  const margins = marginsFromWord(table.cellMargins)
+  const props =
+    (preferred ? ` data-pref-width="${preferred}"` : "") +
+    (indent !== null ? ` data-indent="${indent}"` : "") +
+    (spacing !== null ? ` data-cell-spacing="${spacing}"` : "") +
+    (table.layout === "fixed" ? ` data-auto-resize="0"` : "") +
+    (margins ? ` data-margins="${margins}"` : "")
+  const attrs = `${key} data-word-table="1"${style} data-word-look="${tableLookTokens(table.look)}"${align}${alt}${props}${
     frame ? ` data-word-frame="${escapeAttribute(frame)}"` : ""
   }`
   return `<table${attrs}><tbody>${rows}</tbody></table>`
@@ -1356,6 +1381,9 @@ function tableFromNode(node: JsonNode, build: Build): Table {
           ...(down > 1 ? { vMerge: "restart" as const } : {}),
           colwidth: Array.isArray(child.attrs?.colwidth) ? child.attrs.colwidth.map((width) => Number(width)) : null,
           valign: child.attrs?.valign === "middle" || child.attrs?.valign === "bottom" ? child.attrs.valign : "top",
+          editedMargins: typeof child.attrs?.cellMargins === "string" ? child.attrs.cellMargins : null,
+          ...(child.attrs?.noWrap === true ? { noWrap: true } : {}),
+          ...(child.attrs?.fitText === true ? { fitText: true } : {}),
           ...shadedAndBordered(child.attrs),
         })
         if (down > 1) {
@@ -1401,16 +1429,34 @@ function tableFromNode(node: JsonNode, build: Build): Table {
           cell.look = rest
         }
       }
+      // Cell Options' margins win over the ones the source cell had; "Same as the whole table" drops them.
+      for (const cell of cells) {
+        if (cell.vMerge === "continue") {
+          continue
+        }
+        const margins = marginsToWord(cell.editedMargins, cell.look?.margins)
+        if (margins) {
+          cell.look = { ...cell.look, margins }
+        } else if (cell.look?.margins) {
+          const { margins: _dropped, ...rest } = cell.look
+          cell.look = rest
+        }
+      }
       const editedHeight = Number(row.attrs?.height)
       const height =
         editedHeight > 0
           ? {
               value: Math.round(editedHeight * TWIP_PER_PX),
-              ...(source?.height?.rule ? { rule: source.height.rule } : {}),
+              ...(row.attrs?.heightRule === "exact"
+                ? { rule: "exact" as const }
+                : source?.height?.rule === "atLeast"
+                  ? { rule: "atLeast" as const }
+                  : {}),
             }
           : undefined
       return {
         ...(source?.header || (rowIndex === 0 && node.attrs?.headerRow === true) ? { header: true } : {}),
+        ...(row.attrs?.cantSplit === true ? { cantSplit: true } : {}),
         // A height the source row had and the editor did not show stays; one the person set replaces it.
         ...(height ? { height } : source?.height ? { height: structuredClone(source.height) } : {}),
         ...(source?.cellMargins ? { cellMargins: structuredClone(source.cellMargins) } : {}),
@@ -1424,14 +1470,12 @@ function tableFromNode(node: JsonNode, build: Build): Table {
     kind: "table",
     ...(origin?.styleId ? { styleId: origin.styleId } : {}),
     ...(origin?.source ? { source: origin.source } : {}),
-    ...(origin?.width ? { width: structuredClone(origin.width) } : {}),
     ...(origin?.borders ? { borders: structuredClone(origin.borders) } : {}),
-    ...(origin?.layout ? { layout: origin.layout } : {}),
     ...(origin?.look ? { look: structuredClone(origin.look) } : {}),
     grid,
     rows: rows.map((row) => ({
       ...row,
-      cells: row.cells.map(({ colwidth: _colwidth, valign: _valign, ...cell }, index) => {
+      cells: row.cells.map(({ colwidth: _colwidth, valign: _valign, editedMargins: _margins, ...cell }, index) => {
         const at = gridColumn(row.cells, index)
         const width = grid.slice(at, at + (cell.gridSpan ?? 1)).reduce((sum, column) => sum + column, 0)
         return width > 0 ? { ...cell, width: { value: width, type: "dxa" as const } } : cell
@@ -1440,6 +1484,28 @@ function tableFromNode(node: JsonNode, build: Build): Table {
   }
   if (key) {
     table.key = key
+  }
+  // Table Properties: preferred width, indent, cell spacing, default cell margins and automatic resizing.
+  const attrs = node.attrs ?? {}
+  const width = preferredToWord(attrs.prefWidth, origin?.width)
+  if (width) {
+    table.width = structuredClone(width)
+  }
+  const indent = lengthToWord(attrs.indent, origin?.indent)
+  if (indent) {
+    table.indent = structuredClone(indent)
+  }
+  const spacing = lengthToWord(attrs.cellSpacing, origin?.cellSpacing)
+  if (spacing && spacing.value > 0) {
+    table.cellSpacing = structuredClone(spacing)
+  }
+  const margins = marginsToWord(attrs.margins, origin?.cellMargins)
+  if (margins) {
+    table.cellMargins = structuredClone(margins)
+  }
+  const layout = attrs.autoResize === false ? "fixed" : origin?.layout === "fixed" ? "autofit" : origin?.layout
+  if (layout) {
+    table.layout = layout
   }
   const align = node.attrs?.align === "center" || node.attrs?.align === "right" ? node.attrs.align : "left"
   // Left is Word's default: an untouched table keeps what it had, and only a changed one writes w:jc.
@@ -1496,7 +1562,11 @@ function madeInApp(table: Table, frame: unknown) {
 }
 
 type EditedRow = Omit<TableRow, "cells"> & {
-  cells: (TableCell & { colwidth?: number[] | null; valign?: "top" | "middle" | "bottom" })[]
+  cells: (TableCell & {
+    colwidth?: number[] | null
+    valign?: "top" | "middle" | "bottom"
+    editedMargins?: string | null
+  })[]
 }
 
 /**

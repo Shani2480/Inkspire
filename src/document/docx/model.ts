@@ -592,6 +592,9 @@ export type TableCell = {
   /** Paragraphs, nested tables, and block content controls, in order. */
   blocks: Block[]
   width?: TableWidth
+  /** w:noWrap and w:tcFitText (Cell Options). */
+  noWrap?: boolean
+  fitText?: boolean
   gridSpan?: number
   vMerge?: MergeValue
   shading?: Shading
@@ -601,6 +604,8 @@ export type TableCell = {
 }
 export type TableRow = {
   header?: boolean
+  /** w:cantSplit: the row is not broken across pages. */
+  cantSplit?: boolean
   /** w:trHeight: twips, and whether the row may grow past it (atLeast, the default) or not (exact). */
   height?: { value: number; rule?: "atLeast" | "exact" }
   cellMargins?: CellMargins
@@ -617,6 +622,9 @@ export type Table = {
   /** w:tblPr as written. */
   source?: ElementSource
   width?: TableWidth
+  /** w:tblInd and w:tblCellSpacing. */
+  indent?: TableWidth
+  cellSpacing?: TableWidth
   borders?: TableBorders
   layout?: TableLayout
   look?: TableLook
@@ -1363,8 +1371,11 @@ export function tablePropertiesInput(table: Table) {
   return {
     styleId: table.styleId,
     width: table.width,
+    indent: table.indent,
+    cellSpacing: table.cellSpacing,
     borders: table.borders,
     layout: table.layout,
+    cellMargins: table.cellMargins,
     look: table.look,
     align: table.align,
     caption: table.caption,
@@ -1373,7 +1384,7 @@ export function tablePropertiesInput(table: Table) {
 }
 
 export function rowPropertiesInput(row: TableRow) {
-  return { header: row.header, height: row.height }
+  return { header: row.header, height: row.height, cantSplit: row.cantSplit }
 }
 
 export function rowExceptionsInput(row: TableRow) {
@@ -1387,6 +1398,9 @@ export function cellPropertiesInput(cell: TableCell) {
     vMerge: cell.vMerge,
     borders: cell.look?.borders,
     shading: cell.shading,
+    noWrap: cell.noWrap,
+    margins: cell.look?.margins,
+    fitText: cell.fitText,
     vAlign: cell.look?.vAlign,
   }
 }

@@ -6,6 +6,7 @@ import type { Node as ProseNode } from "@tiptap/pm/model"
 import { type EditorState, Plugin, PluginKey, type Transaction } from "@tiptap/pm/state"
 import { CellSelection, TableMap, addColumn, addRow, cellAround, findTable } from "@tiptap/pm/tables"
 import type { EditorView } from "@tiptap/pm/view"
+import { applyTableProps, cellPropsAttributes, rowPropsAttributes, tablePropsAttributes } from "@/editor/table-props"
 
 const backgroundColor = {
   default: null as string | null,
@@ -139,6 +140,7 @@ function applyTableStyleDom(table: HTMLTableElement, node: ProseNode) {
     table.removeAttribute("aria-label")
   }
   applyWordTable(table, node)
+  applyTableProps(table, node.attrs)
 }
 
 /** The table view draws its own <table>, so the Word attributes are copied onto it here. */
@@ -302,6 +304,7 @@ export const FramedTable = Table.extend({
             attributes.cellPad === "narrow" || attributes.cellPad === "wide" ? attributes.cellPad : "normal",
         }),
       },
+      ...tablePropsAttributes,
     }
   },
 })
@@ -331,6 +334,7 @@ export const ShadedTableCell = TableCell.extend({
       sidePens,
       textDir,
       valign,
+      ...cellPropsAttributes,
     }
   },
 })
@@ -349,6 +353,7 @@ export const ShadedTableHeader = TableHeader.extend({
       sidePens,
       textDir,
       valign,
+      ...cellPropsAttributes,
     }
   },
 })
@@ -366,6 +371,7 @@ export const SizedTableRow = TableRow.extend({
         renderHTML: (attributes: { height?: number | null }) =>
           attributes.height ? { style: `height: ${attributes.height}px` } : {},
       },
+      ...rowPropsAttributes,
     }
   },
 })
