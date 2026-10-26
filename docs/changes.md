@@ -7,6 +7,17 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### Tables: fit every column of a selected table, and fit a row to its contents, by double-clicking a border
+
+- **Missing:** with the whole table selected, double-clicking a column border fitted only that column; double-clicking
+  a row border did nothing. **Changed:** with every cell selected (`wholeTableSelected`), any column border fits all
+  columns (`autoFitAllColumns`): each gets its unwrapped width when they all fit the page, otherwise at least its
+  longest word and the rest of the page in proportion to how much wider it would like to be (`sharedColumnWidths`).
+  Double-clicking a row's bottom border clears its set height so it fits its contents, every row's when the whole
+  table is selected (`autoFitRows`). Each is one undo step (`table-tools.ts`).
+- **Checked:** unit tests for the sharing (`table-resize.test.ts`); in headless Chrome, a selected 3-column table went
+  from 208/208/208 to 93/336/135 px, and a row dragged to 70 px went back to 20 px on a double-click.
+
 ### Tables: double-click a column border to fit it, text no longer moves on entering a table, live row resizing
 
 - **Missing:** double-clicking a column's right border did nothing; in Word it fits the column to its contents.
