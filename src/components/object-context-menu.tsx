@@ -1037,6 +1037,15 @@ function targetAtPoint(editor: Editor, event: MouseEvent): Target | null {
       }
       for (let depth = $pos.depth; depth > 0; depth--) {
         const ancestor = $pos.node(depth)
+        if (ancestor.type.name === "table") {
+          // As in Word, a right-click in a table is in its cell: the caret goes there, or a selection it falls in
+          // stays, so the menu's commands act on that cell and not on the whole table.
+          const { from, to, empty } = editor.state.selection
+          if (empty || hit.pos < from || hit.pos > to) {
+            editor.commands.setTextSelection(hit.pos)
+          }
+          return { name: "table", pos: $pos.before(depth), click: editor.state.selection.from }
+        }
         if (OBJECTS.has(ancestor.type.name)) {
           const at = $pos.before(depth)
           editor.commands.setNodeSelection(at)
