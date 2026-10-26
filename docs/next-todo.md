@@ -757,6 +757,8 @@ Not yet checked in the desktop webview for flicker.
 **Done 2026-10-27** (from a screencast of the desktop app): the start screen at launch has no entrance, the splash
 goes at once (no fade over the start screen) and hides its card until the picture loads, File no longer fades the
 whole window in and closes at once, and the main ribbon tabs stay built (`Activity`), so switching is one frame.
+The tab slide then still stuttered: its first, slow frame ate most of it. Now that frame is drawn with the commands
+unseen and the slide starts on the next one, set on the card element rather than through state.
 
 ### 18.8 — Styles
 

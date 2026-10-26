@@ -343,7 +343,7 @@ export function Ribbon() {
   }, [])
   const cardRef = useRef<HTMLDivElement>(null)
   useLayoutAnimation(cardRef, ribbonLayout)
-  const tabMotion = useTabMotion()
+  const tabMotion = useTabMotion(cardRef)
   const hiddenTabs = useCustomize((state) => state.hiddenTabs)
 
   useEffect(() => {
@@ -440,7 +440,6 @@ export function Ribbon() {
         <div
           ref={cardRef}
           data-ribbon-layout={ribbonLayout}
-          data-tab-motion={tabMotion.moving ? "on" : undefined}
           className="ribbon-card relative mx-3 mb-1.5 overflow-hidden rounded-[8px] border border-[var(--app-ribbon-border)] bg-[var(--app-ribbon-card)] shadow-[var(--app-ribbon-shadow)]"
         >
           {MAIN_TABS.filter(([id]) => visited.includes(id)).map(([id, Content]) => (

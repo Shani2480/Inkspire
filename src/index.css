@@ -5046,10 +5046,6 @@ body,
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .splash-screen {
-    transition: none;
-  }
-
   .splash-progress span {
     width: 45%;
     animation: none;
@@ -10192,6 +10188,10 @@ html.dark .asset-library .asset-library-icon {
 .ribbon-card[data-tab-motion="on"] [data-slot="tabs-content"] {
   animation: motion-tab-in var(--motion-tab) var(--motion-ease-in);
 }
+/* The new tab's first, slow frame is drawn with its commands unseen; the slide starts on the next (useTabMotion). */
+.ribbon-card[data-tab-motion="waiting"] [data-slot="tabs-content"] {
+  opacity: 0;
+}
 
 /*
  * File (backstage): it covers the window at once, and its pane slides in from the left with the page following. Only
@@ -10281,6 +10281,9 @@ html.dark .asset-library .asset-library-icon {
   }
   [data-slot="popover-content"].ribbon-menu {
     transition: none;
+  }
+  .ribbon-card[data-tab-motion="waiting"] [data-slot="tabs-content"] {
+    opacity: 1;
   }
 }
 

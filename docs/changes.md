@@ -7,6 +7,22 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Ribbon tab slide still stuttered in the desktop app
+
+- **Bug:** after the tab-switch fix above, the slide still stuttered in the desktop app. At 6x CPU slowdown (about
+  the desktop webview's speed) the first frame after a click took 90-110 ms: style and layout for the newly shown
+  tab, plus the ribbon's own render. The 150 ms slide started with the click, so most of it ran before anything was
+  drawn and it showed as a jump, followed by 33-67 ms frames.
+- **Changed** (`tab-motion.ts`, `ribbon.tsx`, `index.css`):
+  - The new tab's first frame is drawn with its commands unseen (`data-tab-motion="waiting"`, opacity 0), and the
+    slide starts on the frame after it (`"on"`, two animation frames later), so all of it plays on cheap frames.
+  - The attribute is set on the card element directly instead of through React state, so the ribbon does not
+    render again in the middle of the slide.
+  - Under reduced motion the tab shows at once.
+- **Checked:** headless Chrome at 6x CPU slowdown: the slide's frames are now 17 ms with an occasional 33 ms one,
+  against runs of 33-67 ms before. Tab motion tests rewritten against the element; 843 tests pass.
+- **Open:** confirm in the desktop app.
+
 ### Launch, File view and ribbon tab switches no longer stutter (desktop app)
 
 - **Bug** (from the screencast `screenshots/Screencast_20261026_205830.mp4`):
