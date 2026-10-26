@@ -1726,6 +1726,12 @@ dialog has Word's layout: Size, Alignment with Indent from left, Text wrapping, 
 Previous / Next Column; Cell with Preferred width, Vertical alignment and Options... (Cell Options); Alt Text. All of
 it is saved to .docx. Not done: wrapping text around a table, and drawing Fit text. See `changes.md`.
 
+**Done (2026-10-27, text wrapping around tables).** Around, Table Positioning (horizontal and vertical place and what
+it is measured from, distances from the text, Move with text, Allow overlap, Remove Positioning), and dragging the
+move handle to float a table where it is dropped; saved as `w:tblpPr` / `w:tblOverlap`. Not done: text on both
+sides of a table in the middle of the page, splitting a floating table across pages, keeping overlapping floating
+tables apart.
+
 - Present and matching: all groups. Missing: Properties button (Table Properties dialog), Cell Size dialog launcher and Rows & Columns launcher, Height and Width spin boxes shown beside AutoFit in cm with a live value, 3×3 alignment grid sized as Word's (three-by-three, 22 px), Select menu items (Cell, Column, Row, Table).
 - The floating table toolbar (081826 shows Word's own) should be Font, Size, Grow/Shrink, bullets, numbering, Bold, Italic, alignment, highlight, font color, shading, borders, format painter, Insert, Delete, New Comment, Insert Below, Delete Rows, Merge Cells (21.7 covers dark mode only).
 

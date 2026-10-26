@@ -7,6 +7,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Tables text wraps around (22.10, 2026-10-27)** — a table set to Around, one at Right / Top of the margin and
+      one dragged into a paragraph open in Word at the same places with the text wrapped the same way; a Word document
+      with floating tables opens in the app with them in place.
 - [ ] **Table Properties (22.10, 2026-10-26)** — a table given an indent, cell spacing, default and cell margins,
       Exactly row height, no break across pages, No wrap and a percent width opens in Word with the same values in
       its Table Properties; a Word table with these set opens in the app's dialog with them.
@@ -69,6 +72,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [x] **Tables text wraps around, Table Positioning, dragging a table (22.10, 2026-10-27)** — checked 2026-10-27 in
+      headless Chrome.
+- [ ] **Same, in the desktop app** — drag a table by its move handle at 150% zoom; a floating table near the foot of
+      a page, and on page 2.
 - [x] **Right-click keeps a selected table, column or row (2026-10-27)** — checked 2026-10-27 in headless Chrome.
 - [x] **Table Properties dialog and right-click (22.10, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [ ] **Table Properties, in the desktop app** — right-click a selected table: one menu, Table Properties... opens

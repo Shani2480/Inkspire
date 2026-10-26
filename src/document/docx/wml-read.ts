@@ -84,6 +84,7 @@ import {
   type StyleCatalog,
   type TabStop,
   type Table,
+  type TablePosition,
   type Underline,
   type WordDocument,
   type WordNote,
@@ -1091,6 +1092,14 @@ function readTable(node: MarkupNode, notes: WordNote[], raw: RawCursor = NO_RAW)
   if (width) {
     table.width = width
   }
+  const position = readTablePosition(wordChild(properties, "tblpPr"))
+  if (position) {
+    table.position = position
+  }
+  const overlap = oneOf(childVal(properties, "tblOverlap"), ["never", "overlap"] as const)
+  if (overlap) {
+    table.overlap = overlap
+  }
   const indent = readTableWidth(wordChild(properties, "tblInd"))
   if (indent) {
     table.indent = indent
@@ -1397,6 +1406,37 @@ function readShading(node: MarkupNode | undefined) {
     shading.fill = fill
   }
   return shading
+}
+
+/** w:tblpPr: where a table text wraps around sits. */
+function readTablePosition(node: MarkupNode | undefined) {
+  if (!node) {
+    return undefined
+  }
+  const position: TablePosition = {}
+  for (const key of ["leftFromText", "rightFromText", "topFromText", "bottomFromText"] as const) {
+    const value = readUMeasure(attr(node, key))
+    if (value !== undefined) {
+      position[key] = value
+    }
+  }
+  const anchors = ["text", "margin", "page"] as const
+  const vertAnchor = oneOf(attr(node, "vertAnchor"), anchors)
+  const horzAnchor = oneOf(attr(node, "horzAnchor"), anchors)
+  const xSpec = oneOf(attr(node, "tblpXSpec"), ["left", "center", "right", "inside", "outside"] as const)
+  const ySpec = oneOf(attr(node, "tblpYSpec"), ["inline", "top", "center", "bottom", "inside", "outside"] as const)
+  const x = readMeasure(attr(node, "tblpX"))
+  const y = readMeasure(attr(node, "tblpY"))
+  Object.assign(
+    position,
+    vertAnchor ? { vertAnchor } : {},
+    horzAnchor ? { horzAnchor } : {},
+    xSpec ? { tblpXSpec: xSpec } : {},
+    x !== undefined ? { tblpX: x } : {},
+    ySpec ? { tblpYSpec: ySpec } : {},
+    y !== undefined ? { tblpY: y } : {},
+  )
+  return position
 }
 
 function readTableWidth(node: MarkupNode | undefined) {

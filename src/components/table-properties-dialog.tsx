@@ -1,7 +1,17 @@
 import { openBordersAndShading } from "@/components/borders-shading-dialog"
-import { Check, DialogButtons, DialogFrame, Keyed, Label, Section, SpinField } from "@/components/word-dialog"
+import {
+  Check,
+  DialogButtons,
+  DialogFrame,
+  Keyed,
+  Label,
+  Section,
+  SpinField,
+  trimNumber,
+} from "@/components/word-dialog"
 import { applyTableDialog, tableDialogState, type TableDialogState, type TableDraft } from "@/editor/table-dialog"
 import { PX_PER_CM, WORD_MARGINS, type Margins, type PreferredWidth } from "@/editor/table-props"
+import { defaultFloat, type FloatAcross, type FloatDown, type TableFloat } from "@/editor/table-float"
 import type { Editor } from "@tiptap/core"
 import { useState, type ReactNode } from "react"
 import { create } from "zustand"
@@ -286,6 +296,199 @@ function CellOptionsDialog({
   )
 }
 
+const ACROSS: { id: FloatAcross; label: string }[] = [
+  { id: "left", label: "Left" },
+  { id: "right", label: "Right" },
+  { id: "center", label: "Center" },
+  { id: "inside", label: "Inside" },
+  { id: "outside", label: "Outside" },
+]
+const DOWN: { id: FloatDown; label: string }[] = [
+  { id: "top", label: "Top" },
+  { id: "bottom", label: "Bottom" },
+  { id: "center", label: "Center" },
+  { id: "inside", label: "Inside" },
+  { id: "outside", label: "Outside" },
+]
+
+/** A place as the Position box shows it: its name, or the distance in centimetres. */
+function placeText(value: string | number, names: { id: string; label: string }[]) {
+  return typeof value === "number" ? `${trimNumber(value)} cm` : (names.find((item) => item.id === value)?.label ?? "")
+}
+
+/** What was typed in a Position box: one of its names, or a distance ("1.5", "1.5 cm"); null for neither. */
+export function parsePlace<T extends string>(text: string, names: { id: T; label: string }[]): T | number | null {
+  const typed = text.trim().toLowerCase()
+  const named = names.find((item) => item.label.toLowerCase() === typed)
+  if (named) {
+    return named.id
+  }
+  const number = parseFloat(typed.replace(",", "."))
+  return Number.isFinite(number) && /^-?[\d.,]+\s*(cm)?$/.test(typed) ? Math.round(number * 100) / 100 : null
+}
+
+/** Word's Position box: type a distance or pick a place from its list. */
+function PlaceCombo<T extends string>({
+  id,
+  value,
+  names,
+  onChange,
+}: {
+  id: string
+  value: T | number
+  names: { id: T; label: string }[]
+  onChange: (value: T | number) => void
+}) {
+  const [text, setText] = useState(placeText(value, names))
+  const commit = () => {
+    const parsed = parsePlace(text, names)
+    if (parsed === null) {
+      setText(placeText(value, names))
+      return
+    }
+    setText(placeText(parsed, names))
+    onChange(parsed)
+  }
+  return (
+    <span className="tp-combo">
+      <input
+        id={id}
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            commit()
+          }
+        }}
+      />
+      <select
+        aria-label="Places"
+        tabIndex={-1}
+        value=""
+        disabled={names.length === 0}
+        onChange={(event) => {
+          const next = event.target.value as T
+          setText(placeText(next, names))
+          onChange(next)
+        }}
+      >
+        <option value="" disabled hidden />
+        {names.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.label}
+          </option>
+        ))}
+      </select>
+    </span>
+  )
+}
+
+/** Word's Table Positioning dialog (Table Properties > Around > Positioning...). */
+function TablePositioningDialog({
+  float,
+  onApply,
+  onClose,
+}: {
+  float: TableFloat
+  onApply: (float: TableFloat | null) => void
+  onClose: () => void
+}) {
+  const [draft, setDraft] = useState(float)
+  const patch = (next: Partial<TableFloat>) => setDraft((current) => ({ ...current, ...next }))
+  const moveWithText = draft.vFrom === "paragraph"
+  return (
+    <DialogFrame
+      title="Table Positioning"
+      width={420}
+      level={90}
+      onClose={onClose}
+      onSubmit={() => {
+        onApply(draft)
+        onClose()
+      }}
+    >
+      <div className="tp-stack">
+        <Section title="Horizontal">
+          <div className="tp-position">
+            <Label htmlFor="tp-h-pos" text="Position:" letter="P" />
+            <Label htmlFor="tp-h-from" text="Relative to:" letter="R" />
+            <PlaceCombo id="tp-h-pos" value={draft.h} names={ACROSS} onChange={(h) => patch({ h })} />
+            <select
+              id="tp-h-from"
+              value={draft.hFrom}
+              onChange={(event) => patch({ hFrom: event.target.value as TableFloat["hFrom"] })}
+            >
+              <option value="column">Column</option>
+              <option value="margin">Margin</option>
+              <option value="page">Page</option>
+            </select>
+          </div>
+        </Section>
+        <Section title="Vertical">
+          <div className="tp-position">
+            <Label htmlFor="tp-v-pos" text="Position:" letter="o" />
+            <Label htmlFor="tp-v-from" text="Relative to:" letter="e" />
+            <PlaceCombo
+              key={draft.vFrom}
+              id="tp-v-pos"
+              value={draft.v}
+              names={moveWithText ? [] : DOWN}
+              onChange={(v) => patch({ v })}
+            />
+            <select
+              id="tp-v-from"
+              value={draft.vFrom}
+              onChange={(event) => {
+                const vFrom = event.target.value as TableFloat["vFrom"]
+                // Below a paragraph there is only a distance.
+                patch({ vFrom, v: vFrom === "paragraph" && typeof draft.v === "string" ? 0 : draft.v })
+              }}
+            >
+              <option value="margin">Margin</option>
+              <option value="page">Page</option>
+              <option value="paragraph">Paragraph</option>
+            </select>
+          </div>
+        </Section>
+        <Section title="Distance from surrounding text">
+          <MarginFields id="tp-float-gap" margins={draft.gaps} onChange={(gaps) => patch({ gaps })} />
+        </Section>
+        <Section title="Options">
+          <Check
+            id="tp-float-move"
+            text="Move with text"
+            letter="M"
+            checked={moveWithText}
+            onChange={(on) =>
+              patch(on ? { vFrom: "paragraph", v: typeof draft.v === "number" ? draft.v : 0 } : { vFrom: "margin" })
+            }
+          />
+          <Check
+            id="tp-float-overlap"
+            text="Allow overlap"
+            letter="A"
+            checked={draft.overlap}
+            onChange={(overlap) => patch({ overlap })}
+          />
+        </Section>
+      </div>
+      <DialogButtons submit onCancel={onClose}>
+        <button
+          type="button"
+          className="dialog-btn"
+          onClick={() => {
+            onApply(null)
+            onClose()
+          }}
+        >
+          <Keyed text="Remove Positioning" letter="v" />
+        </button>
+      </DialogButtons>
+    </DialogFrame>
+  )
+}
+
 /** "Row 2:", or "Rows 1-3:" while the selection covers several. */
 function rangeLabel(word: string, range: [number, number]) {
   return range[0] === range[1] ? `${word} ${range[0] + 1}:` : `${word}s ${range[0] + 1}-${range[1] + 1}:`
@@ -305,11 +508,14 @@ function TablePropertiesDialog({
   const [draft, setDraft] = useState<TableDraft | null>(() => state?.draft ?? null)
   const [rows, setRows] = useState<[number, number]>(() => state?.rowRange ?? [0, 0])
   const [columns, setColumns] = useState<[number, number]>(() => state?.columnRange ?? [0, 0])
-  const [sub, setSub] = useState<"table" | "cell" | null>(null)
+  const [sub, setSub] = useState<"table" | "cell" | "position" | null>(null)
   if (!state || !draft) {
     return null
   }
   const patch = (next: Partial<TableDraft>) => setDraft((current) => (current ? { ...current, ...next } : current))
+  // With text wrapping around it, the alignment tiles place the table across its column, as in Word.
+  const setAlign = (align: "left" | "center" | "right") =>
+    patch({ align, float: draft.float ? { ...draft.float, h: align } : null })
   const tableWidth = state.drawn.reduce((sum, width) => sum + width, 0)
   const row = draft.rows[rows[0]]!
   const patchRows = (next: Partial<TableDraft["rows"][number]>) =>
@@ -364,24 +570,28 @@ function TablePropertiesDialog({
                   <Tile
                     label="Left"
                     letter="L"
-                    pressed={draft.align === "left"}
-                    onClick={() => patch({ align: "left" })}
+                    pressed={
+                      draft.float
+                        ? draft.float.h === "left" || typeof draft.float.h === "number"
+                        : draft.align === "left"
+                    }
+                    onClick={() => setAlign("left")}
                   >
                     <TableIcon x={4} />
                   </Tile>
                   <Tile
                     label="Center"
                     letter="C"
-                    pressed={draft.align === "center"}
-                    onClick={() => patch({ align: "center" })}
+                    pressed={draft.float ? draft.float.h === "center" : draft.align === "center"}
+                    onClick={() => setAlign("center")}
                   >
                     <TableIcon x={11} />
                   </Tile>
                   <Tile
                     label="Right"
                     letter="h"
-                    pressed={draft.align === "right"}
-                    onClick={() => patch({ align: "right" })}
+                    pressed={draft.float ? draft.float.h === "right" : draft.align === "right"}
+                    onClick={() => setAlign("right")}
                   >
                     <TableIcon x={18} />
                   </Tile>
@@ -395,7 +605,7 @@ function TablePropertiesDialog({
                     step={0.1}
                     min={-55.88}
                     max={55.88}
-                    disabled={draft.align !== "left"}
+                    disabled={draft.align !== "left" || draft.float !== null}
                     onChange={(value) => patch({ indent: Number(value) })}
                   />
                 </div>
@@ -404,7 +614,7 @@ function TablePropertiesDialog({
             <Section title="Text wrapping">
               <div className="tp-tiles-row">
                 <div className="tp-tiles" role="group" aria-label="Text wrapping">
-                  <Tile label="None" letter="N" pressed onClick={() => undefined}>
+                  <Tile label="None" letter="N" pressed={draft.float === null} onClick={() => patch({ float: null })}>
                     <path d="M8 4h24M8 8h24" className="tp-tile-line" />
                     <rect x={12} y={11} width={16} height={11} className="tp-tile-table" />
                     <path d="M8 26h24M8 30h24" className="tp-tile-line" />
@@ -412,16 +622,19 @@ function TablePropertiesDialog({
                   <Tile
                     label="Around"
                     letter="A"
-                    pressed={false}
-                    disabled
-                    title="Tables that text flows around are not available yet"
-                    onClick={() => undefined}
+                    pressed={draft.float !== null}
+                    onClick={() => patch({ float: draft.float ?? defaultFloat(draft.align, draft.indent) })}
                   >
                     <path d="M4 4h32M4 8h32M4 12h12M4 16h12M4 20h12M4 26h32M4 30h32" className="tp-tile-line" />
                     <rect x={19} y={10} width={16} height={12} className="tp-tile-table" />
                   </Tile>
                 </div>
-                <button type="button" className="dialog-btn tp-end" disabled>
+                <button
+                  type="button"
+                  className="dialog-btn tp-end"
+                  disabled={draft.float === null}
+                  onClick={() => setSub("position")}
+                >
                   <Keyed text="Positioning..." letter="P" />
                 </button>
               </div>
@@ -617,6 +830,13 @@ function TablePropertiesDialog({
       </DialogFrame>
       {sub === "table" ? <TableOptionsDialog draft={draft} onApply={patch} onClose={() => setSub(null)} /> : null}
       {sub === "cell" ? <CellOptionsDialog draft={draft} onApply={patch} onClose={() => setSub(null)} /> : null}
+      {sub === "position" && draft.float ? (
+        <TablePositioningDialog
+          float={draft.float}
+          onApply={(float) => patch({ float })}
+          onClose={() => setSub(null)}
+        />
+      ) : null}
     </>
   )
 }

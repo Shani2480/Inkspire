@@ -11,6 +11,7 @@ import {
   tableSelectionAnchor,
   currentTable,
 } from "@/editor/table-tools"
+import { dropFloatingTable } from "@/editor/table-float-drag"
 import type { Editor } from "@tiptap/core"
 import { useEditorState } from "@tiptap/react"
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
@@ -258,14 +259,16 @@ export function TableHandles({ editor }: { editor: Editor | null }) {
         menusUp={menusUp}
         style={{ left: toolbarLeft, top: toolbarTop, maxWidth: toolbarLimit || undefined }}
       />
-      <HandleButton
-        label="Select table"
+      <button
+        type="button"
+        aria-label="Select table"
+        title="Select table, or drag to move it"
         className="table-move-handle fixed z-30"
         style={{ left: grid.table.left - 18, top: grid.table.top - 18 }}
-        onClick={() => selectTablePart(editor, "table")}
+        onMouseDown={(event) => startTableMove(event, editor)}
       >
         <MoveArrows />
-      </HandleButton>
+      </button>
       <div
         role="separator"
         aria-label="Resize table"
@@ -402,6 +405,52 @@ function MoveArrows() {
       />
     </svg>
   )
+}
+
+/**
+ * Word's move handle: a click selects the table; a drag moves it, drawn under the pointer as it goes, and drops it
+ * as a table text wraps around (see `dropFloatingTable`).
+ */
+function startTableMove(event: React.MouseEvent<HTMLElement>, editor: Editor) {
+  event.preventDefault()
+  if (event.button !== 0) {
+    return
+  }
+  const table = currentTable(editor)
+  const found = table ? tableElement(editor, table.pos) : null
+  if (!table || !(found instanceof HTMLElement)) {
+    return
+  }
+  const element = found
+  const startX = event.clientX
+  const startY = event.clientY
+  const origin = element.getBoundingClientRect()
+  let moved = false
+  const onMove = (move: MouseEvent) => {
+    const dx = move.clientX - startX
+    const dy = move.clientY - startY
+    if (!moved && Math.hypot(dx, dy) < 4) {
+      return
+    }
+    moved = true
+    document.body.classList.add("is-table-moving")
+    // Screen pixels: the translation is undone by the zoom the page is drawn at.
+    const zoom = origin.width / Math.max(1, element.offsetWidth) || 1
+    element.style.translate = `${dx / zoom}px ${dy / zoom}px`
+  }
+  const onUp = (up: MouseEvent) => {
+    window.removeEventListener("mousemove", onMove)
+    window.removeEventListener("mouseup", onUp)
+    document.body.classList.remove("is-table-moving")
+    element.style.translate = ""
+    if (!moved) {
+      selectTablePart(editor, "table")
+      return
+    }
+    dropFloatingTable(editor, table.pos, origin.left + up.clientX - startX, origin.top + up.clientY - startY)
+  }
+  window.addEventListener("mousemove", onMove)
+  window.addEventListener("mouseup", onUp)
 }
 
 /**

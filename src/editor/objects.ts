@@ -778,7 +778,7 @@ function scaleOf(element: HTMLElement) {
 }
 
 /** A point on screen in the coordinates floating objects are placed in (the editor's, unscaled). */
-function editorPoint(view: EditorView, clientX: number, clientY: number) {
+export function editorPoint(view: EditorView, clientX: number, clientY: number) {
   const root = view.dom
   const rect = root.getBoundingClientRect()
   const scale = scaleOf(root)

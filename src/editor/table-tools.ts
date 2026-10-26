@@ -7,6 +7,7 @@ import { type EditorState, Plugin, PluginKey, type Transaction } from "@tiptap/p
 import { CellSelection, TableMap, addColumn, addRow, cellAround, findTable } from "@tiptap/pm/tables"
 import type { EditorView } from "@tiptap/pm/view"
 import { applyTableProps, cellPropsAttributes, rowPropsAttributes, tablePropsAttributes } from "@/editor/table-props"
+import { drawTableFloat, tableFloatAttributes } from "@/editor/table-float"
 
 const backgroundColor = {
   default: null as string | null,
@@ -141,6 +142,7 @@ function applyTableStyleDom(table: HTMLTableElement, node: ProseNode) {
   }
   applyWordTable(table, node)
   applyTableProps(table, node.attrs)
+  drawTableFloat(table, node.attrs.float)
 }
 
 /** The table view draws its own <table>, so the Word attributes are copied onto it here. */
@@ -305,6 +307,7 @@ export const FramedTable = Table.extend({
         }),
       },
       ...tablePropsAttributes,
+      ...tableFloatAttributes,
     }
   },
 })

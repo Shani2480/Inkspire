@@ -5,7 +5,10 @@ import { chromeHasContent, chromeHasPageField } from "@/document/chrome-html"
 import { chromeJson } from "@/document/chrome-json"
 import { bordersOf, editedShading, sidePensOf, wordShadingValue } from "@/document/docx/cell-edits"
 import { cellCss, tableLookTokens, tableVariables, themeFontsOf } from "@/document/docx/word-styles"
+import { floatValue } from "@/editor/table-float"
 import {
+  floatFromWord,
+  floatToWord,
   lengthFromWord,
   lengthToWord,
   marginsFromWord,
@@ -567,12 +570,14 @@ function tableHtml(table: Table, ctx: Projection) {
   const indent = lengthFromWord(table.indent)
   const spacing = lengthFromWord(table.cellSpacing)
   const margins = marginsFromWord(table.cellMargins)
+  const float = floatFromWord(table.position, table.overlap)
   const props =
     (preferred ? ` data-pref-width="${preferred}"` : "") +
     (indent !== null ? ` data-indent="${indent}"` : "") +
     (spacing !== null ? ` data-cell-spacing="${spacing}"` : "") +
     (table.layout === "fixed" ? ` data-auto-resize="0"` : "") +
-    (margins ? ` data-margins="${margins}"` : "")
+    (margins ? ` data-margins="${margins}"` : "") +
+    (float ? ` data-float="${escapeAttribute(floatValue(float)!)}"` : "")
   const attrs = `${key} data-word-table="1"${style} data-word-look="${tableLookTokens(table.look)}"${align}${alt}${props}${
     frame ? ` data-word-frame="${escapeAttribute(frame)}"` : ""
   }`
@@ -1502,6 +1507,13 @@ function tableFromNode(node: JsonNode, build: Build): Table {
   const margins = marginsToWord(attrs.margins, origin?.cellMargins)
   if (margins) {
     table.cellMargins = structuredClone(margins)
+  }
+  const floated = floatToWord(attrs.float, origin)
+  if (floated.position) {
+    table.position = structuredClone(floated.position)
+  }
+  if (floated.overlap) {
+    table.overlap = floated.overlap
   }
   const layout = attrs.autoResize === false ? "fixed" : origin?.layout === "fixed" ? "autofit" : origin?.layout
   if (layout) {

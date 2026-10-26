@@ -2,6 +2,7 @@ import type { Editor } from "@tiptap/core"
 import type { Node as ProseNode } from "@tiptap/pm/model"
 import { CellSelection, TableMap } from "@tiptap/pm/tables"
 import { currentTable } from "@/editor/table-tools"
+import { parseFloatValue, type TableFloat } from "@/editor/table-float"
 import {
   PX_PER_CM,
   marginsValue,
@@ -34,6 +35,8 @@ export type TableDraft = {
   headerRow: boolean
   altTitle: string
   altDesc: string
+  /** Text wrapping Around and where the table sits (Table Positioning); null for None. */
+  float: TableFloat | null
   rows: RowDraft[]
   columns: ColumnDraft[]
   /** The selected cells' size, vertical alignment and options (Cell tab, Cell Options). */
@@ -155,6 +158,7 @@ export function tableDialogState(editor: Editor): TableDialogState | null {
       headerRow: attrs.headerRow === true,
       altTitle: typeof attrs.altTitle === "string" ? attrs.altTitle : "",
       altDesc: typeof attrs.altDesc === "string" ? attrs.altDesc : "",
+      float: parseFloatValue(attrs.float),
       rows,
       columns: drawn.map((width) => ({ width: { value: round(width / PX_PER_CM), unit: "cm" as const } })),
       cellWidth: colwidth > 0 ? { value: round(colwidth / PX_PER_CM), unit: "cm" } : null,
@@ -218,6 +222,7 @@ export function applyTableDialog(editor: Editor, state: TableDialogState, draft:
     headerRow: draft.headerRow,
     altTitle: draft.altTitle,
     altDesc: draft.altDesc,
+    float: draft.float,
   })
   for (const row of draft.rows) {
     const node = tr.doc.nodeAt(row.pos)
@@ -243,7 +248,9 @@ export function applyTableDialog(editor: Editor, state: TableDialogState, draft:
     }
   }
   const widths = dialogColumnWidths(state, draft, before)
-  const unchanged = widths.every((width, index) => Math.abs(width - (state.drawn[index] ?? width)) < 1)
+  // A table set to Around keeps the widths it has, or out of the text it would take the whole page.
+  const freed = draft.float !== null && before.float === null
+  const unchanged = !freed && widths.every((width, index) => Math.abs(width - (state.drawn[index] ?? width)) < 1)
   if (!unchanged) {
     const current = tr.doc.nodeAt(tablePos)!
     const map = TableMap.get(current)
