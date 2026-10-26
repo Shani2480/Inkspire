@@ -17,6 +17,7 @@ import { shapeMarkup } from "@/editor/insert-blocks"
 import { hasPictureFormat } from "@/editor/picture-format"
 import { fontOf, fontStack, themeFontsOf, type ThemeFonts } from "@/document/docx/word-styles"
 import { runBoxOf, textBoxAttributes, textBoxOfRun, type TextBox } from "@/document/docx/text-box"
+import { expandSpec } from "@/editor/chart-expand"
 import { chartSpecOf, renderChart, serializeChartSpec, variantOf, type ChartSpec } from "@/editor/chart-spec"
 import { DATE_PICTURES, dateFormat, formatDate } from "@/editor/formula"
 import {
@@ -414,7 +415,9 @@ function chartPictureHtml(run: Run, ctx: Projection) {
   const savedChart = saved?.type === "figure" && saved.attrs?.kind === "chart" ? saved : null
   const own = savedChart ? chartSpecOf(savedChart.attrs ?? {}) : null
   const spec =
-    own && (!read || sameChartData(own, read))
+    // The app's own spec wins while Word left the data alone; Histogram, Waterfall and Funnel are written as the
+    // chart they expand to (bins, running totals), so that is what is compared for them.
+    own && (!read || sameChartData(own, read) || sameChartData(expandSpec(own), read))
       ? own
       : read
         ? { ...read, ...(own ? { style: own.style, palette: own.palette } : {}) }

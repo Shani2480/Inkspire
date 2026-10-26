@@ -81,6 +81,15 @@ describe("charts in .docx", () => {
     expect(view.html).toContain('src="data:image/svg+xml;base64,')
   })
 
+  it("opens Histogram, Waterfall, Funnel and Stock as themselves, though Word's part holds the chart drawn", async () => {
+    for (const id of ["histogram", "waterfall", "funnel", "stock-ohlc"]) {
+      const spec = defaultChartSpec(id)
+      const { view } = await openDocxBytes(await save([chartImage(spec)]), "c.docx")
+      const figure = decode(/data-inkspire-object="([^"]+)"/.exec(view.html)![1]!)
+      expect(JSON.parse(figure.attrs.chart)).toEqual(spec)
+    }
+  })
+
   it("keeps Word's own chart parts while the chart is unchanged, and writes a new chart once it changes", async () => {
     const bytes = await save([chartImage(defaultChartSpec("pie"))])
     const opened = await openDocxBytes(bytes, "c.docx")

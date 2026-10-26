@@ -7,6 +7,16 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### Histogram, Waterfall and Funnel come back as themselves from a saved .docx (22.6)
+
+- **Bug:** these charts are written to Word's chart part as the chart they are drawn as (bins, running totals,
+  centred bars). On reopening, the app's own copy of the chart was used only when its data equalled the chart part's,
+  which it never does for these, so they came back as a plain column or bar chart and lost their own data.
+- **Changed:** the app's copy is also compared after the same expansion (`chartPictureHtml` in `inlines.ts`), so the
+  chart reopens as Histogram, Waterfall or Funnel with the data as typed while Word has not changed it; when Word
+  edited the data, Word's chart wins as before. Test in `chart-docx.test.ts` (Histogram, Waterfall, Funnel, Stock),
+  failing without the change.
+
 ### Stock charts (22.6), and Insert Chart previews each type's own sample
 
 - **Missing:** Insert Chart had no Stock type, and a Word stock chart opened as a plain line chart. The dialog also
