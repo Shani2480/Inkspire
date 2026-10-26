@@ -360,6 +360,20 @@ describe("the Borders and Shading dialog (22.4)", () => {
       borderFrom: "text",
       borderSpace: [10, 24, 24, 24],
     })
+    act(() => openBordersAndShading(editor, "page"))
+    fireEvent.click(screen.getByRole("button", { name: "Options…" }))
+    expect((screen.getByLabelText("Surround header") as HTMLInputElement).disabled).toBe(false)
+    fireEvent.click(screen.getByLabelText("Surround header"))
+    fireEvent.click(screen.getByLabelText("Always display in front"))
+    fireEvent.change(screen.getByLabelText("Measure from"), { target: { value: "page" } })
+    expect((screen.getByLabelText("Surround footer") as HTMLInputElement).disabled).toBe(true)
+    fireEvent.click(screen.getAllByText("OK")[1])
+    fireEvent.click(screen.getByText("OK"))
+    expect(useDocumentStore.getState().pageSetup).toMatchObject({
+      borderFrom: "page",
+      borderSurroundHeader: false,
+      borderInFront: false,
+    })
   })
 
   it("leaves a side of the page border off from the preview, and draws one side alone from None (22.4)", () => {

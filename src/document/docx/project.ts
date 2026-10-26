@@ -155,6 +155,9 @@ export function editorToWord(
   const settings = {
     ...(source?.settings ?? { compatibilityMode: 15, rsids: [] }),
     evenAndOddHeaders: chrome.pageSetup.differentOddEven ? true : undefined,
+    alignBordersAndEdges: chrome.pageSetup.borderAlign ? true : undefined,
+    bordersDoNotSurroundHeader: chrome.pageSetup.borderSurroundHeader ? undefined : true,
+    bordersDoNotSurroundFooter: chrome.pageSetup.borderSurroundFooter ? undefined : true,
   }
   const document: WordDocument = {
     ...(source ?? {
@@ -602,6 +605,9 @@ function chromeFromDocument(doc: WordDocument): DocumentChrome {
   if (doc.settings.evenAndOddHeaders) {
     setup.differentOddEven = true
   }
+  setup.borderAlign = doc.settings.alignBordersAndEdges === true
+  setup.borderSurroundHeader = doc.settings.bordersDoNotSurroundHeader !== true
+  setup.borderSurroundFooter = doc.settings.bordersDoNotSurroundFooter !== true
   // A page number in a Word document is a field in its header or footer, which is shown there.
   setup.pageNumber = "none"
   const references = section?.references ?? []
@@ -665,6 +671,7 @@ type PageBorderSetup = Pick<
   | "borderFrom"
   | "borderSpace"
   | "borderSides"
+  | "borderInFront"
 >
 
 const PAGE_BORDER_SIDES = ["top", "right", "bottom", "left"] as const
@@ -684,6 +691,7 @@ function pageBorderSetup(borders: PageBorders | undefined): PageBorderSetup {
       borderFrom: DEFAULT_PAGE_SETUP.borderFrom,
       borderSpace: DEFAULT_PAGE_SETUP.borderSpace,
       borderSides: DEFAULT_PAGE_SETUP.borderSides,
+      borderInFront: DEFAULT_PAGE_SETUP.borderInFront,
     }
   }
   const value = line.value
@@ -706,6 +714,7 @@ function pageBorderSetup(borders: PageBorders | undefined): PageBorderSetup {
     borderDisplay: borders.display === "firstPage" ? "first" : borders.display === "notFirstPage" ? "not-first" : "all",
     borderFrom: borders.offsetFrom === "page" ? "page" : "text",
     borderSpace: PAGE_BORDER_SIDES.map((side) => borders[side]?.space ?? 0),
+    borderInFront: borders.zOrder !== "back",
     borderSides: PAGE_BORDER_SIDES.filter((side) => {
       const border = borders[side]
       return border && border.value !== "none" && border.value !== "nil"
@@ -723,7 +732,8 @@ function samePageBorder(left: PageBorderSetup, right: PageBorderSetup) {
         left.borderDisplay === right.borderDisplay &&
         left.borderFrom === right.borderFrom &&
         left.borderSpace.join(" ") === right.borderSpace.join(" ") &&
-        left.borderSides.join(" ") === right.borderSides.join(" ")))
+        left.borderSides.join(" ") === right.borderSides.join(" ") &&
+        left.borderInFront === right.borderInFront))
   )
 }
 
@@ -756,6 +766,7 @@ function pageBordersFrom(setup: PageSetup, base: PageBorders | undefined): PageB
       : setup.borderDisplay === "not-first"
         ? { display: "notFirstPage" as const }
         : {}),
+    ...(setup.borderInFront ? {} : { zOrder: "back" as const }),
     ...(setup.borderFrom === "page" ? { offsetFrom: "page" as const } : {}),
     ...(setup.borderSides.includes("top") ? { top: side(0) } : {}),
     ...(setup.borderSides.includes("left") ? { left: side(3) } : {}),

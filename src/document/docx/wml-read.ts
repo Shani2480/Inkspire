@@ -516,6 +516,12 @@ function readSettings(xml: string | undefined, notes: WordNote[]): Settings {
   if (evenOdd) {
     settings.evenAndOddHeaders = readOnOff(evenOdd) ?? true
   }
+  for (const name of ["alignBordersAndEdges", "bordersDoNotSurroundHeader", "bordersDoNotSurroundFooter"] as const) {
+    const flag = wordChild(root, name)
+    if (flag) {
+      settings[name] = readOnOff(flag) ?? true
+    }
+  }
   const footnotePr = readNotePr(wordChild(root, "footnotePr"), "footnote")
   const endnotePr = readNotePr(wordChild(root, "endnotePr"), "endnote")
   if (footnotePr) {

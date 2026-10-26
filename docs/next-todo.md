@@ -1637,6 +1637,10 @@ Source: the 48 top-level files in `screenshots/` taken on 2026-10-19 (`screensho
   **Done 2026-10-26** (see `changes.md`): Page Border sides from the preview's edge buttons, read and written per
   side. Left: Page Border Art, a different line per page side, the page Options check boxes.
 
+  **Done 2026-10-26** (see `changes.md`): the page Options check boxes (settings.xml and `w:zOrder`; Surround header
+  and footer drawn). Left: Page Border Art, a different line per page side, drawing Always display in front and
+  Align paragraph borders.
+
 #### 22.5 — Customize Ribbon and Quick Access Toolbar (screenshots 083125, 083136)
 
 - None exists. Two lists with "Choose commands from" (Popular, All, Not in the Ribbon, tabs…), Add / Remove, up/down, New Tab / New Group / Rename, Reset, Import/Export, per-tab visibility check boxes; Quick Access Toolbar with Separator, "Show Quick Access Toolbar", Toolbar Position (Above/Below Ribbon), "Always show command labels", For all documents / this document. Keep the choice in the user config.

@@ -62,6 +62,16 @@ export type PageSetup = {
   borderSpace: number[]
   /** The sides of the page that have the border (Page Border's preview); all four unless some were clicked off. */
   borderSides: PageSide[]
+  /**
+   * Page Border > Options…: Always display in front (w:zOrder). Kept; the page draws its border under the text
+   * either way.
+   */
+  borderInFront: boolean
+  /** Options…: a border measured from the text reaches round the header and the footer. */
+  borderSurroundHeader: boolean
+  borderSurroundFooter: boolean
+  /** Options…: Align paragraph borders and table edges with page border (kept; not drawn). */
+  borderAlign: boolean
   pageColor: string
   pageNumber: PageNumberPlace
   hyphenation: boolean
@@ -155,6 +165,10 @@ export const DEFAULT_PAGE_SETUP: PageSetup = {
   borderFrom: "page",
   borderSpace: [24, 24, 24, 24],
   borderSides: PAGE_SIDES,
+  borderInFront: true,
+  borderSurroundHeader: true,
+  borderSurroundFooter: true,
+  borderAlign: false,
   pageColor: "",
   // No page number until one is put in the header or footer (Insert > Page Number), as in Word.
   pageNumber: "none",
@@ -196,6 +210,10 @@ export function normalizePageSetup(setup: Partial<PageSetup> | null | undefined)
     borderFrom: setup?.borderFrom === "text" ? "text" : "page",
     borderSpace: borderSpace(setup?.borderSpace) ?? DEFAULT_PAGE_SETUP.borderSpace,
     borderSides: pageSides(setup?.borderSides),
+    borderInFront: setup?.borderInFront !== false,
+    borderSurroundHeader: setup?.borderSurroundHeader !== false,
+    borderSurroundFooter: setup?.borderSurroundFooter !== false,
+    borderAlign: setup?.borderAlign === true,
   }
 }
 
@@ -234,6 +252,10 @@ export function samePageSetup(left: PageSetup, right: PageSetup) {
     left.borderFrom === right.borderFrom &&
     left.borderSpace.join(" ") === right.borderSpace.join(" ") &&
     left.borderSides.join(" ") === right.borderSides.join(" ") &&
+    left.borderInFront === right.borderInFront &&
+    left.borderSurroundHeader === right.borderSurroundHeader &&
+    left.borderSurroundFooter === right.borderSurroundFooter &&
+    left.borderAlign === right.borderAlign &&
     left.pageColor === right.pageColor &&
     left.pageNumber === right.pageNumber &&
     left.hyphenation === right.hyphenation &&
@@ -468,10 +490,14 @@ export function pageBorderInset(setup: PageSetup) {
   return Object.fromEntries(
     sides.map((side, index) => {
       const space = setup.borderSpace[index] ?? 0
-      return [
-        side,
-        setup.borderFrom === "page" ? `${space}pt` : `calc(var(--page-margin-${side}, 24mm) - ${space}pt - ${line})`,
-      ]
+      // Measured from the text, the box reaches round the header and footer unless Options says not to.
+      const edge =
+        side === "top" && setup.borderSurroundHeader
+          ? "var(--header-from-edge, 12.5mm)"
+          : side === "bottom" && setup.borderSurroundFooter
+            ? "var(--footer-from-edge, 12.5mm)"
+            : `var(--page-margin-${side}, 24mm)`
+      return [side, setup.borderFrom === "page" ? `${space}pt` : `calc(${edge} - ${space}pt - ${line})`]
     }),
   ) as Record<(typeof sides)[number], string>
 }

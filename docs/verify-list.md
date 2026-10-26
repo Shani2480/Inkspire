@@ -7,6 +7,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Page border Options check boxes (22.4, 2026-10-26)** — Surround header off, Always display in front off and
+      Align on, set in the app, open in Word's Options window the same; a border measured from text reaches round
+      the header in both.
 - [ ] **Page border on some sides (22.4, 2026-10-26)** — a page border set in the app to top and bottom only opens in
       Word the same (Page Border preview shows two sides); a Word page border on some sides opens so in the app.
 - [ ] **Edited Word cell shading (22.4, 2026-10-26)** — in a Word table with a patterned cell, a new fill set in the
@@ -52,6 +55,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [x] **Page border Options check boxes (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **View Gridlines under drawn borders (2026-10-26)** — checked 2026-10-26 in headless Chrome (light).
 - [x] **Page Border sides from the preview (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Word cell shading in Borders and Shading (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.

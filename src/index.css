@@ -11946,6 +11946,24 @@ textarea.text-prompt-field {
   grid-column: 1 / -1;
 }
 
+.bs-checks {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.bs-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--dlg-text);
+  font-size: 12px;
+}
+
+.bs-check:has(input:disabled) {
+  color: var(--dlg-muted);
+}
+
 .bs-apply select,
 .bs-measure select {
   height: 26px;
