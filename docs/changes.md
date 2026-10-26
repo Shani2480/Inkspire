@@ -7,6 +7,20 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### Stock charts (22.6), and Insert Chart previews each type's own sample
+
+- **Missing:** Insert Chart had no Stock type, and a Word stock chart opened as a plain line chart. The dialog also
+  previewed every type with the column sample (a funnel of "Series 1–3").
+- **Changed:** a Stock family with High-Low-Close and Open-High-Low-Close, starting from Word's sample prices
+  (`chart-spec.ts`). The prices are kept as typed and drawn (`chart-expand.ts`) as Word does: no price lines, a
+  solid dark high-low line at each date, with Open the up/down bars (white when the price rose, dark when it fell),
+  without Open Close as a tick (new `tick` on a series). The legend shows no line sample for those series, only
+  Close's tick. Saved as Word's `c:stockChart` (high-low lines, up/down bars, Close's `dash` marker) and read back as
+  Stock, so it round-trips. Insert Chart now previews the chart Insert makes, with that type's own sample data.
+  Tests: `chart-expand.test.ts` (variants and samples, drawing, `c:stockChart` written and read back to the same
+  variant). Checked in headless Chrome: both variants in the dialog and inserted; Funnel, Waterfall and Histogram
+  previews show their own data.
+
 ### Built-in engine run live: CPU build on integrated graphics, and a cap on reply length (21.26)
 
 - **Found in the first live run** (Linux x86-64, AMD Radeon 680M, RADV, Mesa 26.2): the app's own download resumed a

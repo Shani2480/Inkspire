@@ -15,6 +15,9 @@ export function expandSpec(spec: ChartSpec): ChartSpec {
   if (spec.type === "funnel") {
     return funnel(spec)
   }
+  if (spec.type === "stock") {
+    return stock(spec)
+  }
   return spec
 }
 
@@ -134,5 +137,34 @@ function funnel(spec: ChartSpec): ChartSpec {
     legend: "none",
     gapWidth: 30,
     overlap: 100,
+  }
+}
+
+/**
+ * Stock: the series are the prices in Word's order (Open, High, Low, Close; or High, Low, Close), drawn as a line
+ * chart with no lines, a high-low line at each category, and with Open the up/down bars from Open to Close (white
+ * when the price rose, dark when it fell). With three series Close is a tick on the line. Saved as `c:stockChart`.
+ */
+function stock(spec: ChartSpec): ChartSpec {
+  const shown = spec.series.map((serie, index) => ({ serie, index })).filter((item) => !item.serie.hidden)
+  const withOpen = shown.length >= 4
+  const close = shown[shown.length - 1]?.index
+  const format = { ...spec.format }
+  spec.series.forEach((_, index) => {
+    format[`series:${index}`] = { ...format[`series:${index}`], line: "none" }
+  })
+  return {
+    ...spec,
+    type: "line",
+    grouping: "clustered",
+    markers: false,
+    smooth: false,
+    highLowLines: true,
+    upDownBars: withOpen,
+    series: spec.series.map((serie, index) => {
+      const { type: _type, secondary: _secondary, ...rest } = serie
+      return !withOpen && index === close ? { ...rest, tick: true } : rest
+    }),
+    format,
   }
 }

@@ -8,6 +8,7 @@ import {
   CHART_STYLES,
   QUICK_LAYOUTS,
   chartSpecOf,
+  defaultChartSpec,
   renderChart,
   serializeChartSpec,
   switchRowColumn,
@@ -877,7 +878,9 @@ function ChartTypeDialogBody({
     ...CHART_FAMILIES,
   ]
   const shown = families.find((item) => item.id === family) ?? families[1]!
-  const sample = (id: string) => (chart ? withVariant(chart.spec, id) : withVariant(defaultSampleSpec(id), id))
+  // Inserting previews the chart Insert will make, with the type's own sample data (prices for Stock, a funnel's
+  // stages); changing a chart's type previews that chart.
+  const sample = (id: string) => (chart ? withVariant(chart.spec, id) : defaultChartSpec(id))
   const finish = () => {
     rememberChart(picked)
     if (mode === "insert") {
@@ -939,15 +942,6 @@ function ChartTypeDialogBody({
       <DialogButtons onOk={finish} onCancel={onClose} />
     </DialogFrame>
   )
-}
-
-function defaultSampleSpec(id: string) {
-  return chartSpecOf({
-    chart: "",
-    variant: id,
-    values:
-      "|Series 1|Series 2|Series 3\nCategory 1|4.3|2.4|2\nCategory 2|2.5|4.4|2\nCategory 3|3.5|1.8|3\nCategory 4|4.5|2.8|5",
-  })
 }
 
 /** Word's Select Data Source: series to add, rename, remove, reorder and hide, and categories to rename and hide. */

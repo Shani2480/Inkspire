@@ -8,7 +8,18 @@ import { THEME_ACCENTS, shade } from "@/editor/shape-style"
  */
 
 export type ChartType =
-  "column" | "bar" | "line" | "area" | "pie" | "doughnut" | "scatter" | "radar" | "histogram" | "waterfall" | "funnel"
+  | "column"
+  | "bar"
+  | "line"
+  | "area"
+  | "pie"
+  | "doughnut"
+  | "scatter"
+  | "stock"
+  | "radar"
+  | "histogram"
+  | "waterfall"
+  | "funnel"
 export type ChartGrouping = "clustered" | "stacked" | "percent"
 export type LegendPosition = "none" | "right" | "top" | "bottom" | "left"
 export type LabelPosition = "none" | "center" | "insideEnd" | "insideBase" | "outsideEnd" | "bestFit"
@@ -33,6 +44,8 @@ export type ChartSeries = {
   secondary?: boolean
   hidden?: boolean
   trendline?: TrendlineKind
+  /** Stock (High-Low-Close): the value is a short tick to the right of the high-low line, as Word marks Close. */
+  tick?: boolean
 }
 
 export type LabelContent = { value: boolean; category: boolean; series: boolean; percent: boolean }
@@ -222,6 +235,14 @@ export const CHART_FAMILIES: { id: string; label: string; items: ChartVariant[] 
     ],
   },
   {
+    id: "stock",
+    label: "Stock",
+    items: [
+      { id: "stock-hlc", label: "High-Low-Close", type: "stock" },
+      { id: "stock-ohlc", label: "Open-High-Low-Close", type: "stock" },
+    ],
+  },
+  {
     id: "radar",
     label: "Radar",
     items: [
@@ -286,6 +307,9 @@ export function variantOf(spec: ChartSpec): string {
       return "combo-area-column"
     }
     return secondary ? "combo-column-line-secondary" : "combo-column-line"
+  }
+  if (spec.type === "stock") {
+    return spec.series.filter((serie) => !serie.hidden).length >= 4 ? "stock-ohlc" : "stock-hlc"
   }
   const match = CHART_VARIANTS.find(
     (item) =>
@@ -369,6 +393,24 @@ export function defaultChartSpec(variantId = "column"): ChartSpec {
         gridlines: { major: true, minor: false, vertical: true },
         categories: ["0.7", "1.8", "2.6"],
         series: [{ name: "Y-Values", values: [2.7, 3.2, 0.8] }],
+      },
+      variant.id,
+    )
+  }
+  if (variant.type === "stock") {
+    // Word's sample: five trading days; Open-High-Low-Close adds the Open column first.
+    const days = ["1/5/2002", "1/6/2002", "1/7/2002", "1/8/2002", "1/9/2002"]
+    const prices = [
+      { name: "High", values: [55, 57, 57, 58, 58] },
+      { name: "Low", values: [11, 12, 13, 11, 25] },
+      { name: "Close", values: [25, 38, 50, 35, 43] },
+    ]
+    return withVariant(
+      {
+        ...structuredClone(BASE),
+        title: { show: true, text: "Chart Title" },
+        categories: days,
+        series: variant.id === "stock-ohlc" ? [{ name: "Open", values: [44, 25, 38, 50, 34] }, ...prices] : prices,
       },
       variant.id,
     )
@@ -859,6 +901,9 @@ export function renderChart(source: ChartSpec, width: number, height: number) {
         index: serie.index,
         line:
           (serie.type ?? spec.type) === "line" || spec.type === "scatter" || (spec.type === "radar" && !spec.filled),
+        // A line series with its line off (a stock chart's prices) has no line in the key; Close keeps its tick.
+        bare: spec.format[`series:${serie.index}`]?.line === "none",
+        tick: Boolean(serie.tick),
       }))
   if (spec.legend !== "none" && !(spec.dataTable && !round)) {
     legend(painter, entries, box, spec.legend)
@@ -879,14 +924,20 @@ export function renderChart(source: ChartSpec, width: number, height: number) {
   return `${defs ? `<defs>${defs}</defs>` : ""}${painter.out.join("")}`
 }
 
-function legend(painter: Painter, entries: { name: string; color: string; line: boolean }[], box: Box, at: string) {
+type LegendEntry = { name: string; color: string; line: boolean; bare?: boolean; tick?: boolean }
+
+function legend(painter: Painter, entries: LegendEntry[], box: Box, at: string) {
   if (entries.length === 0) {
     return
   }
-  const key = (entry: { color: string; line: boolean }, x: number, y: number) =>
-    entry.line
-      ? `<line x1="${n(x)}" y1="${n(y)}" x2="${n(x + 14)}" y2="${n(y)}" stroke="${entry.color}" stroke-width="2.25"/>`
-      : `<rect x="${n(x + 3)}" y="${n(y - 3.5)}" width="7" height="7" fill="${entry.color}"/>`
+  const key = (entry: LegendEntry, x: number, y: number) =>
+    entry.line && entry.bare
+      ? entry.tick
+        ? `<path d="M${n(x + 7)} ${n(y)}H${n(x + 13)}" stroke="${painter.look.text}" stroke-width="1.5"/>`
+        : ""
+      : entry.line
+        ? `<line x1="${n(x)}" y1="${n(y)}" x2="${n(x + 14)}" y2="${n(y)}" stroke="${entry.color}" stroke-width="2.25"/>`
+        : `<rect x="${n(x + 3)}" y="${n(y - 3.5)}" width="7" height="7" fill="${entry.color}"/>`
   const text = textAttrs(painter, "legend")
   const parts: string[] = []
   if (at === "right" || at === "left") {
@@ -1245,6 +1296,14 @@ function cartesian(painter: Painter, box: Box, series: Serie[], entries: { name:
             shapes.push(`<circle cx="${n(point.at)}" cy="${n(point.top)}" r="3.4" fill="${color}" stroke="${color}"/>`)
           }
         }
+        if (serie.tick) {
+          const reach = Math.max(4, Math.min(10, band * 0.2))
+          for (const point of points) {
+            shapes.push(
+              `<path d="M${n(point.at)} ${n(point.top)}H${n(point.at + reach)}" stroke="${look.text}" stroke-width="1.5"/>`,
+            )
+          }
+        }
         if (labelPosition !== "none") {
           points.forEach((point) =>
             labels.push(
@@ -1305,18 +1364,18 @@ function cartesian(painter: Painter, box: Box, series: Serie[], entries: { name:
         })
       }
     }
-    if (spec.highLowLines && lined.length > 1) {
-      categories.forEach((_, column) => {
-        const ys = lined.map((serie) => at(serie, column))
-        extras.push(
-          `<line x1="${n(slot(column))}" y1="${n(Math.min(...ys))}" x2="${n(slot(column))}" y2="${n(Math.max(...ys))}"/>`,
-        )
-      })
-    }
     if (extras.length) {
       painter.out.push(
         `<g data-chart-part="lines" stroke="${look.axis}" stroke-width="1" stroke-dasharray="3 2">${extras.join("")}</g>`,
       )
+    }
+    // Word draws high-low lines solid and dark, from the lowest to the highest value at each category.
+    if (spec.highLowLines && lined.length > 1) {
+      const spans = categories.map((_, column) => {
+        const ys = lined.map((serie) => at(serie, column))
+        return `<line x1="${n(slot(column))}" y1="${n(Math.min(...ys))}" x2="${n(slot(column))}" y2="${n(Math.max(...ys))}"/>`
+      })
+      painter.out.push(`<g data-chart-part="highLowLines" stroke="${look.text}" stroke-width="1">${spans.join("")}</g>`)
     }
     if (spec.upDownBars && lined.length > 1) {
       const first = lined[0]!

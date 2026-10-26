@@ -166,9 +166,11 @@ function seriesXml(spec: ChartSpec, index: number, group: Group, rows: number) {
     : `<c:spPr>${solid(color)}<a:ln${outline === "none" ? "><a:noFill/>" : ` w="${Math.round((own?.lineWidth ?? look.seriesLineWidth) * 12700)}">${solid(outline)}`}</a:ln></c:spPr>`
   const marker =
     group === "line" || group === "scatter" || group === "radar"
-      ? spec.markers || (group === "scatter" && !spec.lines)
-        ? `<c:marker><c:symbol val="circle"/><c:size val="5"/><c:spPr>${solid(color)}<a:ln w="9525">${solid(color)}</a:ln></c:spPr></c:marker>`
-        : `<c:marker><c:symbol val="none"/></c:marker>`
+      ? serie.tick
+        ? `<c:marker><c:symbol val="dash"/><c:size val="7"/><c:spPr>${solid(look.text)}<a:ln w="9525">${solid(look.text)}</a:ln></c:spPr></c:marker>`
+        : spec.markers || (group === "scatter" && !spec.lines)
+          ? `<c:marker><c:symbol val="circle"/><c:size val="5"/><c:spPr>${solid(color)}<a:ln w="9525">${solid(color)}</a:ln></c:spPr></c:marker>`
+          : `<c:marker><c:symbol val="none"/></c:marker>`
       : ""
   const points =
     group === "pie" || group === "doughnut"
@@ -396,6 +398,11 @@ export function chartSpaceXml(source: ChartSpec, workbookRelId?: string) {
         groups.push(
           `<c:barChart><c:barDir val="${spec.type === "bar" ? "bar" : "col"}"/><c:grouping val="${grouping}"/><c:varyColors val="0"/>${series}${labels}` +
             `<c:gapWidth val="${Math.round(spec.gapWidth)}"/>${stacked ? `<c:overlap val="100"/>` : spec.overlap ? `<c:overlap val="${Math.round(spec.overlap)}"/>` : ""}${ids}</c:barChart>`,
+        )
+      } else if (group === "line" && source.type === "stock") {
+        // A stock chart has no grouping or marker flag of its own: the prices, high-low lines, up/down bars, axes.
+        groups.push(
+          `<c:stockChart>${series}${labels}<c:hiLowLines><c:spPr><a:ln w="9525">${solid(look.text)}</a:ln></c:spPr></c:hiLowLines>${spec.upDownBars ? UP_DOWN_BARS : ""}${ids}</c:stockChart>`,
         )
       } else if (group === "line") {
         groups.push(
@@ -701,7 +708,10 @@ export function readChartSpace(xml: string): ChartSpec | null {
         ? "bar"
         : "column"
     }
-    if (name.startsWith("line") || name === "stockChart") {
+    if (name === "stockChart") {
+      return "stock"
+    }
+    if (name.startsWith("line")) {
       return "line"
     }
     if (name.startsWith("area") || name.startsWith("surface")) {
