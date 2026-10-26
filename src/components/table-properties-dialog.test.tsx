@@ -2,7 +2,9 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { Editor } from "@tiptap/core"
 import { StarterKit } from "@tiptap/starter-kit"
 import { afterEach, describe, expect, it } from "vitest"
+import { insideSelection } from "@/components/object-context-menu"
 import { TablePropertiesHost, openTableProperties } from "@/components/table-properties-dialog"
+import { CellSelection } from "@tiptap/pm/tables"
 import { applyTableDialog, tableDialogState } from "@/editor/table-dialog"
 import { FramedTable, ShadedTableCell, ShadedTableHeader, SizedTableRow } from "@/editor/table-tools"
 
@@ -152,6 +154,27 @@ describe("Table Properties (22.10)", () => {
     fireEvent.click(screen.getByText("OK"))
     expect(table(editor).attrs).toMatchObject({ align: "right", altTitle: "Totals", altDesc: "Totals per row" })
     expect(editor.getHTML()).toContain('data-align="right"')
+    editor.destroy()
+  })
+
+  it("counts a right-click on any selected cell as inside the selection, and one elsewhere as outside", () => {
+    const editor = make()
+    const doc = editor.state.doc
+    const cells: number[] = []
+    doc.descendants((node, pos) => {
+      if (node.type.name === "tableCell") {
+        cells.push(pos)
+      }
+    })
+    editor.view.dispatch(editor.state.tr.setSelection(CellSelection.create(doc, cells[0]!, cells[3]!)))
+    // The selection's own from and to cover only the first cell.
+    expect(insideSelection(editor, cells[3]! + 2)).toBe(true)
+    expect(insideSelection(editor, cells[1]! + 2)).toBe(true)
+    editor.view.dispatch(editor.state.tr.setSelection(CellSelection.colSelection(doc.resolve(cells[0]!))))
+    expect(insideSelection(editor, cells[2]! + 2)).toBe(true)
+    expect(insideSelection(editor, cells[1]! + 2)).toBe(false)
+    editor.commands.setTextSelection(cells[0]! + 2)
+    expect(insideSelection(editor, cells[0]! + 2)).toBe(false)
     editor.destroy()
   })
 })

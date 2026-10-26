@@ -69,6 +69,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [x] **Right-click keeps a selected table, column or row (2026-10-27)** — checked 2026-10-27 in headless Chrome.
 - [x] **Table Properties dialog and right-click (22.10, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [ ] **Table Properties, in the desktop app** — right-click a selected table: one menu, Table Properties... opens
       with the selection kept.

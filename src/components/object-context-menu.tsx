@@ -984,6 +984,16 @@ function selectionAnchor(editor: Editor): string {
   return `${found.name}:${found.pos}:${from}:${to}`
 }
 
+/**
+ * Whether `pos` falls in the selection: in one of its selected cells for a cell selection, whose `from` and `to`
+ * cover only the first cell. An empty selection holds nothing.
+ */
+export function insideSelection(editor: Editor, pos: number) {
+  return editor.state.selection.ranges.some(
+    (range) => range.$from.pos !== range.$to.pos && pos >= range.$from.pos && pos <= range.$to.pos,
+  )
+}
+
 /** The object under a right-click, selecting it first; null leaves the click to the rest of the editor. */
 function targetAtPoint(editor: Editor, event: MouseEvent): Target | null {
   const element = event.target instanceof Element ? event.target.closest(".page-image, .image-frame") : null
@@ -1012,8 +1022,7 @@ function targetAtPoint(editor: Editor, event: MouseEvent): Target | null {
         if (ancestor.type.name === "table") {
           // As in Word, a right-click in a table is in its cell: the caret goes there, or a selection it falls in
           // stays, so the menu's commands act on that cell and not on the whole table.
-          const { from, to, empty } = editor.state.selection
-          if (empty || hit.pos < from || hit.pos > to) {
+          if (!insideSelection(editor, hit.pos)) {
             editor.commands.setTextSelection(hit.pos)
           }
           return { name: "table", pos: $pos.before(depth), click: editor.state.selection.from }
@@ -1025,6 +1034,10 @@ function targetAtPoint(editor: Editor, event: MouseEvent): Target | null {
         }
       }
     }
+  }
+  // Selected cells answer a right-click only on them; one elsewhere goes to the text menu, which moves the caret.
+  if (editor.state.selection instanceof CellSelection && !(hit && insideSelection(editor, hit.pos))) {
+    return null
   }
   return selectionTarget(editor)
 }
@@ -1065,10 +1078,7 @@ function placeMenu(editor: Editor, target: Target) {
 function selectTarget(editor: Editor, target: Target) {
   if (target.name === "table") {
     // A right-click inside the selection keeps it (selected cells stay selected), as in Word.
-    const kept = editor.state.selection.ranges.some(
-      (range) => range.$from.pos !== range.$to.pos && target.click >= range.$from.pos && target.click <= range.$to.pos,
-    )
-    if (kept) {
+    if (insideSelection(editor, target.click)) {
       return
     }
     const pos = Math.max(1, Math.min(target.click, editor.state.doc.content.size))
