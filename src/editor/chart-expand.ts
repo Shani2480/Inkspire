@@ -18,6 +18,9 @@ export function expandSpec(spec: ChartSpec): ChartSpec {
   if (spec.type === "stock") {
     return stock(spec)
   }
+  if (spec.type === "boxWhisker") {
+    return boxMedians(spec)
+  }
   return spec
 }
 
@@ -166,5 +169,86 @@ function stock(spec: ChartSpec): ChartSpec {
       return !withOpen && index === close ? { ...rest, tick: true } : rest
     }),
     format,
+  }
+}
+
+export type BoxStats = {
+  min: number
+  q1: number
+  median: number
+  q3: number
+  max: number
+  mean: number
+  /** Values beyond 1.5 × the interquartile range from the box: drawn as points, the whiskers stop short of them. */
+  outliers: number[]
+}
+
+function medianOf(sorted: number[]) {
+  const middle = Math.floor(sorted.length / 2)
+  return sorted.length % 2 ? sorted[middle]! : (sorted[middle - 1]! + sorted[middle]!) / 2
+}
+
+/** Word's Box & Whisker with its default "exclusive median" quartiles: the median is left out of both halves. */
+export function boxStats(values: number[]): BoxStats | null {
+  const sorted = values.filter(Number.isFinite).sort((a, b) => a - b)
+  if (sorted.length === 0) {
+    return null
+  }
+  const half = Math.floor(sorted.length / 2)
+  const lower = sorted.length > 1 ? sorted.slice(0, half) : sorted
+  const upper = sorted.length > 1 ? sorted.slice(sorted.length % 2 ? half + 1 : half) : sorted
+  const q1 = medianOf(lower)
+  const q3 = medianOf(upper)
+  const reach = 1.5 * (q3 - q1)
+  const inside = sorted.filter((value) => value >= q1 - reach && value <= q3 + reach)
+  return {
+    min: inside[0] ?? sorted[0]!,
+    q1,
+    median: medianOf(sorted),
+    q3,
+    max: inside[inside.length - 1] ?? sorted[sorted.length - 1]!,
+    mean: sorted.reduce((sum, value) => sum + value, 0) / sorted.length,
+    outliers: sorted.filter((value) => value < q1 - reach || value > q3 + reach),
+  }
+}
+
+/**
+ * The boxes of a Box & Whisker chart: rows with the same category label are one group, as in Word's sheet, and each
+ * series gives one box per group from its values in those rows.
+ */
+export function boxGroups(spec: ChartSpec) {
+  const names: string[] = []
+  const rows = new Map<string, number[]>()
+  spec.categories.forEach((name, index) => {
+    if (spec.hiddenCategories.includes(index)) {
+      return
+    }
+    if (!rows.has(name)) {
+      rows.set(name, [])
+      names.push(name)
+    }
+    rows.get(name)!.push(index)
+  })
+  return names.map((name) => ({
+    name,
+    boxes: spec.series.map((serie) =>
+      serie.hidden ? null : boxStats(rows.get(name)!.map((row) => serie.values[row] ?? Number.NaN)),
+    ),
+  }))
+}
+
+/** What Word is given for a Box & Whisker chart (it has no such chart outside `chartex`): the medians as columns. */
+function boxMedians(spec: ChartSpec): ChartSpec {
+  const groups = boxGroups(spec)
+  return {
+    ...spec,
+    type: "column",
+    grouping: "clustered",
+    categories: groups.map((group) => group.name),
+    hiddenCategories: [],
+    series: spec.series.map((serie, index) => ({
+      ...serie,
+      values: groups.map((group) => group.boxes[index]?.median ?? 0),
+    })),
   }
 }

@@ -1,5 +1,5 @@
 import { parseChartSheet, type ChartSheet } from "@/editor/chart-sheet"
-import { expandSpec } from "@/editor/chart-expand"
+import { boxGroups, expandSpec } from "@/editor/chart-expand"
 import { THEME_ACCENTS, shade } from "@/editor/shape-style"
 
 /**
@@ -17,6 +17,7 @@ export type ChartType =
   | "scatter"
   | "stock"
   | "radar"
+  | "boxWhisker"
   | "histogram"
   | "waterfall"
   | "funnel"
@@ -257,6 +258,11 @@ export const CHART_FAMILIES: { id: string; label: string; items: ChartVariant[] 
     items: [{ id: "histogram", label: "Histogram", type: "histogram" }],
   },
   {
+    id: "box-whisker",
+    label: "Box & Whisker",
+    items: [{ id: "box-whisker", label: "Box and Whisker", type: "boxWhisker" }],
+  },
+  {
     id: "waterfall",
     label: "Waterfall",
     items: [{ id: "waterfall", label: "Waterfall", type: "waterfall" }],
@@ -423,6 +429,43 @@ export function defaultChartSpec(variantId = "column"): ChartSpec {
         legend: "none",
         categories: Array.from({ length: 12 }, (_, index) => `Item ${index + 1}`),
         series: [{ name: "Values", values: [4, 7, 9, 10, 12, 12, 13, 15, 18, 21, 22, 30] }],
+      },
+      variant.id,
+    )
+  }
+  if (variant.type === "boxWhisker") {
+    // Word's sample: test scores of three schools, one row per student, the course in the first column.
+    const courses = [
+      "English",
+      "Physics",
+      "English",
+      "Math",
+      "English",
+      "Physics",
+      "Math",
+      "Physics",
+      "Math",
+      "English",
+    ]
+    return withVariant(
+      {
+        ...structuredClone(BASE),
+        title: { show: true, text: "Chart Title" },
+        categories: courses.flatMap((course) => [course, course]),
+        series: [
+          {
+            name: "School A",
+            values: [63, 61, 46, 58, 54, 60, 54, 57, 69, 54, 67, 70, 59, 60, 61, 65, 57, 66, 63, 60],
+          },
+          {
+            name: "School B",
+            values: [53, 46, 66, 67, 58, 59, 74, 62, 46, 54, 60, 65, 63, 59, 64, 52, 72, 61, 66, 50],
+          },
+          {
+            name: "School C",
+            values: [45, 52, 61, 55, 56, 63, 65, 62, 72, 50, 61, 59, 70, 71, 59, 60, 64, 67, 73, 63],
+          },
+        ],
       },
       variant.id,
     )
@@ -873,7 +916,8 @@ function seriesPaint(painter: Painter, color: string, part: string) {
 
 /** The chart, as the markup inside an `<svg viewBox="0 0 width height">`. */
 export function renderChart(source: ChartSpec, width: number, height: number) {
-  const spec = expandSpec(source)
+  // Box & Whisker is drawn by its own painter; the other derived types are drawn as the chart they expand to.
+  const spec = source.type === "boxWhisker" ? source : expandSpec(source)
   const look = CHART_STYLES[spec.style - 1] ?? LIGHT
   const painter: Painter = { spec, look, out: [], defs: [] }
   const area = partLine(painter, "chartArea", look.border, 0.75)
@@ -912,6 +956,8 @@ export function renderChart(source: ChartSpec, width: number, height: number) {
     pie(painter, box)
   } else if (spec.type === "radar") {
     radar(painter, box, visibleSeries)
+  } else if (spec.type === "boxWhisker") {
+    boxWhisker(painter, box)
   } else {
     cartesian(painter, box, visibleSeries, entries)
   }
@@ -1662,6 +1708,100 @@ function pie(painter: Painter, box: Box) {
   if (texts.length) {
     painter.out.push(`<g data-chart-part="dataLabels">${texts.join("")}</g>`)
   }
+}
+
+/**
+ * Box & Whisker: a box from the first to the third quartile per group and series, a line at the median, × at the
+ * mean, whiskers out to the furthest values within 1.5 × the box's height, and the values beyond as points.
+ */
+function boxWhisker(painter: Painter, box: Box) {
+  const { spec, look } = painter
+  const groups = boxGroups(spec)
+  const all = groups.flatMap((group) =>
+    group.boxes.flatMap((stats) => (stats ? [stats.min, stats.max, ...stats.outliers] : [])),
+  )
+  const format = spec.valueAxis.numberFormat ?? "General"
+  const scale = niceScale(Math.min(0, ...all), Math.max(1, ...all), spec.valueAxis, labelCount(box.h - 30, 22))
+  const axisWidth = spec.axes.value
+    ? Math.max(...scale.ticks.map((tick) => formatNumber(tick, format).length)) * CHAR + 8
+    : 0
+  const plot = {
+    x: box.x + axisWidth,
+    y: box.y + 6,
+    w: box.w - axisWidth - 4,
+    h: box.h - (spec.axes.category ? 26 : 8),
+  }
+  const toY = (value: number) => plot.y + plot.h - ((value - scale.min) / (scale.max - scale.min || 1)) * plot.h
+  const parts: string[] = []
+  if (spec.gridlines.major) {
+    const lines = scale.ticks.map(
+      (tick) =>
+        `<line x1="${n(plot.x)}" y1="${n(toY(tick))}" x2="${n(plot.x + plot.w)}" y2="${n(toY(tick))}" stroke="${look.grid}" stroke-width="0.75"/>`,
+    )
+    parts.push(`<g data-chart-part="gridlines">${lines.join("")}</g>`)
+  }
+  if (spec.axes.value) {
+    const labels = scale.ticks.map(
+      (tick) =>
+        `<text x="${n(plot.x - 6)}" y="${n(toY(tick) + 4)}" text-anchor="end" ${textAttrs(painter, "axis:value")}>${escapeXml(formatNumber(tick, format))}</text>`,
+    )
+    parts.push(`<g data-chart-part="axis:value">${labels.join("")}</g>`)
+  }
+  const band = plot.w / Math.max(1, groups.length)
+  const shown = spec.series.map((serie, index) => ({ serie, index })).filter((item) => !item.serie.hidden)
+  const width = Math.min(48, (band * 0.7) / Math.max(1, shown.length))
+  const statLabels: string[] = []
+  groups.forEach((group, column) => {
+    shown.forEach(({ index }, place) => {
+      const stats = group.boxes[index]
+      if (!stats) {
+        return
+      }
+      const color = seriesColor(painter, index)
+      const center = plot.x + band * column + band / 2 + (place - (shown.length - 1) / 2) * width * 1.15
+      const left = center - width / 2
+      const cap = width / 4
+      const top = toY(stats.q3)
+      const bottom = toY(stats.q1)
+      const mean = toY(stats.mean)
+      const pieces = [
+        `<path d="M${n(center)} ${n(top)}V${n(toY(stats.max))}M${n(center - cap)} ${n(toY(stats.max))}H${n(center + cap)}M${n(center)} ${n(bottom)}V${n(toY(stats.min))}M${n(center - cap)} ${n(toY(stats.min))}H${n(center + cap)}" stroke="${look.text}" stroke-width="1" fill="none"/>`,
+        `<rect x="${n(left)}" y="${n(top)}" width="${n(width)}" height="${n(Math.max(1, bottom - top))}" ${seriesPaint(painter, color, `series:${index}`)}/>`,
+        `<line x1="${n(left)}" y1="${n(toY(stats.median))}" x2="${n(left + width)}" y2="${n(toY(stats.median))}" stroke="#ffffff" stroke-width="1.5"/>`,
+        `<path d="M${n(center - 3)} ${n(mean - 3)}l6 6m0 -6l-6 6" stroke="#ffffff" stroke-width="1.5"/>`,
+        ...stats.outliers.map(
+          (value) =>
+            `<circle cx="${n(center)}" cy="${n(toY(value))}" r="2.5" fill="none" stroke="${color}" stroke-width="1"/>`,
+        ),
+      ]
+      parts.push(`<g data-chart-part="series:${index}">${pieces.join("")}</g>`)
+      if (spec.dataLabels !== "none") {
+        // As in Word: each statistic of the box is labelled beside it.
+        const values = [...new Set([stats.min, stats.q1, stats.median, stats.q3, stats.max, stats.mean])]
+        statLabels.push(
+          ...values.map(
+            (value) =>
+              `<text x="${n(left + width + 3)}" y="${n(toY(value) + 4)}" ${textAttrs(painter, "dataLabels")}>${escapeXml(formatNumber(Math.round(value * 100) / 100, format))}</text>`,
+          ),
+        )
+      }
+    })
+  })
+  const axisLine = partLine(painter, "axis:category", look.axis, 0.75)
+  parts.push(
+    `<line x1="${n(plot.x)}" y1="${n(plot.y + plot.h)}" x2="${n(plot.x + plot.w)}" y2="${n(plot.y + plot.h)}" stroke="${axisLine.stroke}" stroke-width="${axisLine.width}"/>`,
+  )
+  if (spec.axes.category) {
+    const labels = groups.map(
+      (group, column) =>
+        `<text x="${n(plot.x + band * column + band / 2)}" y="${n(plot.y + plot.h + 16)}" text-anchor="middle" ${textAttrs(painter, "axis:category")}>${escapeXml(group.name)}</text>`,
+    )
+    parts.push(`<g data-chart-part="axis:category">${labels.join("")}</g>`)
+  }
+  if (statLabels.length) {
+    parts.push(`<g data-chart-part="dataLabels">${statLabels.join("")}</g>`)
+  }
+  painter.out.push(...parts)
 }
 
 function radar(painter: Painter, box: Box, series: Serie[]) {

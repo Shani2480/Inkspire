@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { expandSpec, histogramBins, waterfallPieces } from "@/editor/chart-expand"
+import { boxGroups, boxStats, expandSpec, histogramBins, waterfallPieces } from "@/editor/chart-expand"
 import { CHART_VARIANTS, defaultChartSpec, renderChart, variantOf, withVariant } from "@/editor/chart-spec"
 import { chartSpaceXml, chartWorkbook, readChartSpace } from "@/document/docx/chart-xml"
 
@@ -86,5 +86,37 @@ describe("Stock (22.6)", () => {
       expect(back.categories).toEqual(spec.categories)
       expect(variantOf(back)).toBe(id)
     }
+  })
+})
+
+describe("Box & Whisker (22.6)", () => {
+  it("takes quartiles with Word's exclusive median, and leaves far values out of the whiskers", () => {
+    // Odd count: the median (6) is in neither half.
+    expect(boxStats([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])).toMatchObject({ q1: 3, median: 6, q3: 9, min: 1, max: 11 })
+    // Even count: the halves split evenly.
+    expect(boxStats([1, 2, 3, 4, 5, 6, 7, 8])).toMatchObject({ q1: 2.5, median: 4.5, q3: 6.5, mean: 4.5 })
+    const far = boxStats([10, 11, 12, 13, 14, 15, 60])!
+    expect(far.outliers).toEqual([60])
+    expect(far.max).toBe(15)
+    expect(boxStats([])).toBeNull()
+  })
+
+  it("groups rows by their category label, one box per series", () => {
+    const spec = defaultChartSpec("box-whisker")
+    const groups = boxGroups(spec)
+    expect(groups.map((group) => group.name)).toEqual(["English", "Physics", "Math"])
+    expect(groups[0]!.boxes).toHaveLength(3)
+    expect(variantOf(spec)).toBe("box-whisker")
+  })
+
+  it("draws boxes, and gives Word the medians as columns", () => {
+    const spec = defaultChartSpec("box-whisker")
+    const svg = renderChart(spec, 480, 300)
+    expect(svg.match(/data-chart-part="series:\d"/g)).toHaveLength(9)
+    expect(svg).toContain(">English<")
+    const word = expandSpec(spec)
+    expect(word).toMatchObject({ type: "column", categories: ["English", "Physics", "Math"] })
+    expect(word.series[0]!.values[0]).toBe(boxGroups(spec)[0]!.boxes[0]!.median)
+    expect(chartSpaceXml(spec)).toContain("<c:barChart>")
   })
 })
