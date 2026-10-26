@@ -1971,9 +1971,11 @@ button.line-menu-row:focus-visible {
   padding: 0 0.08em;
 }
 
+/* As in Word, a table wider than the text runs past the margin; it never scrolls. A scrolling wrapper showed the
+   desktop app's overlay scrollbar over the last row whenever the table was a pixel wider than the text. */
 .page-editor .tableWrapper {
   margin: 0.75em 0 1em;
-  overflow-x: auto;
+  overflow: visible;
 }
 
 .page-editor table {
