@@ -7,6 +7,17 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### A pill over a table's last row on hover (desktop app)
+
+- **Bug:** hovering over a table's last row showed a rounded "pill" box that did nothing when clicked. It was the
+  desktop webview's overlay scrollbar: a table made in the app sat in a wrapper with `overflow-x: auto`, and a
+  table only a few pixels wider than the text (its borders, rounding, or columns resized past the margin) made the
+  wrapper scrollable. WebKitGTK then shows its scrollbar over the bottom of the table on hover.
+- **Changed:** the wrapper never scrolls (`overflow: visible`, `index.css`). As in Word, and as tables opened from
+  Word already did, a table wider than the text runs past the margin.
+- **Checked:** headless Chrome: a 631 px table in the 624 px text area left the wrapper scrollable before the change
+  and not after. Found from the screenshot `screenshots/error.png`. 840 tests pass.
+
 ### Text wraps around tables (Table Properties > Around, Table Positioning, dragging the move handle)
 
 - **Missing:** Text wrapping Around and Positioning... in Table Properties were disabled; a table could only sit in

@@ -72,6 +72,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [ ] **No pill over a table's last row (2026-10-27)** — in the desktop app, hover over the last row of a table as
+      wide as the text, and of one widened past the margin: no scrollbar shows.
 - [x] **Tables text wraps around, Table Positioning, dragging a table (22.10, 2026-10-27)** — checked 2026-10-27 in
       headless Chrome.
 - [ ] **Same, in the desktop app** — drag a table by its move handle at 150% zoom; a floating table near the foot of
