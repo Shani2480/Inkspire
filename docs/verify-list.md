@@ -167,6 +167,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       fully visible in Chrome after the shape fixes, so check the desktop webview.
 
 - [ ] **Ribbon tab animations (18.7)** — no flicker in the desktop webview.
+- [ ] **Launch and ribbon in the desktop app (2026-10-27)** — launch: the splash shows with its picture (never an
+      empty card), then the start screen at once with no ghosting or stale frames. Blank document: File closes at
+      once. File again: it is opaque from the first frame and its pane slides in. Click through the ribbon tabs: each
+      switches at once with no blink at the end of the slide.
 - [ ] **Open Containing Folder (21.34)** — the file manager actually opens (`ShowItems`); macOS and Windows
       branches untested.
 - [ ] **First-run setup wizard (21.42)** — `system_defaults` returns the real author and locale live.

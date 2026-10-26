@@ -33,11 +33,30 @@ import { rememberSelection } from "@/editor/selection-memory"
 import { NodeSelection } from "@tiptap/pm/state"
 import { useEditorState } from "@tiptap/react"
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Moon, Sun } from "lucide-react"
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react"
+import { Activity, memo, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type RefObject } from "react"
 import { prefersReducedMotion } from "@/document/motion"
 
 type RibbonContext =
   "none" | "smartart" | "table" | "picture" | "shape" | "chart" | "model" | "equation" | "draw" | "headerFooter"
+
+/**
+ * The tabs that are always there, against the component that draws each. They take no props, so memo keeps the
+ * hidden ones from drawing again every time the ribbon does.
+ */
+const MAIN_TABS: [string, ComponentType][] = (
+  [
+    ["home", HomeTab],
+    ["insert", InsertTab],
+    ["design", DesignTab],
+    ["layout", LayoutTab],
+    ["references", ReferencesTab],
+    ["mailings", MailingsTab],
+    ["review", ReviewTab],
+    ["view", ViewTab],
+    ["help", HelpTab],
+    ["ai", AiTab],
+  ] as [string, ComponentType][]
+).map(([id, Content]) => [id, memo(Content)])
 
 const ribbonTabClassName =
   "h-8 flex-none rounded-none border-0 px-3 text-[13px] font-medium text-[var(--app-tab-text)] shadow-none hover:bg-[var(--app-hover)] hover:text-[var(--app-tab-text)] data-active:bg-transparent data-active:font-semibold data-active:text-[var(--app-tab-active)] data-active:shadow-none data-active:hover:bg-transparent data-active:hover:text-[var(--app-tab-active)] group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-active:bg-transparent group-data-[variant=line]/tabs-list:data-active:shadow-none"
@@ -159,6 +178,9 @@ function RibbonLayoutToggle() {
  * When the window is too narrow for a tab's commands, arrows at the ribbon's edges scroll to the rest, as Word's
  * ribbon does.
  */
+/** The toolbar of the tab in front; the tabs behind it stay built, hidden. */
+const SHOWN_TOOLBAR = '[data-slot="tabs-content"]:not([hidden]) [role="toolbar"]'
+
 function RibbonScrollButtons({
   card,
   tab,
@@ -169,10 +191,10 @@ function RibbonScrollButtons({
   layout: RibbonLayout
 }) {
   const [edges, setEdges] = useState({ left: false, right: false })
-  const toolbar = () => card.current?.querySelector<HTMLElement>('[role="toolbar"]') ?? null
+  const toolbar = () => card.current?.querySelector<HTMLElement>(SHOWN_TOOLBAR) ?? null
 
   useLayoutEffect(() => {
-    const bar = card.current?.querySelector<HTMLElement>('[role="toolbar"]')
+    const bar = card.current?.querySelector<HTMLElement>(SHOWN_TOOLBAR)
     if (!bar) {
       setEdges({ left: false, right: false })
       return
@@ -303,6 +325,22 @@ export function Ribbon() {
   const objectInChrome = editingChrome && (bodyContext === "picture" || bodyContext === "shape")
   const context: RibbonContext = editingChrome && !objectInChrome ? "headerFooter" : bodyContext
   const [tab, setTab] = useState("home")
+  // A main tab stays built once it has been shown, hidden while another is in front: building a whole tab again
+  // on every switch took a visible moment in the desktop webview.
+  const [visited, setVisited] = useState(["home"])
+  if (!visited.includes(tab)) {
+    setVisited([...visited, tab])
+  }
+  useEffect(() => {
+    // The rest are built out of sight once the app is idle, so even the first visit to a tab is quick.
+    const all = () => setVisited((current) => [...new Set([...current, ...MAIN_TABS.map(([id]) => id)])])
+    if (typeof window.requestIdleCallback !== "function") {
+      const timer = window.setTimeout(all, 1500)
+      return () => window.clearTimeout(timer)
+    }
+    const idle = window.requestIdleCallback(all, { timeout: 3000 })
+    return () => window.cancelIdleCallback(idle)
+  }, [])
   const cardRef = useRef<HTMLDivElement>(null)
   useLayoutAnimation(cardRef, ribbonLayout)
   const tabMotion = useTabMotion()
@@ -405,56 +443,13 @@ export function Ribbon() {
           data-tab-motion={tabMotion.moving ? "on" : undefined}
           className="ribbon-card relative mx-3 mb-1.5 overflow-hidden rounded-[8px] border border-[var(--app-ribbon-border)] bg-[var(--app-ribbon-card)] shadow-[var(--app-ribbon-shadow)]"
         >
-          {tab === "home" && (
-            <TabsContent value="home">
-              <HomeTab />
-            </TabsContent>
-          )}
-          {tab === "insert" && (
-            <TabsContent value="insert">
-              <InsertTab />
-            </TabsContent>
-          )}
-          {tab === "design" && (
-            <TabsContent value="design">
-              <DesignTab />
-            </TabsContent>
-          )}
-          {tab === "layout" && (
-            <TabsContent value="layout">
-              <LayoutTab />
-            </TabsContent>
-          )}
-          {tab === "references" && (
-            <TabsContent value="references">
-              <ReferencesTab />
-            </TabsContent>
-          )}
-          {tab === "mailings" && (
-            <TabsContent value="mailings">
-              <MailingsTab />
-            </TabsContent>
-          )}
-          {tab === "review" && (
-            <TabsContent value="review">
-              <ReviewTab />
-            </TabsContent>
-          )}
-          {tab === "view" && (
-            <TabsContent value="view">
-              <ViewTab />
-            </TabsContent>
-          )}
-          {tab === "help" && (
-            <TabsContent value="help">
-              <HelpTab />
-            </TabsContent>
-          )}
-          {tab === "ai" && (
-            <TabsContent value="ai">
-              <AiTab />
-            </TabsContent>
-          )}
+          {MAIN_TABS.filter(([id]) => visited.includes(id)).map(([id, Content]) => (
+            <Activity key={id} mode={tab === id ? "visible" : "hidden"}>
+              <TabsContent value={id} keepMounted>
+                <Content />
+              </TabsContent>
+            </Activity>
+          ))}
           {tab === "ctx-table-design" && (
             <TabsContent value="ctx-table-design">
               <TableDesignTab />

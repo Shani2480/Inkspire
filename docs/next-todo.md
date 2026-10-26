@@ -754,6 +754,10 @@ Subtle motion: the page fades and rises in when a document is created or opened;
 
 Not yet checked in the desktop webview for flicker.
 
+**Done 2026-10-27** (from a screencast of the desktop app): the start screen at launch has no entrance, the splash
+goes at once (no fade over the start screen) and hides its card until the picture loads, File no longer fades the
+whole window in and closes at once, and the main ribbon tabs stay built (`Activity`), so switching is one frame.
+
 ### 18.8 — Styles
 
 Modify Style dialog (name, based on, next style, font, paragraph, preview) from the Styles gallery's right-click and a Manage Styles pane: new style, modify, delete (built-ins can't be deleted, only hidden), all saved in the current document's styles.xml. "New documents based on this template" saves the chosen styles as defaults applied to every new document.

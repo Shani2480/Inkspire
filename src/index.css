@@ -4969,13 +4969,11 @@ body,
   align-items: center;
   justify-content: center;
   background: #e8eaee;
-  opacity: 1;
-  transition: opacity 160ms ease-out;
 }
 
-.splash-screen.is-loaded {
-  opacity: 0;
-  pointer-events: none;
+/* The card waits for its picture, so it never shows as an empty grey box with "Starting..." on it. */
+.splash-card:not(.is-ready) {
+  visibility: hidden;
 }
 
 .splash-card {
@@ -10195,26 +10193,20 @@ html.dark .asset-library .asset-library-icon {
   animation: motion-tab-in var(--motion-tab) var(--motion-ease-in);
 }
 
-@keyframes motion-slide-out {
-  to {
-    opacity: 0;
-    transform: translateX(-32px);
-  }
-}
-
-/* File (backstage): the pane slides in from the left, its page follows; on close it slides back out. */
-.backstage {
-  animation: motion-fade-in var(--motion-panel) var(--motion-ease-in);
-}
+/*
+ * File (backstage): it covers the window at once, and its pane slides in from the left with the page following. Only
+ * the pane and page move: fading the whole window in showed the document through it in the desktop webview, a grey
+ * ghost of both. The start screen at launch arrives without motion, and closing is instant, as in Word.
+ */
 .backstage .backstage-nav {
   animation: motion-slide-in var(--motion-panel) var(--motion-ease-in);
 }
 .backstage .backstage-content {
   animation: motion-content-in var(--motion-panel) var(--motion-ease-in);
 }
-.backstage.is-leaving {
-  pointer-events: none;
-  animation: motion-slide-out 160ms var(--motion-ease-out) forwards;
+.backstage.is-instant .backstage-nav,
+.backstage.is-instant .backstage-content {
+  animation: none;
 }
 
 /*
@@ -10264,7 +10256,7 @@ html.dark .asset-library .asset-library-icon {
  * ends, repainting its text: a blink at the very end. These surfaces are small, so they keep their layer for good.
  */
 .word-dialog,
-.backstage,
+.ribbon-card [data-slot="tabs-content"],
 .backstage .backstage-nav,
 .backstage .backstage-content,
 [data-slot="popover-content"].ribbon-menu,
@@ -10278,10 +10270,8 @@ html.dark .asset-library .asset-library-icon {
 
 @media (prefers-reduced-motion: reduce) {
   .ribbon-card[data-tab-motion="on"] [data-slot="tabs-content"],
-  .backstage,
   .backstage .backstage-nav,
   .backstage .backstage-content,
-  .backstage.is-leaving,
   .spell-menu,
   .object-menu,
   .mini-menu,

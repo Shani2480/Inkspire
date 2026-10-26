@@ -36,7 +36,6 @@ import {
   User,
   X,
 } from "lucide-react"
-import { prefersReducedMotion } from "@/document/motion"
 import { useEffect, useState, type ReactNode } from "react"
 
 const TOP_TABS: { id: BackstageTab; label: string; icon: ReactNode }[] = [
@@ -95,19 +94,22 @@ export function Backstage() {
     return () => window.removeEventListener("keydown", onKey, true)
   }, [open, closeBackstage])
 
-  const shown = usePresence(open, LEAVE_MS)
+  // The start screen the app opens on is simply there; the File view opened later slides in.
+  const [atLaunch, setAtLaunch] = useState(open)
+  if (atLaunch && !open) {
+    setAtLaunch(false)
+  }
 
-  if (!shown) {
+  if (!open) {
     return null
   }
 
   return (
     <div
-      className={`backstage${open ? "" : " is-leaving"}`}
+      className={`backstage${atLaunch ? " is-instant" : ""}`}
       style={themeAccentVars(themeBackground, colorMode)}
       role="dialog"
       aria-label="File"
-      aria-hidden={open ? undefined : true}
     >
       <aside className="backstage-nav">
         <button
@@ -143,27 +145,6 @@ export function Backstage() {
       </div>
     </div>
   )
-}
-
-/** How long the File view takes to slide away; kept in step with backstage-out in index.css. */
-const LEAVE_MS = 160
-
-/** True while `open`, and for `leaveMs` after it closes, so the closing animation can play before unmounting. */
-function usePresence(open: boolean, leaveMs: number) {
-  const [shown, setShown] = useState(open)
-  useEffect(() => {
-    if (open) {
-      setShown(true)
-      return
-    }
-    if (prefersReducedMotion()) {
-      setShown(false)
-      return
-    }
-    const timer = window.setTimeout(() => setShown(false), leaveMs)
-    return () => window.clearTimeout(timer)
-  }, [open, leaveMs])
-  return open || shown
 }
 
 function NavButton({
