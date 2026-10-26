@@ -7,6 +7,31 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### 3D Model Views: Word's named views, drawn by the viewer; Pause and Scenes icons (22.15)
+
+- **Wrong:** the 3D Model Views gallery was six tiles of the model's picture turned flat in the page (0°, 45°, 90°…),
+  unnamed, and picking one set a turn that did not face the camera. Word's gallery shows the model itself from named
+  sides. Scenes, Pause, Front, Lighting, Presets and Format 3D Model used the lighting or play glyph, or a table
+  glyph.
+- **Changed:** `src/editor/model-views.ts`: twelve named views (Front, Back, Left, Right, Top, Bottom, Above/Below
+  Front Left/Right, Above Back Left/Right), each a turn of the model in its own frame followed by the turn that
+  faces its front to the camera (`viewPose`, with rotation matrices read back as yaw, pitch and roll); a registry
+  from a model's node view to its running viewer. The viewer (`three-d-viewer.ts`) turns the model about the
+  upright first, then tips it (`YXZ`), now applies `roll`, reports its camera and draws the model in every view at
+  96 × 72 (cached until the model, format, size or camera changes). `ModelViewTiles` (`object-menus.tsx`) is the
+  one gallery for the ribbon (six a row with Word's arrow stack and the full 4 × 3 menu), the single line ribbon and
+  the object bar; until the model has loaded a tile shows its picture tilted that way. New glyphs in
+  `context-icons.tsx` (Pause, Scenes, Lighting, 3D Model Views); Play 3D is Pause then Scenes, both large, as in
+  Word.
+- **Checked:** `model-views.test.ts` (each named side lands square on the camera, side views stay upright, a turn
+  reads back as the same pose, the registry). Chrome: a cube shows a square face in Front … Bottom; a cone shows its
+  side, its tip (Top) and its base (Bottom); picking Top turns the model; the arrows page to the Above/Below row and
+  the menu lists all twelve. 756 tests pass; tsc, ESLint and Prettier clean.
+- **Open:** the names are the usual Word view names, not checked against Word's own tooltips; Word's camera and
+  rotation from a `.docx` (`am3d:camera`, `am3d:trans`) are still not read. A model turned in the app with both a
+  turn and a tip before this change shows slightly differently live (the order of the two turns changed); its saved
+  picture does not change.
+
 ### Comments: Word's red active range, anchor line and card beside the page (22.18)
 
 - **Wrong:** the open comment's range was tinted in the theme blue with an underline and its card had a grey

@@ -8,6 +8,7 @@ import {
   type ModelFormat,
 } from "@/editor/model-format"
 import { modelScene, scenePose, type ModelScene } from "@/editor/model-scenes"
+import { MODEL_VIEWS, viewPose } from "@/editor/model-views"
 import { fitLoadedModel } from "@/editor/three-d-fit"
 import type { Node as ProseNode } from "@tiptap/pm/model"
 import * as THREE from "three"
@@ -194,11 +195,13 @@ export function mountViewer(
         gltf.scene.scale.setScalar(fit.scale)
         gltf.scene.position.copy(fit.centre).multiplyScalar(-fit.scale)
         mesh = new THREE.Group()
+        mesh.rotation.order = POSE_ORDER
         mesh.add(gltf.scene)
         mesh.scale.setScalar(1.2)
         // The pose the stand-in was turned to while the file loaded, or the rest pose of a playing scene.
         mesh.rotation.y = playing ? rest.yaw : previous.rotation.y
         mesh.rotation.x = previous.rotation.x
+        mesh.rotation.z = previous.rotation.z
         rest.y = mesh.position.y
         rest.scale.copy(mesh.scale)
         scene.add(mesh)
@@ -215,8 +218,10 @@ export function mountViewer(
     )
   }
 
+  mesh.rotation.order = POSE_ORDER
   mesh.rotation.y = Number(node.attrs.yaw) || 0
   mesh.rotation.x = Number(node.attrs.pitch) || 0
+  mesh.rotation.z = Number(node.attrs.roll) || 0
 
   let frame = 0
   let idleTimer = 0
@@ -270,8 +275,44 @@ export function mountViewer(
   const scheduleCapture = () => {
     window.clearTimeout(idleTimer)
     idleTimer = window.setTimeout(capture, 180)
+    views = null
   }
   controls.addEventListener("end", scheduleCapture)
+
+  // The model drawn in each of Word's named views, for the 3D Model Views gallery; made again after a change.
+  let views: string[] | null = null
+  const pictures = () => {
+    if (!modelReady) {
+      return null
+    }
+    if (views) {
+      return views
+    }
+    const size = renderer.getSize(new THREE.Vector2())
+    const ratio = renderer.getPixelRatio()
+    const saved = { turn: mesh.rotation.clone(), lift: mesh.position.y, scale: mesh.scale.clone() }
+    mesh.position.y = rest.y
+    mesh.scale.copy(playing ? rest.scale : saved.scale)
+    renderer.setPixelRatio(1)
+    renderer.setSize(96, 72, false)
+    camera.aspect = 96 / 72
+    camera.updateProjectionMatrix()
+    views = MODEL_VIEWS.map((view) => {
+      const pose = viewPose(view, camera.position)
+      mesh.rotation.set(pose.pitch, pose.yaw, pose.roll)
+      renderer.render(scene, camera)
+      return canvas.toDataURL("image/png")
+    })
+    mesh.rotation.copy(saved.turn)
+    mesh.position.y = saved.lift
+    mesh.scale.copy(saved.scale)
+    renderer.setPixelRatio(ratio)
+    renderer.setSize(size.x, size.y, false)
+    camera.aspect = size.x / Math.max(1, size.y)
+    camera.updateProjectionMatrix()
+    renderer.render(scene, camera)
+    return views
+  }
 
   const handle = document.createElement("button")
   handle.type = "button"
@@ -327,10 +368,13 @@ export function mountViewer(
       renderer.dispose()
     },
     play,
-    setPose: (yaw: number, pitch: number) => {
+    camera: () => ({ x: camera.position.x, y: camera.position.y, z: camera.position.z }),
+    pictures,
+    setPose: (yaw: number, pitch: number, roll = 0) => {
       rest.yaw = yaw
       mesh.rotation.y = yaw
       mesh.rotation.x = pitch
+      mesh.rotation.z = roll
       capture()
     },
     setFormat: (next: ModelFormat) => {
@@ -351,3 +395,8 @@ export function mountViewer(
 }
 
 const PRIMITIVE_COLOR = 0x0f6cbd
+/**
+ * The model turns about the upright first (`yaw`) and then tips toward or away from the viewer (`pitch`), so a
+ * named view (`model-views.ts`) faces the camera square on.
+ */
+const POSE_ORDER = "YXZ"

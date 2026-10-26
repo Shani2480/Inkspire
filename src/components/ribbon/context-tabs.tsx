@@ -74,7 +74,16 @@ import {
   toggleTextDirection,
 } from "@/editor/table-layout"
 import { WrapTextMenu } from "@/components/wrap-menu"
-import { PictureStyleRow, ModelScenesMenu, RotateMenu, shapeNode } from "@/components/object-menus"
+import {
+  ModelScenesMenu,
+  ModelViewTiles,
+  ModelViewsMenu,
+  PictureStyleRow,
+  RotateMenu,
+  shapeNode,
+} from "@/components/object-menus"
+import { MODEL_VIEWS, viewPose, viewSourceFor } from "@/editor/model-views"
+import { selectedObject } from "@/editor/objects"
 import {
   PictureArtisticMenu,
   PictureBorderMenu,
@@ -1272,7 +1281,7 @@ function changePicture(editor: Editor) {
   input.click()
 }
 
-const MODEL_VIEWS = [0, 45, 90, 135, 180, 240]
+const VIEWS_PER_ROW = 6
 const MODEL_SCENES = ["cube", "cylinder", "cone", "sphere", "torus"]
 const PX_PER_CM = 96 / 2.54
 
@@ -1280,6 +1289,7 @@ export function ModelTab() {
   const editor = useDocumentEditor()
   const ribbonLayout = useViewStore((state) => state.ribbonLayout)
   const [library, setLibrary] = useState(false)
+  const [viewPage, setViewPage] = useState(0)
   const selectionPane = useViewStore((state) => state.selectionPane)
   const toggleSelectionPane = useViewStore((state) => state.toggleSelectionPane)
   const model = useEditorState({
@@ -1423,25 +1433,18 @@ export function ModelTab() {
     </>
   )
   const viewsRow = (
-    <div className="flex items-center gap-1 px-1">
-      {MODEL_VIEWS.map((angle) => (
-        <button
-          key={angle}
-          type="button"
-          aria-label={`View ${angle} degrees`}
-          className="model-view"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() =>
-            updateModel(model?.kind === "threeD" ? { yaw: (angle * Math.PI) / 180, pitch: 0.25 } : { rotate: angle })
-          }
-        >
-          {model?.snapshot || model?.src ? (
-            <img src={model.snapshot || model.src} alt="" style={{ transform: `rotate(${angle}deg)` }} />
-          ) : (
-            <span style={{ transform: `rotate(${angle}deg)` }}>{model?.variant.slice(0, 1).toUpperCase()}</span>
-          )}
-        </button>
-      ))}
+    <div className="flex items-center">
+      <div className="flex items-center gap-1 px-1">
+        <ModelViewTiles editor={editor} start={viewPage * VIEWS_PER_ROW} count={VIEWS_PER_ROW} />
+      </div>
+      <GalleryNav
+        label="3D Model Views"
+        canUp={viewPage > 0}
+        canDown={(viewPage + 1) * VIEWS_PER_ROW < MODEL_VIEWS.length}
+        onUp={() => setViewPage((page) => page - 1)}
+        onDown={() => setViewPage((page) => page + 1)}
+        more={(close) => <ModelViewsMenu editor={editor} close={close} />}
+      />
     </div>
   )
   const heightField = (
@@ -1460,12 +1463,13 @@ export function ModelTab() {
       onCommit={(cm) => updateModel({ width: Math.round(cm * PX_PER_CM) })}
     />
   )
-  const frontView = () => updateModel(model?.kind === "threeD" ? { yaw: 0.45, pitch: 0.3 } : { rotate: 0 })
-  const viewsMenu = (close: () => void) => (
-    <div className="p-1" onClick={close}>
-      {viewsRow}
-    </div>
-  )
+  const frontView = () => {
+    const found = model?.kind === "threeD" && editor ? selectedObject(editor) : null
+    const source = found ? viewSourceFor(editor?.view.nodeDOM(found.pos) as Element | null) : null
+    const pose = viewPose(MODEL_VIEWS[0], source?.camera())
+    updateModel(model?.kind === "threeD" ? pose : { rotate: 0 })
+  }
+  const viewsMenu = (close: () => void) => <ModelViewsMenu editor={editor} close={close} />
   const scenesMenu = (close: () => void) => <ModelScenesMenu editor={editor} close={close} />
   const modelLibrary = library && editor ? <ModelLibrary editor={editor} onClose={() => setLibrary(false)} /> : null
   const flat = !ready || model?.kind === "threeD"
@@ -1483,14 +1487,14 @@ export function ModelTab() {
       {
         id: "scenes",
         label: "Scenes",
-        icon: <LineCubeIcon />,
+        icon: <ContextGlyph label="Scenes" />,
         disabled: model?.kind !== "threeD",
         menu: scenesMenu,
       },
       {
         id: "pause",
         label: "Pause",
-        icon: <LineCubeIcon />,
+        icon: <ContextGlyph label="Pause" />,
         disabled: model?.kind !== "threeD",
         onClick: () => updateModel({ scene: "" }),
       },
@@ -1505,7 +1509,7 @@ export function ModelTab() {
       {
         id: "views",
         label: "3D Model Views",
-        icon: <LineObjectStylesIcon />,
+        icon: <ContextGlyph label="3D Model Views" />,
         priority: 1,
         disabled: !ready,
         menu: viewsMenu,
@@ -1534,14 +1538,14 @@ export function ModelTab() {
           {
             id: "lighting",
             label: "Lighting",
-            icon: <ContextGlyph label="Scenes" />,
+            icon: <ContextGlyph label="Lighting" />,
             disabled: !ready,
             menu: lightingMenu,
           },
           {
             id: "presets",
             label: "Presets",
-            icon: <ContextGlyph label="Scenes" />,
+            icon: <ContextGlyph label="cube" />,
             disabled: !ready,
             menu: presetsMenu,
           },
@@ -1631,27 +1635,27 @@ export function ModelTab() {
   return (
     <div role="toolbar" aria-label="3D Model" className="ribbon-home flex items-stretch overflow-x-auto">
       <RibbonGroup label="Play 3D">
-        <RibbonCommand size="large" label="Scenes" disabled={model?.kind !== "threeD"} menu={scenesMenu}>
-          <ContextGlyph label="Scenes" />
-        </RibbonCommand>
         <RibbonCommand
-          size="small"
+          size="large"
           label="Pause"
           disabled={model?.kind !== "threeD"}
           onClick={() => updateModel({ scene: "" })}
         >
-          <ContextGlyph label="Play 3D" />
+          <ContextGlyph label="Pause" />
+        </RibbonCommand>
+        <RibbonCommand size="large" label="Scenes" disabled={model?.kind !== "threeD"} menu={scenesMenu}>
+          <ContextGlyph label="Scenes" />
         </RibbonCommand>
       </RibbonGroup>
       <RibbonGroup label="Camera">
         <RibbonCommand size="large" label="Front" disabled={!ready} onClick={frontView}>
-          <ContextGlyph label="Play 3D" />
+          <ContextGlyph label="3D Model Views" />
         </RibbonCommand>
         <RibbonCommand size="small" label="Lighting" disabled={!ready} menu={lightingMenu}>
-          <ContextGlyph label="Scenes" />
+          <ContextGlyph label="Lighting" />
         </RibbonCommand>
         <RibbonCommand size="small" label="Presets" disabled={!ready} menu={presetsMenu}>
-          <ContextGlyph label="Scenes" />
+          <ContextGlyph label="cube" />
         </RibbonCommand>
       </RibbonGroup>
       <RibbonGroup label="Adjust">
@@ -1664,7 +1668,7 @@ export function ModelTab() {
           disabled={model?.kind !== "threeD"}
           onClick={() => openModelFormat()}
         >
-          <ContextGlyph label="Scenes" />
+          <ContextGlyph label="cube" />
         </RibbonCommand>
         <RibbonCommand
           size="small"

@@ -6422,17 +6422,24 @@ li[data-drop-cap="margin"]::first-letter {
 .model-view {
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 36px;
+  width: 52px;
+  height: 44px;
   overflow: hidden;
   border: 1px solid #d0d0d0;
   background: #fff;
 }
 
 .model-view img {
-  width: 34px;
-  height: 28px;
+  width: 48px;
+  height: 40px;
   object-fit: contain;
+}
+
+/* The whole 3D Model Views gallery, from the ribbon's arrow, the single line ribbon and the object bar. */
+.model-view-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 52px);
+  gap: 4px;
 }
 
 .model-view:hover {

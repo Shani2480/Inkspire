@@ -25,6 +25,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [x] **3D Model Views gallery (22.15, 2026-10-26)** — checked 2026-10-26 in Chrome with a cube and a cone: named
+      tiles drawn from each side, Top applied, paging and the full menu.
 - [x] **Comment anchor line and red active range (22.18, 2026-10-26)** — checked 2026-10-26 in Chrome, light and
       dark, wide and 1000 px windows.
 - [x] **Online 3D model inserts the model picked (2026-10-26)** — checked 2026-10-26 in Chrome (Arm Chair 01 loads live with its texture) — Insert > 3D Models > Online, pick a model: the
@@ -60,6 +62,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **3D Model Views tiles in the desktop webview (22.15, 2026-10-26)** — the tiles are drawn with WebGL; check
+      they appear (and fall back to the tilted picture without WebGL).
 - [ ] **Online 3D models and icons in the desktop webview (2026-10-26)** — Insert > 3D Models > Online lists
       Poly Haven with thumbnails and inserts the model picked; Insert > Icons lists Iconify. Both hosts were missing
       from the desktop CSP before.
