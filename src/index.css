@@ -3598,22 +3598,6 @@ button.line-menu-row:focus-visible {
   opacity: 0.75;
 }
 
-.layout-options {
-  position: fixed;
-  z-index: 41;
-}
-
-.layout-options-more {
-  margin-top: 4px;
-  padding: 2px 0;
-  border: 0;
-  background: transparent;
-  color: var(--app-theme-primary);
-  font-size: 12px;
-  text-align: left;
-  text-decoration: underline;
-}
-
 /* One frame for 3D models, drawing canvases and SmartArt (20.7), as pictures have. */
 .object-box {
   position: relative;
@@ -3896,7 +3880,7 @@ button.line-menu-row:focus-visible {
 }
 
 /* While an object is resized its bars step aside and a tip shows the size (20.2). */
-.object-resizing :is(.object-bar, .layout-options) {
+.object-resizing .object-bar {
   visibility: hidden;
 }
 
@@ -3915,7 +3899,7 @@ button.line-menu-row:focus-visible {
   box-shadow: 0 2px 6px rgb(0 0 0 / 0.16);
 }
 
-.layout-options-button {
+.chart-side-button {
   display: grid;
   width: 24px;
   height: 24px;
@@ -3925,78 +3909,9 @@ button.line-menu-row:focus-visible {
   box-shadow: 0 1px 4px rgb(0 0 0 / 12%);
 }
 
-.layout-options-button:hover,
-.layout-options-button[aria-expanded="true"] {
+.chart-side-button:hover,
+.chart-side-button[aria-expanded="true"] {
   background: var(--app-hover);
-}
-
-.layout-options-panel {
-  position: absolute;
-  top: 0;
-  left: 30px;
-  width: 232px;
-  padding: 0 0 8px;
-  border: 1px solid var(--app-popover-border);
-  background: var(--app-popover-bg);
-  box-shadow: 0 4px 14px rgb(0 0 0 / 16%);
-  color: var(--app-ribbon-text);
-  font-size: 12px;
-}
-
-.layout-options-title {
-  padding: 6px 10px;
-  background: var(--app-title-fill, var(--app-hover));
-  color: #fff;
-  font-weight: 600;
-}
-
-.layout-options-heading {
-  padding: 8px 10px 4px;
-  color: var(--app-ribbon-muted);
-}
-
-.layout-options-row {
-  display: flex;
-  gap: 4px;
-  padding: 0 10px;
-}
-
-.layout-options-tile {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  place-items: center;
-  border: 1px solid transparent;
-  background: transparent;
-}
-
-.layout-options-tile svg {
-  width: 24px;
-  height: 24px;
-}
-
-.layout-options-tile:hover:not(:disabled) {
-  background: var(--app-hover);
-}
-
-.layout-options-tile[aria-pressed="true"] {
-  border-color: var(--app-theme-primary);
-  background: var(--app-hover);
-}
-
-.layout-options-tile:disabled {
-  opacity: 0.35;
-}
-
-.layout-options-radio {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 10px 0;
-}
-
-.layout-options-radio[aria-disabled="true"] {
-  color: var(--app-ribbon-muted);
 }
 
 /* The room a beside wrap clears for an object: invisible, and never selected or hit. */
@@ -11270,7 +11185,7 @@ html.dark .asset-library .asset-library-icon {
   position: relative;
 }
 
-.chart-side-buttons .layout-options-button {
+.chart-side-buttons .chart-side-button {
   color: var(--app-ribbon-text);
 }
 
@@ -12484,33 +12399,6 @@ fieldset.columns-presets input {
   opacity: 0.6;
 }
 
-/* Layout Options pane: close button and info icons (22.12) */
-.layout-options-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.layout-options-close {
-  border: 0;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-}
-.layout-options-info {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 14px;
-  height: 14px;
-  margin-left: 6px;
-  border: 1px solid currentColor;
-  border-radius: 50%;
-  font-size: 10px;
-  font-style: italic;
-  cursor: help;
-}
 .smartart-dialog-cats button:disabled {
   opacity: 0.5;
   cursor: default;

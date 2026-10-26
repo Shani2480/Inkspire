@@ -133,8 +133,8 @@ export function ChartSideButtons({ editor }: { editor: Editor }) {
           }
           return
         }
-        // Under the Layout Options button, which sits at the chart's top right.
-        const top = Math.max(rect.top, (scroller?.top ?? 0) + 4) + 32
+        // Beside the chart's top right, as Word's Chart Elements, Chart Styles and Chart Filters.
+        const top = Math.max(rect.top, (scroller?.top ?? 0) + 4)
         if (scroller && (top > scroller.bottom - 96 || rect.bottom < scroller.top)) {
           setPlace(null)
           return
@@ -234,7 +234,7 @@ export function ChartSideButtons({ editor }: { editor: Editor }) {
         <div key={button.id} className="chart-side-slot">
           <button
             type="button"
-            className="layout-options-button"
+            className="chart-side-button"
             title={button.label}
             aria-label={button.label}
             aria-expanded={open === button.id}

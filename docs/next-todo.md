@@ -1650,6 +1650,9 @@ Today Options is a backstage page of five cards (`OptionsView`). Word's is a mod
 
 **Done (partly).** The pane already had the header, In Line with Text, the six wraps, both radios and See more…; added a Close button, info icons with tooltips on the two radios, and focus moving to the first enabled wrap when it opens. Arrow keys now move between the wrap tiles. Not done: Tab order inside the pane was not checked; not looked at in Chrome; no test (the pane depends on DOM measurement jsdom can't give).
 
+**Removed 2026-10-26** (owner's request, see `changes.md`): the Layout Options button and pane are gone; the same
+choices are in the object toolbar's and the ribbon's Wrap Text menus and the right-click menu.
+
 #### 22.13 — SmartArt dialog (screenshot 081705)
 
 - Categories All, List, Process, Cycle, Hierarchy, Relationship, Matrix, Pyramid, Picture; a 4-column thumbnail grid of every layout, and on the right a preview with name and description. Ours has five layout ids; add the missing layouts (Relationship, Matrix, Pyramid, Picture and their variants) and the preview pane.

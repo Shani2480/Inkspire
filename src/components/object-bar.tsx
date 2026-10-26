@@ -224,18 +224,6 @@ export function ObjectBar({ editor }: { editor: Editor }) {
         next = Math.min(bottom + GAP, view.bottom - height - 4)
       }
       let left = rect.left + rect.width / 2 - width / 2
-      // Never over the Layout Options button beside the object.
-      const options = document.querySelector(".layout-options")?.getBoundingClientRect()
-      if (
-        options &&
-        options.width > 0 &&
-        left + width > options.left - GAP &&
-        left < options.right &&
-        next < options.bottom &&
-        next + height > options.top
-      ) {
-        left = options.left - GAP - width
-      }
       left = Math.max(8, Math.min(left, window.innerWidth - width - 8))
       setPlace((last) => (last && last.left === left && last.top === next ? last : { left, top: next }))
     }
