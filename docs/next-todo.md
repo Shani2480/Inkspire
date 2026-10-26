@@ -1711,6 +1711,10 @@ Today Options is a backstage page of five cards (`OptionsView`). Word's is a mod
 
 #### 22.10 — Table Layout tab (screenshot 081415; extends 21.4)
 
+**Done (2026-10-26).** Double-clicking a column's right border fits the column to its contents (from free room, then
+the right neighbour down to its own contents); end-of-cell marks no longer move the text when the caret enters a
+table; dragging a row's border resizes it live. Checked in headless Chrome.
+
 - Present and matching: all groups. Missing: Properties button (Table Properties dialog), Cell Size dialog launcher and Rows & Columns launcher, Height and Width spin boxes shown beside AutoFit in cm with a live value, 3×3 alignment grid sized as Word's (three-by-three, 22 px), Select menu items (Cell, Column, Row, Table).
 - The floating table toolbar (081826 shows Word's own) should be Font, Size, Grow/Shrink, bullets, numbering, Bold, Italic, alignment, highlight, font color, shading, borders, format painter, Insert, Delete, New Comment, Insert Below, Delete Rows, Merge Cells (21.7 covers dark mode only).
 

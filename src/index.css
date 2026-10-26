@@ -7494,9 +7494,15 @@ li[data-drop-cap="margin"]::first-letter {
   margin-top: 0 !important;
 }
 
+/*
+ * The marks appear when the caret enters the table and go when it leaves, so they take no room: placed out of the flow
+ * where they would have been (after the text). Otherwise a line that just fits its cell would wrap, or the line grow,
+ * when they appear, and the table's text would move.
+ */
 .ProseMirror table.is-current-table td > p:last-child::after,
 .ProseMirror table.is-current-table th > p:last-child::after {
   content: "¤";
+  position: absolute;
   margin-left: 0.15em;
   color: #8a8a8a;
   font-size: 0.8em;
@@ -7509,6 +7515,7 @@ li[data-drop-cap="margin"]::first-letter {
 
 .ProseMirror table.is-current-table :is(td, th) > p:last-child:has(> br.ProseMirror-trailingBreak:only-child)::before {
   content: "¤";
+  position: absolute;
   color: #8a8a8a;
   font-size: 0.8em;
 }
