@@ -663,11 +663,24 @@ fn provider_message(status: reqwest::StatusCode, body: &str, provider: AiProvide
                     .or_else(|| error.as_str())
             })
             .unwrap_or("");
+        if too_long(message) {
+            return TOO_LONG.into();
+        }
         if !message.is_empty() {
             return redact(message);
         }
     }
     format!("The AI provider returned status {}.", status.as_u16())
+}
+
+const TOO_LONG: &str = "The text is too long for this model. Select a shorter part of the document, or choose a model with a larger context in AI Settings.";
+
+/// A request bigger than the model's context window: llama.cpp ("exceeds the available context size"), OpenAI-style
+/// servers ("maximum context length"), Ollama and Anthropic ("prompt is too long").
+fn too_long(message: &str) -> bool {
+    let lower = message.to_lowercase();
+    (lower.contains("context") && (lower.contains("exceed") || lower.contains("maximum")))
+        || lower.contains("prompt is too long")
 }
 
 fn redact(message: &str) -> String {
@@ -955,7 +968,7 @@ mod tests {
         AiProvider, DEFAULT_ANTHROPIC_MODEL, DEFAULT_OLLAMA_MODEL, DEFAULT_OPENAI_MODEL,
         SYSTEM_PROMPT, StreamParser, anthropic_delta, chat_body, clean_model, compatible_chat_url,
         compatible_models_url, finalize_html, key_source, ollama_chat_url, ollama_delta,
-        ollama_has_model, openai_delta, redact, sanitize_html, user_message,
+        ollama_has_model, openai_delta, provider_message, redact, sanitize_html, user_message,
     };
 
     #[test]
@@ -1240,6 +1253,27 @@ mod tests {
         assert!(err.contains("Overloaded"));
         let mut parser = StreamParser::new(AiProvider::Ollama);
         assert!(parser.push("{\"error\":\"model not found\"}\n").is_err());
+    }
+
+    #[test]
+    fn a_request_over_the_context_window_says_what_to_do() {
+        let llama = r#"{"error":{"code":400,"message":"request (20512 tokens) exceeds the available context size (16384 tokens), try increasing it","type":"exceed_context_size_error"}}"#;
+        let openai = r#"{"error":{"message":"This model's maximum context length is 8192 tokens. However, your messages resulted in 9000 tokens."}}"#;
+        let anthropic = r#"{"type":"error","error":{"type":"invalid_request_error","message":"prompt is too long: 210000 tokens > 200000 maximum"}}"#;
+        for (body, provider) in [
+            (llama, AiProvider::Builtin),
+            (openai, AiProvider::Openai),
+            (anthropic, AiProvider::Anthropic),
+        ] {
+            let message = provider_message(reqwest::StatusCode::BAD_REQUEST, body, provider);
+            assert!(message.starts_with("The text is too long"), "{message}");
+        }
+        let other = provider_message(
+            reqwest::StatusCode::BAD_REQUEST,
+            r#"{"error":{"message":"Unknown model"}}"#,
+            AiProvider::Openai,
+        );
+        assert_eq!(other, "Unknown model");
     }
 
     #[test]

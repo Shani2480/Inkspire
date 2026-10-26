@@ -80,6 +80,10 @@ pub struct ModelInfo {
     pub url: &'static str,
     pub sha256: &'static str,
     pub size: u64,
+    /// The context window the engine runs this model with, in tokens: the system prompt, the selected text and the
+    /// reply share it. Qwen2.5 takes 32K; 16K keeps the cache under about a gigabyte even for the 7B model, and
+    /// holds the 24,000 characters of context the app sends even in a script that takes more tokens per character.
+    pub context: u32,
 }
 
 pub const MODELS: [ModelInfo; 3] = [
@@ -90,6 +94,7 @@ pub const MODELS: [ModelInfo; 3] = [
         url: "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
         sha256: "6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e",
         size: 1_117_320_736,
+        context: 16_384,
     },
     ModelInfo {
         id: "qwen2.5-3b",
@@ -98,6 +103,7 @@ pub const MODELS: [ModelInfo; 3] = [
         url: "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf",
         sha256: "626b4a6678b86442240e33df819e00132d3ba7dddfe1cdc4fbb18e0a9615c62d",
         size: 2_104_932_768,
+        context: 16_384,
     },
     ModelInfo {
         id: "qwen2.5-7b",
@@ -106,6 +112,7 @@ pub const MODELS: [ModelInfo; 3] = [
         url: "https://huggingface.co/bartowski/Qwen2.5-7B-Instruct-GGUF/resolve/main/Qwen2.5-7B-Instruct-Q4_K_M.gguf",
         sha256: "65b8fcd92af6b4fefa935c625d1ac27ea29dcb6ee14589c55a8f115ceaaa1423",
         size: 4_683_074_240,
+        context: 16_384,
     },
 ];
 
@@ -645,7 +652,7 @@ fn free_port() -> Result<u16, String> {
 }
 
 /// The arguments `llama-server` runs with: this model, on this port, on this computer only, GPU layers when Vulkan.
-pub fn server_args(model: &Path, port: u16, backend: Backend) -> Vec<String> {
+pub fn server_args(model: &Path, context: u32, port: u16, backend: Backend) -> Vec<String> {
     let mut args = vec![
         "-m".to_string(),
         model.display().to_string(),
@@ -654,7 +661,7 @@ pub fn server_args(model: &Path, port: u16, backend: Backend) -> Vec<String> {
         "--port".into(),
         port.to_string(),
         "-c".into(),
-        "8192".into(),
+        context.to_string(),
         "-np".into(),
         "1".into(),
         "--no-webui".into(),
@@ -708,7 +715,7 @@ pub async fn ensure_running(
 
     let mut command = tokio::process::Command::new(&server);
     command
-        .args(server_args(&model_path, port, backend))
+        .args(server_args(&model_path, model.context, port, backend))
         .current_dir(server.parent().unwrap_or(&root))
         .stdin(std::process::Stdio::null())
         .stdout(log)
@@ -943,6 +950,7 @@ mod tests {
         assert_eq!(model_by_id(Some("qwen2.5-7b")).unwrap().size, 4_683_074_240);
         assert!(model_by_id(Some("../../etc/passwd")).is_err());
         for model in MODELS {
+            assert!(model.context >= 16_384);
             assert_eq!(model.sha256.len(), 64);
             assert!(model.url.starts_with("https://"));
         }
@@ -950,13 +958,15 @@ mod tests {
 
     #[test]
     fn the_server_listens_on_this_computer_only() {
-        let args = server_args(Path::new("/m/model.gguf"), 5555, Backend::Cpu);
+        let args = server_args(Path::new("/m/model.gguf"), 16_384, 5555, Backend::Cpu);
         let at = args.iter().position(|arg| arg == "--host").unwrap();
         assert_eq!(args[at + 1], "127.0.0.1");
+        let at = args.iter().position(|arg| arg == "-c").unwrap();
+        assert_eq!(args[at + 1], "16384");
         assert!(args.contains(&"5555".to_string()));
         assert!(!args.contains(&"-ngl".to_string()));
         assert!(
-            server_args(Path::new("/m/model.gguf"), 5555, Backend::Vulkan)
+            server_args(Path::new("/m/model.gguf"), 16_384, 5555, Backend::Vulkan)
                 .contains(&"-ngl".to_string())
         );
     }
