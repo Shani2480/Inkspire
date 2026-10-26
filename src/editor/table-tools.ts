@@ -1092,6 +1092,7 @@ type RowHit = {
   kind: "row"
   pos: number
   height: number
+  scale: number
   row: HTMLTableRowElement
 }
 
@@ -1099,7 +1100,7 @@ type GridHit = ColumnHit | RowHit
 
 type GridDrag =
   | { kind: "column"; table: HTMLTableElement; tablePos: number; index: number; startX: number; widths: number[] }
-  | { kind: "row"; pos: number; startY: number; startHeight: number; row: HTMLTableRowElement }
+  | { kind: "row"; pos: number; startY: number; startHeight: number; scale: number; row: HTMLTableRowElement }
 
 function nodePos(view: EditorView, dom: Node, name: string) {
   const found = view.posAtDOM(dom, 0)
@@ -1186,7 +1187,15 @@ function gridHit(view: EditorView, event: MouseEvent): GridHit | null {
   if (pos == null) {
     return null
   }
-  return { kind: "row", pos, height: element.getBoundingClientRect().height, row: element }
+  // In the page's own pixels; the scale turns the pointer's screen pixels into them when the page is zoomed.
+  const screen = element.getBoundingClientRect().height
+  return {
+    kind: "row",
+    pos,
+    height: element.offsetHeight,
+    scale: element.offsetHeight ? screen / element.offsetHeight : 1,
+    row: element,
+  }
 }
 
 function paintColumns(table: HTMLTableElement, widths: number[]) {
@@ -1219,6 +1228,83 @@ function columnWidthsAt(start: number[], index: number, delta: number) {
   next[index] = start[index] + limited
   next[index + 1] = start[index + 1] - limited
   return next
+}
+
+/**
+ * The width a column needs for its contents on one line each, as Word's double-click on the column's border gives it:
+ * the widest of its cells' unwrapped contents (cells spanning more columns are left out), with the cell's padding and
+ * borders. Measured in place, so the page's fonts and styles count, in the page's own pixels.
+ */
+export function contentColumnWidth(view: EditorView, tablePos: number, index: number) {
+  const table = view.state.doc.nodeAt(tablePos)
+  if (!table) {
+    return null
+  }
+  const map = TableMap.get(table)
+  if (index < 0 || index >= map.width) {
+    return null
+  }
+  let widest = 0
+  const seen = new Set<number>()
+  for (let row = 0; row < map.height; row += 1) {
+    const rel = map.map[row * map.width + index]!
+    const node = table.nodeAt(rel)
+    if (seen.has(rel) || !node || (Number(node.attrs.colspan) || 1) !== 1) {
+      continue
+    }
+    seen.add(rel)
+    const cell = view.nodeDOM(tablePos + 1 + rel)
+    if (!(cell instanceof HTMLElement)) {
+      continue
+    }
+    let content = 0
+    for (const child of cell.children) {
+      if (!(child instanceof HTMLElement) || child.classList.contains("column-resize-handle")) {
+        continue
+      }
+      const previous = child.style.width
+      child.style.width = "max-content"
+      content = Math.max(content, child.offsetWidth)
+      child.style.width = previous
+    }
+    const style = getComputedStyle(cell)
+    const frame = ["paddingLeft", "paddingRight", "borderLeftWidth", "borderRightWidth"].reduce(
+      (sum, key) => sum + (parseFloat(style[key as "paddingLeft"]) || 0),
+      0,
+    )
+    widest = Math.max(widest, Math.ceil(content + frame))
+  }
+  return Math.max(MIN_COLUMN, widest)
+}
+
+/**
+ * Word's double-click on a column's right border: the column fits its contents. It grows into the room the page leaves
+ * beside the table, then takes from the column to its right down to what that one's contents need; it never pushes the
+ * table past the page. The other columns keep their widths.
+ */
+export function autoFitColumn(view: EditorView, table: HTMLTableElement, tablePos: number, index: number) {
+  const widths = tableColumnWidths(table)
+  const fit = contentColumnWidth(view, tablePos, index)
+  if (fit == null || index >= widths.length) {
+    return false
+  }
+  const page = table.closest(".page-editor")
+  const total = widths.reduce((sum, width) => sum + width, 0)
+  const free = page instanceof HTMLElement ? Math.max(0, page.clientWidth - total) : Number.POSITIVE_INFINITY
+  const current = widths[index]!
+  let next = fit
+  if (fit > current + free && index + 1 < widths.length) {
+    const neighbour = widths[index + 1]!
+    const spare = Math.max(0, neighbour - Math.max(MIN_COLUMN, contentColumnWidth(view, tablePos, index + 1) ?? 0))
+    const taken = Math.min(spare, fit - current - free)
+    widths[index + 1] = neighbour - taken
+    next = current + free + taken
+  } else if (fit > current + free) {
+    next = current + free
+  }
+  widths[index] = Math.max(MIN_COLUMN, next)
+  writeColumnWidths(view, tablePos, widths)
+  return true
 }
 
 function writeColumnWidths(view: EditorView, tablePos: number, widths: number[]) {
@@ -1293,9 +1379,30 @@ export function commitTableColumns(editor: Editor, tablePos: number, widths: num
   writeColumnWidths(editor.view, tablePos, widths)
 }
 
-function paintRow(row: HTMLTableRowElement, height: number) {
-  row.style.height = `${height}px`
-  row.style.minHeight = `${height}px`
+/**
+ * Draws a row's height while its border is dragged. The row is inside the table's content, where ProseMirror puts back
+ * any change made to it straight away, so the height goes in a style sheet aimed at that row through a mark on the
+ * table element (outside the content, so it is left alone) until the height is written.
+ */
+function paintRow(row: HTMLTableRowElement, height: number | null) {
+  const table = row.closest("table")
+  if (!table) {
+    return
+  }
+  let sheet = document.getElementById("row-drag-style")
+  if (height == null) {
+    delete table.dataset.rowDrag
+    sheet?.remove()
+    return
+  }
+  if (!sheet) {
+    sheet = document.createElement("style")
+    sheet.id = "row-drag-style"
+    document.head.append(sheet)
+  }
+  table.dataset.rowDrag = "1"
+  const section = row.parentElement?.tagName.toLowerCase() ?? "tbody"
+  sheet.textContent = `table[data-row-drag] > ${section} > tr:nth-child(${row.sectionRowIndex + 1}) { height: ${height}px !important; }`
 }
 
 function rowResizing() {
@@ -1341,6 +1448,14 @@ function rowResizing() {
           }
           return false
         },
+        dblclick(view, event) {
+          const hit = gridHit(view, event)
+          if (hit?.kind !== "column") {
+            return false
+          }
+          event.preventDefault()
+          return autoFitColumn(view, hit.table, hit.tablePos, hit.index)
+        },
         mousedown(view, event) {
           if (event.button !== 0 || drag) {
             return false
@@ -1364,7 +1479,14 @@ function rowResizing() {
             }
             document.body.style.cursor = "col-resize"
           } else {
-            drag = { kind: "row", pos: hit.pos, startY: event.clientY, startHeight: hit.height, row: hit.row }
+            drag = {
+              kind: "row",
+              pos: hit.pos,
+              startY: event.clientY,
+              startHeight: hit.height,
+              scale: hit.scale || 1,
+              row: hit.row,
+            }
             document.body.style.cursor = "row-resize"
           }
           const move = (pointer: MouseEvent) => {
@@ -1376,7 +1498,10 @@ function rowResizing() {
               paintColumns(active.table, columnWidthsAt(active.widths, active.index, pointer.clientX - active.startX))
               return
             }
-            paintRow(active.row, Math.max(MIN_ROW, Math.round(active.startHeight + pointer.clientY - active.startY)))
+            paintRow(
+              active.row,
+              Math.max(MIN_ROW, Math.round(active.startHeight + (pointer.clientY - active.startY) / active.scale)),
+            )
           }
           const up = (pointer: MouseEvent) => {
             window.removeEventListener("mousemove", move)
@@ -1397,9 +1522,11 @@ function rowResizing() {
               view.dispatch(view.state.tr.setMeta(rowResizeKey, { row: -1 }))
               return
             }
-            active.row.style.height = ""
-            active.row.style.minHeight = ""
-            const height = Math.max(MIN_ROW, Math.round(active.startHeight + pointer.clientY - active.startY))
+            paintRow(active.row, null)
+            const height = Math.max(
+              MIN_ROW,
+              Math.round(active.startHeight + (pointer.clientY - active.startY) / active.scale),
+            )
             const node = view.state.doc.nodeAt(active.pos)
             let tr = view.state.tr
             if (node && node.type.name === "tableRow") {

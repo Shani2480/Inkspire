@@ -7,6 +7,27 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### Tables: double-click a column border to fit it, text no longer moves on entering a table, live row resizing
+
+- **Missing:** double-clicking a column's right border did nothing; in Word it fits the column to its contents.
+  **Changed:** `contentColumnWidth` measures each cell of the column at its unwrapped width (`max-content`, in place
+  so the page's fonts count) plus padding and borders; `autoFitColumn` gives the column that width, growing into the
+  room the page leaves, then taking from the column to its right down to what that one's contents need, never past
+  the page; it is one undo step (`table-tools.ts`, `dblclick` in the border plugin).
+- **Bug:** clicking into or out of a table moved its text. The end-of-cell marks (¤) shown while the caret is in the
+  table were in the line, so a line that just fit its cell wrapped, and the line grew a pixel. **Changed:** the marks
+  are placed out of the flow where they would have been (`position: absolute`, `index.css`), so they take no room.
+- **Bug:** dragging a row's border showed the new height only when the mouse was let go: the height set on the row
+  was put back by ProseMirror (the row is inside the table's content). **Changed:** while dragging, the height goes in
+  a style sheet aimed at that row through a mark on the table element (`paintRow`), and the drag is measured in the
+  page's own pixels, so the row follows the mouse at any zoom.
+- **Checked** in headless Chrome: 36 cells of mixed length keep their heights on entering and leaving the table; a
+  long middle column grew from 208 to 281 px taking the right column down to its text (135 px), a short first column
+  shrank to 93 px, Ctrl+Z undid it; a row was 80 px mid-drag (from 40) and stayed 80 px. No unit tests: jsdom has no
+  layout to measure.
+- **Open:** fitting does not shrink other columns than the right neighbour; columns with merged cells across them
+  are measured from their single cells only; Word's table-wide double-click on the left edge is not done.
+
 ### Surface charts: 3-D Surface, Wireframe 3-D Surface, Contour, Wireframe Contour (22.6)
 
 - **Missing:** Insert Chart had no Surface, and a Word surface chart opened as an area chart.

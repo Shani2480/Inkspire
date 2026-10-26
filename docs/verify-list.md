@@ -70,6 +70,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - [x] **Box & Whisker chart (22.6, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Treemap and Sunburst charts (22.6, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Surface chart previews (22.6, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
+- [x] **Table column auto-fit, steady cell marks, live row resize (22.10, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
+- [ ] **Same, in the desktop app** — double-click a column border, click in and out of a table with long cell text, drag a row border at 150% zoom.
 - [ ] **Treemap / Sunburst data sheet (22.6, 2026-10-26)** — Edit Data shows Branch, Stem, Leaf and Size columns; retyping a stem regroups the tiles.
 - [x] **Header & Footer Previous / Next (2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Tall header or footer pushes the body (2026-10-26)** — checked 2026-10-26 in headless Chrome.
