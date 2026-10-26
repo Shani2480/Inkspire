@@ -1,4 +1,5 @@
 import { RelativeTime } from "@/components/relative-time"
+import { commentAnchorPoints, markCommentEnds, type AnchorBox } from "@/editor/comment-anchor"
 import {
   addCommentReply,
   authorInitials,
@@ -115,11 +116,8 @@ export function CommentMarkers() {
   }, [editor, visible, zoom, metrics.width, comments])
 
   useEffect(() => {
-    const marks = document.querySelectorAll<HTMLElement>(".comment-mark")
-    marks.forEach((mark) => {
-      const id = mark.getAttribute("data-comment-id")
-      mark.classList.toggle("is-active", Boolean(showComments && id && id === activeCommentId))
-    })
+    const marks = [...document.querySelectorAll<HTMLElement>(".comment-mark")]
+    markCommentEnds(marks, showComments ? activeCommentId : null)
   }, [activeCommentId, comments, groups, showComments])
 
   const popoverComment = showComments ? (visible.find((item) => item.id === popoverCommentId) ?? null) : null
@@ -185,10 +183,10 @@ function placeCommentPopover(marker: HTMLElement, card: HTMLElement | null) {
   const viewW = window.innerWidth
   const viewH = window.innerHeight
 
-  // Prefer over the document (left of the margin marker). Flip only if clipped.
-  let left = rect.left - width - POPOVER_GAP
-  if (left < POPOVER_PAD) {
-    left = rect.right + POPOVER_GAP
+  // Beside the page, as Word's card sits in the margin; over the document (left of the marker) when that is clipped.
+  let left = rect.right + POPOVER_GAP
+  if (left + width > viewW - POPOVER_PAD) {
+    left = rect.left - width - POPOVER_GAP
   }
   left = Math.min(Math.max(POPOVER_PAD, left), viewW - width - POPOVER_PAD)
 
@@ -196,6 +194,18 @@ function placeCommentPopover(marker: HTMLElement, card: HTMLElement | null) {
   top = Math.min(Math.max(POPOVER_PAD, top), viewH - height - POPOVER_PAD)
 
   return { top, left }
+}
+
+/** The anchor line's points from the end of the comment's range to its card, in viewport pixels. */
+function anchorLine(commentId: string, card: AnchorBox) {
+  const marks = document.querySelectorAll<HTMLElement>(`.comment-mark[data-comment-id="${CSS.escape(commentId)}"]`)
+  const rects = marks.length ? [...marks[marks.length - 1].getClientRects()] : []
+  const end = rects[rects.length - 1]
+  if (!end) {
+    return null
+  }
+  const points = commentAnchorPoints(end, card)
+  return points ? points.map((point) => point.join(",")).join(" ") : null
 }
 
 function CommentPopover({
@@ -215,6 +225,7 @@ function CommentPopover({
   const [draft, setDraft] = useState(comment.text)
   const [reply, setReply] = useState("")
   const [pos, setPos] = useState({ top: 0, left: 0 })
+  const [line, setLine] = useState<string | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -231,7 +242,14 @@ function CommentPopover({
       if (!marker) {
         return
       }
-      setPos(placeCommentPopover(marker, cardRef.current))
+      const next = placeCommentPopover(marker, cardRef.current)
+      setPos(next)
+      const card = cardRef.current
+      const width = card?.offsetWidth || POPOVER_WIDTH
+      const height = card?.offsetHeight || 180
+      setLine(
+        anchorLine(comment.id, { left: next.left, top: next.top, right: next.left + width, bottom: next.top + height }),
+      )
     }
     reposition()
     // Second pass after content paints so tall cards clamp correctly.
@@ -284,150 +302,157 @@ function CommentPopover({
   }
 
   return createPortal(
-    <div
-      ref={cardRef}
-      className="comment-popover pointer-events-auto"
-      style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 80 }}
-      role="dialog"
-      aria-label="Comment"
-    >
-      <div className="comment-popover-header">
-        <span className="comment-avatar" aria-hidden>
-          {authorInitials(comment.author)}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[13px] font-semibold text-[var(--app-ribbon-text)]">{comment.author}</p>
-          <p className="text-[11px] text-[var(--app-ribbon-muted)]">
-            <RelativeTime value={comment.created} />
-          </p>
+    <>
+      {line ? (
+        <svg className="comment-anchor-line" aria-hidden>
+          <polyline points={line} />
+        </svg>
+      ) : null}
+      <div
+        ref={cardRef}
+        className="comment-popover pointer-events-auto"
+        style={{ position: "fixed", top: pos.top, left: pos.left, zIndex: 80 }}
+        role="dialog"
+        aria-label="Comment"
+      >
+        <div className="comment-popover-header">
+          <span className="comment-avatar" aria-hidden>
+            {authorInitials(comment.author)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13px] font-semibold text-[var(--app-ribbon-text)]">{comment.author}</p>
+            <p className="text-[11px] text-[var(--app-ribbon-muted)]">
+              <RelativeTime value={comment.created} />
+            </p>
+          </div>
+          <div className="relative flex items-center gap-0.5">
+            <button
+              type="button"
+              className="comment-icon-btn"
+              title={comment.resolved ? "Reopen" : "Resolve"}
+              aria-label={comment.resolved ? "Reopen" : "Resolve"}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => editor && updateComment(editor, comment.id, !comment.resolved)}
+            >
+              <Check className="size-3.5" strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              className="comment-icon-btn"
+              title="More"
+              aria-label="More actions"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              <MoreHorizontal className="size-3.5" strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              className="comment-icon-btn"
+              title="View in Sidebar"
+              aria-label="View in Sidebar"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={onOpenSidebar}
+            >
+              <PanelRight className="size-3.5" strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              className="comment-icon-btn"
+              title="Close"
+              aria-label="Close"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={onClose}
+            >
+              <X className="size-3.5" strokeWidth={2} />
+            </button>
+            {menuOpen ? (
+              <div className="comment-more-menu">
+                <button
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    setMenuOpen(false)
+                    setEditing(true)
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => {
+                    setMenuOpen(false)
+                    editor && deleteComment(editor, comment.id)
+                    onClose()
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
-        <div className="relative flex items-center gap-0.5">
-          <button
-            type="button"
-            className="comment-icon-btn"
-            title={comment.resolved ? "Reopen" : "Resolve"}
-            aria-label={comment.resolved ? "Reopen" : "Resolve"}
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => editor && updateComment(editor, comment.id, !comment.resolved)}
-          >
-            <Check className="size-3.5" strokeWidth={2} />
-          </button>
-          <button
-            type="button"
-            className="comment-icon-btn"
-            title="More"
-            aria-label="More actions"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => setMenuOpen((open) => !open)}
-          >
-            <MoreHorizontal className="size-3.5" strokeWidth={2} />
-          </button>
-          <button
-            type="button"
-            className="comment-icon-btn"
-            title="View in Sidebar"
-            aria-label="View in Sidebar"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={onOpenSidebar}
-          >
-            <PanelRight className="size-3.5" strokeWidth={2} />
-          </button>
-          <button
-            type="button"
-            className="comment-icon-btn"
-            title="Close"
-            aria-label="Close"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={onClose}
-          >
-            <X className="size-3.5" strokeWidth={2} />
-          </button>
-          {menuOpen ? (
-            <div className="comment-more-menu">
-              <button
-                type="button"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => {
-                  setMenuOpen(false)
-                  setEditing(true)
-                }}
-              >
-                Edit
+        {comment.resolved ? <p className="comment-resolved-badge">Resolved</p> : null}
+        {editing ? (
+          <div className="mt-2 space-y-2">
+            <textarea
+              className="comment-input"
+              value={draft}
+              rows={3}
+              aria-label="Edit comment"
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                  event.preventDefault()
+                  submitEdit()
+                }
+              }}
+            />
+            <div className="flex justify-end gap-2">
+              <button type="button" className="comment-text-btn" onClick={() => setEditing(false)}>
+                Cancel
               </button>
-              <button
-                type="button"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => {
-                  setMenuOpen(false)
-                  editor && deleteComment(editor, comment.id)
-                  onClose()
-                }}
-              >
-                Delete
+              <button type="button" className="comment-primary-btn" onClick={submitEdit}>
+                Save
               </button>
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : (
+          <p className="comment-body">{comment.text}</p>
+        )}
+        {comment.replies.length > 0 ? (
+          <ul className="comment-replies">
+            {comment.replies.map((item) => (
+              <li key={item.id}>
+                <p className="text-[11px] font-medium text-[var(--app-ribbon-text)]">
+                  {item.author} · <RelativeTime value={item.created} />
+                </p>
+                <p className="text-[12px] text-[var(--app-ribbon-text)]">{item.text}</p>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {!comment.resolved ? (
+          <form className="mt-2" onSubmit={submitReply}>
+            <textarea
+              className="comment-input"
+              rows={2}
+              placeholder="Reply..."
+              aria-label="Reply"
+              value={reply}
+              onChange={(event) => setReply(event.target.value)}
+              onKeyDown={onReplyKey}
+            />
+            <div className="mt-1.5 flex justify-end">
+              <button type="submit" className="comment-primary-btn" disabled={!reply.trim()}>
+                Post
+              </button>
+            </div>
+          </form>
+        ) : null}
       </div>
-      {comment.resolved ? <p className="comment-resolved-badge">Resolved</p> : null}
-      {editing ? (
-        <div className="mt-2 space-y-2">
-          <textarea
-            className="comment-input"
-            value={draft}
-            rows={3}
-            aria-label="Edit comment"
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-                event.preventDefault()
-                submitEdit()
-              }
-            }}
-          />
-          <div className="flex justify-end gap-2">
-            <button type="button" className="comment-text-btn" onClick={() => setEditing(false)}>
-              Cancel
-            </button>
-            <button type="button" className="comment-primary-btn" onClick={submitEdit}>
-              Save
-            </button>
-          </div>
-        </div>
-      ) : (
-        <p className="comment-body">{comment.text}</p>
-      )}
-      {comment.replies.length > 0 ? (
-        <ul className="comment-replies">
-          {comment.replies.map((item) => (
-            <li key={item.id}>
-              <p className="text-[11px] font-medium text-[var(--app-ribbon-text)]">
-                {item.author} · <RelativeTime value={item.created} />
-              </p>
-              <p className="text-[12px] text-[var(--app-ribbon-text)]">{item.text}</p>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {!comment.resolved ? (
-        <form className="mt-2" onSubmit={submitReply}>
-          <textarea
-            className="comment-input"
-            rows={2}
-            placeholder="Reply..."
-            aria-label="Reply"
-            value={reply}
-            onChange={(event) => setReply(event.target.value)}
-            onKeyDown={onReplyKey}
-          />
-          <div className="mt-1.5 flex justify-end">
-            <button type="submit" className="comment-primary-btn" disabled={!reply.trim()}>
-              Post
-            </button>
-          </div>
-        </form>
-      ) : null}
-    </div>,
+    </>,
     document.body,
   )
 }

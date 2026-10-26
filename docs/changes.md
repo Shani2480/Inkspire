@@ -7,6 +7,28 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### Comments: Word's red active range, anchor line and card beside the page (22.18)
+
+- **Wrong:** the open comment's range was tinted in the theme blue with an underline and its card had a grey
+  border; Word draws the active range in red with a bracket at each end, outlines the card in red and joins them
+  with a line. The card opened over the document, left of the margin marker, and going to a comment (margin marker,
+  Review panel, Next/Previous) selected its text, so the selection's blue hid the range's colour.
+- **Changed:** `src/editor/comment-anchor.ts`: `commentAnchorPoints` (the line from the range's last line to the
+  card: straight when the card is level with it, with a short bend otherwise, none when the card covers the range)
+  and `markCommentEnds` (the first and last piece of the active comment carry the brackets, as a range is split
+  into several marks where its formatting changes). `comment-markers.tsx` draws the line as a fixed SVG under the
+  card and places the card beside the page when there is room, over the document otherwise. `selectComment`
+  (`editor/comments.ts`) now puts the caret at the start of the range instead of selecting it. `index.css`: new
+  `--app-comment-active` token (light `#c50f1f`, dark `#e5534b`), used by the range, the line, the card and the
+  Review panel's active card.
+- **Checked:** `comment-anchor.test.ts` (straight, bent, card on the left, card covering the range, bracket
+  classes). Chrome: a comment on the last word opens beside the page with the red bracketed range and the line, in
+  light and dark; in a 1000 px window the card sits over the page and the line still reaches it. 750 tests pass;
+  tsc, ESLint and Prettier clean.
+- **Open:** the line is drawn only for the open card, not for the Review panel's cards. A React "error during
+  concurrent rendering … able to recover" is logged on every page load once the first-run setup has been answered;
+  it is there with this change undone too, so it is older and not yet traced.
+
 ### Insert > 3D Models > Online inserts the model picked, not a cube
 
 - **Wrong:** picking a Poly Haven model in the 3D Models library inserted the "cube" preset with the catalog
