@@ -101,9 +101,10 @@ import { PositionMenu } from "@/components/position-menu"
 import { CurrentPositionIcon, CurrentWrapIcon } from "@/components/object-layout-icons"
 import { openModelFormat } from "@/components/model-format-dialog"
 import { MODEL_LIGHTINGS } from "@/editor/model-format"
+import { chromeStep } from "@/document/chrome-editing"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
-import { useDocumentEditor } from "@/editor/document-editor"
+import { useBodyEditor, useDocumentEditor } from "@/editor/document-editor"
 import type { Editor } from "@tiptap/core"
 import { NodeSelection } from "@tiptap/pm/state"
 import { useEditorState } from "@tiptap/react"
@@ -1794,6 +1795,8 @@ function goToChrome(part: "header" | "footer") {
   view.editChrome(part, view.chromeTarget.page)
 }
 
+const LINK_TO_PREVIOUS_NOTE = "This document has one section, so there is no previous header to link to."
+
 /** Word's Header & Footer tab, shown while the header and footer are being edited. */
 export function HeaderFooterTab() {
   const editor = useDocumentEditor()
@@ -1805,6 +1808,23 @@ export function HeaderFooterTab() {
   const setPageSetup = useDocumentStore((state) => state.setPageSetup)
   const { headerMenu, footerMenu, pageNumberMenu } = useChromeMenus()
   const dateMenu = (close: () => void) => <DateMenu editor={editor} close={close} />
+  const chromeTarget = useViewStore((state) => state.chromeTarget)
+  const editChrome = useViewStore((state) => state.editChrome)
+  // The page count is the body's (the editor above is the header's while one is open).
+  const body = useBodyEditor()
+  const pages =
+    useEditorState({ editor: body, selector: ({ editor: current }) => current?.storage.pagination?.pageCount ?? 1 }) ??
+    1
+  // Previous and Next step between the first-page, even and odd headers (one section, so nothing beyond those).
+  const stepTo = (step: 1 | -1) =>
+    chromeStep(chromeTarget.page, pages, differentFirstPage, setup.differentOddEven, step)
+  const previous = stepTo(-1)
+  const next = stepTo(1)
+  const go = (page: number | null) => {
+    if (page !== null) {
+      editChrome(chromeTarget.part, page)
+    }
+  }
   const edge = (label: string, key: "headerFromEdge" | "footerFromEdge") => (
     <RibbonHover label={label}>
       <label className="layout-spin">
@@ -1846,6 +1866,27 @@ export function HeaderFooterTab() {
         label: "Go to Footer",
         icon: <LineGoToChromeIcon edge="footer" />,
         onClick: () => goToChrome("footer"),
+      },
+      {
+        id: "previous",
+        label: "Previous",
+        icon: <ContextGlyph label="Previous" />,
+        disabled: previous === null,
+        onClick: () => go(previous),
+      },
+      {
+        id: "next",
+        label: "Next",
+        icon: <ContextGlyph label="Next" />,
+        disabled: next === null,
+        onClick: () => go(next),
+      },
+      {
+        id: "link-previous",
+        label: "Link to Previous",
+        description: LINK_TO_PREVIOUS_NOTE,
+        icon: <ContextGlyph label="Link to Previous" />,
+        disabled: true,
       },
       {
         id: "first-page",
@@ -1912,6 +1953,17 @@ export function HeaderFooterTab() {
         <RibbonCommand label="Go to Footer" onClick={() => goToChrome("footer")}>
           <ChromeMark edge="bottom" />
         </RibbonCommand>
+        <div className="flex flex-col justify-center">
+          <RibbonCommand size="small" label="Previous" disabled={previous === null} onClick={() => go(previous)}>
+            <ContextGlyph label="Previous" />
+          </RibbonCommand>
+          <RibbonCommand size="small" label="Next" disabled={next === null} onClick={() => go(next)}>
+            <ContextGlyph label="Next" />
+          </RibbonCommand>
+          <RibbonCommand size="small" label="Link to Previous" description={LINK_TO_PREVIOUS_NOTE} disabled>
+            <ContextGlyph label="Link to Previous" />
+          </RibbonCommand>
+        </div>
       </RibbonGroup>
       <RibbonGroup label="Options" className="shrink-0">
         <div className="ribbon-checks">
