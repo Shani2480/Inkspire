@@ -32,6 +32,10 @@ export type BorderPatch = Pick<
   | "borderFrom"
   | "borderSpace"
   | "borderSides"
+  | "borderInFront"
+  | "borderSurroundHeader"
+  | "borderSurroundFooter"
+  | "borderAlign"
 >
 
 /** The page border fields of a page setup, as the Page Border tab edits them. */
@@ -45,6 +49,10 @@ export function borderPatchOf(setup: PageSetup): BorderPatch {
     borderFrom: setup.borderFrom,
     borderSpace: setup.borderSpace,
     borderSides: setup.borderSides,
+    borderInFront: setup.borderInFront,
+    borderSurroundHeader: setup.borderSurroundHeader,
+    borderSurroundFooter: setup.borderSurroundFooter,
+    borderAlign: setup.borderAlign,
   }
 }
 
@@ -303,9 +311,15 @@ export function PageBorderPanel({
             <BorderOptionsDialog
               space={draft.borderSpace}
               from={draft.borderFrom}
+              flags={{
+                borderAlign: draft.borderAlign,
+                borderInFront: draft.borderInFront,
+                borderSurroundHeader: draft.borderSurroundHeader,
+                borderSurroundFooter: draft.borderSurroundFooter,
+              }}
               onClose={() => setOptions(false)}
-              onDone={(borderSpace, borderFrom) => {
-                setDraft((current) => ({ ...current, borderSpace, borderFrom }))
+              onDone={(borderSpace, borderFrom, flags) => {
+                setDraft((current) => ({ ...current, borderSpace, borderFrom, ...flags }))
                 setOptions(false)
               }}
             />,

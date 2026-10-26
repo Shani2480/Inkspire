@@ -7,6 +7,27 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### Page Border Options: Align, Always display in front, Surround header and footer (22.4)
+
+- **Missing:** the page border's Options window had only the margins and Measure from. Word's check boxes were not
+  shown, read or kept: `w:alignBordersAndEdges`, `w:bordersDoNotSurroundHeader` and `…Footer` in `settings.xml`,
+  and `w:zOrder` on `w:pgBorders`. A border measured from the text sat on the margins and did not reach round
+  the header and footer as Word's does by default.
+- **Changed:** the settings model reads and writes the three settings in schema order (`model.ts`, `wml-read.ts`,
+  `wml-write.ts`); the page setup has `borderInFront`, `borderSurroundHeader`, `borderSurroundFooter` and
+  `borderAlign` (`page-setup.ts`), mapped both ways in `project.ts` (`w:zOrder="back"` when not in front), and kept
+  in the app's own file (fifth `borderplace` field, `header.ts`; older files keep the margins). Measured from the
+  text, the border's top and bottom reach to the header and footer unless Surround is off (`pageBorderInset`). The
+  Options window (`border-options-dialog.tsx`) has the four check boxes; Align and the two Surround boxes are off
+  unless Measure from is Text, as in Word.
+- **Not drawn:** Always display in front (the page draws its border under the text either way) and Align paragraph
+  borders and table edges; both are kept in the file.
+- **Tests:** `page-borders.test.ts` (Word's defaults, settings.xml and `w:zOrder` written and reopened, the inset
+  round the header and footer, the app's own file), `borders-shading-dialog.test.tsx` (check boxes, disabled for
+  Edge of page). All 802 pass; typecheck, ESLint and Prettier clean.
+- **Checked:** headless Chrome: the Options window with the check boxes greyed for Edge of page; measured from Text
+  the border reaches up round the header.
+
 ### View Gridlines shows only where a cell side has no border
 
 - **Wrong:** the gridline guide was an `outline` on every cell, painted over the borders, so drawn solid lines (a

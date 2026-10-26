@@ -119,6 +119,77 @@ describe("a page border on some sides (22.4)", () => {
   })
 })
 
+describe("page border Options check boxes (22.4)", () => {
+  async function settingsXml(change: Partial<PageSetup>) {
+    const opened = await withBorders(WORD_BORDERS)
+    const result = await saveDocxBytes({
+      json: { type: "doc", content: [{ type: "paragraph" }] },
+      chrome: { ...opened.view.chrome, pageSetup: { ...opened.view.chrome.pageSetup, ...change } },
+      props: opened.view.props,
+      word: opened.word,
+      unchanged: false,
+      fileName: "edited.docx",
+    })
+    const pkg = await openPackage(result.bytes, "edited.docx")
+    return {
+      settings: decodeXml(findPart(pkg, "/word/settings.xml")!.data),
+      document: decodeXml(findPart(pkg, "/word/document.xml")!.data),
+      reopened: (await openDocxBytes(result.bytes, "edited.docx")).view.chrome.pageSetup,
+    }
+  }
+
+  it("opens on Word's defaults: in front, round the header and footer, not aligned", async () => {
+    expect((await withBorders(WORD_BORDERS)).view.chrome.pageSetup).toMatchObject({
+      borderInFront: true,
+      borderSurroundHeader: true,
+      borderSurroundFooter: true,
+      borderAlign: false,
+    })
+  })
+
+  it("writes the check boxes to settings.xml and w:zOrder, and opens them again", async () => {
+    const { settings, document, reopened } = await settingsXml({
+      borderInFront: false,
+      borderSurroundHeader: false,
+      borderSurroundFooter: false,
+      borderAlign: true,
+    })
+    expect(settings).toMatch(
+      /<w:alignBordersAndEdges\/><w:bordersDoNotSurroundHeader\/><w:bordersDoNotSurroundFooter\/>/,
+    )
+    expect(document).toContain('<w:pgBorders w:zOrder="back"')
+    expect(reopened).toMatchObject({
+      borderInFront: false,
+      borderSurroundHeader: false,
+      borderSurroundFooter: false,
+      borderAlign: true,
+    })
+    expect((await settingsXml({})).settings).not.toContain("bordersDoNotSurround")
+  })
+
+  it("reaches round the header and footer when measured from the text, unless told not to", () => {
+    const setup = { ...emptyChrome().pageSetup, border: "single" as const, borderFrom: "text" as const }
+    expect(pageBorderInset({ ...setup, borderSpace: [1, 4, 1, 4] }).top).toBe(
+      "calc(var(--header-from-edge, 12.5mm) - 1pt - 0.5mm)",
+    )
+    expect(pageBorderInset({ ...setup, borderSpace: [1, 4, 1, 4], borderSurroundFooter: false }).bottom).toBe(
+      "calc(var(--page-margin-bottom, 24mm) - 1pt - 0.5mm)",
+    )
+  })
+
+  it("keeps them in the app's own file", () => {
+    const chrome = {
+      ...emptyChrome(),
+      pageSetup: { ...emptyChrome().pageSetup, border: "single" as const, borderInFront: false, borderAlign: true },
+    }
+    expect(unpackDocument(packDocument("<p>x</p>", chrome)).pageSetup).toMatchObject({
+      borderInFront: false,
+      borderAlign: true,
+      borderSurroundHeader: true,
+    })
+  })
+})
+
 describe("page border placement (22.4)", () => {
   const setup = { ...emptyChrome().pageSetup, border: "single" as const }
 

@@ -85,7 +85,7 @@ export function packDocument(html: string, chrome: DocumentChrome) {
     chrome.pageSetup.borderLine === "solid" ? "" : `<!-- aiword-borderline:${chrome.pageSetup.borderLine} -->`,
     chrome.pageSetup.border === "none"
       ? ""
-      : `<!-- aiword-borderplace:${chrome.pageSetup.borderDisplay},${chrome.pageSetup.borderFrom},${chrome.pageSetup.borderSpace.join(" ")},${chrome.pageSetup.borderSides.join(" ")} -->`,
+      : `<!-- aiword-borderplace:${chrome.pageSetup.borderDisplay},${chrome.pageSetup.borderFrom},${chrome.pageSetup.borderSpace.join(" ")},${chrome.pageSetup.borderSides.join(" ")},${borderFlags(chrome.pageSetup)} -->`,
     chrome.pageSetup.pageColor ? `<!-- aiword-pagecolor:${encodeURIComponent(chrome.pageSetup.pageColor)} -->` : "",
     chrome.pageSetup.pageNumber === "bottom-center" ? "" : `<!-- aiword-pagenum:${chrome.pageSetup.pageNumber} -->`,
     chrome.pageSetup.hyphenation ? "<!-- aiword-hyphens:1 -->" : "",
@@ -110,6 +110,18 @@ function decodeMark(value: string) {
   } catch {
     return ""
   }
+}
+
+/** Page Border Options' check boxes that are on, as the `borderplace` mark keeps them ("front header"). */
+function borderFlags(setup: PageSetup) {
+  return [
+    setup.borderInFront ? "front" : "",
+    setup.borderSurroundHeader ? "header" : "",
+    setup.borderSurroundFooter ? "footer" : "",
+    setup.borderAlign ? "align" : "",
+  ]
+    .filter(Boolean)
+    .join(" ")
 }
 
 export function unpackDocument(raw: string) {
@@ -179,7 +191,7 @@ export function unpackDocument(raw: string) {
     } else if (match[1] === "borderline") {
       chrome.pageSetup = { ...chrome.pageSetup, borderLine: borderLine(value) }
     } else if (match[1] === "borderplace") {
-      const [display, from, space, sides] = value.split(",")
+      const [display, from, space, sides, flags] = value.split(",")
       borderPlaced = true
       chrome.pageSetup = {
         ...chrome.pageSetup,
@@ -187,6 +199,15 @@ export function unpackDocument(raw: string) {
         borderFrom: from === "text" ? "text" : "page",
         borderSpace: borderSpace(String(space ?? "").split(" ")) ?? DEFAULT_PAGE_SETUP.borderSpace,
         borderSides: pageSides(sides),
+        // Files written before the Options check boxes keep Word's defaults.
+        ...(flags === undefined
+          ? {}
+          : {
+              borderInFront: flags.includes("front"),
+              borderSurroundHeader: flags.includes("header"),
+              borderSurroundFooter: flags.includes("footer"),
+              borderAlign: flags.includes("align"),
+            }),
       }
     } else if (match[1] === "pagecolor") {
       chrome.pageSetup = { ...chrome.pageSetup, pageColor: /^#[0-9a-fA-F]{6}$/.test(value) ? value : "" }
@@ -214,7 +235,13 @@ export function unpackDocument(raw: string) {
   }
   if (chrome.pageSetup.border !== "none" && !borderPlaced) {
     // Written before the border had Options: it was drawn on the margins.
-    chrome.pageSetup = { ...chrome.pageSetup, borderFrom: "text", borderSpace: [0, 0, 0, 0] }
+    chrome.pageSetup = {
+      ...chrome.pageSetup,
+      borderFrom: "text",
+      borderSpace: [0, 0, 0, 0],
+      borderSurroundHeader: false,
+      borderSurroundFooter: false,
+    }
   }
 
   return { html, ...chrome }

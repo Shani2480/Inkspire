@@ -727,6 +727,11 @@ export type Settings = {
   defaultTabStop?: number
   /** Different odd and even pages. Absent means the element was not in settings. */
   evenAndOddHeaders?: boolean
+  /** Page border Options: align paragraph borders and table edges with the page border. */
+  alignBordersAndEdges?: boolean
+  /** Page border Options: Surround header and Surround footer off. */
+  bordersDoNotSurroundHeader?: boolean
+  bordersDoNotSurroundFooter?: boolean
   /** Separator note ids listed in w:footnotePr, including -1 and 0. */
   footnotePr?: number[]
   /** Separator note ids listed in w:endnotePr. */
