@@ -7,6 +7,17 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### AI replies no longer garble a character split between network chunks (21.26)
+
+- **Bug:** the streamed reply was decoded chunk by chunk (`String::from_utf8_lossy` on each network chunk in
+  `ai.rs`). When a chunk ended in the middle of a multi-byte character (é, Hebrew, an emoji), both halves became
+  "�" in the inserted text. Every provider (OpenAI, Anthropic, Ollama, custom endpoints and the built-in engine) went
+  through this path.
+- **Changed:** `StreamParser` keeps bytes and decodes only whole lines (a line ends at `\n`, which is never inside a
+  longer character). Tests: a reply with "Café שלום 😀" cut inside every character, and one byte at a time, for the
+  OpenAI, Anthropic and Ollama formats; Ollama and Anthropic streams (pings, `\r\n`, events) across chunks; an
+  error in the middle of a stream.
+
 ### Header & Footer tab: Previous, Next and Link to Previous
 
 - **Missing:** the tab's Navigation group had only Go to Header and Go to Footer. Word also has Previous, Next and
