@@ -57,6 +57,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [x] **Header & Footer Previous / Next (2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Tall header or footer pushes the body (2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Page border Options check boxes (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **View Gridlines under drawn borders (2026-10-26)** — checked 2026-10-26 in headless Chrome (light).

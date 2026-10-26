@@ -31,7 +31,9 @@ A new document has no page number overlay (`pageNumber: "none"`, the Page Number
 files without the mark keep theirs. Checked in headless Chrome: a three-page document with a logo and a page field in
 the header printed to PDF, each page with its own number, `pdftotext` finding each page's text once.
 
-Left over: "Link to Previous" (single section only).
+Left over: none for one section. **Done (2026-10-26).** The Navigation group has Previous and Next (between the
+first-page, even and odd headers, as Word does with one section) and Link to Previous, greyed with a note since the
+app has one section. Test: `chrome-editing.test.ts`. Checked in headless Chrome.
 
 **Done (2026-10-26).** A tall header pushes the body down and a tall footer pushes it up, as in Word: each header and
 footer box reports how far it reaches into the page (`chrome-extent.ts`) and `pageMetrics` uses the larger of the

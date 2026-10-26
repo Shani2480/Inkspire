@@ -7,6 +7,18 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### Header & Footer tab: Previous, Next and Link to Previous
+
+- **Missing:** the tab's Navigation group had only Go to Header and Go to Footer. Word also has Previous, Next and
+  Link to Previous.
+- **Changed:** Previous and Next step between the header stories in page order (first page, even pages, odd pages;
+  `chromeStory` and `chromeStep` in `chrome-editing.ts`), and go to the page where that story first shows; with one
+  story both are greyed, as in Word with one section. Link to Previous is listed and greyed with a note: the app has
+  one section. Both ribbon layouts; new Previous/Next glyphs (`context-icons.tsx`). The page count is the body
+  editor's (while the header is open the tab's editor is the header's). Tests: `chrome-editing.test.ts`. Checked in
+  headless Chrome: with Different First Page and Odd & Even on, Next goes page 1 → 2 → 3 and is greyed there,
+  Previous comes back.
+
 ### A tall header or footer pushes the body away from the page edge (header and footer leftovers)
 
 - **Missing:** the header and footer were a layer of their own over the page. A header taller than the top margin ran

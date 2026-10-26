@@ -68,6 +68,9 @@ const NAMED_GLYPHS: Record<string, () => ReactNode> = {
   delete: () => <LineTableDeleteIcon />,
   "3d models": () => <LineCubeIcon />,
   scenes: () => <ScenesMark />,
+  previous: () => <StepMark up />,
+  next: () => <StepMark />,
+  "link to previous": () => <LineLinkIcon />,
   pause: () => <PauseMark />,
   lighting: () => <LightMark />,
   "3d model views": () => <ViewsMark />,
@@ -386,6 +389,22 @@ function ScenesMark() {
       <path d="M8 6.2 11 7.8 14 6.2M11 7.8v3.6" stroke="var(--icon-accent-color)" />
       <path d="M2 12.5c1.6 1.4 4 1.8 6.2 1" stroke="currentColor" strokeLinecap="round" />
       <path d="M2 9.2c.9.8 2.1 1.2 3.4 1.1" stroke="currentColor" strokeLinecap="round" />
+    </RibbonSvg>
+  )
+}
+
+/** Header & Footer Previous and Next: a page with an arrow to the header before or after. */
+function StepMark({ up = false }: { up?: boolean }) {
+  return (
+    <RibbonSvg>
+      <path d="M3.5 1.5h9v13h-9z" fill="#fff" stroke="currentColor" />
+      <path d={up ? "M5.5 4h5" : "M5.5 12h5"} stroke="currentColor" />
+      <path
+        d={up ? "M8 11V6M6 8l2-2 2 2" : "M8 5v5M6 8l2 2 2-2"}
+        stroke="var(--icon-accent-color)"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </RibbonSvg>
   )
 }
