@@ -101,4 +101,17 @@ describe("paragraph borders and fill in .docx (21.30)", () => {
     const { view } = await openDocxBytes(bytes, "t.docx")
     expect(view.html).not.toContain("--para-border")
   })
+
+  it("writes Word's gaps by default and the ones set in Options…, and opens them again (22.4)", async () => {
+    const plain = await save({ border: "all" })
+    expect(plain.xml).toContain('<w:top w:val="single" w:sz="6" w:space="1"')
+    expect(plain.xml).toContain('<w:left w:val="single" w:sz="6" w:space="4"')
+    const { bytes, xml } = await save({ border: "all", borderSpace: "6 4 1 10" })
+    expect(xml).toContain('<w:top w:val="single" w:sz="6" w:space="6"')
+    expect(xml).toContain('<w:left w:val="single" w:sz="6" w:space="10"')
+    const { view } = await openDocxBytes(bytes, "t.docx")
+    expect(view.html).toContain('data-border-space="6 4 1 10"')
+    const reopened = await openDocxBytes(plain.bytes, "t.docx")
+    expect(reopened.view.html).not.toContain("data-border-space")
+  })
 })

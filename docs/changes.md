@@ -7,6 +7,28 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### Borders and Shading > Options…: a paragraph's box stands Word's distance from its text (22.4, second part)
+
+- **Wrong:** a paragraph's border was drawn right on the edge of its text box, so the box touched the letters and,
+  with left or right sides, pushed the text inward. `w:space` (Word's distance from text) was written as 1 pt on
+  every side and dropped when a file was read, and the dialog had no Options… button.
+- **Changed:** a paragraph's box is drawn by a `::before` layer that stands out by the gap plus the line width, as
+  Word draws it, so the text keeps its place; top and bottom gaps add to the paragraph's height (`index.css`, driven
+  by `--para-{side}`, `--para-{side}-on`, `--para-space-{side}`, `--para-border-width`). Paragraphs have
+  `borderSpace` ("top right bottom left" in points; Word's 1 / 4 / 1 / 4 is the default and is not stored)
+  (`editor/block-format.ts`, cleared by Clear Formatting in `home-actions.ts`). `.docx`: `w:space` is read into it
+  and written per side, rounded and kept within Word's 0–31 pt (`docx/block-format.ts`); left and right now write
+  Word's default 4 pt where 1 pt was written before. Dialog: Options… beside Apply to (paragraph only, disabled for a
+  table or cell) opens Border and Shading Options with Top, Bottom, Left and Right "From text" fields
+  (`borders-shading-dialog.tsx`).
+- **Checked:** `borders-shading-dialog.test.tsx` (Options… sets the gaps; disabled for a table),
+  `paragraph-box.test.ts` (gaps written and read back; defaults), `borderSpaceValue`. Headless Chrome: the text of a
+  bordered paragraph starts at the same x as the plain paragraphs around it (397 px each), the box stands clear of
+  the text, light and dark; the Options dialog fits its two columns (the spin inputs first overflowed the right
+  edge; fixed with `min-width: 0`). 765 tests pass; tsc, ESLint and Prettier clean.
+- **Open:** Word's "Measure from" (page border) and table cell options are not in the Options dialog; the gap was
+  not compared with Word side by side.
+
 ### Borders and Shading: a paragraph keeps its pen, and Word's Shadow setting works (22.4, first part)
 
 - **Wrong:** a paragraph's border kept only which sides were drawn: the style, colour and width picked in Borders and

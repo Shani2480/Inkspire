@@ -1592,6 +1592,10 @@ Source: the 48 top-level files in `screenshots/` taken on 2026-10-19 (`screensho
   applies. Left: Patterns, Options… (text distance), Apply to Text, 3-D, Grid, Page Border Art and scopes; the gap
   between a paragraph's text and its box.
 
+  **Done 2026-10-26** (see `changes.md`): Options… sets a paragraph's distance from text (`borderSpace`, `w:space`
+  read and written per side), and the box is drawn that far out from the text, which keeps its place. Left:
+  Patterns, Apply to Text, 3-D, Grid, Page Border Art and scopes, Options for page borders and table cells.
+
 #### 22.5 — Customize Ribbon and Quick Access Toolbar (screenshots 083125, 083136)
 
 - None exists. Two lists with "Choose commands from" (Popular, All, Not in the Ribbon, tabs…), Add / Remove, up/down, New Tab / New Group / Rename, Reset, Import/Export, per-tab visibility check boxes; Quick Access Toolbar with Separator, "Show Quick Access Toolbar", Toolbar Position (Above/Below Ribbon), "Always show command labels", For all documents / this document. Keep the choice in the user config.

@@ -52,9 +52,27 @@ export function blockFormatAttributes() {
       renderHTML: (attributes: { borderPen?: string | null }) =>
         attributes.borderPen
           ? {
-              style: `--para-border: ${attributes.borderPen}; --para-border-color: ${attributes.borderPen.split(" ")[2] ?? ""}`,
+              style: `--para-border: ${attributes.borderPen}; --para-border-width: ${attributes.borderPen.split(" ")[0]}; --para-border-color: ${attributes.borderPen.split(" ")[2] ?? ""}`,
             }
           : {},
+    },
+    /**
+     * The gap between the text and each side of its box, in points: "top right bottom left" (Word's w:space, set in
+     * Borders and Shading > Options…); Word's 1, 4, 1, 4 when unset (22.4).
+     */
+    borderSpace: {
+      default: null as string | null,
+      parseHTML: (element: HTMLElement) => element.getAttribute("data-border-space"),
+      renderHTML: (attributes: { borderSpace?: string | null }) => {
+        const space = borderSpaceOf(attributes.borderSpace)
+        if (!space) {
+          return {}
+        }
+        return {
+          "data-border-space": space.join(" "),
+          style: BOX_SIDES.map((side, index) => `--para-space-${side}: ${space[index]}pt`).join("; "),
+        }
+      },
     },
     /** Word's Shadow border setting: a shadow to the bottom right of the box (22.4). */
     borderShadow: {
@@ -192,17 +210,31 @@ function flagAttr(key: string, name: string, fallback: boolean, style: (on: bool
   }
 }
 
+const BOX_SIDES = ["top", "right", "bottom", "left"] as const
+
+/** A `borderSpace` value as four points (top, right, bottom, left), or null when unset or not four numbers. */
+export function borderSpaceOf(value: unknown): number[] | null {
+  const parts = typeof value === "string" ? value.trim().split(/\s+/).map(Number) : []
+  return parts.length === 4 && parts.every((part) => Number.isFinite(part) && part >= 0) ? parts : null
+}
+
+/**
+ * The drawn sides of a paragraph's box. The box itself is a layer behind the text (`index.css`) that reaches out by
+ * each side's gap and line, so the text keeps its place as in Word; only the top and bottom add to the paragraph.
+ */
 function borderRender(value: string | null) {
   if (!value || value === "none") {
     return {}
   }
-  const sides = value === "all" ? ["top", "right", "bottom", "left"] : value.split(",").filter(Boolean)
+  const sides = value === "all" ? [...BOX_SIDES] : value.split(",").filter(Boolean)
   if (sides.length === 0) {
     return {}
   }
   return {
     "data-border": value,
-    style: sides.map((side) => `border-${side}: var(--para-border, 1px solid #1c1c1c)`).join("; "),
+    style: sides
+      .map((side) => `--para-${side}: var(--para-border, 1px solid #1c1c1c); --para-${side}-on: 1`)
+      .join("; "),
   }
 }
 

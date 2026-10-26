@@ -1,8 +1,8 @@
 import { ColorMenu } from "@/components/color-menu"
 import { PageBorderPanel, type BorderPatch } from "@/components/design-dialogs"
-import { DialogButtons, DialogFrame } from "@/components/word-dialog"
+import { DialogButtons, DialogFrame, SpinField } from "@/components/word-dialog"
 import { useDocumentStore } from "@/document/store"
-import { updateBlocks } from "@/editor/block-format"
+import { borderSpaceOf, updateBlocks } from "@/editor/block-format"
 import {
   BORDER_STYLES,
   BORDER_WEIGHTS,
@@ -83,6 +83,63 @@ export function edgesOfParagraphBorder(value: unknown): Set<BorderEdge> {
     return new Set(BOX)
   }
   return new Set(typeof value === "string" ? BOX.filter((side) => value.split(",").includes(side)) : [])
+}
+
+/** Word's gaps between a paragraph's text and its box, in points: top, right, bottom, left. */
+const DEFAULT_SPACE = [1, 4, 1, 4]
+/** Word's order in the Options dialog, each with its place in a `borderSpace` value. */
+const SPACE_FIELDS = [
+  { index: 0, label: "Top" },
+  { index: 2, label: "Bottom" },
+  { index: 3, label: "Left" },
+  { index: 1, label: "Right" },
+]
+
+/** The `borderSpace` value for four gaps; null when they are Word's own. */
+export function borderSpaceValue(space: number[]): string | null {
+  return space.every((value, index) => value === DEFAULT_SPACE[index]) ? null : space.join(" ")
+}
+
+/** Borders and Shading > Options… (22.4): the distance from the text to each side of the paragraph's box. */
+function BorderOptionsDialog({
+  space,
+  onDone,
+  onClose,
+}: {
+  space: number[]
+  onDone: (space: number[]) => void
+  onClose: () => void
+}) {
+  const [draft, setDraft] = useState(space.map(String))
+  return (
+    <DialogFrame
+      title="Border and Shading Options"
+      width={320}
+      level={90}
+      onClose={onClose}
+      onSubmit={() => onDone(draft.map((value) => Math.min(31, Math.max(0, Number(value) || 0))))}
+    >
+      <fieldset className="bs-options">
+        <legend>From text</legend>
+        {SPACE_FIELDS.map((field) => (
+          <label key={field.label} className="bs-option" htmlFor={`bs-space-${field.label}`}>
+            {field.label}:
+            <SpinField
+              id={`bs-space-${field.label}`}
+              value={draft[field.index]}
+              unit="pt"
+              step={1}
+              max={31}
+              onChange={(value) =>
+                setDraft((current) => current.map((item, index) => (index === field.index ? value : item)))
+              }
+            />
+          </label>
+        ))}
+      </fieldset>
+      <DialogButtons submit onCancel={onClose} />
+    </DialogFrame>
+  )
 }
 
 export function BordersShadingHost() {
@@ -166,6 +223,8 @@ function BordersShadingDialog({
   const [pen, setPenState] = useState<BorderPen>(current?.pen ?? DEFAULT_PEN)
   const [penTouched, setPenTouched] = useState(false)
   const [shadow, setShadow] = useState(current && "shadow" in current ? current.shadow : false)
+  const [space, setSpace] = useState<number[] | null>(null)
+  const [options, setOptions] = useState(false)
   const [target, setTarget] = useState<Target>(table ? "cell" : "paragraph")
   const [fill, setFill] = useState<string | null>(current?.fill ?? null)
   const [fillTouched, setFillTouched] = useState(false)
@@ -216,9 +275,10 @@ function BordersShadingDialog({
       if (target === "paragraph") {
         const border = paragraphBorderOf(edges)
         const attrs = editor.state.selection.$from.parent.attrs
-        // An untouched pen keeps the paragraph's own (or the app's line, when it has none).
+        // An untouched pen keeps the paragraph's own (or the app's line, when it has none); so do the gaps.
         const borderPen = !border ? null : penTouched ? penLine(pen) : (attrs.borderPen ?? null)
-        updateBlocks(editor, { border, borderPen, borderShadow: Boolean(border) && shadow })
+        const borderSpace = !border ? null : space ? borderSpaceValue(space) : (attrs.borderSpace ?? null)
+        updateBlocks(editor, { border, borderPen, borderShadow: Boolean(border) && shadow, borderSpace })
       } else {
         setBordersOnCells(editor, target, edges, pen)
       }
@@ -276,166 +336,196 @@ function BordersShadingDialog({
     />
   )
 
+  const openSpace = space ?? borderSpaceOf(editor.state.selection.$from.parent.attrs.borderSpace) ?? DEFAULT_SPACE
+
   return (
-    <DialogFrame
-      title="Borders and Shading"
-      width={560}
-      onClose={onClose}
-      onSubmit={apply}
-      tabs={[
-        { id: "borders", label: "Borders" },
-        { id: "page", label: "Page Border" },
-        { id: "shading", label: "Shading" },
-      ]}
-      tab={tab}
-      onTab={(id) => setTab(id as Tab)}
-    >
-      {tab === "borders" ? (
-        <div className="bs-grid">
-          <div className="bs-settings" role="group" aria-label="Setting">
-            <p className="bs-heading">Setting:</p>
-            {settings.map((item) => (
-              <button
-                key={`${item.id}-${item.label}`}
-                type="button"
-                className="bs-setting"
-                aria-pressed={!item.disabled && setting === item.id}
-                disabled={item.disabled}
-                title={item.note}
-                onClick={() => choose(item.id)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-          <div className="bs-pen">
-            <p className="bs-heading">Style:</p>
-            <div className="bs-styles" role="listbox" aria-label="Style">
-              {BORDER_STYLES.map((style) => (
+    <>
+      <DialogFrame
+        title="Borders and Shading"
+        width={560}
+        onClose={onClose}
+        onSubmit={apply}
+        tabs={[
+          { id: "borders", label: "Borders" },
+          { id: "page", label: "Page Border" },
+          { id: "shading", label: "Shading" },
+        ]}
+        tab={tab}
+        onTab={(id) => setTab(id as Tab)}
+      >
+        {tab === "borders" ? (
+          <div className="bs-grid">
+            <div className="bs-settings" role="group" aria-label="Setting">
+              <p className="bs-heading">Setting:</p>
+              {settings.map((item) => (
                 <button
-                  key={style}
+                  key={`${item.id}-${item.label}`}
                   type="button"
-                  role="option"
-                  aria-selected={pen.style === style}
-                  className="bs-style"
-                  onClick={() => setPen((current) => ({ ...current, style }))}
+                  className="bs-setting"
+                  aria-pressed={!item.disabled && setting === item.id}
+                  disabled={item.disabled}
+                  title={item.note}
+                  onClick={() => choose(item.id)}
                 >
-                  <span className="pen-sample" style={{ borderTop: `2px ${style} currentColor` }} />
-                  <span>{STYLE_LABELS[style] ?? style}</span>
+                  {item.label}
                 </button>
               ))}
             </div>
-            <ColorField
-              label="Color:"
-              color={pen.color === DEFAULT_PEN.color ? "" : pen.color}
-              clearLabel="Automatic"
-              onClear={() => setPen((current) => ({ ...current, color: DEFAULT_PEN.color }))}
-              onSelect={(color) => setPen((current) => ({ ...current, color }))}
-            />
-            <label className="bs-apply">
-              Width:
-              <select
-                aria-label="Width"
-                value={pen.width}
-                onChange={(event) => setPen((current) => ({ ...current, width: Number(event.target.value) }))}
-              >
-                {BORDER_WEIGHTS.map((weight) => (
-                  <option key={weight} value={weight}>
-                    {weight} pt
-                  </option>
+            <div className="bs-pen">
+              <p className="bs-heading">Style:</p>
+              <div className="bs-styles" role="listbox" aria-label="Style">
+                {BORDER_STYLES.map((style) => (
+                  <button
+                    key={style}
+                    type="button"
+                    role="option"
+                    aria-selected={pen.style === style}
+                    className="bs-style"
+                    onClick={() => setPen((current) => ({ ...current, style }))}
+                  >
+                    <span className="pen-sample" style={{ borderTop: `2px ${style} currentColor` }} />
+                    <span>{STYLE_LABELS[style] ?? style}</span>
+                  </button>
                 ))}
-              </select>
-            </label>
-          </div>
-          <div className="bs-preview-column">
-            <p className="bs-heading">Preview</p>
-            <p className="bs-hint">Click on diagram below or use buttons to apply borders.</p>
-            <div className="bs-preview" data-keep-light aria-label="Preview">
-              <div
-                className="bs-page"
-                style={{
-                  borderTop: edgeLine("top"),
-                  borderBottom: edgeLine("bottom"),
-                  borderLeft: edgeLine("left"),
-                  borderRight: edgeLine("right"),
-                  boxShadow: setting === "shadow" ? `4px 4px 0 0 ${lineColor}` : undefined,
-                }}
-              >
-                {table && target === "table" ? (
-                  <>
-                    <span className="bs-inside-h" style={{ borderTop: edgeLine("insideH") }} />
-                    <span className="bs-inside-v" style={{ borderLeft: edgeLine("insideV") }} />
-                  </>
-                ) : null}
-                {table && target === "cell" ? (
-                  <>
-                    <span
-                      className="bs-diag bs-diag-down"
-                      style={edges.has("diagDown") ? { background: lineColor } : undefined}
-                    />
-                    <span
-                      className="bs-diag bs-diag-up"
-                      style={edges.has("diagUp") ? { background: lineColor } : undefined}
-                    />
-                  </>
-                ) : null}
-                {!table ? <span className="bs-text-lines" aria-hidden /> : null}
               </div>
-              {edgeButton("top", "Top Border", "bs-edge-top")}
-              {edgeButton("bottom", "Bottom Border", "bs-edge-bottom")}
-              {edgeButton("left", "Left Border", "bs-edge-left")}
-              {edgeButton("right", "Right Border", "bs-edge-right")}
-              {table && target === "table"
-                ? edgeButton("insideH", "Inside Horizontal Border", "bs-edge-inside-h")
-                : null}
-              {table && target === "table" ? edgeButton("insideV", "Inside Vertical Border", "bs-edge-inside-v") : null}
-              {table && target === "cell" ? edgeButton("diagDown", "Diagonal Down Border", "bs-edge-diag-down") : null}
-              {table && target === "cell" ? edgeButton("diagUp", "Diagonal Up Border", "bs-edge-diag-up") : null}
+              <ColorField
+                label="Color:"
+                color={pen.color === DEFAULT_PEN.color ? "" : pen.color}
+                clearLabel="Automatic"
+                onClear={() => setPen((current) => ({ ...current, color: DEFAULT_PEN.color }))}
+                onSelect={(color) => setPen((current) => ({ ...current, color }))}
+              />
+              <label className="bs-apply">
+                Width:
+                <select
+                  aria-label="Width"
+                  value={pen.width}
+                  onChange={(event) => setPen((current) => ({ ...current, width: Number(event.target.value) }))}
+                >
+                  {BORDER_WEIGHTS.map((weight) => (
+                    <option key={weight} value={weight}>
+                      {weight} pt
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
-            {applyTo}
+            <div className="bs-preview-column">
+              <p className="bs-heading">Preview</p>
+              <p className="bs-hint">Click on diagram below or use buttons to apply borders.</p>
+              <div className="bs-preview" data-keep-light aria-label="Preview">
+                <div
+                  className="bs-page"
+                  style={{
+                    borderTop: edgeLine("top"),
+                    borderBottom: edgeLine("bottom"),
+                    borderLeft: edgeLine("left"),
+                    borderRight: edgeLine("right"),
+                    boxShadow: setting === "shadow" ? `4px 4px 0 0 ${lineColor}` : undefined,
+                  }}
+                >
+                  {table && target === "table" ? (
+                    <>
+                      <span className="bs-inside-h" style={{ borderTop: edgeLine("insideH") }} />
+                      <span className="bs-inside-v" style={{ borderLeft: edgeLine("insideV") }} />
+                    </>
+                  ) : null}
+                  {table && target === "cell" ? (
+                    <>
+                      <span
+                        className="bs-diag bs-diag-down"
+                        style={edges.has("diagDown") ? { background: lineColor } : undefined}
+                      />
+                      <span
+                        className="bs-diag bs-diag-up"
+                        style={edges.has("diagUp") ? { background: lineColor } : undefined}
+                      />
+                    </>
+                  ) : null}
+                  {!table ? <span className="bs-text-lines" aria-hidden /> : null}
+                </div>
+                {edgeButton("top", "Top Border", "bs-edge-top")}
+                {edgeButton("bottom", "Bottom Border", "bs-edge-bottom")}
+                {edgeButton("left", "Left Border", "bs-edge-left")}
+                {edgeButton("right", "Right Border", "bs-edge-right")}
+                {table && target === "table"
+                  ? edgeButton("insideH", "Inside Horizontal Border", "bs-edge-inside-h")
+                  : null}
+                {table && target === "table"
+                  ? edgeButton("insideV", "Inside Vertical Border", "bs-edge-inside-v")
+                  : null}
+                {table && target === "cell"
+                  ? edgeButton("diagDown", "Diagonal Down Border", "bs-edge-diag-down")
+                  : null}
+                {table && target === "cell" ? edgeButton("diagUp", "Diagonal Up Border", "bs-edge-diag-up") : null}
+              </div>
+              <div className="bs-apply-row">
+                {applyTo}
+                <button
+                  type="button"
+                  className="dialog-btn"
+                  disabled={target !== "paragraph"}
+                  title={target === "paragraph" ? undefined : "A cell's distance from text is set in Table Properties"}
+                  onClick={() => setOptions(true)}
+                >
+                  Options…
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      ) : null}
-      {tab === "page" ? (
-        <PageBorderPanel
-          draft={pageDraft}
-          setDraft={(update) => {
-            setPageTouched(true)
-            setPageDraft(update)
+        ) : null}
+        {tab === "page" ? (
+          <PageBorderPanel
+            draft={pageDraft}
+            setDraft={(update) => {
+              setPageTouched(true)
+              setPageDraft(update)
+            }}
+          />
+        ) : null}
+        {tab === "shading" ? (
+          <div className="bs-grid bs-shading">
+            <div>
+              <ColorField
+                label="Fill"
+                color={fill ?? ""}
+                clearLabel="No Color"
+                onClear={() => {
+                  setFillTouched(true)
+                  setFill(null)
+                }}
+                onSelect={(color) => {
+                  setFillTouched(true)
+                  setFill(color)
+                }}
+              />
+              <p className="bs-hint">Patterns are not supported.</p>
+            </div>
+            <div className="bs-preview-column">
+              <p className="bs-heading">Preview</p>
+              <div
+                className="bs-shade-preview"
+                data-keep-light
+                style={{ background: fill ?? "#ffffff" }}
+                aria-label="Preview"
+              />
+              {applyTo}
+            </div>
+          </div>
+        ) : null}
+        <DialogButtons submit onCancel={onClose} />
+      </DialogFrame>
+      {options ? (
+        <BorderOptionsDialog
+          space={openSpace}
+          onClose={() => setOptions(false)}
+          onDone={(next) => {
+            setBordersTouched(true)
+            setSpace(next)
+            setOptions(false)
           }}
         />
       ) : null}
-      {tab === "shading" ? (
-        <div className="bs-grid bs-shading">
-          <div>
-            <ColorField
-              label="Fill"
-              color={fill ?? ""}
-              clearLabel="No Color"
-              onClear={() => {
-                setFillTouched(true)
-                setFill(null)
-              }}
-              onSelect={(color) => {
-                setFillTouched(true)
-                setFill(color)
-              }}
-            />
-            <p className="bs-hint">Patterns are not supported.</p>
-          </div>
-          <div className="bs-preview-column">
-            <p className="bs-heading">Preview</p>
-            <div
-              className="bs-shade-preview"
-              data-keep-light
-              style={{ background: fill ?? "#ffffff" }}
-              aria-label="Preview"
-            />
-            {applyTo}
-          </div>
-        </div>
-      ) : null}
-      <DialogButtons submit onCancel={onClose} />
-    </DialogFrame>
+    </>
   )
 }
