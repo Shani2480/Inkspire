@@ -1640,6 +1640,12 @@ button.line-menu-row:focus-visible {
   pointer-events: auto;
 }
 
+/* The header or footer being edited is over its margin's zone (z-index 3), so a click, a drag or a table border in it
+   reaches the editor; the zone still takes clicks in the rest of the margin, which open that page's header. */
+.page-canvas.is-chrome-editing .chrome-box.is-live {
+  z-index: 4;
+}
+
 .page-chrome-tag {
   position: absolute;
   left: 0;
