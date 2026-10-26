@@ -1670,6 +1670,12 @@ Today Options is a backstage page of five cards (`OptionsView`). Word's is a mod
 
 **Done (partly).** Added Play 3D: a Scenes menu (Turntable, Swing, Jump & Turn, Arrive, Leave, Turn) and Pause in the 3D Model ribbon tab (both layouts) and the object bar. The scene is a `scene` attribute on the model (`data-scene`); the live viewer animates it from the resting pose and Pause puts the model back. Motion is in `model-scenes.ts` with tests. Not done: the scene is not written to .docx (Word's own animation is not mapped), and printing/PDF show the resting snapshot; Word's Adjust group already had 3D Models and Reset, and the Views gallery shows angle thumbnails rather than named presets (Top, Bottom, Left…); Checked in Chrome with `123.docx`: the 3D Model tab and the object bar show Play 3D, Scenes lists the six scenes, Turntable visibly animates the model and Pause freezes it at rest. Other scenes were not run; the Scenes and Pause ribbon icons reuse the lighting glyph.
 
+**Done 2026-10-26** (see `changes.md`): the 3D Model Views gallery lists Word's twelve named views (Front, Back,
+Left, Right, Top, Bottom, Above/Below …), each tile the model drawn by the viewer from that side, six a row with
+the arrow stack and a 4 × 3 menu; a view faces the camera square on (the model now turns, then tips, then rolls).
+Pause, Scenes, Lighting and Views have their own glyphs. Left: the scene is not written to `.docx`; Word's pose
+from a file is not read.
+
 #### 22.16 — Cover Page gallery (screenshot 082655)
 
 - Ours has five covers (Sideline, Motion, Whisp, Banded, Facet). Add Word's set (Austin, Banded, Facet, Filigree, Grid, Integral, Ion Dark, Ion Light, Motion, Retrospect, Semaphore, Sideline, Slice, Whisp, …) as thumbnails in a 3-column gallery with names beneath, plus "Remove Current Cover Page" and "Save Selection to Cover Page Gallery…" (local only).

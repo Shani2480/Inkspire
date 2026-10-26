@@ -67,7 +67,10 @@ const NAMED_GLYPHS: Record<string, () => ReactNode> = {
   crop: () => <LineCropIcon />,
   delete: () => <LineTableDeleteIcon />,
   "3d models": () => <LineCubeIcon />,
-  scenes: () => <LineCorrectionsIcon />,
+  scenes: () => <ScenesMark />,
+  pause: () => <PauseMark />,
+  lighting: () => <LightMark />,
+  "3d model views": () => <ViewsMark />,
   position: () => <LinePositionIcon />,
   "wrap text": () => <LineWrapTextIcon />,
 }
@@ -361,6 +364,52 @@ function PlayMark() {
     <RibbonSvg>
       <circle cx="8" cy="8" r="6" fill="#deecf9" stroke="var(--icon-accent-color)" />
       <path d="M7 5.6v4.8l4-2.4z" fill="var(--icon-accent-color)" />
+    </RibbonSvg>
+  )
+}
+
+/** Pause: Word's two upright bars. */
+function PauseMark() {
+  return (
+    <RibbonSvg>
+      <rect x="4.2" y="3" width="2.4" height="10" rx=".5" fill="var(--icon-accent-color)" />
+      <rect x="9.4" y="3" width="2.4" height="10" rx=".5" fill="var(--icon-accent-color)" />
+    </RibbonSvg>
+  )
+}
+
+/** Scenes: a cube with the arc of its motion. */
+function ScenesMark() {
+  return (
+    <RibbonSvg>
+      <path d="M8 6.2 11 4.6 14 6.2v3.6L11 11.4 8 9.8z" fill="#deecf9" stroke="var(--icon-accent-color)" />
+      <path d="M8 6.2 11 7.8 14 6.2M11 7.8v3.6" stroke="var(--icon-accent-color)" />
+      <path d="M2 12.5c1.6 1.4 4 1.8 6.2 1" stroke="currentColor" strokeLinecap="round" />
+      <path d="M2 9.2c.9.8 2.1 1.2 3.4 1.1" stroke="currentColor" strokeLinecap="round" />
+    </RibbonSvg>
+  )
+}
+
+/** Lighting: a bulb with rays. */
+function LightMark() {
+  return (
+    <RibbonSvg>
+      <path
+        d="M8 3.4a3.4 3.4 0 0 0-2 6.2V11h4V9.6a3.4 3.4 0 0 0-2-6.2z"
+        fill="#fff4ce"
+        stroke="var(--icon-accent-color)"
+      />
+      <path d="M6.4 13h3.2M8 1v1M2.6 6.6h1M12.4 6.6h1M3.8 2.6l.7.7M12.2 2.6l-.7.7" stroke="currentColor" />
+    </RibbonSvg>
+  )
+}
+
+/** 3D Model Views: a cube seen from three sides. */
+function ViewsMark() {
+  return (
+    <RibbonSvg>
+      <path d="M8 2.5 13 5v6l-5 2.5L3 11V5z" fill="#deecf9" stroke="var(--icon-accent-color)" />
+      <path d="M3 5l5 2.5L13 5M8 7.5v6" stroke="var(--icon-accent-color)" />
     </RibbonSvg>
   )
 }

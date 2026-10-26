@@ -7,6 +7,7 @@ import { ICON_NAMES, iconMarkup } from "@/editor/insert-blocks"
 import { selectedObject } from "@/editor/objects"
 import { SMARTART_LAYOUTS } from "@/editor/smartart"
 import { MODEL_SCENES, modelScene } from "@/editor/model-scenes"
+import { MODEL_VIEWS, viewPose, viewSourceFor } from "@/editor/model-views"
 import type { Editor } from "@tiptap/core"
 import { NodeSelection } from "@tiptap/pm/state"
 
@@ -17,7 +18,8 @@ export { AddChartElementMenu as ChartElementsMenu, ChartStylesMenu } from "@/com
  * The object menus the ribbon's tabs and the floating object bar share (20.10), so the two never disagree.
  */
 
-const MODEL_VIEWS = [0, 45, 90, 135, 180, 240]
+/** A flat model picture (not a 3-D model) turns in the page for each view. */
+const FLAT_TURNS = [0, 180, 90, 270, 0, 180, 45, 315, 135, 225, 30, 330]
 const SMARTART_COLORS = ["#0f6cbd", "#107c10", "#c45911", "#5b2c8e", "#d13438", "#242424"]
 const STROKE_MM = [0.25, 0.5, 1, 2, 4, 6]
 
@@ -207,41 +209,74 @@ export function ChangeIconMenu({ editor, close, onMore }: MenuProps & { onMore?:
   )
 }
 
-export function ModelViewsMenu({ editor, close }: MenuProps) {
+/**
+ * 3D Model Views (22.15): Word's named views, each tile the model as the viewer draws it from that side (until the
+ * model has loaded, its picture tilted that way). A flat model picture turns in the page instead.
+ */
+export function ModelViewTiles({
+  editor,
+  start = 0,
+  count = MODEL_VIEWS.length,
+  onPick,
+}: {
+  editor: Editor | null
+  start?: number
+  count?: number
+  onPick?: () => void
+}) {
   const found = selectedObject(editor)
   const threeD = found?.name === "threeDModel"
   const picture = String(found?.attrs.snapshot || found?.attrs.src || "")
   const variant = String(found?.attrs.preset || found?.attrs.variant || "cube")
+  const source = threeD && editor && found ? viewSourceFor(editor.view.nodeDOM(found.pos) as Element | null) : null
+  const pictures = source?.pictures() ?? null
   return (
-    <div className="flex items-center gap-1 p-1" role="group" aria-label="3D Model Views">
-      {MODEL_VIEWS.map((angle) => (
-        <button
-          key={angle}
-          type="button"
-          aria-label={`View ${angle} degrees`}
-          className="model-view"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => {
-            if (editor && found) {
-              editor
-                .chain()
-                .focus()
-                .updateAttributes(
-                  found.name,
-                  threeD ? { yaw: (angle * Math.PI) / 180, pitch: 0.25 } : { rotate: angle },
-                )
-                .run()
-            }
-            close()
-          }}
-        >
-          {picture ? (
-            <img src={picture} alt="" style={{ transform: `rotate(${angle}deg)` }} />
-          ) : (
-            <span style={{ transform: `rotate(${angle}deg)` }}>{variant.slice(0, 1).toUpperCase()}</span>
-          )}
-        </button>
-      ))}
+    <>
+      {MODEL_VIEWS.slice(start, start + count).map((view, offset) => {
+        const index = start + offset
+        const drawn = pictures?.[index]
+        const turn = FLAT_TURNS[index % FLAT_TURNS.length]
+        const tilt = threeD
+          ? `perspective(80px) rotateY(${view.yaw}rad) rotateX(${view.pitch}rad)`
+          : `rotate(${turn}deg)`
+        return (
+          <button
+            key={view.name}
+            type="button"
+            title={view.name}
+            aria-label={view.name}
+            className="model-view"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              if (editor && found) {
+                const pose = viewPose(view, source?.camera())
+                editor
+                  .chain()
+                  .focus()
+                  .updateAttributes(found.name, threeD ? pose : { rotate: turn })
+                  .run()
+              }
+              onPick?.()
+            }}
+          >
+            {drawn ? (
+              <img src={drawn} alt="" />
+            ) : picture ? (
+              <img src={picture} alt="" style={{ transform: tilt }} />
+            ) : (
+              <span style={{ transform: tilt }}>{variant.slice(0, 1).toUpperCase()}</span>
+            )}
+          </button>
+        )
+      })}
+    </>
+  )
+}
+
+export function ModelViewsMenu({ editor, close }: MenuProps) {
+  return (
+    <div className="model-view-grid p-1" role="group" aria-label="3D Model Views">
+      <ModelViewTiles editor={editor} onPick={close} />
     </div>
   )
 }

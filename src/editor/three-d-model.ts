@@ -4,6 +4,7 @@ import { Node, mergeAttributes } from "@tiptap/core"
 import type { Node as ProseNode } from "@tiptap/pm/model"
 import { DEFAULT_MODEL_FORMAT, modelFormat, type ModelFormat } from "@/editor/model-format"
 import { modelScene } from "@/editor/model-scenes"
+import { DEFAULT_CAMERA, registerViewSource } from "@/editor/model-views"
 
 export type ThreeDPreset =
   "cube" | "sphere" | "cylinder" | "cone" | "torus" | "electronics" | "anatomy" | "furniture" | "symbol"
@@ -101,9 +102,11 @@ function lazyViewer(
       real?.dispose()
     },
     play: (scene) => run((viewer) => viewer.play(scene)),
-    setPose: (yaw, pitch) => run((viewer) => viewer.setPose(yaw, pitch)),
+    setPose: (yaw, pitch, roll) => run((viewer) => viewer.setPose(yaw, pitch, roll)),
     setFormat: (format) => run((viewer) => viewer.setFormat(format)),
     resize: (width, height) => run((viewer) => viewer.resize(width, height)),
+    camera: () => real?.camera() ?? DEFAULT_CAMERA,
+    pictures: () => real?.pictures() ?? null,
   }
 }
 
@@ -232,6 +235,8 @@ export const ThreeDModel = Node.create({
           .run()
       }
       let viewer = lazyViewer(body, node, writeAttrs)
+      // The views gallery asks whichever viewer is current, as a new file or preset starts a new one.
+      registerViewSource(dom, { camera: () => viewer.camera(), pictures: () => viewer.pictures() })
       return {
         dom,
         update(updated) {
@@ -254,8 +259,16 @@ export const ThreeDModel = Node.create({
           if (formatChanged(updated, node)) {
             viewer.setFormat(modelFormat(updated.attrs))
           }
-          if (updated.attrs.yaw !== node.attrs.yaw || updated.attrs.pitch !== node.attrs.pitch) {
-            viewer.setPose(Number(updated.attrs.yaw) || 0, Number(updated.attrs.pitch) || 0)
+          if (
+            updated.attrs.yaw !== node.attrs.yaw ||
+            updated.attrs.pitch !== node.attrs.pitch ||
+            updated.attrs.roll !== node.attrs.roll
+          ) {
+            viewer.setPose(
+              Number(updated.attrs.yaw) || 0,
+              Number(updated.attrs.pitch) || 0,
+              Number(updated.attrs.roll) || 0,
+            )
           }
           const snap = body.querySelector<HTMLImageElement>(".three-d-snapshot")
           if (snap && updated.attrs.snapshot && snap.src !== updated.attrs.snapshot) {
@@ -266,6 +279,7 @@ export const ThreeDModel = Node.create({
         },
         destroy() {
           viewer.dispose()
+          registerViewSource(dom, null)
           box.destroy()
         },
         selectNode() {
