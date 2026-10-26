@@ -7,6 +7,25 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### No entrance motion in the Linux desktop app; the tab underline moves with its tab
+
+- **Bug** (from `screenshots/ribbon.mp4`, recorded with the fix below): switching tabs in the desktop app showed a
+  blank ribbon for one or two frames, then the new tab already in place, then about 120 ms later one frame of it
+  shifted and faded again. WebKitGTK shows animated content at its end state first and replays a frame of the
+  start afterwards, so the slide was never seen, only the blank frame and the jump. The same is expected of every
+  CSS entrance: menus, dialogs, the File view. The underline also trailed the content by two frames, fading
+  between tabs (a 120 ms transition).
+- **Changed:**
+  - In the Linux desktop app (`isWebKitGtk`, `platform.ts`), `main.tsx` sets `data-no-entrance` on the root.
+    `index.css` then turns off the tab slide, menu, dialog and File view entrances, as reduced motion does.
+    `prefersReducedMotion` honours it too: no tab-motion phases, no document fade-in cover, no ribbon height
+    animation. Hover and other transitions are untouched. Browsers keep the motion.
+  - The ribbon tab underline moves at once (`index.css`).
+- **Checked:** headless Chrome with the attribute set as the desktop app does: the switch sets no motion phase and
+  runs no animation; without it the slide still plays. The underline has no running transition. New tab-motion test;
+  844 tests pass.
+- **Open:** confirm in the desktop app.
+
 ### Ribbon tab slide still stuttered in the desktop app
 
 - **Bug:** after the tab-switch fix above, the slide still stuttered in the desktop app. At 6x CPU slowdown (about

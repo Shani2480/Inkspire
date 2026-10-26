@@ -2,7 +2,9 @@
 export const EASE_DECELERATE = "cubic-bezier(0.1, 0.9, 0.2, 1)"
 
 export function prefersReducedMotion() {
-  if (typeof document !== "undefined" && document.documentElement.hasAttribute("data-no-motion")) {
+  const root = typeof document !== "undefined" ? document.documentElement : null
+  // data-no-entrance: the Linux desktop webview, which plays entrance animations badly (main.tsx).
+  if (root?.hasAttribute("data-no-motion") || root?.hasAttribute("data-no-entrance")) {
     return true
   }
   return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true
