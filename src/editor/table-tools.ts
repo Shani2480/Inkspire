@@ -3,7 +3,7 @@ import { patternImage, patternOf } from "@/document/docx/shading-pattern"
 import type { Editor } from "@tiptap/core"
 import { Table, TableCell, TableHeader, TableRow, TableView } from "@tiptap/extension-table"
 import type { Node as ProseNode } from "@tiptap/pm/model"
-import { Plugin, PluginKey, type Transaction } from "@tiptap/pm/state"
+import { type EditorState, Plugin, PluginKey, type Transaction } from "@tiptap/pm/state"
 import { CellSelection, TableMap, addColumn, addRow, cellAround, findTable } from "@tiptap/pm/tables"
 import type { EditorView } from "@tiptap/pm/view"
 
@@ -1235,7 +1235,12 @@ function columnWidthsAt(start: number[], index: number, delta: number) {
  * the widest of its cells' unwrapped contents (cells spanning more columns are left out), with the cell's padding and
  * borders. Measured in place, so the page's fonts and styles count, in the page's own pixels.
  */
-export function contentColumnWidth(view: EditorView, tablePos: number, index: number) {
+export function contentColumnWidth(
+  view: EditorView,
+  tablePos: number,
+  index: number,
+  size: "max-content" | "min-content" = "max-content",
+) {
   const table = view.state.doc.nodeAt(tablePos)
   if (!table) {
     return null
@@ -1263,7 +1268,7 @@ export function contentColumnWidth(view: EditorView, tablePos: number, index: nu
         continue
       }
       const previous = child.style.width
-      child.style.width = "max-content"
+      child.style.width = size
       content = Math.max(content, child.offsetWidth)
       child.style.width = previous
     }
@@ -1304,6 +1309,79 @@ export function autoFitColumn(view: EditorView, table: HTMLTableElement, tablePo
   }
   widths[index] = Math.max(MIN_COLUMN, next)
   writeColumnWidths(view, tablePos, widths)
+  return true
+}
+
+/**
+ * Widths for every column fitting its contents within `room`, as Word's AutoFit to Contents shares the page: each column
+ * its unwrapped width when they all fit; otherwise each gets at least its longest word (`least`) and the rest of the
+ * room in proportion to how much more it would like; when even the longest words do not fit, those.
+ */
+export function sharedColumnWidths(least: number[], most: number[], room: number) {
+  const low = least.map((width, index) => Math.max(MIN_COLUMN, Math.min(width, most[index] ?? width)))
+  const high = most.map((width, index) => Math.max(low[index]!, width))
+  const sumLow = low.reduce((sum, width) => sum + width, 0)
+  const sumHigh = high.reduce((sum, width) => sum + width, 0)
+  if (sumHigh <= room) {
+    return high
+  }
+  if (sumLow >= room) {
+    return low
+  }
+  const share = (room - sumLow) / (sumHigh - sumLow)
+  return low.map((width, index) => Math.floor(width + (high[index]! - width) * share))
+}
+
+/** The table's every column fitted to its contents, within the page's width (one undo step). */
+export function autoFitAllColumns(view: EditorView, table: HTMLTableElement, tablePos: number) {
+  const count = tableColumnWidths(table).length
+  if (count === 0) {
+    return false
+  }
+  const columns = Array.from({ length: count }, (_, index) => index)
+  const most = columns.map((index) => contentColumnWidth(view, tablePos, index) ?? MIN_COLUMN)
+  const least = columns.map((index) => contentColumnWidth(view, tablePos, index, "min-content") ?? MIN_COLUMN)
+  const page = table.closest(".page-editor")
+  const room = page instanceof HTMLElement ? page.clientWidth : Number.POSITIVE_INFINITY
+  writeColumnWidths(view, tablePos, sharedColumnWidths(least, most, room))
+  return true
+}
+
+/** Whether the selection is every cell of the table at `tablePos`, as Select → Select Table makes it. */
+export function wholeTableSelected(state: EditorState, tablePos: number) {
+  const selection = state.selection
+  return (
+    selection instanceof CellSelection &&
+    selection.isRowSelection() &&
+    selection.isColSelection() &&
+    selection.$anchorCell.start(-1) === tablePos + 1
+  )
+}
+
+/**
+ * Double-click on a row's bottom border: the row goes back to the height its contents need (its set height is
+ * cleared), or every row of the table when the whole table is selected (one undo step).
+ */
+export function autoFitRows(view: EditorView, rowPos: number) {
+  const $row = view.state.doc.resolve(rowPos)
+  const tablePos = $row.before()
+  const table = $row.parent
+  const rows: number[] = []
+  if (wholeTableSelected(view.state, tablePos)) {
+    table.forEach((_, offset) => rows.push(tablePos + 1 + offset))
+  } else {
+    rows.push(rowPos)
+  }
+  let tr = view.state.tr
+  for (const pos of rows) {
+    const node = tr.doc.nodeAt(pos)
+    if (node?.type.name === "tableRow" && node.attrs.height != null) {
+      tr = tr.setNodeMarkup(pos, undefined, { ...node.attrs, height: null })
+    }
+  }
+  if (tr.docChanged) {
+    view.dispatch(tr)
+  }
   return true
 }
 
@@ -1450,11 +1528,17 @@ function rowResizing() {
         },
         dblclick(view, event) {
           const hit = gridHit(view, event)
-          if (hit?.kind !== "column") {
+          if (!hit) {
             return false
           }
           event.preventDefault()
-          return autoFitColumn(view, hit.table, hit.tablePos, hit.index)
+          if (hit.kind === "row") {
+            return autoFitRows(view, hit.pos)
+          }
+          // With the whole table selected, any column border fits every column, as in Word.
+          return wholeTableSelected(view.state, hit.tablePos)
+            ? autoFitAllColumns(view, hit.table, hit.tablePos)
+            : autoFitColumn(view, hit.table, hit.tablePos, hit.index)
         },
         mousedown(view, event) {
           if (event.button !== 0 || drag) {
