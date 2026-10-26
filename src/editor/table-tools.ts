@@ -1,3 +1,4 @@
+import { patternImage, patternOf } from "@/document/docx/shading-pattern"
 import type { Editor } from "@tiptap/core"
 import { Table, TableCell, TableHeader, TableRow, TableView } from "@tiptap/extension-table"
 import type { Node as ProseNode } from "@tiptap/pm/model"
@@ -10,6 +11,19 @@ const backgroundColor = {
   parseHTML: (element: HTMLElement) => element.style.backgroundColor || null,
   renderHTML: (attributes: { backgroundColor?: string | null }) =>
     attributes.backgroundColor ? { style: `background-color: ${attributes.backgroundColor}` } : {},
+}
+
+/**
+ * Word's shading pattern over the cell's fill (Borders and Shading > Shading, 22.4), as `shading-pattern.ts` keeps it.
+ * Drawn through `--cell-pattern`, so a cell's diagonal lines are laid over it rather than replacing it.
+ */
+const shadingPattern = {
+  default: null as string | null,
+  parseHTML: (element: HTMLElement) => element.getAttribute("data-shading-pattern"),
+  renderHTML: (attributes: { shadingPattern?: string | null }) => {
+    const image = patternImage(attributes.shadingPattern)
+    return image ? { "data-shading-pattern": attributes.shadingPattern, style: `--cell-pattern: ${image}` } : {}
+  },
 }
 
 /** "all", "none", or the sides drawn, such as "top left". */
@@ -265,6 +279,7 @@ export const ShadedTableCell = TableCell.extend({
     return {
       ...this.parent?.(),
       backgroundColor,
+      shadingPattern,
       borders,
       borderPen,
       textDir,
@@ -279,6 +294,7 @@ export const ShadedTableHeader = TableHeader.extend({
     return {
       ...this.parent?.(),
       backgroundColor,
+      shadingPattern,
       borders,
       borderPen,
       textDir,
@@ -816,20 +832,38 @@ export function readScopedBorders(editor: Editor, scope: TableScope) {
   const fills = new Set(
     cells.map((cell) => (typeof cell.attrs.backgroundColor === "string" ? cell.attrs.backgroundColor : null)),
   )
-  return { edges, pen, fill: fills.size === 1 ? [...fills][0] : null }
+  const patterns = new Set(
+    cells.map((cell) => (typeof cell.attrs.shadingPattern === "string" ? cell.attrs.shadingPattern : null)),
+  )
+  return {
+    edges,
+    pen,
+    fill: fills.size === 1 ? [...fills][0] : null,
+    pattern: patterns.size === 1 ? patternOf([...patterns][0]) : null,
+  }
 }
 
-/** The fill of the selected cells or of every cell in the table; null clears it. */
-export function shadeScope(editor: Editor, scope: TableScope, color: string | null): boolean {
+/** The fill and pattern of the selected cells or of every cell in the table; null clears one, undefined keeps it. */
+export function shadeScope(
+  editor: Editor,
+  scope: TableScope,
+  color: string | null | undefined,
+  pattern?: string | null,
+): boolean {
   const found = scopedCells(editor, scope)
   if (!found) {
     return false
+  }
+  // Undefined leaves that part as each cell has it.
+  const patch = {
+    ...(color !== undefined ? { backgroundColor: color } : {}),
+    ...(pattern !== undefined ? { shadingPattern: pattern } : {}),
   }
   let tr = editor.state.tr
   for (const offset of found.offsets) {
     const node = found.table.node.nodeAt(offset)
     if (node) {
-      tr = tr.setNodeMarkup(found.table.start + offset, undefined, { ...node.attrs, backgroundColor: color })
+      tr = tr.setNodeMarkup(found.table.start + offset, undefined, { ...node.attrs, ...patch })
     }
   }
   editor.view.dispatch(tr)

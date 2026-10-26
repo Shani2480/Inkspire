@@ -7535,25 +7535,34 @@ li[data-drop-cap="margin"]::first-letter {
   border-left: var(--cell-border, 1px solid var(--table-explicit-line)) !important;
 }
 
+/* A cell's shading pattern (22.4) over its fill; the diagonal lines below lay theirs on top of it. */
+.page-editor :is(td, th)[data-shading-pattern] {
+  background-image: var(--cell-pattern);
+}
+
 /* A cell's diagonal lines (21.30): drawn as a thin gradient across the cell in the pen's colour. */
 .page-editor :is(td, th)[data-borders~="diagDown"] {
-  background-image: linear-gradient(
-    to top right,
-    transparent calc(50% - 0.75px),
-    var(--cell-border-color, var(--table-explicit-line)) calc(50% - 0.75px),
-    var(--cell-border-color, var(--table-explicit-line)) calc(50% + 0.75px),
-    transparent calc(50% + 0.75px)
-  );
+  background-image:
+    linear-gradient(
+      to top right,
+      transparent calc(50% - 0.75px),
+      var(--cell-border-color, var(--table-explicit-line)) calc(50% - 0.75px),
+      var(--cell-border-color, var(--table-explicit-line)) calc(50% + 0.75px),
+      transparent calc(50% + 0.75px)
+    ),
+    var(--cell-pattern, none);
 }
 
 .page-editor :is(td, th)[data-borders~="diagUp"] {
-  background-image: linear-gradient(
-    to top left,
-    transparent calc(50% - 0.75px),
-    var(--cell-border-color, var(--table-explicit-line)) calc(50% - 0.75px),
-    var(--cell-border-color, var(--table-explicit-line)) calc(50% + 0.75px),
-    transparent calc(50% + 0.75px)
-  );
+  background-image:
+    linear-gradient(
+      to top left,
+      transparent calc(50% - 0.75px),
+      var(--cell-border-color, var(--table-explicit-line)) calc(50% - 0.75px),
+      var(--cell-border-color, var(--table-explicit-line)) calc(50% + 0.75px),
+      transparent calc(50% + 0.75px)
+    ),
+    var(--cell-pattern, none);
 }
 
 .page-editor :is(td, th)[data-borders~="diagDown"][data-borders~="diagUp"] {
@@ -7571,7 +7580,8 @@ li[data-drop-cap="margin"]::first-letter {
       var(--cell-border-color, var(--table-explicit-line)) calc(50% - 0.75px),
       var(--cell-border-color, var(--table-explicit-line)) calc(50% + 0.75px),
       transparent calc(50% + 0.75px)
-    );
+    ),
+    var(--cell-pattern, none);
 }
 
 .table-insert-line {

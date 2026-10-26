@@ -7,6 +7,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Cell shading patterns (22.4, 2026-10-26)** — cells given yellow + red Dk Up Diagonal, 25% and Lt Grid in the
+      app open in Word with the same shading (Shading tab shows the pattern); a Word table with patterned cells looks
+      the same in the app.
 - [ ] **Page borders in Word (22.4, 2026-10-26)** — a dashed red page border set in the app to All except first
       page, 24 pt from the edge of the page, opens in Word the same (Page Border tab shows it); one measured from
       Text sits as far from the text as in the app; a Word page border (and an Art one) is shown or kept after a
@@ -41,6 +44,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [x] **Cell shading patterns (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome (light).
 - [x] **Right-click in a table keeps to the cell (2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Page Border Apply to and Options (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome (light).
 - [x] **Apply to Text in Borders and Shading (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.

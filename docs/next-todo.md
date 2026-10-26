@@ -1612,6 +1612,10 @@ Source: the 48 top-level files in `screenshots/` taken on 2026-10-19 (`screensho
   **Fixed 2026-10-26** (see `changes.md`): a right-click in a table selected the whole table, so Apply to: Cell
   from the table menu changed every cell; it now puts the caret in the cell clicked.
 
+  **Done 2026-10-26** (see `changes.md`): Shading patterns for table cells (Cell or Table), drawn under the
+  diagonals and kept in the cell's `w:shd`; a Word cell's pattern is drawn. Left: 3-D, Grid, Page Border Art,
+  per-side page borders, the page Options check boxes, reading a Word cell's fill and pattern back into the dialog.
+
 #### 22.5 — Customize Ribbon and Quick Access Toolbar (screenshots 083125, 083136)
 
 - None exists. Two lists with "Choose commands from" (Popular, All, Not in the Ribbon, tabs…), Add / Remove, up/down, New Tab / New Group / Rename, Reset, Import/Export, per-tab visibility check boxes; Quick Access Toolbar with Separator, "Show Quick Access Toolbar", Toolbar Position (Above/Below Ribbon), "Always show command labels", For all documents / this document. Keep the choice in the user config.
