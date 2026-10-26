@@ -21,6 +21,9 @@ export function expandSpec(spec: ChartSpec): ChartSpec {
   if (spec.type === "boxWhisker") {
     return boxMedians(spec)
   }
+  if (spec.type === "treemap" || spec.type === "sunburst") {
+    return leaves(spec)
+  }
   return spec
 }
 
@@ -250,5 +253,128 @@ function boxMedians(spec: ChartSpec): ChartSpec {
       ...serie,
       values: groups.map((group) => group.boxes[index]?.median ?? 0),
     })),
+  }
+}
+
+export type TreeNode = {
+  name: string
+  value: number
+  children: TreeNode[]
+  /** The top-level branch the node is in, which gives its colour. */
+  branch: number
+  depth: number
+}
+
+/**
+ * The tree of a Treemap or Sunburst chart: each row's labels, outermost first (`levels`, then the category), with the
+ * blank ones left out, are its path, as in Word's sheet where a leaf can sit in the Stem column. A row's size is its
+ * value in the first shown series; rows with no positive size are left out, as Word does. Children are largest first.
+ */
+export function chartTree(spec: ChartSpec): TreeNode {
+  const root: TreeNode = { name: "", value: 0, children: [], branch: -1, depth: 0 }
+  const serie = spec.series.find((item) => !item.hidden)
+  spec.categories.forEach((category, row) => {
+    const size = serie?.values[row] ?? 0
+    if (spec.hiddenCategories.includes(row) || !(size > 0)) {
+      return
+    }
+    const path = [...(spec.levels ?? []).map((level) => level[row] ?? ""), category]
+      .map((label) => label.trim())
+      .filter(Boolean)
+    if (path.length === 0) {
+      return
+    }
+    let node = root
+    node.value += size
+    path.forEach((name, depth) => {
+      let child = node.children.find((item) => item.name === name)
+      if (!child) {
+        child = {
+          name,
+          value: 0,
+          children: [],
+          branch: depth === 0 ? root.children.length : node.branch,
+          depth: depth + 1,
+        }
+        node.children.push(child)
+      }
+      child.value += size
+      node = child
+    })
+  })
+  const sort = (node: TreeNode) => {
+    node.children.sort((a, b) => b.value - a.value)
+    node.children.forEach(sort)
+  }
+  sort(root)
+  return root
+}
+
+export type Rect = { x: number; y: number; w: number; h: number }
+
+/** Squarified treemap layout (Bruls, Huizing, van Wijk): the values, largest first, as rectangles filling `box`. */
+export function squarify(values: number[], box: Rect): Rect[] {
+  const total = values.reduce((sum, value) => sum + value, 0)
+  const out: Rect[] = []
+  if (total <= 0 || box.w <= 0 || box.h <= 0) {
+    return values.map(() => ({ x: box.x, y: box.y, w: 0, h: 0 }))
+  }
+  const scale = (box.w * box.h) / total
+  const areas = values.map((value) => value * scale)
+  let free = { ...box }
+  let start = 0
+  const worst = (row: number[], side: number) => {
+    const sum = row.reduce((a, b) => a + b, 0)
+    const max = Math.max(...row)
+    const min = Math.min(...row)
+    return Math.max((side * side * max) / (sum * sum), (sum * sum) / (side * side * min))
+  }
+  while (start < areas.length) {
+    const side = Math.min(free.w, free.h)
+    let end = start + 1
+    while (end < areas.length && worst(areas.slice(start, end + 1), side) <= worst(areas.slice(start, end), side)) {
+      end += 1
+    }
+    const row = areas.slice(start, end)
+    const sum = row.reduce((a, b) => a + b, 0)
+    if (free.w >= free.h) {
+      // A column along the left edge.
+      const width = sum / free.h
+      let y = free.y
+      row.forEach((area) => {
+        const height = area / width
+        out.push({ x: free.x, y, w: width, h: height })
+        y += height
+      })
+      free = { x: free.x + width, y: free.y, w: free.w - width, h: free.h }
+    } else {
+      const height = sum / free.w
+      let x = free.x
+      row.forEach((area) => {
+        const width = area / height
+        out.push({ x, y: free.y, w: width, h: height })
+        x += width
+      })
+      free = { x: free.x, y: free.y + height, w: free.w, h: free.h - height }
+    }
+    start = end
+  }
+  return out
+}
+
+/** What Word is given for a Treemap or Sunburst (it has neither outside `chartex`): the leaves' sizes. */
+function leaves(spec: ChartSpec): ChartSpec {
+  const found: TreeNode[] = []
+  const walk = (node: TreeNode) => (node.children.length ? node.children.forEach(walk) : found.push(node))
+  chartTree(spec).children.forEach(walk)
+  const name = spec.series.find((serie) => !serie.hidden)?.name ?? "Series 1"
+  return {
+    ...spec,
+    type: spec.type === "sunburst" ? "doughnut" : "column",
+    grouping: "clustered",
+    levels: undefined,
+    categories: found.map((node) => node.name),
+    hiddenCategories: [],
+    series: [{ name, values: found.map((node) => node.value) }],
   }
 }

@@ -2,6 +2,8 @@ export type ChartSheet = {
   series: string[]
   categories: string[]
   rows: number[][]
+  /** Treemap and Sunburst: label columns before the category column, outermost first, a label per row. */
+  levels?: string[][]
 }
 
 export const DEFAULT_CHART_SHEET = ["|Sales|Expenses", "Q1|12|8", "Q2|18|11", "Q3|15|9", "Q4|22|14"].join("\n")
@@ -113,27 +115,39 @@ export function serializeChartSheet(sheet: ChartSheet) {
 
 export function sheetToGrid(sheet: ChartSheet, columns = 6, rowCount = 10) {
   const grid = Array.from({ length: rowCount }, () => Array.from({ length: columns }, () => ""))
+  const outer = sheet.levels?.length ?? 0
+  const first = outer + 1
   sheet.series.forEach((name, index) => {
-    if (index + 1 < columns) {
-      grid[0][index + 1] = name
+    if (index + first < columns) {
+      grid[0][index + first] = name
     }
   })
   sheet.categories.forEach((name, row) => {
     if (row + 1 >= rowCount) {
       return
     }
-    grid[row + 1][0] = name
+    sheet.levels?.forEach((level, column) => {
+      if (column < columns) {
+        grid[row + 1][column] = level[row] ?? ""
+      }
+    })
+    grid[row + 1][outer] = name
     sheet.rows[row]?.forEach((value, column) => {
-      if (column + 1 < columns) {
-        grid[row + 1][column + 1] = String(value)
+      if (column + first < columns) {
+        grid[row + 1][column + first] = String(value)
       }
     })
   })
   return grid
 }
 
-export function gridToSheet(grid: string[][]): ChartSheet {
-  let lastColumn = 1
+/**
+ * The sheet a grid holds. `labelColumns` is how many columns of labels come before the numbers: 1 (the category) for
+ * most charts, more for a Treemap or Sunburst, whose blank labels are kept since a blank skips that level.
+ */
+export function gridToSheet(grid: string[][], labelColumns = 1): ChartSheet {
+  const outer = Math.max(0, labelColumns - 1)
+  let lastColumn = outer + 1
   let lastRow = 1
   grid.forEach((row, rowIndex) => {
     row.forEach((cell, columnIndex) => {
@@ -144,21 +158,24 @@ export function gridToSheet(grid: string[][]): ChartSheet {
     })
   })
   const series = []
-  for (let column = 1; column <= lastColumn; column += 1) {
-    series.push(grid[0]?.[column]?.trim() || `Series ${column}`)
+  for (let column = outer + 1; column <= lastColumn; column += 1) {
+    series.push(grid[0]?.[column]?.trim() || `Series ${column - outer}`)
   }
   const categories: string[] = []
   const rows: number[][] = []
+  const levels: string[][] = Array.from({ length: outer }, () => [])
   for (let row = 1; row <= lastRow; row += 1) {
-    categories.push(grid[row]?.[0]?.trim() || `Cat ${row}`)
+    const label = grid[row]?.[outer]?.trim() ?? ""
+    categories.push(outer ? label : label || `Cat ${row}`)
+    levels.forEach((level, column) => level.push(grid[row]?.[column]?.trim() ?? ""))
     rows.push(
       series.map((_, index) => {
-        const value = Number(grid[row]?.[index + 1])
+        const value = Number(grid[row]?.[index + outer + 1])
         return Number.isFinite(value) ? value : 0
       }),
     )
   }
-  return { series, categories, rows }
+  return outer ? { series, categories, rows, levels } : { series, categories, rows }
 }
 
 export function transposeChartSheet(sheet: ChartSheet): ChartSheet {

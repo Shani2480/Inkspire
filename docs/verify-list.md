@@ -7,6 +7,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Treemap and Sunburst (22.6, 2026-10-26)** — saved from the app, they open in Word as a column chart and a
+      doughnut of the leaves.
 - [ ] **Box & Whisker (22.6, 2026-10-26)** — a Box & Whisker chart saved from the app opens in Word as a clustered
       column chart of the medians (Word cannot be given the box itself without `chartex`).
 - [ ] **Stock charts (22.6, 2026-10-26)** — a High-Low-Close and an Open-High-Low-Close chart saved from the app open
@@ -64,6 +66,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 - [x] **Stock charts and Insert Chart previews (22.6, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Box & Whisker chart (22.6, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
+- [x] **Treemap and Sunburst charts (22.6, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
+- [ ] **Treemap / Sunburst data sheet (22.6, 2026-10-26)** — Edit Data shows Branch, Stem, Leaf and Size columns; retyping a stem regroups the tiles.
 - [x] **Header & Footer Previous / Next (2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Tall header or footer pushes the body (2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Page border Options check boxes (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
