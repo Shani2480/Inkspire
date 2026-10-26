@@ -12026,6 +12026,16 @@ textarea.text-prompt-field {
   border: 1px solid var(--dlg-control-border);
 }
 
+.bs-text-preview {
+  display: grid;
+  place-items: center;
+  height: 64px;
+  margin-bottom: 8px;
+  background: #ffffff;
+  color: #1c1c1c;
+  font-size: 13px;
+}
+
 .word-dialog fieldset.bs-patterns {
   display: flex;
   flex-direction: column;

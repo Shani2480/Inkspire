@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
+import { TextBoxMark } from "@/editor/character-format"
 import { Editor } from "@tiptap/core"
 import { TableRow } from "@tiptap/extension-table"
 import { StarterKit } from "@tiptap/starter-kit"
@@ -32,6 +33,7 @@ function make(content: string) {
       TableRow,
       ShadedTableCell,
       ShadedTableHeader,
+      TextBoxMark,
     ],
     content,
   })
@@ -246,6 +248,33 @@ describe("the Borders and Shading dialog (22.4)", () => {
     render(<BordersShadingHost />)
     act(() => openBordersAndShading(editor, "shading"))
     expect((screen.getByLabelText("Pattern style") as HTMLSelectElement).disabled).toBe(true)
+  })
+
+  it("starts on Text for part of a paragraph and draws a shadowed box and fill round it (22.4)", () => {
+    const editor = make("<p>one two</p>")
+    editor.commands.setTextSelection({ from: 1, to: 4 })
+    render(<BordersShadingHost />)
+    act(() => openBordersAndShading(editor))
+    expect((screen.getByLabelText("Apply to") as HTMLSelectElement).value).toBe("text")
+    expect(screen.queryByRole("button", { name: "Custom" })).toBeNull()
+    expect(screen.queryByLabelText("Top Border")).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Shadow" }))
+    fireEvent.click(screen.getByText("Shading"))
+    fireEvent.click(screen.getByRole("button", { name: /No Color/ }))
+    fireEvent.click(screen.getByLabelText("#ffff00"))
+    fireEvent.click(screen.getByText("OK"))
+    const marks = (at: number) => editor.state.doc.nodeAt(at)?.marks.map((mark) => mark.attrs) ?? []
+    expect(marks(1)).toEqual([{ border: expect.stringMatching(/solid/), shadow: true, fill: "#ffff00", pattern: null }])
+    expect(marks(5)).toEqual([])
+    expect(editor.state.doc.firstChild?.attrs.border).toBeNull()
+    // Opened again on the same text, it shows the box; None takes it off and leaves the fill.
+    cleanup()
+    render(<BordersShadingHost />)
+    act(() => openBordersAndShading(editor))
+    expect(screen.getByRole("button", { name: "Shadow" }).getAttribute("aria-pressed")).toBe("true")
+    fireEvent.click(screen.getByRole("button", { name: "None" }))
+    fireEvent.click(screen.getByText("OK"))
+    expect(marks(1)).toEqual([{ border: null, shadow: false, fill: "#ffff00", pattern: null }])
   })
 
   it("offers Options… for a paragraph only", () => {

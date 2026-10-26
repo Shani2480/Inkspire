@@ -1,3 +1,4 @@
+import { textBoxAttributes, textBoxOfElement, type TextBox } from "@/document/docx/text-box"
 import { effectCss } from "@/editor/text-effects"
 import { Extension, getStyleProperty, Mark } from "@tiptap/core"
 import Underline from "@tiptap/extension-underline"
@@ -52,6 +53,26 @@ export const SuperscriptMark = Mark.create({
   excludes: "subscript",
   parseHTML: () => [{ tag: "sup" }],
   renderHTML: () => ["sup", { style: "font-size: 0.75em" }, 0],
+})
+
+/** Borders and Shading applied to text (22.4): a box round the run, Word's shadow, and its fill and pattern. */
+export const TextBoxMark = Mark.create({
+  name: "textBorder",
+  addAttributes() {
+    const attribute = <T>(fallback: T, read: (element: HTMLElement) => T) => ({
+      default: fallback,
+      parseHTML: read,
+      renderHTML: () => ({}),
+    })
+    return {
+      border: attribute<string | null>(null, (element) => textBoxOfElement(element).border),
+      shadow: attribute(false, (element) => textBoxOfElement(element).shadow),
+      fill: attribute<string | null>(null, (element) => textBoxOfElement(element).fill),
+      pattern: attribute<string | null>(null, (element) => textBoxOfElement(element).pattern),
+    }
+  },
+  parseHTML: () => [{ tag: "span[data-text-border]" }],
+  renderHTML: ({ mark }) => ["span", textBoxAttributes(mark.attrs as TextBox), 0],
 })
 
 export const CharacterStyle = Extension.create({
