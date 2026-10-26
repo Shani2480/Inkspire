@@ -606,7 +606,7 @@ export function applyBorders(editor: Editor, kind: BorderKind, pen: BorderPen = 
   const bottom = Math.max(...rects.map((rect) => rect.bottom))
   const left = Math.min(...rects.map((rect) => rect.left))
   const right = Math.max(...rects.map((rect) => rect.right))
-  const line = `${pen.width * (4 / 3)}px ${pen.style} ${pen.color}`
+  const line = penLine(pen)
   const diagonalOnAll =
     (kind === "diagDown" || kind === "diagUp") &&
     cells.every((offset) => cellDiagonals(table.node.nodeAt(offset)?.attrs.borders).has(kind))
@@ -710,7 +710,7 @@ export function setBordersOnCells(editor: Editor, scope: TableScope, edges: Set<
   const bottom = Math.max(...rects.map((rect) => rect.bottom))
   const left = Math.min(...rects.map((rect) => rect.left))
   const right = Math.max(...rects.map((rect) => rect.right))
-  const line = `${pen.width * (4 / 3)}px ${pen.style} ${pen.color}`
+  const line = penLine(pen)
   let tr = editor.state.tr
   offsets.forEach((offset, index) => {
     const rect = rects[index]
@@ -735,8 +735,13 @@ export function setBordersOnCells(editor: Editor, scope: TableScope, edges: Set<
   return true
 }
 
+/** A pen as the CSS border shorthand the editor draws and keeps (`borderPen`): Word's points as pixels. */
+export function penLine(pen: BorderPen) {
+  return `${pen.width * (4 / 3)}px ${pen.style} ${pen.color}`
+}
+
 /** The pen of a `borderPen` value (`1.33px dashed #404040`), as Word's weight in points. */
-function parsePen(value: unknown): BorderPen | null {
+export function parsePen(value: unknown): BorderPen | null {
   const match = typeof value === "string" ? /^([\d.]+)px\s+(\S+)\s+(.+)$/.exec(value.trim()) : null
   if (!match) {
     return null
@@ -884,7 +889,7 @@ export function paintCellEdge(editor: Editor, x: number, y: number, pen: BorderP
   const sides = node.attrs.borders === "none" ? new Set<Side>() : cellSides(node.attrs.borders)
   const diagonals = node.attrs.borders === "none" ? new Set<Diagonal>() : cellDiagonals(node.attrs.borders)
   sides.add(side)
-  const line = `${pen.width * (4 / 3)}px ${pen.style} ${pen.color}`
+  const line = penLine(pen)
   editor.view.dispatch(
     editor.state.tr.setNodeMarkup($cell.pos, undefined, {
       ...node.attrs,

@@ -51,6 +51,8 @@ describe("settings and edges", () => {
     expect(settingOf(edgesOf("all", new Set()), true)).toBe("all")
     expect(settingOf(edgesOf("all", new Set()), false)).toBe("custom")
     expect(settingOf(new Set(["top"]), false)).toBe("custom")
+    expect(settingOf(edgesOf("shadow", new Set()), false, true)).toBe("shadow")
+    expect(settingOf(edgesOf("box", new Set()), true, true)).toBe("box")
   })
 
   it("writes a paragraph border value", () => {
@@ -151,6 +153,46 @@ describe("the Borders and Shading dialog (22.4)", () => {
     render(<BordersShadingHost />)
     act(() => openBordersAndShading(editor))
     expect(screen.getByRole("button", { name: "Box" }).getAttribute("aria-pressed")).toBe("true")
+  })
+
+  it("gives a paragraph Word's Shadow box with the chosen pen (22.4)", () => {
+    const editor = make("<p>one</p>")
+    editor.commands.setTextSelection(2)
+    render(<BordersShadingHost />)
+    act(() => openBordersAndShading(editor))
+    fireEvent.click(screen.getByRole("button", { name: "Shadow" }))
+    fireEvent.click(screen.getByRole("option", { name: /Dotted/ }))
+    fireEvent.change(screen.getByLabelText("Width"), { target: { value: "1.5" } })
+    fireEvent.click(screen.getByText("OK"))
+    expect(editor.state.doc.firstChild?.attrs).toMatchObject({
+      border: "all",
+      borderPen: "2px dotted #404040",
+      borderShadow: true,
+    })
+  })
+
+  it("applies a new pen alone to the lines already drawn, and opens on the Shadow box", () => {
+    const editor = make("<p>one</p>")
+    editor.commands.setTextSelection(2)
+    editor.commands.updateAttributes("paragraph", { border: "all", borderShadow: true })
+    render(<BordersShadingHost />)
+    act(() => openBordersAndShading(editor))
+    expect(screen.getByRole("button", { name: "Shadow" }).getAttribute("aria-pressed")).toBe("true")
+    fireEvent.change(screen.getByLabelText("Width"), { target: { value: "3" } })
+    fireEvent.click(screen.getByText("OK"))
+    expect(editor.state.doc.firstChild?.attrs).toMatchObject({ border: "all", borderPen: "4px solid #404040" })
+    expect(editor.state.doc.firstChild?.attrs.borderShadow).toBe(true)
+  })
+
+  it("drops the shadow when one edge is clicked (Custom)", () => {
+    const editor = make("<p>one</p>")
+    editor.commands.setTextSelection(2)
+    editor.commands.updateAttributes("paragraph", { border: "all", borderShadow: true })
+    render(<BordersShadingHost />)
+    act(() => openBordersAndShading(editor))
+    fireEvent.click(screen.getByLabelText("Top Border"))
+    fireEvent.click(screen.getByText("OK"))
+    expect(editor.state.doc.firstChild?.attrs).toMatchObject({ border: "right,bottom,left", borderShadow: false })
   })
 
   it("reads a table's inside lines back as All", () => {

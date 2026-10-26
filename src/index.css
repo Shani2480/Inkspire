@@ -2062,6 +2062,11 @@ button.line-menu-row:focus-visible {
   outline-offset: -1px;
 }
 
+/* Word's Shadow paragraph border (22.4): the box casts a shadow in its own colour to the bottom right. */
+.page-editor [data-border-shadow="1"][data-border] {
+  box-shadow: 3px 3px 0 0 var(--para-border-color, #1c1c1c);
+}
+
 .page-editor :is(td, th)[data-borders="none"] {
   border-color: transparent;
 }

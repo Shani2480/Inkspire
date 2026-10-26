@@ -38,7 +38,7 @@ const PEN_STYLES: Record<string, BorderValue> = {
 }
 
 /** One border from a pen written as the CSS shorthand ("1px solid #404040"). */
-function borderOf(pen: unknown): Border {
+export function borderOf(pen: unknown): Border {
   const [width = "", style = "solid", color = ""] = typeof pen === "string" ? pen.split(/\s+/) : []
   const points = Number.parseFloat(width) * 0.75
   return {

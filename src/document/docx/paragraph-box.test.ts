@@ -85,4 +85,20 @@ describe("paragraph borders and fill in .docx (21.30)", () => {
       expect(xml).not.toContain(`<w:${name}`)
     }
   })
+
+  it("writes the border's pen and Word's shadow, and opens them again (22.4)", async () => {
+    const { bytes, xml } = await save({ border: "all", borderPen: "2px dashed #c00000", borderShadow: true })
+    expect(xml).toContain('<w:top w:val="dashed" w:sz="12" w:space="1" w:color="C00000" w:shadow="1"/>')
+    expect(xml.match(/w:shadow="1"/g)).toHaveLength(4)
+    const { view } = await openDocxBytes(bytes, "t.docx")
+    expect(view.html).toContain("--para-border: 2px dashed #c00000")
+    expect(view.html).toContain('data-border-shadow="1"')
+  })
+
+  it("keeps the app's own line as no pen, so a border made in the app opens as it was made", async () => {
+    const { bytes, xml } = await save({ border: "bottom" })
+    expect(xml).not.toContain("w:shadow")
+    const { view } = await openDocxBytes(bytes, "t.docx")
+    expect(view.html).not.toContain("--para-border")
+  })
 })

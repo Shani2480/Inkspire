@@ -898,6 +898,9 @@ function writeBorder(name: string, border: Border | undefined) {
   if (border.color) {
     attributes.push(`w:color="${border.color}"`)
   }
+  if (border.shadow) {
+    attributes.push(`w:shadow="1"`)
+  }
   return `<w:${name} ${attributes.join(" ")}/>`
 }
 
