@@ -37,7 +37,10 @@ describe("table line contrast (21.43)", () => {
 
   it("draws the default cell border and the drawn borders from those tokens", () => {
     expect(css).toContain("border: 1px solid var(--table-default-line)")
-    expect(css).toContain("border: var(--cell-border, 1px solid var(--table-explicit-line)) !important")
+    // Each side may have a pen of its own (22.4 Grid); otherwise the cell's pen, otherwise the token.
+    expect(css).toContain(
+      "border-top: var(--cell-border-top, var(--cell-border, 1px solid var(--table-explicit-line))) !important",
+    )
     expect(css).not.toContain("border: 1px solid #d4d4d8;\n  padding: 0.4em")
   })
 })

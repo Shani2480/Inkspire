@@ -7514,25 +7514,29 @@ li[data-drop-cap="margin"]::first-letter {
   border-bottom-color: #8a8a8a;
 }
 
+/* A side with a pen of its own (--cell-border-top …, as Grid's thin inside lines) wins over the cell's pen. */
 .page-editor td[data-borders="all"],
 .page-editor th[data-borders="all"] {
-  border: var(--cell-border, 1px solid var(--table-explicit-line)) !important;
+  border-top: var(--cell-border-top, var(--cell-border, 1px solid var(--table-explicit-line))) !important;
+  border-right: var(--cell-border-right, var(--cell-border, 1px solid var(--table-explicit-line))) !important;
+  border-bottom: var(--cell-border-bottom, var(--cell-border, 1px solid var(--table-explicit-line))) !important;
+  border-left: var(--cell-border-left, var(--cell-border, 1px solid var(--table-explicit-line))) !important;
 }
 
 .page-editor :is(td, th)[data-borders~="top"] {
-  border-top: var(--cell-border, 1px solid var(--table-explicit-line)) !important;
+  border-top: var(--cell-border-top, var(--cell-border, 1px solid var(--table-explicit-line))) !important;
 }
 
 .page-editor :is(td, th)[data-borders~="right"] {
-  border-right: var(--cell-border, 1px solid var(--table-explicit-line)) !important;
+  border-right: var(--cell-border-right, var(--cell-border, 1px solid var(--table-explicit-line))) !important;
 }
 
 .page-editor :is(td, th)[data-borders~="bottom"] {
-  border-bottom: var(--cell-border, 1px solid var(--table-explicit-line)) !important;
+  border-bottom: var(--cell-border-bottom, var(--cell-border, 1px solid var(--table-explicit-line))) !important;
 }
 
 .page-editor :is(td, th)[data-borders~="left"] {
-  border-left: var(--cell-border, 1px solid var(--table-explicit-line)) !important;
+  border-left: var(--cell-border-left, var(--cell-border, 1px solid var(--table-explicit-line))) !important;
 }
 
 /* A cell's shading pattern (22.4) over its fill; the diagonal lines below lay theirs on top of it. */

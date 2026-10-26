@@ -77,6 +77,20 @@ describe("cell fill and borders in .docx", () => {
     expect(view.html).toContain("repeating-linear-gradient(-45deg, #c00000")
   })
 
+  it("writes a side with a pen of its own (Grid's thin inside lines) in that pen, and draws it reopened (22.4)", async () => {
+    const { bytes, xml } = await save({
+      borders: "all",
+      borderPen: "3px solid #000000",
+      sidePens: "right=0.6666666666666666px solid #000000",
+    })
+    const box = /<w:tcBorders>.*<\/w:tcBorders>/.exec(xml)?.[0] ?? ""
+    expect(box).toContain('<w:top w:val="single" w:sz="18" w:space="0" w:color="000000"/>')
+    expect(box).toContain('<w:right w:val="single" w:sz="4" w:space="0" w:color="000000"/>')
+    const { view } = await openDocxBytes(bytes, "t.docx")
+    expect(view.html).toContain("border-right: 0.5pt solid #000000")
+    expect(view.html).toContain("border-top: 2.25pt solid #000000")
+  })
+
   it("leaves a plain cell without either", async () => {
     const { xml } = await save({})
     expect(xml).not.toContain("<w:tcBorders")

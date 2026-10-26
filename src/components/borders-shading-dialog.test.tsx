@@ -112,6 +112,27 @@ describe("the Borders and Shading dialog (22.4)", () => {
     expect(cells(editor)[0].borderPen).toBe("3px dashed #404040")
   })
 
+  it("draws a Grid: the chosen line outside, thin lines inside, and opens on it (22.4)", () => {
+    const editor = make(TABLE)
+    editor.commands.setTextSelection(4)
+    render(<BordersShadingHost />)
+    act(() => openBordersAndShading(editor))
+    fireEvent.change(screen.getByLabelText("Apply to"), { target: { value: "table" } })
+    fireEvent.click(screen.getByRole("button", { name: "Grid" }))
+    fireEvent.change(screen.getByLabelText("Width"), { target: { value: "2.25" } })
+    fireEvent.click(screen.getByText("OK"))
+    const [first, , , last] = cells(editor)
+    expect(first).toMatchObject({ borders: "all", borderPen: "3px solid #404040" })
+    expect(first.sidePens).toBe("right=0.6666666666666666px solid #404040;bottom=0.6666666666666666px solid #404040")
+    expect(last.sidePens).toBe("top=0.6666666666666666px solid #404040;left=0.6666666666666666px solid #404040")
+    act(() => openBordersAndShading(editor))
+    fireEvent.change(screen.getByLabelText("Apply to"), { target: { value: "table" } })
+    expect(screen.getByRole("button", { name: "Grid" }).getAttribute("aria-pressed")).toBe("true")
+    fireEvent.click(screen.getByRole("button", { name: "All" }))
+    fireEvent.click(screen.getByText("OK"))
+    expect(cells(editor).every((attrs) => attrs.sidePens === null && attrs.borders === "all")).toBe(true)
+  })
+
   it("shades the cell on the Shading tab, and the table when Apply to is Table", () => {
     const editor = make(TABLE)
     editor.commands.setTextSelection(4)

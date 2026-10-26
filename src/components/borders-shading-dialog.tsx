@@ -27,7 +27,7 @@ import { useEffect, useState } from "react"
 import { create } from "zustand"
 
 type Tab = "borders" | "page" | "shading"
-type Setting = "none" | "box" | "all" | "shadow" | "3d" | "custom"
+type Setting = "none" | "box" | "all" | "grid" | "shadow" | "3d" | "custom"
 type Target = TableScope | "paragraph" | "text"
 
 /** Opens Borders and Shading (22.4) for the editor's selection, from the Home or Table Design Borders menu. */
@@ -50,9 +50,15 @@ const ALL: BorderEdge[] = [...BOX, "insideH", "insideV"]
 
 /**
  * The setting button that matches a set of edges: None, Box, Shadow (a box that casts one), 3-D (a box with Word's
- * frame effect), All, or Custom.
+ * frame effect), All, Grid (all, with thin lines inside), or Custom.
  */
-export function settingOf(edges: Set<BorderEdge>, table: boolean, shadow = false, frame = false): Setting {
+export function settingOf(
+  edges: Set<BorderEdge>,
+  table: boolean,
+  shadow = false,
+  frame = false,
+  grid = false,
+): Setting {
   const exactly = (names: BorderEdge[]) => edges.size === names.length && names.every((name) => edges.has(name))
   if (edges.size === 0) {
     return "none"
@@ -61,7 +67,7 @@ export function settingOf(edges: Set<BorderEdge>, table: boolean, shadow = false
     return table ? "box" : frame ? "3d" : shadow ? "shadow" : "box"
   }
   if (table && exactly(ALL)) {
-    return "all"
+    return grid ? "grid" : "all"
   }
   return "custom"
 }
@@ -73,7 +79,7 @@ export function edgesOf(setting: Setting, current: Set<BorderEdge>): Set<BorderE
   if (setting === "box" || setting === "shadow" || setting === "3d") {
     return new Set(BOX)
   }
-  if (setting === "all") {
+  if (setting === "all" || setting === "grid") {
     return new Set(ALL)
   }
   return new Set(current)
@@ -207,6 +213,7 @@ function BordersShadingDialog({
   const [penTouched, setPenTouched] = useState(false)
   const [shadow, setShadow] = useState(current && "shadow" in current ? current.shadow : false)
   const [frame, setFrame] = useState(current && "frame" in current ? current.frame : false)
+  const [grid, setGrid] = useState(Boolean(current && "insidePen" in current && current.insidePen))
   const [space, setSpace] = useState<number[] | null>(null)
   const [options, setOptions] = useState(false)
   const [fill, setFill] = useState<string | null>(current?.fill ?? null)
@@ -218,7 +225,9 @@ function BordersShadingDialog({
   const [bordersTouched, setBordersTouched] = useState(false)
   const [pageDraft, setPageDraft] = useState<BorderPatch>(borderPatchOf(setup))
   const [pageTouched, setPageTouched] = useState(false)
-  const setting = settingOf(edges, table && target === "table", shadow, frame && target === "paragraph")
+  const setting = settingOf(edges, table && target === "table", shadow, frame && target === "paragraph", grid)
+  // Word's Grid: the chosen line outside, a thin single line in its colour between the cells.
+  const insidePen: BorderPen = { width: 0.5, style: "solid", color: pen.color }
   // A new style, colour or width is applied to the lines already drawn, as in Word.
   const setPen = (update: (current: BorderPen) => BorderPen) => {
     setBordersTouched(true)
@@ -235,18 +244,30 @@ function BordersShadingDialog({
     if (target === "text") {
       setEdges((current) => new Set(current.size > 0 ? BOX : []))
     }
+    // A table drawn as a Grid opens as one when Apply to moves to Table.
+    if (target === "table" && !bordersTouched) {
+      const drawn = readScopedBorders(editor, "table")
+      if (drawn?.insidePen) {
+        setEdges(drawn.edges)
+        setPenState(drawn.pen)
+        setGrid(true)
+      }
+    }
+    // Only when the Apply to choice changes.
   }, [target])
 
   const choose = (next: Setting) => {
     setBordersTouched(true)
     setShadow(next === "shadow")
     setFrame(next === "3d")
+    setGrid(next === "grid")
     setEdges((current) => edgesOf(next, current))
   }
   const toggle = (edge: BorderEdge) => {
     setBordersTouched(true)
     setShadow(false)
     setFrame(false)
+    setGrid(false)
     setEdges((current) => {
       const next = new Set(current)
       if (next.has(edge)) {
@@ -295,7 +316,7 @@ function BordersShadingDialog({
           borderSpace,
         })
       } else {
-        setBordersOnCells(editor, target, edges, pen)
+        setBordersOnCells(editor, target, edges, pen, setting === "grid" ? insidePen : undefined)
       }
     }
     if (target === "paragraph") {
@@ -334,7 +355,12 @@ function BordersShadingDialog({
   const settings: { id: Setting; label: string; disabled?: boolean; note?: string }[] = [
     { id: "none", label: "None" },
     { id: "box", label: "Box" },
-    ...(table && target === "table" ? [{ id: "all" as const, label: "All" }] : []),
+    ...(table && target === "table"
+      ? [
+          { id: "all" as const, label: "All" },
+          { id: "grid" as const, label: "Grid" },
+        ]
+      : []),
     ...(!table || target === "text" ? [{ id: "shadow" as const, label: "Shadow" }] : []),
     ...(target === "paragraph" ? [{ id: "3d" as const, label: "3-D" }] : []),
     ...(byEdge ? [{ id: "custom" as const, label: "Custom" }] : []),
@@ -352,8 +378,10 @@ function BordersShadingDialog({
     </label>
   )
   const lineColor = pen.color
-  const edgeLine = (edge: BorderEdge) =>
-    edges.has(edge) ? `${Math.max(1, pen.width)}px ${pen.style} ${lineColor}` : "1px dotted #c8c8c8"
+  const edgeLine = (edge: BorderEdge) => {
+    const line = setting === "grid" && (edge === "insideH" || edge === "insideV") ? insidePen : pen
+    return edges.has(edge) ? `${Math.max(1, line.width)}px ${line.style} ${lineColor}` : "1px dotted #c8c8c8"
+  }
   const edgeButton = (edge: BorderEdge, label: string, className: string) => (
     <button
       key={edge}
