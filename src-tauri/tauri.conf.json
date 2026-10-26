@@ -30,8 +30,25 @@
     "security": {
       "csp": {
         "default-src": "'self'",
-        "connect-src": ["ipc:", "http://ipc.localhost", "https://cdn.jsdelivr.net", "https://docs.google.com"],
-        "img-src": ["'self'", "asset:", "http://asset.localhost", "https://asset.localhost", "blob:", "data:"],
+        "connect-src": [
+          "ipc:",
+          "http://ipc.localhost",
+          "https://cdn.jsdelivr.net",
+          "https://docs.google.com",
+          "https://api.iconify.design",
+          "https://api.polyhaven.com",
+          "https://dl.polyhaven.org",
+          "blob:"
+        ],
+        "img-src": [
+          "'self'",
+          "asset:",
+          "http://asset.localhost",
+          "https://asset.localhost",
+          "https://cdn.polyhaven.com",
+          "blob:",
+          "data:"
+        ],
         "font-src": ["'self'", "data:", "asset:", "http://asset.localhost", "https://asset.localhost"],
         "style-src": ["'self'", "'unsafe-inline'", "asset:", "http://asset.localhost", "https://asset.localhost"],
         "worker-src": ["'self'", "blob:"],
@@ -46,6 +63,10 @@
           "ipc:",
           "http://ipc.localhost",
           "https://cdn.jsdelivr.net",
+          "https://api.iconify.design",
+          "https://api.polyhaven.com",
+          "https://dl.polyhaven.org",
+          "blob:",
           "ws://localhost:1420",
           "ws://localhost:1421",
           "ws://127.0.0.1:1420",
@@ -53,7 +74,15 @@
           "http://localhost:1420",
           "http://127.0.0.1:1420"
         ],
-        "img-src": ["'self'", "asset:", "http://asset.localhost", "https://asset.localhost", "blob:", "data:"],
+        "img-src": [
+          "'self'",
+          "asset:",
+          "http://asset.localhost",
+          "https://asset.localhost",
+          "https://cdn.polyhaven.com",
+          "blob:",
+          "data:"
+        ],
         "font-src": ["'self'", "data:", "asset:", "http://asset.localhost", "https://asset.localhost"],
         "style-src": ["'self'", "'unsafe-inline'", "asset:", "http://asset.localhost", "https://asset.localhost"],
         "script-src": ["'self'", "'unsafe-eval'", "http://localhost:1420", "http://127.0.0.1:1420"],

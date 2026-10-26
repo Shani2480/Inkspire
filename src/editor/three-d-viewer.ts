@@ -8,6 +8,7 @@ import {
   type ModelFormat,
 } from "@/editor/model-format"
 import { modelScene, scenePose, type ModelScene } from "@/editor/model-scenes"
+import { fitLoadedModel } from "@/editor/three-d-fit"
 import type { Node as ProseNode } from "@tiptap/pm/model"
 import * as THREE from "three"
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js"
@@ -50,6 +51,14 @@ export function mountViewer(
   dom.classList.toggle("is-word-model", Boolean(node.attrs.wordModel))
   dom.replaceChildren()
 
+  const src = String(node.attrs.src || "")
+  const poster = String(node.attrs.snapshot || "")
+  // A model with a file shows its last picture (Word's, for a model from Word) until the file has loaded and drawn.
+  // Set before anything that can fail, so a webview without WebGL still shows the picture.
+  if (src && poster) {
+    dom.style.background = `center / contain no-repeat url("${poster.replace(/"/g, "%22")}")`
+  }
+
   const canvas = document.createElement("canvas")
   canvas.width = width * devicePixelRatio
   canvas.height = height * devicePixelRatio
@@ -80,16 +89,14 @@ export function mountViewer(
   scene.add(light, fill, ambient)
 
   const material = new THREE.MeshStandardMaterial({ color: PRIMITIVE_COLOR, metalness: 0.2, roughness: 0.45 })
-  const src = String(node.attrs.src || "")
   // A model with a file shows its last picture while the file loads, not the stand-in shape it would replace.
   let mesh: THREE.Object3D = src
     ? new THREE.Group()
     : new THREE.Mesh(geometryFor(String(node.attrs.preset || "cube")), material)
   scene.add(mesh)
-  const poster = String(node.attrs.snapshot || "")
-  if (src && poster) {
-    dom.style.background = `center / contain no-repeat url("${poster.replace(/"/g, "%22")}")`
-  }
+  // Until the file has loaded there is nothing in the view, so no picture is taken of it: the one the model has
+  // stays (Word's, for a model from Word), in the page, in print and in the saved file.
+  let modelReady = !src
 
   let format = modelFormat(node.attrs)
   let texture: THREE.Texture | null = null
@@ -174,21 +181,28 @@ export function mountViewer(
     loader.load(
       src,
       (gltf) => {
-        scene.remove(mesh)
         // The model centred on its own middle and, when its units are far from the viewer's (a model made in
-        // centimetres or metres), fitted to the view; it turns about that middle.
-        const box = new THREE.Box3().setFromObject(gltf.scene)
-        const size = box.getSize(new THREE.Vector3())
-        const largest = Math.max(size.x, size.y, size.z)
-        const fit = largest > 0 && (largest < 0.5 || largest > 4) ? 2 / largest : 1
-        gltf.scene.scale.setScalar(fit)
-        gltf.scene.position.copy(box.getCenter(new THREE.Vector3())).multiplyScalar(-fit)
+        // centimetres or metres), fitted to the view; it turns about that middle. A file with nothing to draw (no
+        // scene, or one without extent) is treated as a failed load: the stand-in and the picture stay.
+        const fit = fitLoadedModel(gltf.scene)
+        if (!fit) {
+          console.error("The 3D model has nothing to draw", src)
+          return
+        }
+        const previous = mesh
+        scene.remove(previous)
+        gltf.scene.scale.setScalar(fit.scale)
+        gltf.scene.position.copy(fit.centre).multiplyScalar(-fit.scale)
         mesh = new THREE.Group()
         mesh.add(gltf.scene)
         mesh.scale.setScalar(1.2)
-        mesh.rotation.y = Number(node.attrs.yaw) || 0
-        mesh.rotation.x = Number(node.attrs.pitch) || 0
+        // The pose the stand-in was turned to while the file loaded, or the rest pose of a playing scene.
+        mesh.rotation.y = playing ? rest.yaw : previous.rotation.y
+        mesh.rotation.x = previous.rotation.x
+        rest.y = mesh.position.y
+        rest.scale.copy(mesh.scale)
         scene.add(mesh)
+        modelReady = true
         dom.style.background = ""
         applyFormat(format)
         // A model opened from Word already has Word's own picture; the app takes its own once the model is turned.
@@ -242,6 +256,9 @@ export function mountViewer(
   tick()
 
   const capture = () => {
+    if (!modelReady) {
+      return
+    }
     renderer.render(scene, camera)
     try {
       onSnapshot(canvas.toDataURL("image/png"), playing ? rest.yaw : mesh.rotation.y, mesh.rotation.x)

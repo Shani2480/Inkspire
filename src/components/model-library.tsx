@@ -1,3 +1,4 @@
+import { fetchPolyHavenModel } from "@/editor/polyhaven"
 import { THREED_STOCK, type ThreeDPreset } from "@/editor/three-d-model"
 import { readCache, writeCache } from "@/lib/asset-cache"
 import type { Editor } from "@tiptap/core"
@@ -17,6 +18,9 @@ export function ModelLibrary({ editor, onClose }: { editor: Editor; onClose: () 
   const [category, setCategory] = useState<(typeof CATEGORIES)[number]>("Primitives")
   const [assets, setAssets] = useState<OnlineAsset[]>(() => readCache<OnlineAsset[]>(CACHE_KEY) ?? [])
   const [query, setQuery] = useState("")
+  /** The online model being downloaded, while the library waits to insert it. */
+  const [downloading, setDownloading] = useState<string | null>(null)
+  const download = useRef<AbortController | null>(null)
   const [status, setStatus] = useState(assets.length ? "From cache" : "")
   const fileInput = useRef<HTMLInputElement>(null)
 
@@ -56,6 +60,8 @@ export function ModelLibrary({ editor, onClose }: { editor: Editor; onClose: () 
     return () => controller.abort()
   }, [assets.length, category])
 
+  useEffect(() => () => download.current?.abort(), [])
+
   const stock = useMemo(() => THREED_STOCK.filter((item) => item.category === category), [category])
 
   const online = useMemo(() => {
@@ -71,18 +77,45 @@ export function ModelLibrary({ editor, onClose }: { editor: Editor; onClose: () 
     onClose()
   }
 
-  function insertOnline(asset: OnlineAsset) {
-    editor
-      .chain()
-      .focus()
-      .insertThreeDModel({
-        preset: "cube",
-        src: "",
-        snapshot: asset.thumb,
-        alt: asset.name,
+  /**
+   * A Poly Haven model is downloaded as one `.glb` and inserted as that model, its thumbnail standing in while the
+   * viewer loads it. The library stays open with the progress in its footer until the file is in; a failure says so
+   * and leaves the library open.
+   */
+  async function insertOnline(asset: OnlineAsset) {
+    if (downloading) {
+      return
+    }
+    const controller = new AbortController()
+    download.current = controller
+    setDownloading(asset.id)
+    setStatus(`Downloading ${asset.name}…`)
+    try {
+      const blob = await fetchPolyHavenModel(asset.id, controller.signal, (received, total) => {
+        const mb = (bytes: number) => `${(bytes / 1048576).toFixed(1)} MB`
+        setStatus(total ? `Downloading ${asset.name}… ${mb(received)} of ${mb(total)}` : `Downloading ${asset.name}…`)
       })
-      .run()
-    onClose()
+      editor
+        .chain()
+        .focus()
+        .insertThreeDModel({
+          preset: "cube",
+          src: URL.createObjectURL(blob),
+          snapshot: asset.thumb,
+          alt: asset.name,
+          width: 260,
+          height: 180,
+        })
+        .run()
+      onClose()
+    } catch (error: unknown) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return
+      }
+      console.error("The online 3D model could not be downloaded", error)
+      setStatus(`Could not download ${asset.name}.`)
+      setDownloading(null)
+    }
   }
 
   async function onLocalFile(file: File) {
@@ -169,8 +202,10 @@ export function ModelLibrary({ editor, onClose }: { editor: Editor; onClose: () 
                 <button
                   key={asset.id}
                   type="button"
-                  className="asset-library-tile tall"
-                  onClick={() => insertOnline(asset)}
+                  className={`asset-library-tile tall${downloading === asset.id ? " is-downloading" : ""}`}
+                  disabled={Boolean(downloading)}
+                  aria-busy={downloading === asset.id || undefined}
+                  onClick={() => void insertOnline(asset)}
                 >
                   {asset.thumb ? (
                     <img src={asset.thumb} alt="" className="model-thumb" />
