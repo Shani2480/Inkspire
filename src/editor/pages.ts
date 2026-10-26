@@ -1,5 +1,6 @@
 import { contourOf, contourPolygon, onContourReady } from "@/editor/wrap-contour"
 import { keepWithNextMustMove, linesOnPage } from "@/editor/page-breaking"
+import { useChromeExtent } from "@/document/chrome-extent"
 import { pageMetrics } from "@/document/page-setup"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
@@ -379,6 +380,12 @@ function paginationPlugin(storage: PaginationStorage) {
         measureCache.clear()
         schedule()
       })
+      const unsubscribeReach = useChromeExtent.subscribe(() => {
+        // A header or footer grew past its margin (or shrank back): the body has a different height on every page.
+        forceFull = true
+        applied = ""
+        schedule()
+      })
       const unsubscribeContour = onContourReady(() => {
         // A picture's or shape's outline finished loading: text wraps to it from now on.
         forceFull = true
@@ -405,6 +412,7 @@ function paginationPlugin(storage: PaginationStorage) {
           measureCache.clear()
           unsubscribeView()
           unsubscribeContour()
+          unsubscribeReach()
         },
       }
     },
@@ -1078,6 +1086,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       mirrors.map((item) => `${item.pos}:${item.page % 2}`).join(","),
       columnCount,
       useDocumentStore.getState().pageSetup.columnGap,
+      `${Math.round(metrics.marginTop)}:${Math.round(metrics.marginBottom)}`,
     ].join("|"),
   }
 }

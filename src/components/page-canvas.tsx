@@ -14,6 +14,7 @@ import { ChromeBox, useChromePart } from "@/components/chrome-editors"
 import { chromeHasContent, chromeHasPageField } from "@/document/chrome-html"
 import { useActiveChromeEditor } from "@/document/chrome-editing"
 import { chromeText } from "@/document/chrome-html"
+import { useChromeExtent } from "@/document/chrome-extent"
 import { applyPageChrome, pageBorderStyle, pageMetrics, showsPageBorder } from "@/document/page-setup"
 import { useDocumentStore } from "@/document/store"
 import { clampZoom, useViewStore } from "@/document/view"
@@ -83,6 +84,8 @@ export function PageCanvas() {
   const activeChrome = useActiveChromeEditor((state) => state.editor)
   const editChromeAt = useViewStore((state) => state.editChrome)
   const pageSetup = useDocumentStore((state) => state.pageSetup)
+  // A tall header or footer moves the body's margins (see `chrome-extent.ts`).
+  const reach = useChromeExtent((state) => `${state.header}|${state.footer}`)
   const metrics = pageMetrics(pageSetup)
   const header = chromeText(headerHtml)
   const countedPages =
@@ -125,7 +128,7 @@ export function PageCanvas() {
       style.removeProperty("--print-first-center")
       style.removeProperty("--print-first-page")
     }
-  }, [header, footerHtml, differentFirstPage, firstHeaderHtml, firstFooterHtml, pageSetup])
+  }, [header, footerHtml, differentFirstPage, firstHeaderHtml, firstFooterHtml, pageSetup, reach])
 
   // Web Layout: the text runs the width of the window, so the page is as wide as the room there is, at any zoom.
   useLayoutEffect(() => {
@@ -356,9 +359,9 @@ export function PageCanvas() {
           data-layout={layoutMode}
           style={{
             width: stackWidth,
-            paddingTop: web ? metrics.marginTop : `${pageSetup.marginTop}mm`,
+            paddingTop: metrics.marginTop,
             paddingRight: web ? metrics.marginRight : `${pageSetup.marginRight}mm`,
-            paddingBottom: web ? metrics.marginBottom : `${pageSetup.marginBottom}mm`,
+            paddingBottom: metrics.marginBottom,
             paddingLeft: web ? metrics.marginLeft : `${pageSetup.marginLeft}mm`,
             transform: `scale(${zoom})`,
             transformOrigin: "top left",
@@ -487,9 +490,9 @@ export function PageCanvas() {
               className={`page-column-guides${pageSetup.columnLine ? " has-rule" : ""}`}
               aria-hidden
               style={{
-                top: `${pageSetup.marginTop}mm`,
+                top: metrics.marginTop,
                 right: `${pageSetup.marginRight}mm`,
-                bottom: `${pageSetup.marginBottom}mm`,
+                bottom: metrics.marginBottom,
                 left: `${pageSetup.marginLeft}mm`,
                 gap: `${pageSetup.columnGap}cm`,
                 ["--column-gap" as string]: `${pageSetup.columnGap}cm`,

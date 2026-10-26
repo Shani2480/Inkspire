@@ -7,6 +7,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Tall header pushes the body (2026-10-26)** — a Word document whose header is taller than the top margin starts
+      its body text at the same place in the app as in Word, and has the same number of pages.
 - [ ] **Page border Options check boxes (22.4, 2026-10-26)** — Surround header off, Always display in front off and
       Align on, set in the app, open in Word's Options window the same; a border measured from text reaches round
       the header in both.
@@ -55,6 +57,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [x] **Tall header or footer pushes the body (2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Page border Options check boxes (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **View Gridlines under drawn borders (2026-10-26)** — checked 2026-10-26 in headless Chrome (light).
 - [x] **Page Border sides from the preview (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.

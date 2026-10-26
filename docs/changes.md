@@ -7,6 +7,20 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### A tall header or footer pushes the body away from the page edge (header and footer leftovers)
+
+- **Missing:** the header and footer were a layer of their own over the page. A header taller than the top margin ran
+  over the body's text instead of moving it down as Word does (and the same for a footer at the bottom).
+- **Changed:** every header and footer box on the pages reports how far it reaches into the page
+  (`chrome-editors.tsx`, a `ResizeObserver`; floating pictures are out of the flow and push nothing) to a small store,
+  `document/chrome-extent.ts`. `pageMetrics` takes the larger of the margin and that reach, so the body's padding, the
+  page gaps, the paginator's page height, the `--page-margin-top/bottom` variables (Header/Footer boundary line,
+  rulers) and the column guides all follow it. The paginator lays out again when the reach changes (`pages.ts`; the
+  margins are in its signature). The tallest header counts for every page, so a tall first-page header moves the body
+  on every page (Word moves it on that page only). Test: `chrome-extent.test.ts`. Checked in headless Chrome: eight
+  header lines move the body below them on pages 1 and 2 (three pages become five), emptying the header puts it back;
+  eight footer lines push the body up.
+
 ### Page Border Options: Align, Always display in front, Surround header and footer (22.4)
 
 - **Missing:** the page border's Options window had only the margins and Measure from. Word's check boxes were not

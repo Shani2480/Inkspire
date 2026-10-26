@@ -1,8 +1,9 @@
 import { Editor } from "@tiptap/core"
 import { EditorContent } from "@tiptap/react"
-import { useEffect, useRef, useState, type CSSProperties } from "react"
+import { useEffect, useId, useRef, useState, type CSSProperties } from "react"
 import { chromeHasContent, chromeOnPage } from "@/document/chrome-html"
 import { useActiveChromeEditor } from "@/document/chrome-editing"
+import { reportChromeReach } from "@/document/chrome-extent"
 import { pageMetrics } from "@/document/page-setup"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
@@ -202,15 +203,58 @@ export function ChromeBox({
     }
   }, [editor, live, page, pages])
 
+  // How far the box reaches into the page: a header taller than the top margin pushes the body down (Word), and a
+  // footer taller than the bottom margin pushes it up. Floating pictures in it are out of the flow and push nothing.
+  const id = useId()
+  const measured = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const element = measured.current
+    if (!element) {
+      return
+    }
+    const report = () => {
+      const sheet = element.offsetParent as HTMLElement | null
+      if (!sheet || useViewStore.getState().layoutMode === "web") {
+        reportChromeReach(id, kind, null)
+        return
+      }
+      const reach =
+        kind === "header" ? element.offsetTop + element.offsetHeight : sheet.offsetHeight - element.offsetTop
+      reportChromeReach(id, kind, reach)
+    }
+    report()
+    const observer = new ResizeObserver(report)
+    observer.observe(element)
+    return () => {
+      observer.disconnect()
+      reportChromeReach(id, kind, null)
+    }
+  }, [id, kind, live, editor])
+
   if (live && editor) {
     return (
-      <div ref={box} className={className} style={origin} data-chrome-part={kind} data-placeholder={placeholder}>
+      <div
+        ref={(element) => {
+          box.current = element
+          measured.current = element
+        }}
+        className={className}
+        style={origin}
+        data-chrome-part={kind}
+        data-placeholder={placeholder}
+      >
         <EditorContent editor={editor} />
       </div>
     )
   }
   return (
-    <div className={className} style={origin} data-chrome-part={kind} aria-hidden={!chromeHasContent(html)}>
+    <div
+      ref={measured}
+      className={className}
+      style={origin}
+      data-chrome-part={kind}
+      aria-hidden={!chromeHasContent(html)}
+    >
       <div
         className="page-editor chrome-editor ProseMirror"
         // What the editor drew, copied; it is read-only and never run as a page of its own.
