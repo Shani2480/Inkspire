@@ -1,3 +1,4 @@
+import { openTableProperties } from "@/components/table-properties-dialog"
 import { openBordersAndShading } from "@/components/borders-shading-dialog"
 import { askText } from "@/components/text-prompt"
 import { MenuLabel } from "@/components/menu-icons"
@@ -34,7 +35,7 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
     }
     const onContext = (event: MouseEvent) => {
       const target = event.target
-      if (!(target instanceof Element) || !editor.view.dom.contains(target)) {
+      if (event.defaultPrevented || !(target instanceof Element) || !editor.view.dom.contains(target)) {
         return
       }
       if (target.closest(".page-image, .image-frame, .object-frame, input, textarea, button, label")) {
@@ -99,7 +100,10 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
     { id: "font", label: "Font…", run: () => requestFormatDialog("font") },
     { id: "paragraph", label: "Paragraph…", run: () => requestFormatDialog("paragraph") },
     ...(inTable(editor)
-      ? [{ id: "borders", label: "Borders and Shading…", run: () => openBordersAndShading(editor) }]
+      ? [
+          { id: "borders", label: "Borders and Shading…", run: () => openBordersAndShading(editor) },
+          { id: "table-properties", label: "Table Properties…", run: () => openTableProperties(editor) },
+        ]
       : []),
     {
       id: "block",

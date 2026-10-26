@@ -7,6 +7,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Table Properties (22.10, 2026-10-26)** — a table given an indent, cell spacing, default and cell margins,
+      Exactly row height, no break across pages, No wrap and a percent width opens in Word with the same values in
+      its Table Properties; a Word table with these set opens in the app's dialog with them.
 - [ ] **Surface charts (22.6, 2026-10-26)** — each of the four variants saved from the app opens in Word as that
       surface type with the same bands; a Word surface or contour chart opens in the app as the same variant.
 - [ ] **Treemap and Sunburst (22.6, 2026-10-26)** — saved from the app, they open in Word as a column chart and a
@@ -66,6 +69,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [x] **Table Properties dialog and right-click (22.10, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
+- [ ] **Table Properties, in the desktop app** — right-click a selected table: one menu, Table Properties... opens
+      with the selection kept.
 - [x] **Stock charts and Insert Chart previews (22.6, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Box & Whisker chart (22.6, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Treemap and Sunburst charts (22.6, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
