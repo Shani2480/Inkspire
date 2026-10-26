@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { expandSpec, histogramBins, waterfallPieces } from "@/editor/chart-expand"
-import { CHART_VARIANTS, defaultChartSpec, renderChart, withVariant } from "@/editor/chart-spec"
-import { chartSpaceXml, chartWorkbook } from "@/document/docx/chart-xml"
+import { CHART_VARIANTS, defaultChartSpec, renderChart, variantOf, withVariant } from "@/editor/chart-spec"
+import { chartSpaceXml, chartWorkbook, readChartSpace } from "@/document/docx/chart-xml"
 
 describe("Histogram, Waterfall and Funnel (22.6)", () => {
   it("lists the three in Insert Chart", () => {
@@ -46,5 +46,45 @@ describe("Histogram, Waterfall and Funnel (22.6)", () => {
       expect(chartWorkbook(spec).length).toBeGreaterThan(100)
     }
     expect(withVariant(defaultChartSpec("column"), "funnel").type).toBe("funnel")
+  })
+})
+
+describe("Stock (22.6)", () => {
+  it("lists High-Low-Close and Open-High-Low-Close with Word's sample prices", () => {
+    expect(CHART_VARIANTS.map((item) => item.id)).toEqual(expect.arrayContaining(["stock-hlc", "stock-ohlc"]))
+    expect(defaultChartSpec("stock-hlc").series.map((serie) => serie.name)).toEqual(["High", "Low", "Close"])
+    expect(defaultChartSpec("stock-ohlc").series.map((serie) => serie.name)).toEqual(["Open", "High", "Low", "Close"])
+  })
+
+  it("draws prices as high-low lines, Close as a tick, Open to Close as up/down bars", () => {
+    const hlc = expandSpec(defaultChartSpec("stock-hlc"))
+    expect(hlc).toMatchObject({ type: "line", highLowLines: true, upDownBars: false, markers: false })
+    expect(hlc.series.map((serie) => Boolean(serie.tick))).toEqual([false, false, true])
+    expect(hlc.format["series:0"]?.line).toBe("none")
+    const ohlc = expandSpec(defaultChartSpec("stock-ohlc"))
+    expect(ohlc).toMatchObject({ upDownBars: true })
+    expect(ohlc.series.some((serie) => serie.tick)).toBe(false)
+
+    const svg = renderChart(defaultChartSpec("stock-ohlc"), 480, 300)
+    expect(svg).toContain('data-chart-part="highLowLines"')
+    expect(svg).toContain('data-chart-part="upDownBars"')
+    expect(renderChart(defaultChartSpec("stock-hlc"), 480, 300)).toMatch(/<path d="M[\d.]+ [\d.]+H/)
+  })
+
+  it("saves as Word's c:stockChart and reads back as Stock", () => {
+    for (const id of ["stock-hlc", "stock-ohlc"]) {
+      const spec = defaultChartSpec(id)
+      const xml = chartSpaceXml(spec)
+      expect(xml).toContain("<c:stockChart>")
+      expect(xml).not.toContain("<c:lineChart>")
+      expect(xml).toContain("<c:hiLowLines>")
+      expect(xml.includes("<c:upDownBars>")).toBe(id === "stock-ohlc")
+      expect(xml.includes('<c:symbol val="dash"/>')).toBe(id === "stock-hlc")
+      const back = readChartSpace(xml)!
+      expect(back.type).toBe("stock")
+      expect(back.series.map((serie) => serie.values)).toEqual(spec.series.map((serie) => serie.values))
+      expect(back.categories).toEqual(spec.categories)
+      expect(variantOf(back)).toBe(id)
+    }
   })
 })
