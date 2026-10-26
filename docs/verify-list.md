@@ -113,6 +113,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **AI reply in Hebrew or with accents (21.26, 2026-10-26)** — ask any provider to rewrite a paragraph in Hebrew
+      (or French): the inserted text has no "�" in it.
 - [ ] **3D Model Views tiles in the desktop webview (22.15, 2026-10-26)** — the tiles are drawn with WebGL; check
       they appear (and fall back to the tilted picture without WebGL).
 - [ ] **Online 3D models and icons in the desktop webview (2026-10-26)** — Insert > 3D Models > Online lists

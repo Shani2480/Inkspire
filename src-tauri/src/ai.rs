@@ -190,8 +190,7 @@ pub async fn generate_ai_text(
             break;
         };
         let bytes = item.map_err(http_failure)?;
-        let text = String::from_utf8_lossy(&bytes);
-        for delta in parser.push(&text)? {
+        for delta in parser.push(&bytes)? {
             if is_cancelled(&request_id) {
                 clear_cancelled(&request_id);
                 return Err("Stopped.".into());
@@ -691,26 +690,29 @@ fn redact(message: &str) -> String {
     out
 }
 
+/// Reads a streamed reply line by line. It keeps bytes, not text: a network chunk can end in the middle of a
+/// character (é, Hebrew, an emoji), and decoding each chunk on its own would turn both halves into "�". A line ends
+/// at `\n`, which is never part of a longer character, so whole lines always decode cleanly.
 struct StreamParser {
     provider: AiProvider,
-    buffer: String,
+    buffer: Vec<u8>,
 }
 
 impl StreamParser {
     fn new(provider: AiProvider) -> Self {
         Self {
             provider,
-            buffer: String::new(),
+            buffer: Vec::new(),
         }
     }
 
-    fn push(&mut self, chunk: &str) -> Result<Vec<String>, String> {
-        self.buffer.push_str(chunk);
+    fn push(&mut self, chunk: impl AsRef<[u8]>) -> Result<Vec<String>, String> {
+        self.buffer.extend_from_slice(chunk.as_ref());
         let mut deltas = Vec::new();
-        while let Some(index) = self.buffer.find('\n') {
-            let line = self.buffer[..index].trim_end_matches('\r').to_string();
-            self.buffer.drain(..=index);
-            if let Some(text) = self.consume_line(&line)? {
+        while let Some(index) = self.buffer.iter().position(|byte| *byte == b'\n') {
+            let line: Vec<u8> = self.buffer.drain(..=index).collect();
+            let line = String::from_utf8_lossy(&line[..index]);
+            if let Some(text) = self.consume_line(line.trim_end_matches('\r'))? {
                 deltas.push(text);
             }
         }
@@ -719,6 +721,7 @@ impl StreamParser {
 
     fn finish(&mut self) -> Result<Option<String>, String> {
         let line = std::mem::take(&mut self.buffer);
+        let line = String::from_utf8_lossy(&line);
         let line = line.trim();
         if line.is_empty() {
             return Ok(None);
@@ -1171,6 +1174,72 @@ mod tests {
         );
         assert!(anthropic_delta("{\"type\":\"error\",\"error\":{\"message\":\"nope\"}}").is_err());
         assert!(ollama_delta("{\"error\":\"missing\"}").is_err());
+    }
+
+    /// Feeds `stream` to a parser in pieces cut at every byte offset in `cuts`, as a network would.
+    fn parse_in_pieces(provider: AiProvider, stream: &str, cuts: &[usize]) -> String {
+        let bytes = stream.as_bytes();
+        let mut parser = StreamParser::new(provider);
+        let mut text = String::new();
+        let mut from = 0;
+        for &cut in cuts.iter().chain(std::iter::once(&bytes.len())) {
+            text.extend(parser.push(&bytes[from..cut]).unwrap());
+            from = cut;
+        }
+        text.extend(parser.finish().unwrap());
+        text
+    }
+
+    #[test]
+    fn a_character_split_between_chunks_is_not_garbled() {
+        let cases = [
+            (
+                AiProvider::Openai,
+                "data: {\"choices\":[{\"delta\":{\"content\":\"Café שלום 😀\"}}]}\n\ndata: [DONE]\n",
+            ),
+            (
+                AiProvider::Anthropic,
+                "event: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"Café שלום 😀\"}}\n\n",
+            ),
+            (
+                AiProvider::Ollama,
+                "{\"message\":{\"content\":\"Café שלום 😀\"},\"done\":false}\n{\"message\":{},\"done\":true}\n",
+            ),
+        ];
+        for (provider, stream) in cases {
+            // Cut inside every multi-byte character: each cut lands between a character's bytes.
+            let cuts: Vec<usize> = stream
+                .char_indices()
+                .filter(|(_, ch)| ch.len_utf8() > 1)
+                .map(|(at, _)| at + 1)
+                .collect();
+            assert_eq!(parse_in_pieces(provider, stream, &cuts), "Café שלום 😀");
+            // And one byte at a time.
+            let every: Vec<usize> = (1..stream.len()).collect();
+            assert_eq!(parse_in_pieces(provider, stream, &every), "Café שלום 😀");
+        }
+    }
+
+    #[test]
+    fn ollama_and_anthropic_streams_read_across_chunks() {
+        let ollama = "{\"message\":{\"content\":\"<p>Lo\"},\"done\":false}\n{\"message\":{\"content\":\"cal</p>\"},\"done\":false}\n{\"message\":{\"content\":\"\"},\"done\":true}";
+        assert_eq!(
+            parse_in_pieces(AiProvider::Ollama, ollama, &[10, 40, 75]),
+            "<p>Local</p>"
+        );
+        let anthropic = "event: message_start\ndata: {\"type\":\"message_start\"}\n\n: ping\nevent: content_block_delta\r\ndata: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"<p>Hi\"}}\r\n\r\ndata: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"</p>\"}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n";
+        assert_eq!(
+            parse_in_pieces(AiProvider::Anthropic, anthropic, &[7, 60, 130]),
+            "<p>Hi</p>"
+        );
+        // An error in the middle of a stream stops it with the provider's message.
+        let mut parser = StreamParser::new(AiProvider::Anthropic);
+        let err = parser
+            .push("data: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}\n")
+            .unwrap_err();
+        assert!(err.contains("Overloaded"));
+        let mut parser = StreamParser::new(AiProvider::Ollama);
+        assert!(parser.push("{\"error\":\"model not found\"}\n").is_err());
     }
 
     #[test]
