@@ -657,7 +657,14 @@ function pageSetupFromSection(section: SectionProps): PageSetup {
 
 type PageBorderSetup = Pick<
   PageSetup,
-  "border" | "borderColor" | "borderWidth" | "borderLine" | "borderDisplay" | "borderFrom" | "borderSpace"
+  | "border"
+  | "borderColor"
+  | "borderWidth"
+  | "borderLine"
+  | "borderDisplay"
+  | "borderFrom"
+  | "borderSpace"
+  | "borderSides"
 >
 
 const PAGE_BORDER_SIDES = ["top", "right", "bottom", "left"] as const
@@ -676,6 +683,7 @@ function pageBorderSetup(borders: PageBorders | undefined): PageBorderSetup {
       borderDisplay: DEFAULT_PAGE_SETUP.borderDisplay,
       borderFrom: DEFAULT_PAGE_SETUP.borderFrom,
       borderSpace: DEFAULT_PAGE_SETUP.borderSpace,
+      borderSides: DEFAULT_PAGE_SETUP.borderSides,
     }
   }
   const value = line.value
@@ -698,6 +706,10 @@ function pageBorderSetup(borders: PageBorders | undefined): PageBorderSetup {
     borderDisplay: borders.display === "firstPage" ? "first" : borders.display === "notFirstPage" ? "not-first" : "all",
     borderFrom: borders.offsetFrom === "page" ? "page" : "text",
     borderSpace: PAGE_BORDER_SIDES.map((side) => borders[side]?.space ?? 0),
+    borderSides: PAGE_BORDER_SIDES.filter((side) => {
+      const border = borders[side]
+      return border && border.value !== "none" && border.value !== "nil"
+    }),
   }
 }
 
@@ -710,7 +722,8 @@ function samePageBorder(left: PageBorderSetup, right: PageBorderSetup) {
         left.borderLine === right.borderLine &&
         left.borderDisplay === right.borderDisplay &&
         left.borderFrom === right.borderFrom &&
-        left.borderSpace.join(" ") === right.borderSpace.join(" ")))
+        left.borderSpace.join(" ") === right.borderSpace.join(" ") &&
+        left.borderSides.join(" ") === right.borderSides.join(" ")))
   )
 }
 
@@ -744,10 +757,10 @@ function pageBordersFrom(setup: PageSetup, base: PageBorders | undefined): PageB
         ? { display: "notFirstPage" as const }
         : {}),
     ...(setup.borderFrom === "page" ? { offsetFrom: "page" as const } : {}),
-    top: side(0),
-    left: side(3),
-    bottom: side(2),
-    right: side(1),
+    ...(setup.borderSides.includes("top") ? { top: side(0) } : {}),
+    ...(setup.borderSides.includes("left") ? { left: side(3) } : {}),
+    ...(setup.borderSides.includes("bottom") ? { bottom: side(2) } : {}),
+    ...(setup.borderSides.includes("right") ? { right: side(1) } : {}),
   }
 }
 

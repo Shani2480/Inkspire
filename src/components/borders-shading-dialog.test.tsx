@@ -362,6 +362,23 @@ describe("the Borders and Shading dialog (22.4)", () => {
     })
   })
 
+  it("leaves a side of the page border off from the preview, and draws one side alone from None (22.4)", () => {
+    useDocumentStore.getState().setPageSetup(DEFAULT_PAGE_SETUP)
+    const editor = make("<p>one</p>")
+    render(<BordersShadingHost />)
+    act(() => openBordersAndShading(editor, "page"))
+    fireEvent.click(screen.getByRole("button", { name: /Solid/ }))
+    fireEvent.click(screen.getByLabelText("Left Border"))
+    expect(screen.getByLabelText("Left Border").getAttribute("aria-pressed")).toBe("false")
+    fireEvent.click(screen.getByText("OK"))
+    expect(useDocumentStore.getState().pageSetup.borderSides).toEqual(["top", "right", "bottom"])
+    useDocumentStore.getState().setPageSetup(DEFAULT_PAGE_SETUP)
+    act(() => openBordersAndShading(editor, "page"))
+    fireEvent.click(screen.getByLabelText("Bottom Border"))
+    fireEvent.click(screen.getByText("OK"))
+    expect(useDocumentStore.getState().pageSetup).toMatchObject({ border: "single", borderSides: ["bottom"] })
+  })
+
   it("reads a table's inside lines back as All", () => {
     const editor = make(TABLE)
     editor.commands.setTextSelection(4)

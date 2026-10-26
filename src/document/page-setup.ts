@@ -9,6 +9,8 @@ export type BorderLine = "solid" | "dashed" | "dotted" | "groove" | "ridge"
 export type BorderDisplay = "all" | "first" | "not-first"
 /** What the page border's distances are measured from (Page Border > Options… > Measure from). */
 export type BorderFrom = "page" | "text"
+export type PageSide = "top" | "right" | "bottom" | "left"
+export const PAGE_SIDES: PageSide[] = ["top", "right", "bottom", "left"]
 export type PageNumberPlace = "none" | "bottom-center" | "bottom-right" | "top-center" | "top-right"
 export type SpacingPreset = "default" | "none" | "compact" | "tight" | "open" | "relaxed" | "double"
 export type EffectPreset = "" | "office" | "subtle" | "moderate" | "intense"
@@ -58,6 +60,8 @@ export type PageSetup = {
   borderFrom: BorderFrom
   /** The border's distance from the page edge or the text, in points: top, right, bottom, left. */
   borderSpace: number[]
+  /** The sides of the page that have the border (Page Border's preview); all four unless some were clicked off. */
+  borderSides: PageSide[]
   pageColor: string
   pageNumber: PageNumberPlace
   hyphenation: boolean
@@ -150,6 +154,7 @@ export const DEFAULT_PAGE_SETUP: PageSetup = {
   borderDisplay: "all",
   borderFrom: "page",
   borderSpace: [24, 24, 24, 24],
+  borderSides: PAGE_SIDES,
   pageColor: "",
   // No page number until one is put in the header or footer (Insert > Page Number), as in Word.
   pageNumber: "none",
@@ -190,6 +195,7 @@ export function normalizePageSetup(setup: Partial<PageSetup> | null | undefined)
     borderDisplay: borderDisplay(setup?.borderDisplay),
     borderFrom: setup?.borderFrom === "text" ? "text" : "page",
     borderSpace: borderSpace(setup?.borderSpace) ?? DEFAULT_PAGE_SETUP.borderSpace,
+    borderSides: pageSides(setup?.borderSides),
   }
 }
 
@@ -227,6 +233,7 @@ export function samePageSetup(left: PageSetup, right: PageSetup) {
     left.borderDisplay === right.borderDisplay &&
     left.borderFrom === right.borderFrom &&
     left.borderSpace.join(" ") === right.borderSpace.join(" ") &&
+    left.borderSides.join(" ") === right.borderSides.join(" ") &&
     left.pageColor === right.pageColor &&
     left.pageNumber === right.pageNumber &&
     left.hyphenation === right.hyphenation &&
@@ -430,9 +437,16 @@ export function borderSpace(value: unknown): number[] | null {
     : null
 }
 
+/** The page sides a value names, in order; all four when it names none it knows. */
+export function pageSides(value: unknown): PageSide[] {
+  const names = Array.isArray(value) ? value : typeof value === "string" ? value.split(/[\s,]+/) : []
+  const sides = PAGE_SIDES.filter((side) => names.includes(side))
+  return sides.length > 0 ? sides : PAGE_SIDES
+}
+
 /** Whether the page border is drawn on the page at this index (0 for the first). */
 export function showsPageBorder(setup: PageSetup, index: number) {
-  if (setup.border === "none") {
+  if (setup.border === "none" || setup.borderSides.length === 0) {
     return false
   }
   return setup.borderDisplay === "first" ? index === 0 : setup.borderDisplay === "not-first" ? index > 0 : true
@@ -460,6 +474,20 @@ export function pageBorderInset(setup: PageSetup) {
       ]
     }),
   ) as Record<(typeof sides)[number], string>
+}
+
+/**
+ * The page border's box as an inline style: its colour, where it sits (unless `placed` is false, as for the print
+ * frame, which the print stylesheet places), and no line on the sides it leaves out.
+ */
+export function pageBorderStyle(setup: PageSetup, placed = true) {
+  const off = Object.fromEntries(
+    PAGE_SIDES.filter((side) => !setup.borderSides.includes(side)).map((side) => [
+      `border${side[0].toUpperCase()}${side.slice(1)}Style`,
+      "none",
+    ]),
+  )
+  return { borderColor: setup.borderColor, ...(placed ? pageBorderInset(setup) : {}), ...off }
 }
 
 export function columnCount(value: unknown): ColumnCount {

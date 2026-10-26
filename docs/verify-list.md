@@ -7,6 +7,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Page border on some sides (22.4, 2026-10-26)** — a page border set in the app to top and bottom only opens in
+      Word the same (Page Border preview shows two sides); a Word page border on some sides opens so in the app.
 - [ ] **Edited Word cell shading (22.4, 2026-10-26)** — in a Word table with a patterned cell, a new fill set in the
       app saves with Word's pattern kept, and No Color + Clear saves an unshaded cell, as Word shows them.
 - [ ] **Table Grid border (22.4, 2026-10-26)** — a table set to Grid at 3 pt in the app opens in Word with the thick
@@ -50,6 +52,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [x] **Page Border sides from the preview (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Word cell shading in Borders and Shading (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Grid setting in Borders and Shading (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **3-D setting in Borders and Shading (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
