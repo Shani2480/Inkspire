@@ -14,7 +14,7 @@ import { ChromeBox, useChromePart } from "@/components/chrome-editors"
 import { chromeHasContent, chromeHasPageField } from "@/document/chrome-html"
 import { useActiveChromeEditor } from "@/document/chrome-editing"
 import { chromeText } from "@/document/chrome-html"
-import { applyPageChrome, pageMetrics } from "@/document/page-setup"
+import { applyPageChrome, pageBorderInset, pageMetrics, showsPageBorder } from "@/document/page-setup"
 import { useDocumentStore } from "@/document/store"
 import { clampZoom, useViewStore } from "@/document/view"
 import { useBodyEditor } from "@/editor/document-editor"
@@ -467,11 +467,11 @@ export function PageCanvas() {
                     <span key={corner} className={`page-crop-mark is-${corner}`} aria-hidden />
                   ))
                 : null}
-              {pageSetup.border !== "none" ? (
+              {showsPageBorder(pageSetup, index) ? (
                 <div
                   className="page-border"
                   data-border={pageSetup.border}
-                  style={{ borderColor: pageSetup.borderColor }}
+                  style={{ borderColor: pageSetup.borderColor, ...pageBorderInset(pageSetup) }}
                 />
               ) : null}
             </div>
@@ -481,7 +481,7 @@ export function PageCanvas() {
               <span>{pageSetup.watermark}</span>
             </div>
           ) : null}
-          {pageSetup.border !== "none" ? (
+          {pageSetup.border !== "none" && pageSetup.borderDisplay === "all" ? (
             <div
               className="print-frame"
               data-border={pageSetup.border}

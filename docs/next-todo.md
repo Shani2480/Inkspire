@@ -1603,6 +1603,12 @@ Source: the 48 top-level files in `screenshots/` taken on 2026-10-19 (`screensho
   (`textBorder` mark, `w:bdr` / `w:shd` in `w:rPr`). Left: patterns for table cells, 3-D, Grid, Page Border Art and
   scopes.
 
+  **Done 2026-10-26** (see `changes.md`): page borders are read from and saved to `.docx` (`w:pgBorders`, Word's
+  element kept while unchanged, art included); Page Border has Apply to (whole document, this section, first page
+  only, all except first) and Options… (margins, Measure from Text / Edge of page), drawn per page. Left: patterns
+  for table cells, 3-D, Grid, Page Border Art (drawn and offered), per-side page borders, the page Options check
+  boxes.
+
 #### 22.5 — Customize Ribbon and Quick Access Toolbar (screenshots 083125, 083136)
 
 - None exists. Two lists with "Choose commands from" (Popular, All, Not in the Ribbon, tabs…), Add / Remove, up/down, New Tab / New Group / Rename, Reset, Import/Export, per-tab visibility check boxes; Quick Access Toolbar with Separator, "Show Quick Access Toolbar", Toolbar Position (Above/Below Ribbon), "Always show command labels", For all documents / this document. Keep the choice in the user config.

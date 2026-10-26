@@ -7,6 +7,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Page borders in Word (22.4, 2026-10-26)** — a dashed red page border set in the app to All except first
+      page, 24 pt from the edge of the page, opens in Word the same (Page Border tab shows it); one measured from
+      Text sits as far from the text as in the app; a Word page border (and an Art one) is shown or kept after a
+      save from the app.
 - [ ] **Borders and shading on text (22.4, 2026-10-26)** — a word boxed with Shadow and a yellow fill in the app opens
       in Word the same (Borders and Shading shows Apply to: Text); a Word run with a box and shading looks the same in
       the app and keeps its line after an edit elsewhere in the paragraph.
@@ -37,6 +41,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [x] **Page Border Apply to and Options (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome (light).
 - [x] **Apply to Text in Borders and Shading (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Shading Patterns in Borders and Shading (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Paragraph box gap and Border and Shading Options (22.4, 2026-10-26)** — checked 2026-10-26 in headless

@@ -1057,6 +1057,16 @@ function generateSection(section: SectionProps) {
     }
     parts.push(`<w:lnNumType${attributes.length ? ` ${attributes.join(" ")}` : ""}/>`)
   }
+  if (section.pageBorders) {
+    const borders = section.pageBorders
+    const attributes = [
+      borders.zOrder ? `w:zOrder="${borders.zOrder}"` : "",
+      borders.display ? `w:display="${borders.display}"` : "",
+      borders.offsetFrom ? `w:offsetFrom="${borders.offsetFrom}"` : "",
+    ].filter(Boolean)
+    const sides = (["top", "left", "bottom", "right"] as const).map((side) => writeBorder(side, borders[side])).join("")
+    parts.push(`<w:pgBorders${attributes.length ? ` ${attributes.join(" ")}` : ""}>${sides}</w:pgBorders>`)
+  }
   const columns: string[] = []
   if (section.columnCount !== undefined) {
     columns.push(`w:num="${section.columnCount}"`)

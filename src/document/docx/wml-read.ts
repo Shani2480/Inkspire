@@ -76,6 +76,7 @@ import {
   type RunFonts,
   type RunProperties,
   type LineNumbering,
+  type PageBorders,
   type SectionProps,
   type Settings,
   type Spacing,
@@ -1456,6 +1457,29 @@ function readSectionModel(node: MarkupNode): SectionProps {
       lines.restart = restart
     }
     section.lineNumbers = lines
+  }
+  const borders = wordChild(node, "pgBorders")
+  if (borders) {
+    const pageBorders: PageBorders = {}
+    const display = oneOf(attr(borders, "display"), ["allPages", "firstPage", "notFirstPage"] as const)
+    const offsetFrom = oneOf(attr(borders, "offsetFrom"), ["page", "text"] as const)
+    const zOrder = oneOf(attr(borders, "zOrder"), ["front", "back"] as const)
+    if (display) {
+      pageBorders.display = display
+    }
+    if (offsetFrom) {
+      pageBorders.offsetFrom = offsetFrom
+    }
+    if (zOrder) {
+      pageBorders.zOrder = zOrder
+    }
+    for (const side of ["top", "left", "bottom", "right"] as const) {
+      const border = readBorder(wordChild(borders, side))
+      if (border) {
+        pageBorders[side] = border
+      }
+    }
+    section.pageBorders = pageBorders
   }
   const columns = wordChild(node, "cols")
   if (columns) {
