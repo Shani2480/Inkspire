@@ -5,6 +5,22 @@ wrong or missing, what changed, where (files, tests), how it was checked, and wh
 story of each feature stays in `next-todo.md` under its section; `verify-list.md` holds what still needs a check
 in Word, Chrome or the desktop app.
 
+## 2026-10-27
+
+### Right-clicking a selected table, column or row keeps it selected
+
+- **Bug:** right-clicking a fully selected table, column or row dropped the selection, so the menu looked as if it
+  would act on one cell. The table menu decided whether the click was inside the selection from the selection's
+  `from` and `to`, which for a cell selection cover only its first cell. Every other selected cell counted as
+  outside, and the caret moved there. Also, with cells selected, a right-click in the text outside the table was
+  taken by the table menu's "act on the selection" fallback, so it showed nothing useful and kept the cells selected.
+- **Changed:** `insideSelection` (`object-context-menu.tsx`) checks each selected cell. A right-click on a selected
+  cell keeps the selection; anywhere else in the table the caret moves to the click. Outside the table the text menu
+  opens and moves the caret there (`text-context-menu.tsx`), as in Word.
+- **Checked:** unit test in `table-properties-dialog.test.tsx`. Headless Chrome: whole table (6 cells), a column and
+  a row each stay selected through a right-click on them; a right-click on another cell, or in the text below,
+  unselects them and opens a single menu.
+
 ## 2026-10-26
 
 ### Table Properties: on the table's right-click, laid out as Word's dialog

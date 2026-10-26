@@ -1,4 +1,6 @@
+import { insideSelection } from "@/components/object-context-menu"
 import { openTableProperties } from "@/components/table-properties-dialog"
+import { CellSelection } from "@tiptap/pm/tables"
 import { openBordersAndShading } from "@/components/borders-shading-dialog"
 import { askText } from "@/components/text-prompt"
 import { MenuLabel } from "@/components/menu-icons"
@@ -43,6 +45,11 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
       }
       event.preventDefault()
       event.stopPropagation()
+      // Selected cells stay selected only for a right-click on them; elsewhere the caret goes to the click, as in Word.
+      const hit = editor.view.posAtCoords({ left: event.clientX, top: event.clientY })
+      if (editor.state.selection instanceof CellSelection && hit && !insideSelection(editor, hit.pos)) {
+        editor.commands.setTextSelection(hit.pos)
+      }
       rememberSelection(editor)
       setQuery("")
       setPasteOpen(false)
