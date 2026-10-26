@@ -7,6 +7,20 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### Borders and Shading > Setting: 3-D for a paragraph (22.4, seventh part)
+
+- **Missing:** the Setting column had no 3-D; Word's frame effect on a border (`w:frame`, what 3-D writes) was not
+  read or written, so a Word paragraph set to 3-D lost it once edited.
+- **Changed:** `Border` has `frame`, read and written after `w:shadow` (`model.ts`, `wml-read.ts`, `wml-write.ts`);
+  a paragraph has `borderFrame` (`block-format.ts` on both sides, `home-actions.ts` keys and Clear Formatting). The
+  dialog lists 3-D for a paragraph, opens on it and applies it; Box, Shadow or an edge click drops it. The frame
+  effect only changes how two-line and 3-D line styles are drawn, none of which the dialog offers, so a 3-D box is
+  drawn as the box, as Word draws a single line.
+- **Tests:** `paragraph-box.test.ts` (writes `w:frame` on four sides, opens it again, none without it),
+  `borders-shading-dialog.test.tsx` (3-D applied, reopened, dropped for Box; not offered in a table), `settingOf`.
+  All 788 pass; typecheck, ESLint and Prettier clean.
+- **Checked:** headless Chrome: 3-D in the Setting column under Shadow, selected and applied.
+
 ### Shading patterns for table cells (22.4, sixth part)
 
 - **Missing:** Shading > Patterns worked for a paragraph or text only; inside a table it was greyed out. A Word

@@ -58,6 +58,7 @@ describe("settings and edges", () => {
     expect(settingOf(new Set(["top"]), false)).toBe("custom")
     expect(settingOf(edgesOf("shadow", new Set()), false, true)).toBe("shadow")
     expect(settingOf(edgesOf("box", new Set()), true, true)).toBe("box")
+    expect(settingOf(edgesOf("3d", new Set()), false, false, true)).toBe("3d")
   })
 
   it("keeps Word's own gaps as no value", () => {
@@ -179,6 +180,29 @@ describe("the Borders and Shading dialog (22.4)", () => {
       borderPen: "2px dotted #404040",
       borderShadow: true,
     })
+  })
+
+  it("gives a paragraph Word's 3-D box, opens on it, and drops it for Box (22.4)", () => {
+    const editor = make("<p>one</p>")
+    editor.commands.setTextSelection(2)
+    render(<BordersShadingHost />)
+    act(() => openBordersAndShading(editor))
+    fireEvent.click(screen.getByRole("button", { name: "3-D" }))
+    fireEvent.click(screen.getByText("OK"))
+    expect(editor.state.doc.firstChild?.attrs).toMatchObject({ border: "all", borderFrame: true, borderShadow: false })
+    act(() => openBordersAndShading(editor))
+    expect(screen.getByRole("button", { name: "3-D" }).getAttribute("aria-pressed")).toBe("true")
+    fireEvent.click(screen.getByRole("button", { name: "Box" }))
+    fireEvent.click(screen.getByText("OK"))
+    expect(editor.state.doc.firstChild?.attrs).toMatchObject({ border: "all", borderFrame: false })
+  })
+
+  it("offers 3-D for a paragraph only", () => {
+    const editor = make(TABLE)
+    editor.commands.setTextSelection(4)
+    render(<BordersShadingHost />)
+    act(() => openBordersAndShading(editor))
+    expect(screen.queryByRole("button", { name: "3-D" })).toBeNull()
   })
 
   it("applies a new pen alone to the lines already drawn, and opens on the Shadow box", () => {

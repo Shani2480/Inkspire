@@ -1250,6 +1250,9 @@ function readBorder(node: MarkupNode | undefined): Border | undefined {
   if (isOn(attr(node, "shadow"))) {
     border.shadow = true
   }
+  if (isOn(attr(node, "frame"))) {
+    border.frame = true
+  }
   return border
 }
 
