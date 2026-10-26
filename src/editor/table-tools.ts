@@ -1,4 +1,4 @@
-import { sidePensOf, sidePensValue } from "@/document/docx/cell-edits"
+import { sidePensOf, sidePensValue, wordShadingOf } from "@/document/docx/cell-edits"
 import { patternImage, patternOf } from "@/document/docx/shading-pattern"
 import type { Editor } from "@tiptap/core"
 import { Table, TableCell, TableHeader, TableRow, TableView } from "@tiptap/extension-table"
@@ -21,9 +21,20 @@ const backgroundColor = {
 const shadingPattern = {
   default: null as string | null,
   parseHTML: (element: HTMLElement) => element.getAttribute("data-shading-pattern"),
-  renderHTML: (attributes: { shadingPattern?: string | null }) => {
+  renderHTML: (attributes: { shadingPattern?: string | null; wordShading?: string | null }) => {
+    // A Word cell draws its own pattern inline; what the app sets is drawn inline over it.
+    const overWord = Boolean(wordShadingOf(attributes.wordShading).pattern)
+    if (attributes.shadingPattern === "clear") {
+      return overWord ? { "data-shading-pattern": "clear", style: "background-image: none" } : {}
+    }
     const image = patternImage(attributes.shadingPattern)
-    return image ? { "data-shading-pattern": attributes.shadingPattern, style: `--cell-pattern: ${image}` } : {}
+    if (!image) {
+      return {}
+    }
+    return {
+      "data-shading-pattern": attributes.shadingPattern,
+      style: `--cell-pattern: ${image}${overWord ? "; background-image: var(--cell-pattern)" : ""}`,
+    }
   },
 }
 
@@ -197,6 +208,17 @@ const wordCell = {
     attributes.wordCell ? { "data-word-cell": attributes.wordCell, style: attributes.wordCell } : {},
 }
 
+/**
+ * A Word cell's own fill and pattern, as "#rrggbb pattern #rrggbb" (any part may be "-"), for Borders and Shading to
+ * open on. Word's cell draws them through `wordCell`; this is only read, never saved.
+ */
+const wordShading = {
+  default: null as string | null,
+  parseHTML: (element: HTMLElement) => element.getAttribute("data-word-shading"),
+  renderHTML: (attributes: { wordShading?: string | null }) =>
+    attributes.wordShading ? { "data-word-shading": attributes.wordShading } : {},
+}
+
 function setStyleFlag(table: HTMLTableElement, name: string, on: unknown) {
   if (on) {
     table.setAttribute(`data-${name}`, "1")
@@ -299,6 +321,9 @@ export const ShadedTableCell = TableCell.extend({
   addAttributes() {
     return {
       ...this.parent?.(),
+      // First, so what is set in the app (a fill, a pattern) is drawn over what the Word cell had.
+      wordCell,
+      wordShading,
       backgroundColor,
       shadingPattern,
       borders,
@@ -306,7 +331,6 @@ export const ShadedTableCell = TableCell.extend({
       sidePens,
       textDir,
       valign,
-      wordCell,
     }
   },
 })
@@ -315,6 +339,9 @@ export const ShadedTableHeader = TableHeader.extend({
   addAttributes() {
     return {
       ...this.parent?.(),
+      // First, so what is set in the app (a fill, a pattern) is drawn over what the Word cell had.
+      wordCell,
+      wordShading,
       backgroundColor,
       shadingPattern,
       borders,
@@ -322,7 +349,6 @@ export const ShadedTableHeader = TableHeader.extend({
       sidePens,
       textDir,
       valign,
-      wordCell,
     }
   },
 })
@@ -884,11 +910,22 @@ export function readScopedBorders(editor: Editor, scope: TableScope) {
     penLine(insidePens[0]!) !== penLine(pen)
       ? insidePens[0]!
       : null
+  // What was set in the app, else what the Word cell had.
   const fills = new Set(
-    cells.map((cell) => (typeof cell.attrs.backgroundColor === "string" ? cell.attrs.backgroundColor : null)),
+    cells.map((cell) =>
+      cell.attrs.backgroundColor === "transparent"
+        ? null
+        : typeof cell.attrs.backgroundColor === "string"
+          ? cell.attrs.backgroundColor
+          : wordShadingOf(cell.attrs.wordShading).fill,
+    ),
   )
   const patterns = new Set(
-    cells.map((cell) => (typeof cell.attrs.shadingPattern === "string" ? cell.attrs.shadingPattern : null)),
+    cells.map((cell) =>
+      typeof cell.attrs.shadingPattern === "string"
+        ? patternOf(cell.attrs.shadingPattern) && cell.attrs.shadingPattern
+        : wordShadingOf(cell.attrs.wordShading).pattern,
+    ),
   )
   return {
     edges,
@@ -919,7 +956,13 @@ export function shadeScope(
   for (const offset of found.offsets) {
     const node = found.table.node.nodeAt(offset)
     if (node) {
-      tr = tr.setNodeMarkup(found.table.start + offset, undefined, { ...node.attrs, ...patch })
+      // Clearing what a Word cell had is kept as such, so the cell does not fall back to Word's own on screen or save.
+      const word = wordShadingOf(node.attrs.wordShading)
+      const cleared = {
+        ...(patch.backgroundColor === null && word.fill ? { backgroundColor: "transparent" } : {}),
+        ...(patch.shadingPattern === null && word.pattern ? { shadingPattern: "clear" } : {}),
+      }
+      tr = tr.setNodeMarkup(found.table.start + offset, undefined, { ...node.attrs, ...patch, ...cleared })
     }
   }
   editor.view.dispatch(tr)

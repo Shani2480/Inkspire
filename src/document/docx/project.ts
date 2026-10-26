@@ -3,7 +3,7 @@ import type { DocumentChrome } from "@/document/header"
 import { emptyChrome } from "@/document/header"
 import { chromeHasContent, chromeHasPageField } from "@/document/chrome-html"
 import { chromeJson } from "@/document/chrome-json"
-import { bordersOf, shadingOf, sidePensOf } from "@/document/docx/cell-edits"
+import { bordersOf, editedShading, sidePensOf, wordShadingValue } from "@/document/docx/cell-edits"
 import { cellCss, tableLookTokens, tableVariables, themeFontsOf } from "@/document/docx/word-styles"
 import type { PageSetup, PaperSize, SectionStart } from "@/document/page-setup"
 import { DEFAULT_PAGE_SETUP } from "@/document/page-setup"
@@ -529,7 +529,9 @@ function tableHtml(table: Table, ctx: Projection) {
           const valign = cell.look?.vAlign === "center" ? "middle" : cell.look?.vAlign === "bottom" ? "bottom" : ""
           const look = cellCss({ borders: cell.look?.borders, margins: cell.look?.margins, shading: cell.shading })
           const word = look.length > 0 ? ` data-word-cell="${escapeAttribute(look.join("; "))}"` : ""
-          return `<td${span}${rowspan}${colwidth}${valign ? ` data-valign="${valign}"` : ""}${word}>${inner}</td>`
+          const shade = wordShadingValue(cell.shading)
+          const shading = shade ? ` data-word-shading="${shade}"` : ""
+          return `<td${span}${rowspan}${colwidth}${valign ? ` data-valign="${valign}"` : ""}${word}${shading}>${inner}</td>`
         })
         .join("")
       const height = row.height ? ` style="height: ${Math.round(row.height.value / TWIP_PER_PX)}px"` : ""
@@ -1436,7 +1438,7 @@ function tableFromNode(node: JsonNode, build: Build): Table {
 
 /** The fill and borders the person gave a cell in the editor. */
 function shadedAndBordered(attrs: JsonNode["attrs"]) {
-  const shading = shadingOf(attrs?.backgroundColor, attrs?.shadingPattern)
+  const shading = editedShading(attrs)
   const borders = bordersOf(attrs?.borders, attrs?.borderPen, sidePensOf(attrs?.sidePens))
   return {
     ...(shading ? { shading } : {}),

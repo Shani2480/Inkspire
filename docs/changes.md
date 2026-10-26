@@ -7,6 +7,26 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### A Word cell's fill and pattern: Borders and Shading opens on them, and changes to them show and save (22.4)
+
+- **Wrong / missing:** in a Word document a cell's shading is drawn from Word's own cell style (`wordCell`), which
+  the editor merged after the app's attributes, so a new fill on a Word cell did not show (it was saved). Borders and
+  Shading opened on no fill and no pattern for such a cell. No Color or a Clear pattern on it fell back to Word's
+  shading on save, and setting only the fill or only the pattern lost the other half of Word's `w:shd`.
+- **Changed:** Word's cell style is merged first, so what is set in the app is drawn over it (`table-tools.ts`).
+  A Word cell carries its shading as `data-word-shading` (fill, pattern, colour; `wordShadingValue` in
+  `cell-edits.ts`, written in `project.ts`), only read, never saved; `readScopedBorders` falls back to it. Clearing
+  what a Word cell had is kept as `transparent` / `clear` (`shadeScope`), drawn as none. Saving merges what the app
+  set with what Word had (`editedShading`), so a fill alone keeps Word's pattern and a cleared cell writes an
+  empty `w:shd`. A new pattern on a Word cell with a pattern of its own is drawn inline over it.
+- **Tests:** `word-cell-shading.test.ts` (made, saved, opened as a Word document: the dialog reads it; a new fill
+  shows and keeps the pattern; clearing both shows and saves none; a new pattern shows and keeps the fill). All 794
+  pass; typecheck, ESLint and Prettier clean.
+- **Checked:** headless Chrome: opened a .docx with a yellow cell with red stripes; Borders and Shading opened on Dk
+  Up Diagonal; a red fill then showed with Word's stripes kept.
+- **Open:** clearing the pattern of a Word cell that also has diagonal borders hides its diagonals on screen until
+  reopened.
+
 ### Borders and Shading > Setting: Grid for a table (22.4, eighth part)
 
 - **Missing:** for a table the Setting column had None, Box, All and Custom; Word's Grid (the chosen line outside,
