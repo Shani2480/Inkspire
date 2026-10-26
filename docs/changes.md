@@ -7,6 +7,18 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### A right-click in a table acts on the cell clicked, not the whole table
+
+- **Wrong:** a right-click anywhere inside a table selected the whole table (`object-context-menu.tsx`,
+  `targetAtPoint`), so Borders and Shading with Apply to: Cell, Merge Cells and the other menu commands changed every
+  cell instead of the one clicked. Found while checking cell shading patterns in Chrome.
+- **Changed:** a right-click in a table puts the caret where it was clicked, as Word does, or keeps the selection
+  when the click falls inside it (selected cells stay selected); the table menu still opens.
+- **Tests:** `object-context-menu.test.tsx` (the caret lands in the second cell; jsdom's click point is stubbed).
+  All 785 pass.
+- **Checked:** headless Chrome: a right-click in a new 3×2 table leaves no cells selected, and Borders and Shading
+  then shades only that cell.
+
 ### Page borders in .docx, with Apply to and Options… (22.4, fifth part)
 
 - **Missing:** a page border lived only in the app's own file. A Word document's page border (`w:pgBorders`) was

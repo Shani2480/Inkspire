@@ -1609,6 +1609,9 @@ Source: the 48 top-level files in `screenshots/` taken on 2026-10-19 (`screensho
   for table cells, 3-D, Grid, Page Border Art (drawn and offered), per-side page borders, the page Options check
   boxes.
 
+  **Fixed 2026-10-26** (see `changes.md`): a right-click in a table selected the whole table, so Apply to: Cell
+  from the table menu changed every cell; it now puts the caret in the cell clicked.
+
 #### 22.5 — Customize Ribbon and Quick Access Toolbar (screenshots 083125, 083136)
 
 - None exists. Two lists with "Choose commands from" (Popular, All, Not in the Ribbon, tabs…), Add / Remove, up/down, New Tab / New Group / Rename, Reset, Import/Export, per-tab visibility check boxes; Quick Access Toolbar with Separator, "Show Quick Access Toolbar", Toolbar Position (Above/Below Ribbon), "Always show command labels", For all documents / this document. Keep the choice in the user config.

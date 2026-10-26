@@ -41,6 +41,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [x] **Right-click in a table keeps to the cell (2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Page Border Apply to and Options (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome (light).
 - [x] **Apply to Text in Borders and Shading (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Shading Patterns in Borders and Shading (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
