@@ -7,6 +7,23 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### Box & Whisker charts (22.6)
+
+- **Missing:** Insert Chart had no Box & Whisker.
+- **Changed:** a Box & Whisker family with Word's sample (three schools' scores, one row per student, the course in
+  the first column). Rows with the same category label form a group, and each series gives a box per group
+  (`boxGroups` in `chart-expand.ts`). Quartiles use Word's default exclusive median (`boxStats`). Whiskers reach the
+  furthest values within 1.5 × the interquartile range, the values beyond are circles, the median is a line and the
+  mean an ×; with data labels on, each statistic is labelled beside its box, as in Word. It is drawn by its own
+  painter (`boxWhisker` in `chart-spec.ts`) with the value axis, gridlines, course labels and legend. Word has no such
+  chart outside `chartex`, so the .docx gets the medians as a clustered column chart, and the app reopens it as Box &
+  Whisker while Word has not changed the data. Tests: quartiles for odd and even counts, outliers, grouping, drawing,
+  the medians given to Word, the .docx round trip (`chart-expand.test.ts`, `chart-docx.test.ts`). Checked in headless
+  Chrome: the Insert Chart preview and the inserted chart with the sample.
+- **Open:** no inclusive-median option, no inner points, no `chartex` (Word shows the medians as columns). A React
+  "error during concurrent rendering … recovered" is logged on every page load, before and after this change; its
+  cause is not yet looked at.
+
 ### Histogram, Waterfall and Funnel come back as themselves from a saved .docx (22.6)
 
 - **Bug:** these charts are written to Word's chart part as the chart they are drawn as (bins, running totals,

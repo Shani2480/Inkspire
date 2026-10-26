@@ -7,6 +7,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Box & Whisker (22.6, 2026-10-26)** — a Box & Whisker chart saved from the app opens in Word as a clustered
+      column chart of the medians (Word cannot be given the box itself without `chartex`).
 - [ ] **Stock charts (22.6, 2026-10-26)** — a High-Low-Close and an Open-High-Low-Close chart saved from the app open
       in Word as stock charts (Change Chart Type shows Stock) with the same lines, ticks and up/down bars; a Word
       stock chart opens in the app as Stock.
@@ -61,6 +63,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 ## Needs Chrome (the web build in a browser)
 
 - [x] **Stock charts and Insert Chart previews (22.6, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
+- [x] **Box & Whisker chart (22.6, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Header & Footer Previous / Next (2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Tall header or footer pushes the body (2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Page border Options check boxes (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
