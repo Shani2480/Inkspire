@@ -4,9 +4,14 @@ import { useChromeExtent } from "@/document/chrome-extent"
 import { pageMetrics } from "@/document/page-setup"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
+import { floatPlace, floatSide, parseFloatValue, type FloatFrame } from "@/editor/table-float"
+import { PX_PER_CM } from "@/editor/table-props"
+import type { PageMetrics } from "@/document/page-setup"
 import {
   isFloating,
   objectAnchoring,
+  objectLeft,
+  objectTop,
   objectWrap,
   placeFlowObjects,
   wrapGaps,
@@ -255,6 +260,7 @@ function paginationPlugin(storage: PaginationStorage) {
                 forceFull = true
               }
               placeFlowObjects(view, laid.placements)
+              placeFloatingTables(view, laid.tables, metrics)
               storage.pageCount = laid.pageCount
               storage.breaks = laid.breaks.map((item) => item.pos)
               storage.lines = lines
@@ -642,6 +648,8 @@ type Layout = {
   bands: FlowBand[]
   /** Where each object that moves with text lands: its paragraph's place plus its offset. */
   placements: { pos: number; page: number; y: number }[]
+  /** Where each table that text wraps around lands (Around, 22.10). */
+  tables: TablePlacement[]
   /** Changes when the floats text wraps beside change, which reshapes the lines after them. */
   sideKey: string
   lastUsed: number
@@ -652,6 +660,8 @@ type Layout = {
   measureCount: number
   cacheHits: number
 }
+
+type TablePlacement = { pos: number; page: number; x: number; y: number }
 
 type FlowBand = {
   pos: number
@@ -690,6 +700,22 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   const contentWidth = metrics.width - metrics.marginLeft - metrics.marginRight
   const pending = collectBands(view, contentHeight, contentWidth)
   const placements: { pos: number; page: number; y: number }[] = []
+  const tables: TablePlacement[] = []
+  // Tables placed on the page or margin take their room before the text above their paragraph is laid out; the
+  // page is the one the last layout found for them (a change lays the pages out again).
+  view.state.doc.forEach((node, pos) => {
+    const float = node.type.name === "table" ? parseFloatValue(node.attrs.float) : null
+    if (!float || float.vFrom === "paragraph") {
+      return
+    }
+    const table = floatingTableElement(view, pos)
+    const page = Number(table?.dataset.floatPage) || 1
+    const band = table ? tableBand(table, float, page, 0, metrics) : null
+    if (band) {
+      pending.push(band.band)
+    }
+  })
+  pending.sort((a, b) => a.page - b.page || a.y - b.y)
   const mirrors: Layout["mirrors"] = []
   const seen = new Set<number>()
   let used = 0
@@ -940,6 +966,24 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       return
     }
 
+    const float = node.type.name === "table" ? parseFloatValue(node.attrs.float) : null
+    if (float) {
+      // A table text wraps around takes no room in the flow either: it lands at its paragraph (the next block) plus
+      // its offset, or at its place on this page, and the text makes room beside it.
+      const table = floatingTableElement(view, pos)
+      if (!table) {
+        ready = false
+        return
+      }
+      const page = breaks.length + 1
+      const laid = tableBand(table, float, page, used, metrics)
+      tables.push({ pos, page, x: laid.x, y: laid.y })
+      if (float.vFrom === "paragraph") {
+        pending.push(laid.band)
+      }
+      return
+    }
+
     if (isFloating(node)) {
       // A floating object takes no room in the flow. One that moves with text lands at its anchor, the paragraph
       // that follows it, plus its offset; the text then makes room for it from there.
@@ -1071,6 +1115,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     breaks,
     bands,
     placements,
+    tables,
     sideKey,
     lastUsed,
     contentHeight,
@@ -1083,6 +1128,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       bands.map((item) => `${item.pos}:${item.height}`).join(","),
       sideKey,
       placements.map((item) => `${item.pos}:${item.page}:${item.y}`).join(","),
+      tables.map((item) => `${item.pos}:${item.page}:${item.x}:${item.y}`).join(","),
       mirrors.map((item) => `${item.pos}:${item.page % 2}`).join(","),
       columnCount,
       useDocumentStore.getState().pageSetup.columnGap,
@@ -1197,6 +1243,59 @@ function bandFor(
       })
     : undefined
   return { page: Math.max(1, page), y, height: Math.round(height), placed: false, side: { ...band, shape } }
+}
+
+function floatingTableElement(view: EditorView, pos: number) {
+  const dom = view.nodeDOM(pos)
+  const table = dom instanceof HTMLElement ? (dom.matches("table") ? dom : dom.querySelector("table")) : null
+  return table instanceof HTMLElement ? table : null
+}
+
+/** Where a table text wraps around lands on `page`, and the room the text leaves beside it. */
+function tableBand(
+  table: HTMLElement,
+  float: NonNullable<ReturnType<typeof parseFloatValue>>,
+  page: number,
+  used: number,
+  metrics: PageMetrics,
+) {
+  const frame: FloatFrame = {
+    ...metrics,
+    pageWidth: metrics.width,
+    pageHeight: metrics.height,
+    page,
+    paragraphTop: used,
+  }
+  const width = table.offsetWidth
+  const height = table.offsetHeight
+  const { x, y } = floatPlace(float, width, height, frame)
+  const contentWidth = metrics.width - metrics.marginLeft - metrics.marginRight
+  const top = y - float.gaps.top * PX_PER_CM
+  const from = Math.max(0, Math.min(metrics.contentHeight - 8, top))
+  const reach = Math.min(y + height + float.gaps.bottom * PX_PER_CM, metrics.contentHeight) - from
+  const band: PendingBand = {
+    page,
+    y: Math.round(from),
+    height: Math.max(0, Math.round(reach)),
+    placed: false,
+    side: floatSide(x, width, float.gaps, contentWidth),
+  }
+  return { x, y, band }
+}
+
+/** Draws each table text wraps around at the place the layout found for it (see `drawTableFloat`). */
+function placeFloatingTables(view: EditorView, tables: TablePlacement[], metrics: PageMetrics) {
+  for (const placed of tables) {
+    const table = floatingTableElement(view, placed.pos)
+    if (!table) {
+      continue
+    }
+    table.dataset.floatPage = String(placed.page)
+    table.dataset.floatLeft = String(Math.round(objectLeft(placed.page, placed.x, metrics)))
+    table.dataset.floatTop = String(Math.round(objectTop(placed.page, placed.y, metrics)))
+    table.style.left = `${table.dataset.floatLeft}px`
+    table.style.top = `${table.dataset.floatTop}px`
+  }
 }
 
 function containsPageBreak(node: ProseNode) {

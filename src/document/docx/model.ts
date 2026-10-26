@@ -615,6 +615,20 @@ export type TableRow = {
   /** w:tblPrEx as written. */
   exceptionSource?: ElementSource
 }
+/** w:tblpPr: a table text wraps around, and where it sits. Distances are in twips. */
+export type TablePosition = {
+  leftFromText?: number
+  rightFromText?: number
+  topFromText?: number
+  bottomFromText?: number
+  vertAnchor?: "text" | "margin" | "page"
+  horzAnchor?: "text" | "margin" | "page"
+  tblpXSpec?: "left" | "center" | "right" | "inside" | "outside"
+  tblpX?: number
+  tblpYSpec?: "inline" | "top" | "center" | "bottom" | "inside" | "outside"
+  tblpY?: number
+}
+
 export type Table = {
   kind: "table"
   /** w:tblStyle. */
@@ -622,6 +636,9 @@ export type Table = {
   /** w:tblPr as written. */
   source?: ElementSource
   width?: TableWidth
+  /** w:tblpPr and w:tblOverlap: text wraps around the table. */
+  position?: TablePosition
+  overlap?: "never" | "overlap"
   /** w:tblInd and w:tblCellSpacing. */
   indent?: TableWidth
   cellSpacing?: TableWidth
@@ -1370,6 +1387,8 @@ export function paragraphPropertiesInput(paragraph: Paragraph) {
 export function tablePropertiesInput(table: Table) {
   return {
     styleId: table.styleId,
+    position: table.position,
+    overlap: table.overlap,
     width: table.width,
     indent: table.indent,
     cellSpacing: table.cellSpacing,

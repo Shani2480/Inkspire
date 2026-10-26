@@ -3,7 +3,14 @@ import { emptyChrome } from "@/document/header"
 import { openDocxBytes, saveDocxBytes } from "@/document/docx/io"
 import { findPart, openPackage } from "@/document/docx/opc"
 import { decodeXml } from "@/document/docx/xml"
-import { marginsFromWord, marginsToWord, preferredFromWord, preferredToWord } from "@/document/docx/table-props-docx"
+import {
+  floatFromWord,
+  floatToWord,
+  marginsFromWord,
+  marginsToWord,
+  preferredFromWord,
+  preferredToWord,
+} from "@/document/docx/table-props-docx"
 import { marginsValue, parseMargins, parsePreferredWidth, preferredWidthValue } from "@/editor/table-props"
 
 const paragraph = { type: "paragraph", content: [{ type: "text", text: "x" }] }
@@ -90,5 +97,49 @@ describe("Table Properties values (22.10)", () => {
     for (const name of ["tblInd", "tblCellSpacing", "tblCellMar", "cantSplit", "noWrap", "tcMar", "tcFitText"]) {
       expect(xml).not.toContain(`<w:${name}`)
     }
+  })
+
+  it("reads Word's w:tblpPr with its defaults, and keeps it unchanged while the editor shows the same", () => {
+    const position = { leftFromText: 180, rightFromText: 180, vertAnchor: "text" as const, tblpY: 1 }
+    const float = floatFromWord(position)!
+    expect(float).toMatchObject({ h: 0, hFrom: "column", v: 0, vFrom: "paragraph", overlap: true })
+    expect(float.gaps).toEqual({ top: 0, bottom: 0, left: 0.32, right: 0.32 })
+    expect(floatToWord(float, { position }).position).toBe(position)
+    // Down from the margin when Word leaves the anchor out.
+    expect(floatFromWord({ tblpXSpec: "center", tblpYSpec: "bottom" })).toMatchObject({
+      h: "center",
+      v: "bottom",
+      vFrom: "margin",
+    })
+    expect(floatToWord({ ...float, h: "right", overlap: false }, { position })).toEqual({
+      position: {
+        leftFromText: 181,
+        rightFromText: 181,
+        vertAnchor: "text",
+        horzAnchor: "text",
+        tblpXSpec: "right",
+        tblpY: 0,
+      },
+      overlap: "never",
+    })
+    expect(floatToWord(null, { position })).toEqual({})
+  })
+
+  it("saves a table text wraps around as w:tblpPr first in w:tblPr, and opens it again", async () => {
+    const float = {
+      h: 2,
+      hFrom: "margin",
+      v: "top",
+      vFrom: "page",
+      gaps: { top: 0.2, bottom: 0, left: 0.32, right: 0.32 },
+      overlap: false,
+    }
+    const { bytes, xml } = await save({ float })
+    expect(xml).toContain(
+      '<w:tblPr><w:tblpPr w:leftFromText="181" w:rightFromText="181" w:topFromText="113" w:vertAnchor="page" w:horzAnchor="margin" w:tblpX="1134" w:tblpYSpec="top"/><w:tblOverlap w:val="never"/>',
+    )
+    const { view } = await openDocxBytes(bytes, "t.docx")
+    const attribute = /data-float="([^"]+)"/.exec(view.html)?.[1]?.replaceAll("&quot;", '"')
+    expect(JSON.parse(attribute!)).toEqual(float)
   })
 })

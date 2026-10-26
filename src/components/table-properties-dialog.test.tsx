@@ -3,7 +3,7 @@ import { Editor } from "@tiptap/core"
 import { StarterKit } from "@tiptap/starter-kit"
 import { afterEach, describe, expect, it } from "vitest"
 import { insideSelection } from "@/components/object-context-menu"
-import { TablePropertiesHost, openTableProperties } from "@/components/table-properties-dialog"
+import { TablePropertiesHost, openTableProperties, parsePlace } from "@/components/table-properties-dialog"
 import { CellSelection } from "@tiptap/pm/tables"
 import { applyTableDialog, tableDialogState } from "@/editor/table-dialog"
 import { FramedTable, ShadedTableCell, ShadedTableHeader, SizedTableRow } from "@/editor/table-tools"
@@ -176,5 +176,41 @@ describe("Table Properties (22.10)", () => {
     editor.commands.setTextSelection(cells[0]! + 2)
     expect(insideSelection(editor, cells[0]! + 2)).toBe(false)
     editor.destroy()
+  })
+
+  it("sets text wrapping Around with Word's defaults, places it in Table Positioning, and Remove Positioning clears it", () => {
+    const editor = make()
+    render(<TablePropertiesHost />)
+    act(() => openTableProperties(editor, "table"))
+    expect((screen.getByRole("button", { name: "Positioning..." }) as HTMLButtonElement).disabled).toBe(true)
+    fireEvent.click(screen.getByRole("button", { name: "Around" }))
+    expect((screen.getByLabelText("Indent from left:") as HTMLInputElement).disabled).toBe(true)
+    fireEvent.click(screen.getByRole("button", { name: "Positioning..." }))
+    const position = screen.getByLabelText("Position:", { selector: "#tp-h-pos" }) as HTMLInputElement
+    fireEvent.change(position, { target: { value: "center" } })
+    fireEvent.blur(position)
+    fireEvent.click(screen.getByLabelText("Move with text"))
+    fireEvent.click(screen.getByLabelText("Allow overlap"))
+    fireEvent.click(screen.getAllByText("OK").at(-1)!)
+    fireEvent.click(screen.getByText("OK"))
+    expect(table(editor).attrs.float).toMatchObject({ h: "center", hFrom: "column", vFrom: "margin", overlap: false })
+    // The columns keep their widths once the table is out of the text.
+    expect(cellAt(editor, 0, 1).attrs.colwidth).toEqual([200])
+    act(() => openTableProperties(editor, "table"))
+    expect(screen.getByRole("button", { name: "Center" }).getAttribute("aria-pressed")).toBe("true")
+    fireEvent.click(screen.getByRole("button", { name: "Positioning..." }))
+    fireEvent.click(screen.getByRole("button", { name: "Remove Positioning" }))
+    fireEvent.click(screen.getByText("OK"))
+    expect(table(editor).attrs.float).toBeNull()
+    editor.destroy()
+  })
+
+  it("reads a Position box as one of its places or a distance", () => {
+    const names = [{ id: "left", label: "Left" }]
+    expect(parsePlace(" LEFT ", names)).toBe("left")
+    expect(parsePlace("1.5 cm", names)).toBe(1.5)
+    expect(parsePlace("2,25", names)).toBe(2.25)
+    expect(parsePlace("-1", names)).toBe(-1)
+    expect(parsePlace("middle", names)).toBeNull()
   })
 })

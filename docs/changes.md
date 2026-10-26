@@ -7,6 +7,45 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Text wraps around tables (Table Properties > Around, Table Positioning, dragging the move handle)
+
+- **Missing:** Text wrapping Around and Positioning... in Table Properties were disabled; a table could only sit in
+  the text. **Changed**, as in Word:
+  - **Around** makes the text flow beside the table. Its default place follows the table's alignment (Left at its
+    indent, Center, Right), moving with its paragraph, 0.32 cm from the text at the sides. With Around, the
+    Alignment tiles place the table across its column, and Indent from left is off.
+  - **Table Positioning** (`table-properties-dialog.tsx`) has the Horizontal Position (Left, Right, Center, Inside,
+    Outside or a distance) relative to Column, Margin or Page, and the Vertical Position (Top, Bottom, Center,
+    Inside, Outside or a distance) relative to Margin, Page or Paragraph. It also has the distances from the text,
+    Move with text, Allow overlap, and Remove Positioning.
+  - **Dragging the move handle** moves the table to where it is dropped: an in-line table becomes one text wraps
+    around. It is anchored to the paragraph it lands on, by the same rule dragged pictures use
+    (`table-float-drag.ts`). A click on the handle still selects the table.
+- **How it works:** the table's `float` attribute (`table-float.ts`) holds where it sits. The paginator places it
+  like a floating picture (`pages.ts`): the table is drawn out of the text at its place on the page, and the text
+  gets a float beside it on its roomier side (or only above and below when neither side has room for a line).
+  The position goes on the `<table>` element, whose attribute changes the table view ignores, so the editor never
+  redraws it. Tables placed on the page or margin take their room before the text above their paragraph is laid
+  out.
+- **.docx:** saved and read as `w:tblpPr` (distances, anchors, `tblpX`/`tblpXSpec`, `tblpY`/`tblpYSpec`) and
+  `w:tblOverlap` (`wml-read.ts`, `wml-write.ts`, `table-props-docx.ts`). Word's defaults when it leaves values out
+  are across from the column and down from the margin. A table nobody moved is written back exactly as it was
+  read.
+- **Checked:** `table-float.test.ts` (defaults, places, sides), `docx/table-props.test.ts` (Word's values, round
+  trip), `table-properties-dialog.test.tsx` (Around, Positioning, Remove Positioning, the Position box).
+  Headless Chrome:
+  - Around on a 3×2 table: the paragraph's first line starts beside it, past the gap.
+  - Right / Top of the margin with Move with text off: the table sits at the top right and the text wraps beside it.
+  - Dragging an in-line table by its handle: it floats exactly where it was released (689, 484) and the text wraps
+    around it.
+
+  840 tests pass.
+- **Open:**
+  - Word also puts text on the narrower side of a table placed in the middle of the page; here text takes only the
+    roomier side, as for floating pictures, because the page's lines can't run on both sides of one object.
+  - A floating table is not split across pages.
+  - Allow overlap is saved but not acted on: floating tables are not kept apart.
+
 ### Right-clicking a selected table, column or row keeps it selected
 
 - **Bug:** right-clicking a fully selected table, column or row dropped the selection, so the menu looked as if it

@@ -863,6 +863,8 @@ function writeTableProperties(table: Table) {
     (input) =>
       [
         input.styleId ? `<w:tblStyle w:val="${escapeXml(input.styleId)}"/>` : "",
+        writeTablePosition(input.position),
+        input.overlap ? `<w:tblOverlap w:val="${input.overlap}"/>` : "",
         input.width ? `<w:tblW w:w="${input.width.value}" w:type="${input.width.type}"/>` : "",
         input.align ? `<w:jc w:val="${input.align}"/>` : "",
         input.cellSpacing
@@ -878,6 +880,29 @@ function writeTableProperties(table: Table) {
       ].join(""),
     ORDER.tblPr,
   )
+}
+
+function writeTablePosition(position: Table["position"]) {
+  if (!position) {
+    return ""
+  }
+  const keys = [
+    "leftFromText",
+    "rightFromText",
+    "topFromText",
+    "bottomFromText",
+    "vertAnchor",
+    "horzAnchor",
+    "tblpXSpec",
+    "tblpX",
+    "tblpYSpec",
+    "tblpY",
+  ] as const
+  const attributes = keys
+    .filter((key) => position[key] !== undefined)
+    .map((key) => ` w:${key}="${position[key]}"`)
+    .join("")
+  return `<w:tblpPr${attributes}/>`
 }
 
 function writeBorders(borders: Table["borders"]) {

@@ -1,4 +1,5 @@
-import type { CellMargins, TableWidth } from "@/document/docx/model"
+import type { CellMargins, TablePosition, TableWidth } from "@/document/docx/model"
+import { floatValue, parseFloatValue, type TableFloat } from "@/editor/table-float"
 import {
   WORD_MARGINS,
   marginsValue,
@@ -96,4 +97,60 @@ export function marginsToWord(value: unknown, origin: CellMargins | undefined): 
     bottom: { value: twips(margins.bottom), type: "dxa" },
     right: { value: twips(margins.right), type: "dxa" },
   }
+}
+
+const ANCHOR_ACROSS = { text: "column", margin: "margin", page: "page" } as const
+const ANCHOR_DOWN = { text: "paragraph", margin: "margin", page: "page" } as const
+
+/**
+ * The editor's float from Word's w:tblpPr and w:tblOverlap. Word leaves out what is its default: across from the
+ * column (text), down from the margin, and no distance from the text.
+ */
+export function floatFromWord(position: TablePosition | undefined, overlap?: "never" | "overlap"): TableFloat | null {
+  if (!position) {
+    return null
+  }
+  const vFrom = ANCHOR_DOWN[position.vertAnchor ?? "margin"]
+  const ySpec = position.tblpYSpec && position.tblpYSpec !== "inline" ? position.tblpYSpec : null
+  return {
+    h: position.tblpXSpec ?? cm(position.tblpX ?? 0),
+    hFrom: ANCHOR_ACROSS[position.horzAnchor ?? "text"],
+    v: ySpec && vFrom !== "paragraph" ? ySpec : cm(position.tblpY ?? 0),
+    vFrom,
+    gaps: {
+      top: cm(position.topFromText ?? 0),
+      bottom: cm(position.bottomFromText ?? 0),
+      left: cm(position.leftFromText ?? 0),
+      right: cm(position.rightFromText ?? 0),
+    },
+    overlap: overlap !== "never",
+  }
+}
+
+/** Word's w:tblpPr and w:tblOverlap for the editor's float; the file's own while the editor shows the same. */
+export function floatToWord(
+  value: unknown,
+  origin: { position?: TablePosition; overlap?: "never" | "overlap" } | undefined,
+): { position?: TablePosition; overlap?: "never" | "overlap" } {
+  const float = parseFloatValue(value)
+  if (!float) {
+    return {}
+  }
+  const before = floatFromWord(origin?.position, origin?.overlap)
+  if (before && floatValue(before) === floatValue(float)) {
+    return { position: origin?.position, ...(origin?.overlap ? { overlap: origin.overlap } : {}) }
+  }
+  const across = { column: "text", margin: "margin", page: "page" } as const
+  const down = { paragraph: "text", margin: "margin", page: "page" } as const
+  const position: TablePosition = {
+    leftFromText: twips(float.gaps.left),
+    rightFromText: twips(float.gaps.right),
+    ...(float.gaps.top ? { topFromText: twips(float.gaps.top) } : {}),
+    ...(float.gaps.bottom ? { bottomFromText: twips(float.gaps.bottom) } : {}),
+    vertAnchor: down[float.vFrom],
+    horzAnchor: across[float.hFrom],
+    ...(typeof float.h === "number" ? { tblpX: twips(float.h) } : { tblpXSpec: float.h }),
+    ...(typeof float.v === "number" ? { tblpY: twips(float.v) } : { tblpYSpec: float.v }),
+  }
+  return { position, ...(float.overlap ? {} : { overlap: "never" as const }) }
 }
