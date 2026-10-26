@@ -1,4 +1,5 @@
-import type { Border, BorderValue, Shading, TableBorders } from "@/document/docx/model"
+import type { Border, BorderValue, Shading, ShadingValue, TableBorders } from "@/document/docx/model"
+import { patternOf } from "@/document/docx/shading-pattern"
 
 /** A CSS colour as the six hex digits .docx uses, or undefined when it is not a plain colour. */
 export function hexOf(css: unknown) {
@@ -24,10 +25,18 @@ export function hexOf(css: unknown) {
   return undefined
 }
 
-/** The fill the editor gave a cell (backgroundColor), as w:shd. */
-export function shadingOf(backgroundColor: unknown): Shading | undefined {
+/** The fill and pattern the editor gave a cell (backgroundColor, shadingPattern), as w:shd. */
+export function shadingOf(backgroundColor: unknown, shadingPattern?: unknown): Shading | undefined {
   const fill = hexOf(backgroundColor)
-  return fill ? { value: "clear", color: "auto", fill } : undefined
+  const pattern = patternOf(shadingPattern)
+  if (!fill && !pattern) {
+    return undefined
+  }
+  return {
+    value: (pattern?.pattern ?? "clear") as ShadingValue,
+    color: hexOf(pattern?.color) ?? "auto",
+    fill: fill ?? "auto",
+  }
 }
 
 const PEN_STYLES: Record<string, BorderValue> = {

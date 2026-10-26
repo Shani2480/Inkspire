@@ -66,6 +66,17 @@ describe("cell fill and borders in .docx", () => {
     expect(view.html).not.toContain("to top left")
   })
 
+  it("writes a cell's pattern in its colour over the fill as w:shd, and draws it when opened again (22.4)", async () => {
+    const { bytes, xml } = await save({ backgroundColor: "#ffff00", shadingPattern: "diagStripe #c00000" })
+    expect(xml).toContain('<w:shd w:val="diagStripe" w:color="C00000" w:fill="FFFF00"/>')
+    expect((await save({ shadingPattern: "pct25" })).xml).toContain(
+      '<w:shd w:val="pct25" w:color="auto" w:fill="auto"/>',
+    )
+    const { view } = await openDocxBytes(bytes, "t.docx")
+    expect(view.html).toContain("background-color: #FFFF00")
+    expect(view.html).toContain("repeating-linear-gradient(-45deg, #c00000")
+  })
+
   it("leaves a plain cell without either", async () => {
     const { xml } = await save({})
     expect(xml).not.toContain("<w:tcBorders")

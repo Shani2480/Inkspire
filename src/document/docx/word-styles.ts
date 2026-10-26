@@ -1,3 +1,4 @@
+import { patternImage, patternValue } from "@/document/docx/shading-pattern"
 import { decodeXml } from "@/document/docx/xml"
 import {
   paragraphsIn,
@@ -394,6 +395,16 @@ export function tableVariables(borders: TableBorders | undefined, margins: CellM
   return rules
 }
 
+/** The pattern a cell's w:shd lays over its fill (22.4), as a CSS background-image; null for none or Solid. */
+function shadingPatternImage(shading: Shading | undefined) {
+  // Solid is drawn as the colour itself (`shadingColor`).
+  if (!shading || shading.value === "solid") {
+    return null
+  }
+  const color = shading.color && /^[0-9A-Fa-f]{6}$/.test(shading.color) ? `#${shading.color}` : null
+  return patternImage(patternValue(shading.value, color))
+}
+
 /** Borders, padding, shading and alignment of cells. */
 export function cellCss(part: {
   borders?: TableBorders
@@ -428,8 +439,9 @@ export function cellCss(part: {
       `linear-gradient(${direction}, transparent calc(50% - 0.75px), ${line} calc(50% - 0.75px), ${line} calc(50% + 0.75px), transparent calc(50% + 0.75px))`,
     ]
   })
-  if (diagonals.length > 0) {
-    rules.push(`background-image: ${diagonals.join(", ")}`)
+  const pattern = shadingPatternImage(part.shading)
+  if (diagonals.length > 0 || pattern) {
+    rules.push(`background-image: ${[...diagonals, ...(pattern ? [pattern] : [])].join(", ")}`)
   }
   if (part.vAlign) {
     rules.push(`vertical-align: ${part.vAlign === "center" ? "middle" : part.vAlign}`)

@@ -1436,7 +1436,7 @@ function tableFromNode(node: JsonNode, build: Build): Table {
 
 /** The fill and borders the person gave a cell in the editor. */
 function shadedAndBordered(attrs: JsonNode["attrs"]) {
-  const shading = shadingOf(attrs?.backgroundColor)
+  const shading = shadingOf(attrs?.backgroundColor, attrs?.shadingPattern)
   const borders = bordersOf(attrs?.borders, attrs?.borderPen)
   return {
     ...(shading ? { shading } : {}),

@@ -7,6 +7,25 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### Shading patterns for table cells (22.4, sixth part)
+
+- **Missing:** Shading > Patterns worked for a paragraph or text only; inside a table it was greyed out. A Word
+  cell's pattern (`w:shd` val and color) was not drawn, only its fill.
+- **Changed:** cells (`ShadedTableCell`, `ShadedTableHeader`) have a `shadingPattern` attribute, drawn through
+  `--cell-pattern` so a cell's diagonal lines are laid over it (`table-tools.ts`, `index.css`). `shadeScope` sets the
+  fill, the pattern or both on the selected cells or the whole table, leaving what was not changed;
+  `readScopedBorders` reads the shared pattern back, so the dialog opens on it. The dialog's pattern controls work for
+  Cell and Table. In .docx a cell's fill and pattern are written as one `w:shd` (`shadingOf` in `cell-edits.ts`), and
+  a Word cell's pattern is drawn on opening (`cellCss` in `word-styles.ts`; Solid stays the plain colour).
+- **Tests:** `cell-edits.test.ts` (writes `w:shd` with the pattern and colour, draws it reopened),
+  `border-painter.test.ts` (pattern over the fill, read back, drawn), `borders-shading-dialog.test.tsx` (a cell,
+  then the whole table, reopened on it; this replaces the test that patterns were off in a table). All 785 pass;
+  typecheck, ESLint and Prettier clean.
+- **Checked:** headless Chrome: in a new table, yellow fill with red Dk Up Diagonal on one cell, 25% on the next, and
+  Lt Grid with a diagonal border on the third, each on its own cell.
+- **Open:** a Word cell's pattern is drawn but not read into the cell's attributes, so the dialog does not open on
+  it (as with a Word cell's fill).
+
 ### A right-click in a table acts on the cell clicked, not the whole table
 
 - **Wrong:** a right-click anywhere inside a table selected the whole table (`object-context-menu.tsx`,

@@ -11,6 +11,7 @@ import {
   inTable,
   nearestCellSide,
   setBordersOnCells,
+  readScopedBorders,
   shadeScope,
   paintCellEdge,
 } from "@/editor/table-tools"
@@ -135,5 +136,17 @@ describe("Borders and Shading dialog on a table (22.4)", () => {
     expect(cellAttrs(editor).every((attrs) => attrs.backgroundColor === "#c6efce")).toBe(true)
     shadeScope(editor, "table", null)
     expect(cellAttrs(editor).every((attrs) => attrs.backgroundColor === null)).toBe(true)
+  })
+
+  it("lays a pattern over the cells' fill and reads it back, leaving the fill (22.4)", () => {
+    editor = grid()
+    editor.commands.setTextSelection(4)
+    shadeScope(editor, "table", "#ffff00")
+    shadeScope(editor, "table", undefined, "horzCross #0070c0")
+    expect(cellAttrs(editor).map((attrs) => [attrs.backgroundColor, attrs.shadingPattern])).toEqual(
+      Array(4).fill(["#ffff00", "horzCross #0070c0"]),
+    )
+    expect(readScopedBorders(editor, "table")?.pattern).toEqual({ pattern: "horzCross", color: "#0070c0" })
+    expect(editor.getHTML()).toContain("--cell-pattern: repeating-linear-gradient")
   })
 })

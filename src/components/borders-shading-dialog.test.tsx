@@ -244,12 +244,20 @@ describe("the Borders and Shading dialog (22.4)", () => {
     expect(editor.state.doc.firstChild?.attrs.shadingPattern).toBeNull()
   })
 
-  it("leaves patterns to paragraphs inside a table", () => {
+  it("lays a pattern over a cell, then the whole table, and opens on it (22.4)", () => {
     const editor = make(TABLE)
     editor.commands.setTextSelection(4)
     render(<BordersShadingHost />)
     act(() => openBordersAndShading(editor, "shading"))
-    expect((screen.getByLabelText("Pattern style") as HTMLSelectElement).disabled).toBe(true)
+    fireEvent.change(screen.getByLabelText("Pattern style"), { target: { value: "pct25" } })
+    fireEvent.click(screen.getByText("OK"))
+    expect(cells(editor).map((attrs) => attrs.shadingPattern)).toEqual(["pct25", null, null, null])
+    act(() => openBordersAndShading(editor, "shading"))
+    expect((screen.getByLabelText("Pattern style") as HTMLSelectElement).value).toBe("pct25")
+    fireEvent.change(screen.getByLabelText("Apply to"), { target: { value: "table" } })
+    fireEvent.change(screen.getByLabelText("Pattern style"), { target: { value: "thinHorzCross" } })
+    fireEvent.click(screen.getByText("OK"))
+    expect(cells(editor).every((attrs) => attrs.shadingPattern === "thinHorzCross")).toBe(true)
   })
 
   it("starts on Text for part of a paragraph and draws a shadowed box and fill round it (22.4)", () => {
