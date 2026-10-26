@@ -19,6 +19,7 @@ export type ChartType =
   | "radar"
   | "treemap"
   | "sunburst"
+  | "surface"
   | "boxWhisker"
   | "histogram"
   | "waterfall"
@@ -67,9 +68,11 @@ export type ChartSpec = {
   grouping: ChartGrouping
   markers: boolean
   smooth: boolean
-  /** Scatter: points joined by lines. Radar: filled. */
+  /** Scatter: points joined by lines. Radar and Surface: filled (a Surface that is not is a wireframe). */
   lines: boolean
   filled: boolean
+  /** Surface: seen from above as a contour map rather than in 3-D. */
+  contour?: boolean
   categories: string[]
   /**
    * Treemap and Sunburst: the label columns before the category, outermost first (Branch, Stem), each a label per
@@ -154,6 +157,7 @@ export type ChartVariant = {
   smooth?: boolean
   lines?: boolean
   filled?: boolean
+  contour?: boolean
   /** Combo charts: the type of each series after the first, and whether the last goes on a secondary axis. */
   combo?: { first: "column" | "area"; rest: "line" | "column"; secondary?: boolean; firstGrouping?: ChartGrouping }
 }
@@ -251,6 +255,16 @@ export const CHART_FAMILIES: { id: string; label: string; items: ChartVariant[] 
     ],
   },
   {
+    id: "surface",
+    label: "Surface",
+    items: [
+      { id: "surface-3d", label: "3-D Surface", type: "surface", filled: true },
+      { id: "surface-wireframe", label: "Wireframe 3-D Surface", type: "surface" },
+      { id: "surface-contour", label: "Contour", type: "surface", filled: true, contour: true },
+      { id: "surface-wireframe-contour", label: "Wireframe Contour", type: "surface", contour: true },
+    ],
+  },
+  {
     id: "radar",
     label: "Radar",
     items: [
@@ -343,7 +357,8 @@ export function variantOf(spec: ChartSpec): string {
         ? Boolean(item.markers) === spec.markers
         : true) &&
       (spec.type === "scatter" ? Boolean(item.lines) === spec.lines && Boolean(item.smooth) === spec.smooth : true) &&
-      (spec.type === "radar" ? Boolean(item.filled) === spec.filled : true),
+      (spec.type === "radar" || spec.type === "surface" ? Boolean(item.filled) === spec.filled : true) &&
+      (spec.type === "surface" ? Boolean(item.contour) === Boolean(spec.contour) : true),
   )
   return match?.id ?? spec.type
 }
@@ -367,6 +382,7 @@ export function withVariant(spec: ChartSpec, id: string): ChartSpec {
     smooth: Boolean(variant.smooth),
     lines: Boolean(variant.lines),
     filled: Boolean(variant.filled),
+    contour: variant.contour || undefined,
     series: spec.series.map((serie, index) => {
       const { type: _type, secondary: _secondary, ...rest } = serie
       if (!variant.combo || index === 0) {
@@ -995,27 +1011,37 @@ export function renderChart(source: ChartSpec, width: number, height: number) {
   }
   const round = spec.type === "pie" || spec.type === "doughnut"
   const visibleSeries = spec.series.map((serie, index) => ({ ...serie, index })).filter((serie) => !serie.hidden)
-  const entries = isHierarchy(spec.type)
-    ? chartTree(spec).children.map((node) => ({
-        name: node.name,
-        color: pointColor(painter, node.branch),
-        index: node.branch,
-        line: false,
-      }))
-    : round
-      ? spec.categories
-          .map((name, index) => ({ name, color: pointColor(painter, index), index, line: false }))
-          .filter((entry) => !spec.hiddenCategories.includes(entry.index))
-      : visibleSeries.map((serie) => ({
-          name: serie.name,
-          color: seriesColor(painter, serie.index),
-          index: serie.index,
-          line:
-            (serie.type ?? spec.type) === "line" || spec.type === "scatter" || (spec.type === "radar" && !spec.filled),
-          // A line series with its line off (a stock chart's prices) has no line in the key; Close keeps its tick.
-          bare: spec.format[`series:${serie.index}`]?.line === "none",
-          tick: Boolean(serie.tick),
+  const entries =
+    spec.type === "surface"
+      ? surfaceBands(spec).map((band, index) => ({
+          name: band.name,
+          color: pointColor(painter, index),
+          index,
+          line: !spec.filled,
         }))
+      : isHierarchy(spec.type)
+        ? chartTree(spec).children.map((node) => ({
+            name: node.name,
+            color: pointColor(painter, node.branch),
+            index: node.branch,
+            line: false,
+          }))
+        : round
+          ? spec.categories
+              .map((name, index) => ({ name, color: pointColor(painter, index), index, line: false }))
+              .filter((entry) => !spec.hiddenCategories.includes(entry.index))
+          : visibleSeries.map((serie) => ({
+              name: serie.name,
+              color: seriesColor(painter, serie.index),
+              index: serie.index,
+              line:
+                (serie.type ?? spec.type) === "line" ||
+                spec.type === "scatter" ||
+                (spec.type === "radar" && !spec.filled),
+              // A line series with its line off (a stock chart's prices) has no line in the key; Close keeps its tick.
+              bare: spec.format[`series:${serie.index}`]?.line === "none",
+              tick: Boolean(serie.tick),
+            }))
   if (spec.legend !== "none" && !(spec.dataTable && !round)) {
     legend(painter, entries, box, spec.legend)
   }
@@ -1025,6 +1051,12 @@ export function renderChart(source: ChartSpec, width: number, height: number) {
     radar(painter, box, visibleSeries)
   } else if (spec.type === "boxWhisker") {
     boxWhisker(painter, box)
+  } else if (spec.type === "surface") {
+    if (spec.contour) {
+      contour(painter, box)
+    } else {
+      surface3d(painter, box)
+    }
   } else if (spec.type === "treemap") {
     treemap(painter, box)
   } else if (spec.type === "sunburst") {
@@ -1871,6 +1903,314 @@ function boxWhisker(painter: Painter, box: Box) {
   }
   if (statLabels.length) {
     parts.push(`<g data-chart-part="dataLabels">${statLabels.join("")}</g>`)
+  }
+  painter.out.push(...parts)
+}
+
+/** A Surface chart's grid: a value per category (across) and series (in depth), from the shown ones. */
+function surfaceGrid(spec: ChartSpec) {
+  const columns = spec.categories
+    .map((name, index) => ({ name, index }))
+    .filter((item) => !spec.hiddenCategories.includes(item.index))
+  const rows = spec.series.filter((serie) => !serie.hidden)
+  return {
+    columns,
+    rows,
+    at: (column: number, row: number) => rows[row]?.values[columns[column]?.index ?? 0] ?? 0,
+  }
+}
+
+/**
+ * A Surface chart's colour bands: one per step of the value axis, as Word's legend lists them ("0-1", "1-2" …); band
+ * `i` is drawn in the palette's `i`th colour (or its point format).
+ */
+export function surfaceBands(spec: ChartSpec) {
+  const grid = surfaceGrid(spec)
+  const values = grid.rows.flatMap((_, row) => grid.columns.map((_, column) => grid.at(column, row)))
+  const scale = niceScale(Math.min(0, ...values), Math.max(1, ...values), spec.valueAxis, 6)
+  const format = spec.valueAxis.numberFormat ?? "General"
+  return scale.ticks.slice(0, -1).map((low, index) => ({
+    low,
+    high: scale.ticks[index + 1]!,
+    name: `${formatNumber(low, format)}-${formatNumber(scale.ticks[index + 1]!, format)}`,
+  }))
+}
+
+function bandIndex(bands: { low: number; high: number }[], value: number) {
+  const found = bands.findIndex((band) => value < band.high)
+  return found === -1 ? bands.length - 1 : Math.max(0, found)
+}
+
+/**
+ * Contour: the surface seen from above, categories across and series up, the value interpolated between the points
+ * and filled by band (Contour), or only the band edges drawn as lines (Wireframe Contour).
+ */
+function contour(painter: Painter, box: Box) {
+  const { spec, look } = painter
+  const grid = surfaceGrid(spec)
+  const bands = surfaceBands(spec)
+  const axisWidth = spec.axes.value ? Math.max(0, ...grid.rows.map((serie) => serie.name.length)) * CHAR + 8 : 0
+  const plot = {
+    x: box.x + axisWidth,
+    y: box.y + 4,
+    w: box.w - axisWidth - 8,
+    h: box.h - (spec.axes.category ? 26 : 8),
+  }
+  const columns = grid.columns.length
+  const rows = grid.rows.length
+  const parts: string[] = []
+  if (columns >= 2 && rows >= 2) {
+    const toX = (column: number) => plot.x + (column / (columns - 1)) * plot.w
+    const toY = (row: number) => plot.y + plot.h - (row / (rows - 1)) * plot.h
+    if (spec.filled) {
+      // Bilinear inside each cell, sampled finely and joined into runs of one band along each line.
+      const across = (columns - 1) * 24
+      const up = (rows - 1) * 24
+      const cellW = plot.w / across
+      const cellH = plot.h / up
+      const tiles: string[] = []
+      for (let y = 0; y < up; y += 1) {
+        const v = ((y + 0.5) / up) * (rows - 1)
+        const row = Math.min(rows - 2, Math.floor(v))
+        const fy = v - row
+        let start = 0
+        let current = -1
+        for (let x = 0; x <= across; x += 1) {
+          let band = -1
+          if (x < across) {
+            const u = ((x + 0.5) / across) * (columns - 1)
+            const column = Math.min(columns - 2, Math.floor(u))
+            const fx = u - column
+            const value =
+              grid.at(column, row) * (1 - fx) * (1 - fy) +
+              grid.at(column + 1, row) * fx * (1 - fy) +
+              grid.at(column, row + 1) * (1 - fx) * fy +
+              grid.at(column + 1, row + 1) * fx * fy
+            band = bandIndex(bands, value)
+          }
+          if (band !== current) {
+            if (current >= 0) {
+              tiles.push(
+                `<rect x="${n(plot.x + start * cellW)}" y="${n(plot.y + plot.h - (y + 1) * cellH)}" width="${n((x - start) * cellW + 0.4)}" height="${n(cellH + 0.4)}" fill="${pointColor(painter, current)}"/>`,
+              )
+            }
+            start = x
+            current = band
+          }
+        }
+      }
+      parts.push(`<g data-chart-part="plotArea">${tiles.join("")}</g>`)
+    } else {
+      // Marching squares: where each band edge crosses each cell.
+      const lines: string[] = []
+      bands.slice(1).forEach((band, index) => {
+        const level = band.low
+        const segments: string[] = []
+        for (let row = 0; row < rows - 1; row += 1) {
+          for (let column = 0; column < columns - 1; column += 1) {
+            const corners = [
+              [column, row],
+              [column + 1, row],
+              [column + 1, row + 1],
+              [column, row + 1],
+            ] as const
+            const values = corners.map(([c, r]) => grid.at(c, r))
+            const cross: [number, number][] = []
+            for (let edge = 0; edge < 4; edge += 1) {
+              const a = values[edge]!
+              const b = values[(edge + 1) % 4]!
+              if (a < level !== b < level) {
+                const t = (level - a) / (b - a)
+                const [ca, ra] = corners[edge]!
+                const [cb, rb] = corners[(edge + 1) % 4]!
+                cross.push([toX(ca + (cb - ca) * t), toY(ra + (rb - ra) * t)])
+              }
+            }
+            const pairs =
+              cross.length === 2
+                ? [[0, 1]]
+                : cross.length === 4
+                  ? values.reduce((sum, value) => sum + value, 0) / 4 < level === values[0]! < level
+                    ? [
+                        [0, 1],
+                        [2, 3],
+                      ]
+                    : [
+                        [0, 3],
+                        [1, 2],
+                      ]
+                  : []
+            for (const [from, to] of pairs) {
+              const [x1, y1] = cross[from!]!
+              const [x2, y2] = cross[to!]!
+              segments.push(`M${n(x1)} ${n(y1)}L${n(x2)} ${n(y2)}`)
+            }
+          }
+        }
+        if (segments.length) {
+          lines.push(
+            `<path d="${segments.join("")}" stroke="${pointColor(painter, index + 1)}" stroke-width="1.5" fill="none"/>`,
+          )
+        }
+      })
+      parts.push(`<g data-chart-part="plotArea">${lines.join("")}</g>`)
+    }
+    if (spec.gridlines.major) {
+      const outline = partLine(painter, "axis:category", look.axis, 0.75)
+      parts.push(
+        `<rect x="${n(plot.x)}" y="${n(plot.y)}" width="${n(plot.w)}" height="${n(plot.h)}" fill="none" stroke="${outline.stroke}" stroke-width="${outline.width}"/>`,
+      )
+    }
+    if (spec.axes.category) {
+      const labels = grid.columns.map(
+        (item, column) =>
+          `<text x="${n(toX(column))}" y="${n(plot.y + plot.h + 16)}" text-anchor="middle" ${textAttrs(painter, "axis:category")}>${escapeXml(item.name)}</text>`,
+      )
+      parts.push(`<g data-chart-part="axis:category">${labels.join("")}</g>`)
+    }
+    if (spec.axes.value) {
+      // The depth (series) axis stands up the left side of a contour.
+      const labels = grid.rows.map(
+        (serie, row) =>
+          `<text x="${n(plot.x - 6)}" y="${n(toY(row) + 4)}" text-anchor="end" ${textAttrs(painter, "axis:value")}>${escapeXml(serie.name)}</text>`,
+      )
+      parts.push(`<g data-chart-part="axis:value">${labels.join("")}</g>`)
+    }
+  }
+  painter.out.push(...parts)
+}
+
+/**
+ * 3-D Surface: the grid in an oblique view, categories across the front, series going back to the right and the value
+ * up, with the back and side walls and their gridlines, filled by band (or drawn as a band-coloured wire mesh).
+ */
+function surface3d(painter: Painter, box: Box) {
+  const { spec, look } = painter
+  const grid = surfaceGrid(spec)
+  const bands = surfaceBands(spec)
+  const low = bands[0]?.low ?? 0
+  const high = bands[bands.length - 1]?.high ?? 1
+  const format = spec.valueAxis.numberFormat ?? "General"
+  const axisWidth = spec.axes.value
+    ? Math.max(...bands.map((band) => formatNumber(band.high, format).length)) * CHAR + 10
+    : 0
+  const seriesWidth = spec.axes.value ? Math.max(0, ...grid.rows.map((serie) => serie.name.length)) * CHAR + 10 : 0
+  const angle = Math.PI / 6
+  const available = { w: box.w - axisWidth - seriesWidth, h: box.h - (spec.axes.category ? 30 : 8) }
+  // The depth runs a third of the width back.
+  const width = available.w / (1 + 0.35 * Math.cos(angle))
+  const depthX = width * 0.35 * Math.cos(angle)
+  const depthY = Math.min(width * 0.35 * Math.sin(angle), available.h * 0.35)
+  const height = available.h - depthY
+  const origin = { x: box.x + axisWidth, y: box.y + depthY + height }
+  const columns = grid.columns.length
+  const rows = grid.rows.length
+  const at = (x: number, value: number, z: number) =>
+    [origin.x + x * width + z * depthX, origin.y - ((value - low) / (high - low || 1)) * height - z * depthY] as const
+  const point = (x: number, value: number, z: number) => {
+    const [px, py] = at(x, value, z)
+    return `${n(px)} ${n(py)}`
+  }
+  const parts: string[] = []
+  const wall = partLine(painter, "gridlines", look.grid, 0.75)
+  // Floor, back wall and side wall, with a gridline per band edge.
+  const walls = [
+    `M${point(0, low, 0)}L${point(1, low, 0)}L${point(1, low, 1)}L${point(0, low, 1)}Z`,
+    `M${point(0, low, 1)}L${point(1, low, 1)}L${point(1, high, 1)}L${point(0, high, 1)}Z`,
+    `M${point(0, low, 0)}L${point(0, low, 1)}L${point(0, high, 1)}L${point(0, high, 0)}Z`,
+  ]
+  const gridlines = spec.gridlines.major
+    ? bands.slice(1).map((band) => `M${point(0, band.low, 0)}L${point(0, band.low, 1)}L${point(1, band.low, 1)}`)
+    : []
+  parts.push(
+    `<g data-chart-part="gridlines"><path d="${[...walls, ...gridlines].join("")}" fill="none" stroke="${wall.stroke}" stroke-width="${wall.width}"/></g>`,
+  )
+  if (columns >= 2 && rows >= 2) {
+    const steps = 6
+    const valueAt = (u: number, v: number) => {
+      const column = Math.min(columns - 2, Math.floor(u))
+      const row = Math.min(rows - 2, Math.floor(v))
+      const fx = u - column
+      const fy = v - row
+      return (
+        grid.at(column, row) * (1 - fx) * (1 - fy) +
+        grid.at(column + 1, row) * fx * (1 - fy) +
+        grid.at(column, row + 1) * (1 - fx) * fy +
+        grid.at(column + 1, row + 1) * fx * fy
+      )
+    }
+    const xOf = (u: number) => u / (columns - 1)
+    const zOf = (v: number) => v / (rows - 1)
+    const pieces: string[] = []
+    if (spec.filled) {
+      // Back to front, so nearer parts of the surface cover farther ones.
+      const total = (rows - 1) * steps
+      for (let j = total - 1; j >= 0; j -= 1) {
+        for (let i = 0; i < (columns - 1) * steps; i += 1) {
+          const u0 = i / steps
+          const u1 = (i + 1) / steps
+          const v0 = j / steps
+          const v1 = (j + 1) / steps
+          const corners = [
+            [u0, v0],
+            [u1, v0],
+            [u1, v1],
+            [u0, v1],
+          ] as const
+          const values = corners.map(([u, v]) => valueAt(u, v))
+          const color = pointColor(painter, bandIndex(bands, values.reduce((sum, value) => sum + value, 0) / 4))
+          const d = corners
+            .map(([u, v], index) => `${index ? "L" : "M"}${point(xOf(u), values[index]!, zOf(v))}`)
+            .join("")
+          pieces.push(`<path d="${d}Z" fill="${color}" stroke="${color}" stroke-width="0.5" stroke-linejoin="round"/>`)
+        }
+      }
+    } else {
+      // The grid's lines, each piece in the colour of its band.
+      const line = (from: [number, number], to: [number, number]) => {
+        for (let step = 0; step < steps; step += 1) {
+          const a = step / steps
+          const b = (step + 1) / steps
+          const ua = from[0] + (to[0] - from[0]) * a
+          const va = from[1] + (to[1] - from[1]) * a
+          const ub = from[0] + (to[0] - from[0]) * b
+          const vb = from[1] + (to[1] - from[1]) * b
+          const color = pointColor(painter, bandIndex(bands, (valueAt(ua, va) + valueAt(ub, vb)) / 2))
+          pieces.push(
+            `<path d="M${point(xOf(ua), valueAt(ua, va), zOf(va))}L${point(xOf(ub), valueAt(ub, vb), zOf(vb))}" stroke="${color}" stroke-width="1.5"/>`,
+          )
+        }
+      }
+      for (let row = 0; row < rows; row += 1) {
+        for (let column = 0; column < columns - 1; column += 1) {
+          line([column, row], [column + 1, row])
+        }
+      }
+      for (let column = 0; column < columns; column += 1) {
+        for (let row = 0; row < rows - 1; row += 1) {
+          line([column, row], [column, row + 1])
+        }
+      }
+    }
+    parts.push(`<g data-chart-part="plotArea">${pieces.join("")}</g>`)
+    if (spec.axes.category) {
+      const labels = grid.columns.map((item, column) => {
+        const [x, y] = at(xOf(column), low, 0)
+        return `<text x="${n(x)}" y="${n(y + 16)}" text-anchor="middle" ${textAttrs(painter, "axis:category")}>${escapeXml(item.name)}</text>`
+      })
+      parts.push(`<g data-chart-part="axis:category">${labels.join("")}</g>`)
+    }
+    if (spec.axes.value) {
+      const values = [low, ...bands.map((band) => band.high)].map((value) => {
+        const [x, y] = at(0, value, 0)
+        return `<text x="${n(x - 6)}" y="${n(y + 4)}" text-anchor="end" ${textAttrs(painter, "axis:value")}>${escapeXml(formatNumber(value, format))}</text>`
+      })
+      const depth = grid.rows.map((serie, row) => {
+        const [x, y] = at(1, low, zOf(row))
+        return `<text x="${n(x + 6)}" y="${n(y + 4)}" ${textAttrs(painter, "axis:value")}>${escapeXml(serie.name)}</text>`
+      })
+      parts.push(`<g data-chart-part="axis:value">${values.join("")}${depth.join("")}</g>`)
+    }
   }
   painter.out.push(...parts)
 }

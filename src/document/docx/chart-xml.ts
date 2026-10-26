@@ -105,7 +105,7 @@ const TRENDLINES: Record<Exclude<TrendlineKind, "none">, string> = {
   movingAverage: "movingAvg",
 }
 
-type Group = "bar" | "line" | "area" | "pie" | "doughnut" | "scatter" | "radar"
+type Group = "bar" | "line" | "area" | "pie" | "doughnut" | "scatter" | "radar" | "surface"
 
 /** A group's data labels, with the positions its chart type allows. */
 function labelsXml(spec: ChartSpec, group: Group, text: string) {
@@ -219,6 +219,9 @@ function seriesXml(spec: ChartSpec, index: number, group: Group, rows: number) {
       return `<c:ser>${head}${marker}${trend}${bars}${data}<c:smooth val="${spec.smooth ? 1 : 0}"/></c:ser>`
     case "area":
       return `<c:ser>${head}${trend}${bars}${data}</c:ser>`
+    case "surface":
+      // A surface series has no trendline, error bars or labels: its name, fill, categories and values.
+      return `<c:ser>${head}${data}</c:ser>`
     case "pie":
     case "doughnut":
       return `<c:ser>${head}${spec.explosion ? `<c:explosion val="${spec.explosion}"/>` : ""}${points}${data}</c:ser>`
@@ -352,6 +355,13 @@ export function chartSpaceXml(source: ChartSpec, workbookRelId?: string) {
       `<c:scatterChart><c:scatterStyle val="${style}"/><c:varyColors val="0"/>${shown.map((item) => seriesXml(spec, item.index, "scatter", rows)).join("")}` +
         `${labelsXml(spec, "scatter", text)}<c:axId val="1"/><c:axId val="2"/></c:scatterChart>`,
     )
+  } else if (spec.type === "surface") {
+    // A contour is Word's flat surface chart (seen from above); the 3-D one has its own element. Neither has labels.
+    const name = spec.contour ? "surfaceChart" : "surface3DChart"
+    groups.push(
+      `<c:${name}><c:wireframe val="${spec.filled ? 0 : 1}"/>${shown.map((item) => seriesXml(spec, item.index, "surface", rows)).join("")}` +
+        `<c:axId val="1"/><c:axId val="2"/><c:axId val="3"/></c:${name}>`,
+    )
   } else if (spec.type === "radar") {
     groups.push(
       `<c:radarChart><c:radarStyle val="${spec.filled ? "filled" : "marker"}"/><c:varyColors val="0"/>${shown.map((item) => seriesXml(spec, item.index, "radar", rows)).join("")}` +
@@ -417,14 +427,27 @@ export function chartSpaceXml(source: ChartSpec, workbookRelId?: string) {
   }
   const axes = round
     ? ""
-    : spec.type === "scatter"
-      ? scatterAxes(spec)
-      : axisXml(spec, "cat", [1, 2], {}) +
-        axisXml(spec, "val", [2, 1], {}) +
-        (shown.some((item) => item.serie.secondary)
-          ? axisXml(spec, "val", [4, 3], { secondary: true }) +
-            axisXml(spec, "cat", [3, 4], { secondary: true }).replace(`<c:delete val="0"/>`, `<c:delete val="1"/>`)
-          : "")
+    : spec.type === "surface"
+      ? axisXml(spec, "cat", [1, 2], {}) +
+        // A contour shows no value axis: its legend gives the bands. The series run back (or up a contour).
+        (spec.contour
+          ? axisXml(spec, "val", [2, 1], {}).replace(
+              `<c:delete val="${spec.axes.value ? 0 : 1}"/>`,
+              `<c:delete val="1"/>`,
+            )
+          : axisXml(spec, "val", [2, 1], {})) +
+        `<c:serAx><c:axId val="3"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="${spec.axes.value ? 0 : 1}"/>` +
+        `<c:axPos val="b"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>` +
+        `<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>${textProps(spec.format["axis:value"]?.color || look.text, 9)}` +
+        `<c:crossAx val="2"/><c:crosses val="autoZero"/></c:serAx>`
+      : spec.type === "scatter"
+        ? scatterAxes(spec)
+        : axisXml(spec, "cat", [1, 2], {}) +
+          axisXml(spec, "val", [2, 1], {}) +
+          (shown.some((item) => item.serie.secondary)
+            ? axisXml(spec, "val", [4, 3], { secondary: true }) +
+              axisXml(spec, "cat", [3, 4], { secondary: true }).replace(`<c:delete val="0"/>`, `<c:delete val="1"/>`)
+            : "")
   const table =
     spec.dataTable && !round
       ? `<c:dTable><c:showHorzBorder val="1"/><c:showVertBorder val="1"/><c:showOutline val="1"/><c:showKeys val="1"/>${textProps(look.text, 9)}</c:dTable>`
@@ -450,13 +473,21 @@ export function chartSpaceXml(source: ChartSpec, workbookRelId?: string) {
         titleFormat?.bold ?? look.titleBold,
       )
     : ""
+  // A surface is a 3-D chart in Word: a contour is the same seen from straight above.
+  const walls = `<c:floor><c:thickness val="0"/></c:floor><c:sideWall><c:thickness val="0"/></c:sideWall><c:backWall><c:thickness val="0"/></c:backWall>`
+  const view3d =
+    spec.type !== "surface"
+      ? ""
+      : spec.contour
+        ? `<c:view3D><c:rotX val="90"/><c:rotY val="0"/><c:rAngAx val="0"/><c:perspective val="0"/></c:view3D>${walls}`
+        : `<c:view3D><c:rotX val="15"/><c:rotY val="20"/><c:rAngAx val="0"/><c:perspective val="30"/></c:view3D>${walls}`
   const area = spec.format.chartArea
   const areaLine = area?.line || look.border
   return (
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
     `<c:chartSpace xmlns:c="${CHART_NS}" xmlns:a="${DRAWING_NS}" xmlns:r="${REL_NS}">` +
     `<c:date1904 val="0"/><c:lang val="en-US"/><c:roundedCorners val="0"/>` +
-    `<c:chart>${title}<c:autoTitleDeleted val="${spec.title.show ? 0 : 1}"/>${plot}${legend}<c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/></c:chart>` +
+    `<c:chart>${title}<c:autoTitleDeleted val="${spec.title.show ? 0 : 1}"/>${view3d}${plot}${legend}<c:plotVisOnly val="1"/><c:dispBlanksAs val="gap"/></c:chart>` +
     `<c:spPr>${solid(area?.fill || look.background)}<a:ln w="${Math.round((area?.lineWidth ?? 0.75) * 12700)}">${solid(areaLine)}</a:ln></c:spPr>` +
     `<c:txPr><a:bodyPr/><a:lstStyle/><a:p><a:pPr><a:defRPr/></a:pPr><a:endParaRPr lang="en-US"/></a:p></c:txPr>` +
     (workbookRelId ? `<c:externalData r:id="${workbookRelId}"><c:autoUpdate val="0"/></c:externalData>` : "") +
@@ -714,7 +745,10 @@ export function readChartSpace(xml: string): ChartSpec | null {
     if (name.startsWith("line")) {
       return "line"
     }
-    if (name.startsWith("area") || name.startsWith("surface")) {
+    if (name.startsWith("surface")) {
+      return "surface"
+    }
+    if (name.startsWith("area")) {
       return "area"
     }
     if (name.startsWith("pie") || name === "ofPieChart") {
@@ -805,6 +839,9 @@ export function readChartSpace(xml: string): ChartSpec | null {
     spec.markers = symbol !== "none" && style !== "smooth" && style !== "line"
     const line = child(child(firstSerie, "spPr"), "ln")
     spec.lines = style !== "marker" && !child(line, "noFill")
+  } else if (spec.type === "surface") {
+    spec.contour = first.name === "surfaceChart"
+    spec.filled = !flag(first, "wireframe")
   } else if (spec.type === "radar") {
     const style = value(first, "radarStyle")
     spec.filled = style === "filled"
@@ -863,6 +900,10 @@ export function readChartSpace(xml: string): ChartSpec | null {
   } else if (spec.type !== "pie" && spec.type !== "doughnut") {
     spec.axes.value = false
     spec.gridlines.major = false
+  }
+  if (spec.type === "surface" && spec.contour) {
+    // A contour's value axis is hidden; whether its labels show is the series axis'.
+    spec.axes.value = !flag(child(plot, "serAx"), "delete")
   }
   // Legend, data labels, data table.
   const legend = child(chart, "legend")

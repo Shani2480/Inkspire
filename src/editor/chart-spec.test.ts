@@ -53,8 +53,13 @@ describe("chart spec", () => {
       const svg = renderChart(spec, 576, 336)
       expect(svg, variant.id).toContain('data-chart-part="chartArea"')
       expect(svg, variant.id).toContain('data-chart-part="title"')
-      expect(svg, variant.id).toContain('data-chart-part="series:0"')
-      expect(svg, variant.id).toContain('data-chart-part="dataLabels"')
+      if (variant.type === "surface") {
+        // Word gives a surface no series of its own to format and no data labels: it is coloured by value band.
+        expect(svg, variant.id).toContain('data-chart-part="plotArea"')
+      } else {
+        expect(svg, variant.id).toContain('data-chart-part="series:0"')
+        expect(svg, variant.id).toContain('data-chart-part="dataLabels"')
+      }
       expect(svg, variant.id).not.toContain("NaN")
     }
   })
