@@ -501,7 +501,8 @@ export type MultiLevelType = (typeof MULTI_LEVEL_TYPES)[number]
 export type TableLayout = (typeof TABLE_LAYOUTS)[number]
 export type MergeValue = (typeof MERGE_VALUES)[number]
 
-export type Border = { value: BorderValue; sz?: number; space?: number; color?: string }
+/** One w:top / w:bottom … border: its line, width in eighths of a point, gap in points, colour, and Word's shadow. */
+export type Border = { value: BorderValue; sz?: number; space?: number; color?: string; shadow?: boolean }
 export type TableBorders = {
   top?: Border
   left?: Border

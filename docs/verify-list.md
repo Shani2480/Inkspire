@@ -7,6 +7,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Paragraph border pen and Shadow in Word (22.4, 2026-10-26)** — a paragraph given Shadow, Dotted, 1.5 pt,
+      red in the app opens in Word with the same box (Borders and Shading shows Shadow); a Word paragraph with a
+      shadowed border keeps it after a save from the app.
 - [ ] **Native shapes (20.9 / 22.11 / "Native Word shapes")** — partly checked 2026-10-24 with Document1.docx: Lightning
       and Explosion: 8 Points round-trip (fixed, see next-todo); the other presets still unchecked. — a shape drawn in the app saves as `wps:wsp`
       (preset geometry, fill, outline, size, rotation, flips, wrap, place, `a:prstDash` dashes, two-stop
@@ -25,6 +28,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [x] **Paragraph Shadow border from Borders and Shading (22.4, 2026-10-26)** — checked 2026-10-26 in headless
+      Chrome, light and dark.
 - [ ] **Chart side buttons level with the chart's top (2026-10-26)** — select a chart: Chart Elements, Chart Styles
       and Chart Filters sit beside its top right edge, styled as before, each opening its panel.
 - [x] **3D Model Views gallery (22.15, 2026-10-26)** — checked 2026-10-26 in Chrome with a cube and a cone: named

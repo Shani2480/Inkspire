@@ -26,6 +26,8 @@ const BLOCK_KEYS = [
   "namedStyle",
   "shading",
   "border",
+  "borderPen",
+  "borderShadow",
   "spaceBefore",
   "spaceAfter",
   "indent",
@@ -213,6 +215,8 @@ export function clearFormatting(editor: Editor) {
     namedStyle: null,
     shading: null,
     border: null,
+    borderPen: null,
+    borderShadow: false,
     spaceBefore: null,
     spaceAfter: null,
     lineHeight: null,
@@ -596,9 +600,8 @@ function sameMarks(left: readonly Mark[], right: readonly Mark[]) {
 
 /**
  * Borders → Horizontal Line: an empty paragraph with a bottom border, below the block the cursor is in (below the
- * whole table when it is in one), and a plain paragraph after it for the text to continue in. Paragraph borders
- * (this line and the Home tab's Borders) are not yet written to .docx as `w:pBdr`, so the line is a view of the
- * editor for now.
+ * whole table when it is in one), and a plain paragraph after it for the text to continue in; it is saved to .docx as
+ * the paragraph's `w:pBdr`, as Word's own horizontal line is.
  */
 export function insertHorizontalLine(editor: Editor) {
   const { state } = editor

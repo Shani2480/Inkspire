@@ -1,4 +1,4 @@
-import { hexOf } from "@/document/docx/cell-edits"
+import { borderOf, hexOf } from "@/document/docx/cell-edits"
 import type { Indent, ParagraphProperties, Spacing } from "@/document/docx/model"
 
 /** Editor paragraph attributes (src/editor/block-format.ts, indent.ts, LineHeight, TextAlign) that map to w:pPr. */
@@ -22,6 +22,10 @@ export type BlockFormat = {
   mirrorIndents: boolean
   tightWrap: string
   border: string | null
+  /** The line the border is drawn with, as the CSS shorthand ("1px dashed #c00000"); null for the app's own. */
+  borderPen: string | null
+  /** Word's Shadow setting: the border casts a shadow to the bottom right. */
+  borderShadow: boolean
   /** The editor's paragraph fill as #rrggbb; null for none. */
   shading: string | null
 }
@@ -46,6 +50,8 @@ export const PLAIN_BLOCK: BlockFormat = {
   mirrorIndents: false,
   tightWrap: "none",
   border: null,
+  borderPen: null,
+  borderShadow: false,
   shading: null,
 }
 
@@ -75,7 +81,7 @@ const GROUPS: (keyof BlockFormat)[][] = [
   ["dontHyphenate"],
   ["mirrorIndents"],
   ["tightWrap"],
-  ["border"],
+  ["border", "borderPen", "borderShadow"],
   ["shading"],
 ]
 
@@ -127,6 +133,8 @@ export function blockFromProperties(pPr: ParagraphProperties): BlockFormat {
   block.mirrorIndents = pPr.mirrorIndents === true
   block.tightWrap = pPr.textboxTightWrap ?? "none"
   block.border = borderOfProperties(pPr.borders)
+  block.borderPen = penOfProperties(pPr.borders)
+  block.borderShadow = BORDER_SIDES.some((side) => drawn(pPr.borders?.[side]) && pPr.borders?.[side]?.shadow)
   block.shading = shadingOfProperties(pPr.shading)
   return block
 }
@@ -145,6 +153,27 @@ function borderOfProperties(borders: ParagraphProperties["borders"]): string | n
   return sides.length === 4 ? "all" : sides.length > 0 ? sides.join(",") : null
 }
 
+const CSS_STYLES: Record<string, string> = { single: "solid", dashed: "dashed", dotted: "dotted", double: "double" }
+
+/**
+ * The pen of a paragraph's first drawn side, as the CSS shorthand the editor draws with; null when it is the app's
+ * own line (so a border made in the app reads back as it was made).
+ */
+function penOfProperties(borders: ParagraphProperties["borders"]): string | null {
+  const border = BORDER_SIDES.map((side) => borders?.[side]).find(drawn)
+  if (!border) {
+    return null
+  }
+  const sz = border.sz ?? 4
+  const color = border.color && /^[0-9A-Fa-f]{6}$/.test(border.color) ? border.color.toUpperCase() : "000000"
+  if (border.value === "single" && sz === PARAGRAPH_BORDER_SZ && color === PARAGRAPH_BORDER_COLOR) {
+    return null
+  }
+  // w:sz counts eighths of a point; the editor draws in CSS pixels (0.75 pt).
+  const px = Math.round((sz / 8 / 0.75) * 100) / 100
+  return `${px}px ${CSS_STYLES[border.value] ?? "solid"} #${color.toLowerCase()}`
+}
+
 function shadingOfProperties(shading: ParagraphProperties["shading"]): string | null {
   return shading?.fill && /^[0-9A-Fa-f]{6}$/.test(shading.fill) ? `#${shading.fill.toLowerCase()}` : null
 }
@@ -155,14 +184,15 @@ function paragraphFill(css: unknown): string | null {
   return hex ? `#${hex.toLowerCase()}` : null
 }
 
-function bordersFromBlock(border: string | null): ParagraphProperties["borders"] {
+function bordersFromBlock(border: string | null, pen: string | null, shadow: boolean): ParagraphProperties["borders"] {
   if (!border || border === "none") {
     return undefined
   }
   const sides = border === "all" ? [...BORDER_SIDES] : BORDER_SIDES.filter((side) => border.split(",").includes(side))
-  return Object.fromEntries(
-    sides.map((side) => [side, { value: "single", sz: PARAGRAPH_BORDER_SZ, space: 1, color: PARAGRAPH_BORDER_COLOR }]),
-  )
+  const line = pen
+    ? { ...borderOf(pen), space: 1 }
+    : { value: "single" as const, sz: PARAGRAPH_BORDER_SZ, space: 1, color: PARAGRAPH_BORDER_COLOR }
+  return Object.fromEntries(sides.map((side) => [side, shadow ? { ...line, shadow: true } : { ...line }]))
 }
 
 /** HTML attributes the editor's parseHTML rules read back into exactly `block`, plus the source anchor. */
@@ -224,6 +254,12 @@ export function blockHtmlAttributes(block: BlockFormat, key?: string) {
   if (block.border) {
     data.push(`data-border="${block.border}"`)
   }
+  if (block.borderPen) {
+    style.push(`--para-border: ${block.borderPen}`, `--para-border-color: ${block.borderPen.split(" ")[2] ?? ""}`)
+  }
+  if (block.borderShadow) {
+    data.push(`data-border-shadow="1"`)
+  }
   if (block.shading) {
     style.push(`background-color: ${block.shading}`)
   }
@@ -271,6 +307,8 @@ export function blockFromAttrs(attrs: Record<string, unknown> | undefined): Bloc
     mirrorIndents: flag("mirrorIndents") as boolean,
     tightWrap: TIGHT_WRAPS.includes(text("tightWrap", "none")) ? text("tightWrap", "none") : "none",
     border: text("border", "") && text("border", "") !== "none" ? text("border", "") : null,
+    borderPen: text("borderPen", "") || null,
+    borderShadow: value.borderShadow === true,
     shading: paragraphFill(value.shading),
   }
 }
@@ -327,7 +365,7 @@ export function propertiesFromBlock(edited: BlockFormat, source: ParagraphProper
     }
   }
   if (changed.has("border")) {
-    const borders = bordersFromBlock(edited.border)
+    const borders = bordersFromBlock(edited.border, edited.borderPen, edited.borderShadow)
     if (borders) {
       base.borders = borders
     } else {

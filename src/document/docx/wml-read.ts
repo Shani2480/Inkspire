@@ -1246,6 +1246,9 @@ function readBorder(node: MarkupNode | undefined): Border | undefined {
   if (color) {
     border.color = color
   }
+  if (isOn(attr(node, "shadow"))) {
+    border.shadow = true
+  }
   return border
 }
 

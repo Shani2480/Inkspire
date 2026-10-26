@@ -7,6 +7,30 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### Borders and Shading: a paragraph keeps its pen, and Word's Shadow setting works (22.4, first part)
+
+- **Wrong:** a paragraph's border kept only which sides were drawn: the style, colour and width picked in Borders and
+  Shading were dropped, and every paragraph border was saved as Word's thin single line. Shadow was shown disabled.
+  Changing only the style, colour or width in the dialog applied nothing (only edge clicks counted). `w:shadow` on a
+  border in a Word file was dropped when the file was read, so a shadowed box came back plain after a save even when
+  nobody touched it. Opening the dialog again while it was open kept the previous dialog's state (it was keyed by
+  its tab).
+- **Changed:** paragraphs have `borderPen` (the CSS line, as cells have) and `borderShadow`
+  (`editor/block-format.ts`), drawn through `--para-border` and a bottom-right shadow in the line's colour
+  (`index.css`), cleared by Clear Formatting. `.docx`: `w:shadow` is read and written on every border (`model.ts`,
+  `wml-read.ts`, `wml-write.ts`); a paragraph's pen and shadow are read from its first drawn side and written to each
+  side (`docx/block-format.ts`, reusing the cells' `borderOf`); the app's own line still reads back as no pen. Dialog
+  (`borders-shading-dialog.tsx`): Shadow is a setting for a paragraph (a box that casts one; clicking one edge makes
+  it Custom without the shadow), the preview shows it, the dialog opens on the paragraph's pen and shadow, a new pen
+  alone is applied to the lines already drawn, and every opening starts fresh. `penLine` / `parsePen` are shared in
+  `table-tools.ts`.
+- **Checked:** `borders-shading-dialog.test.tsx` (Shadow with a pen, a pen alone, Custom drops the shadow, setting
+  names) and `paragraph-box.test.ts` (pen and `w:shadow="1"` written on all four sides and opened again; the app's
+  line opens as no pen). Headless Chrome: Home > Borders > Borders and Shading… > Shadow, Dotted, 1.5 pt draws a
+  dotted box with its shadow, light and dark. 761 tests pass; tsc, ESLint and Prettier clean.
+- **Open:** the text sits against a paragraph's box (Word keeps `w:space` between them and draws the box outside
+  the text); Patterns, Options…, Apply to Text, 3-D, Page Border Art and the page-border scopes are the rest of 22.4.
+
 ### The Layout Options button beside a selected object is gone
 
 - **Wrong:** a small square button sat at the top right of a selected picture, shape, text box, chart or 3D model and

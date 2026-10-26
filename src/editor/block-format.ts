@@ -45,6 +45,24 @@ export function blockFormatAttributes() {
       parseHTML: (element: HTMLElement) => element.getAttribute("data-border"),
       renderHTML: (attributes: { border?: string | null }) => borderRender(attributes.border ?? null),
     },
+    /** The line the paragraph's border is drawn with, as the CSS shorthand; the app's own when unset (22.4). */
+    borderPen: {
+      default: null as string | null,
+      parseHTML: (element: HTMLElement) => element.style.getPropertyValue("--para-border").trim() || null,
+      renderHTML: (attributes: { borderPen?: string | null }) =>
+        attributes.borderPen
+          ? {
+              style: `--para-border: ${attributes.borderPen}; --para-border-color: ${attributes.borderPen.split(" ")[2] ?? ""}`,
+            }
+          : {},
+    },
+    /** Word's Shadow border setting: a shadow to the bottom right of the box (22.4). */
+    borderShadow: {
+      default: false,
+      parseHTML: (element: HTMLElement) => element.getAttribute("data-border-shadow") === "1",
+      renderHTML: (attributes: { borderShadow?: boolean }) =>
+        attributes.borderShadow ? { "data-border-shadow": "1" } : {},
+    },
     spaceBefore: {
       default: null as number | null,
       parseHTML: (element: HTMLElement) => pointValue(element.style.marginTop.replace("pt", "")),
@@ -184,7 +202,7 @@ function borderRender(value: string | null) {
   }
   return {
     "data-border": value,
-    style: sides.map((side) => `border-${side}: 1px solid #1c1c1c`).join("; "),
+    style: sides.map((side) => `border-${side}: var(--para-border, 1px solid #1c1c1c)`).join("; "),
   }
 }
 

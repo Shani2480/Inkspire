@@ -8,6 +8,8 @@ import {
   BORDER_WEIGHTS,
   DEFAULT_PEN,
   inTable,
+  parsePen,
+  penLine,
   readScopedBorders,
   setBordersOnCells,
   shadeScope,
@@ -20,27 +22,33 @@ import { useEffect, useState } from "react"
 import { create } from "zustand"
 
 type Tab = "borders" | "page" | "shading"
-type Setting = "none" | "box" | "all" | "custom"
+type Setting = "none" | "box" | "all" | "shadow" | "custom"
 type Target = TableScope | "paragraph"
 
 /** Opens Borders and Shading (22.4) for the editor's selection, from the Home or Table Design Borders menu. */
-export const useBordersShading = create<{ open: { editor: Editor; tab: Tab } | null }>(() => ({ open: null }))
+export const useBordersShading = create<{ open: { editor: Editor; tab: Tab; id: number } | null }>(() => ({
+  open: null,
+}))
 
+let opened = 0
+
+/** Each opening starts from what is drawn now, even when the dialog was already open. */
 export function openBordersAndShading(editor: Editor, tab: Tab = "borders") {
-  useBordersShading.setState({ open: { editor, tab } })
+  opened += 1
+  useBordersShading.setState({ open: { editor, tab, id: opened } })
 }
 
 const BOX: BorderEdge[] = ["top", "bottom", "left", "right"]
 const ALL: BorderEdge[] = [...BOX, "insideH", "insideV"]
 
-/** The setting button that matches a set of edges: None, Box, All, or Custom for anything else. */
-export function settingOf(edges: Set<BorderEdge>, table: boolean): Setting {
+/** The setting button that matches a set of edges: None, Box, Shadow (a box that casts one), All, or Custom. */
+export function settingOf(edges: Set<BorderEdge>, table: boolean, shadow = false): Setting {
   const exactly = (names: BorderEdge[]) => edges.size === names.length && names.every((name) => edges.has(name))
   if (edges.size === 0) {
     return "none"
   }
   if (exactly(BOX)) {
-    return "box"
+    return shadow && !table ? "shadow" : "box"
   }
   if (table && exactly(ALL)) {
     return "all"
@@ -52,7 +60,7 @@ export function edgesOf(setting: Setting, current: Set<BorderEdge>): Set<BorderE
   if (setting === "none") {
     return new Set()
   }
-  if (setting === "box") {
+  if (setting === "box" || setting === "shadow") {
     return new Set(BOX)
   }
   if (setting === "all") {
@@ -81,7 +89,7 @@ export function BordersShadingHost() {
   const open = useBordersShading((state) => state.open)
   return open ? (
     <BordersShadingDialog
-      key={open.tab}
+      key={open.id}
       editor={open.editor}
       initialTab={open.tab}
       onClose={() => useBordersShading.setState({ open: null })}
@@ -149,12 +157,15 @@ function BordersShadingDialog({
     const attrs = editor.state.selection.$from.parent.attrs
     return {
       edges: edgesOfParagraphBorder(attrs.border),
-      pen: DEFAULT_PEN,
+      pen: parsePen(attrs.borderPen) ?? DEFAULT_PEN,
       fill: typeof attrs.shading === "string" ? attrs.shading : null,
+      shadow: attrs.borderShadow === true,
     }
   })
   const [edges, setEdges] = useState<Set<BorderEdge>>(current?.edges ?? new Set())
-  const [pen, setPen] = useState<BorderPen>(current?.pen ?? DEFAULT_PEN)
+  const [pen, setPenState] = useState<BorderPen>(current?.pen ?? DEFAULT_PEN)
+  const [penTouched, setPenTouched] = useState(false)
+  const [shadow, setShadow] = useState(current && "shadow" in current ? current.shadow : false)
   const [target, setTarget] = useState<Target>(table ? "cell" : "paragraph")
   const [fill, setFill] = useState<string | null>(current?.fill ?? null)
   const [fillTouched, setFillTouched] = useState(false)
@@ -166,7 +177,13 @@ function BordersShadingDialog({
     borderLine: setup.borderLine,
   })
   const [pageTouched, setPageTouched] = useState(false)
-  const setting = settingOf(edges, table && target === "table")
+  const setting = settingOf(edges, table && target === "table", shadow)
+  // A new style, colour or width is applied to the lines already drawn, as in Word.
+  const setPen = (update: (current: BorderPen) => BorderPen) => {
+    setBordersTouched(true)
+    setPenTouched(true)
+    setPenState(update)
+  }
 
   useEffect(() => {
     // Moving the Apply to choice from Cell to Table keeps the lines drawn; the inside ones then count.
@@ -177,10 +194,12 @@ function BordersShadingDialog({
 
   const choose = (next: Setting) => {
     setBordersTouched(true)
+    setShadow(next === "shadow")
     setEdges((current) => edgesOf(next, current))
   }
   const toggle = (edge: BorderEdge) => {
     setBordersTouched(true)
+    setShadow(false)
     setEdges((current) => {
       const next = new Set(current)
       if (next.has(edge)) {
@@ -195,7 +214,11 @@ function BordersShadingDialog({
   const apply = () => {
     if (bordersTouched) {
       if (target === "paragraph") {
-        updateBlocks(editor, { border: paragraphBorderOf(edges) })
+        const border = paragraphBorderOf(edges)
+        const attrs = editor.state.selection.$from.parent.attrs
+        // An untouched pen keeps the paragraph's own (or the app's line, when it has none).
+        const borderPen = !border ? null : penTouched ? penLine(pen) : (attrs.borderPen ?? null)
+        updateBlocks(editor, { border, borderPen, borderShadow: Boolean(border) && shadow })
       } else {
         setBordersOnCells(editor, target, edges, pen)
       }
@@ -223,9 +246,7 @@ function BordersShadingDialog({
     { id: "none", label: "None" },
     { id: "box", label: "Box" },
     ...(table && target === "table" ? [{ id: "all" as const, label: "All" }] : []),
-    ...(!table
-      ? [{ id: "custom" as const, label: "Shadow", disabled: true, note: "Shadow borders are not supported" }]
-      : []),
+    ...(!table ? [{ id: "shadow" as const, label: "Shadow" }] : []),
     { id: "custom", label: "Custom" },
   ]
   const applyTo = (
@@ -337,6 +358,7 @@ function BordersShadingDialog({
                   borderBottom: edgeLine("bottom"),
                   borderLeft: edgeLine("left"),
                   borderRight: edgeLine("right"),
+                  boxShadow: setting === "shadow" ? `4px 4px 0 0 ${lineColor}` : undefined,
                 }}
               >
                 {table && target === "table" ? (
