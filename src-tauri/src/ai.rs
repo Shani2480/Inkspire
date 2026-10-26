@@ -296,6 +296,7 @@ async fn send_request(
             http().post(url).json(&serde_json::json!({
                 "model": model,
                 "stream": true,
+                "options": { "num_predict": MAX_REPLY_TOKENS },
                 "messages": [
                     { "role": "system", "content": system },
                     { "role": "user", "content": message }
@@ -509,10 +510,15 @@ fn key_source(saved: &str, env_name: &str) -> &'static str {
     }
 }
 
+/// The most a local or compatible model may write in one reply. A small model can fall into a loop (seen with the
+/// built-in engine on an integrated GPU: "????" until the context was full); this stops it after a long page.
+const MAX_REPLY_TOKENS: u32 = 4096;
+
 fn chat_body(model: &str, system: &str, message: &str) -> serde_json::Value {
     serde_json::json!({
         "model": model,
         "stream": true,
+        "max_tokens": MAX_REPLY_TOKENS,
         "messages": [
             { "role": "system", "content": system },
             { "role": "user", "content": message }
@@ -1090,6 +1096,7 @@ mod tests {
     fn the_request_body_asks_for_a_stream_with_the_system_prompt() {
         let body = chat_body("local", "Be brief.", "Task:\nx");
         assert_eq!(body["stream"], true);
+        assert_eq!(body["max_tokens"], 4096);
         assert_eq!(body["messages"][0]["role"], "system");
         assert_eq!(body["messages"][1]["content"], "Task:\nx");
     }
@@ -1274,6 +1281,112 @@ mod tests {
             AiProvider::Openai,
         );
         assert_eq!(other, "Unknown model");
+    }
+
+    /// The built-in engine for real: downloads the engine and the standard model with the app's own code (into the
+    /// app's data folder, so the desktop app finds them; or `INKSPIRE_LIVE_ROOT`), starts `llama-server` with the
+    /// app's arguments and streams a rewrite through the app's parser. Several GB on first run, so it is ignored:
+    /// `cargo test --lib live_builtin_engine -- --ignored --nocapture`.
+    #[test]
+    #[ignore]
+    fn live_builtin_engine() {
+        use crate::local_ai;
+        let root = std::env::var("INKSPIRE_LIVE_ROOT")
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(|_| {
+                std::path::PathBuf::from(std::env::var("HOME").unwrap())
+                    .join(".local/share/com.aiword.app/local-ai")
+            });
+        let model =
+            local_ai::model_by_id(std::env::var("INKSPIRE_LIVE_MODEL").ok().as_deref()).unwrap();
+        let arch = std::env::consts::ARCH;
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        runtime.block_on(async {
+            let started = std::time::Instant::now();
+            let last = std::sync::Mutex::new(0u64);
+            let emit = |stage: &'static str, label: &str, got: u64, total: u64| {
+                let step = got * 20 / total.max(1);
+                let mut seen = last.lock().unwrap();
+                if step != *seen {
+                    *seen = step;
+                    eprintln!("{stage} {label}: {} / {} MB", got >> 20, total >> 20);
+                }
+            };
+            local_ai::install_into(&root, arch, model, &emit)
+                .await
+                .unwrap();
+            eprintln!("installed in {:?}", started.elapsed());
+        });
+
+        let backend = local_ai::pick_backend(
+            local_ai::vulkan_available(),
+            root.join("vulkan-failed").exists(),
+        );
+        let server = local_ai::find_server(&local_ai::engine_dir(&root, backend)).unwrap();
+        let port = 18_000 + (std::process::id() % 1000) as u16;
+        let model_path = local_ai::models_dir(&root).join(model.file);
+        let log = std::fs::File::create(root.join("engine-live-test.log")).unwrap();
+        let mut child = std::process::Command::new(&server)
+            .args(local_ai::server_args(
+                &model_path,
+                model.context,
+                port,
+                backend,
+            ))
+            .env("LD_LIBRARY_PATH", server.parent().unwrap())
+            .stdout(log.try_clone().unwrap())
+            .stderr(log)
+            .spawn()
+            .unwrap();
+        let outcome = runtime.block_on(async {
+            let base = format!("http://127.0.0.1:{port}");
+            let client = reqwest::Client::new();
+            let loading = std::time::Instant::now();
+            loop {
+                let ok = client.get(format!("{base}/health")).send().await.map(|r| r.status().is_success());
+                if ok.unwrap_or(false) {
+                    break;
+                }
+                assert!(loading.elapsed().as_secs() < 240, "the engine did not start");
+                tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+            }
+            eprintln!("{backend:?} engine ready in {:?}", loading.elapsed());
+            let mut out = Vec::new();
+            for (prompt, context) in [
+                ("Rewrite this paragraph to be more formal.", "<p>hey team, the launch is moved to friday cuz the tests aren't done yet. sorry!</p>"),
+                ("Translate this paragraph into Hebrew.", "<p>The café opens at nine. Everyone is welcome.</p>"),
+            ] {
+                let asked = std::time::Instant::now();
+                let response = client
+                    .post(format!("{base}/v1/chat/completions"))
+                    .json(&chat_body("local", SYSTEM_PROMPT, &user_message(prompt, context)))
+                    .send()
+                    .await
+                    .unwrap();
+                assert!(response.status().is_success(), "{}", response.status());
+                let mut parser = StreamParser::new(AiProvider::Builtin);
+                let mut text = String::new();
+                let mut stream = response.bytes_stream();
+                use futures_util::StreamExt;
+                while let Some(chunk) = stream.next().await {
+                    text.extend(parser.push(chunk.unwrap()).unwrap());
+                }
+                text.extend(parser.finish().unwrap());
+                eprintln!("--- {prompt} ({:?})\n{}", asked.elapsed(), finalize_html(&text));
+                out.push(finalize_html(&text));
+            }
+            out
+        });
+        let _ = child.kill();
+        let _ = child.wait();
+        assert!(
+            outcome[0].starts_with('<') && outcome[0].len() > 20,
+            "{}",
+            outcome[0]
+        );
+        assert!(!outcome[1].contains('\u{FFFD}'), "{}", outcome[1]);
+        // Whether the translation is good Hebrew is up to the model (the 3B one mixes in other scripts); the app's part
+        // is that the reply ends and no character is garbled.
     }
 
     #[test]
