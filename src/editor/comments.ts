@@ -401,11 +401,12 @@ export function deleteComment(editor: Editor, id: string) {
   return cleared
 }
 
+/** Goes to a comment: the caret at the start of its range, which shows in red as the active one (Word does not select it). */
 export function selectComment(editor: Editor, id: string) {
   const range = listComments(editor.state.doc).find((item) => item.id === id)
   const span = range?.spans[0]
   if (!span) {
     return false
   }
-  return editor.chain().focus().setTextSelection({ from: span.from, to: span.to }).scrollIntoView().run()
+  return editor.chain().focus().setTextSelection(span.from).scrollIntoView().run()
 }

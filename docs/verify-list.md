@@ -25,6 +25,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [x] **Comment anchor line and red active range (22.18, 2026-10-26)** — checked 2026-10-26 in Chrome, light and
+      dark, wide and 1000 px windows.
 - [x] **Online 3D model inserts the model picked (2026-10-26)** — checked 2026-10-26 in Chrome (Arm Chair 01 loads live with its texture) — Insert > 3D Models > Online, pick a model: the
       footer counts the download, the library closes, the model (not a cube) appears and turns.
 - [x] **3-D model whose file has nothing to draw keeps Word's picture (2026-10-24)** — checked 2026-10-24 in Chrome

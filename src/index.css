@@ -58,6 +58,7 @@
   --app-theme-primary: #2b579a;
   --app-theme-hover: color-mix(in srgb, var(--app-theme-primary) 86%, black);
   --app-theme-light: color-mix(in srgb, var(--app-theme-primary) 14%, white);
+  --app-comment-active: #c50f1f;
   --app-workspace: #ebebeb;
   --app-ribbon-card: #ffffff;
   --app-ribbon-border: #e1dfdd;
@@ -151,6 +152,7 @@
 
 .dark {
   --app-titlebar-inactive: rgb(36 36 36 / 0.55);
+  --app-comment-active: #e5534b;
   --app-workspace: #1e1e1e;
   --app-ribbon-card: #292929;
   --app-ribbon-border: #3b3a39;
@@ -5163,9 +5165,39 @@ body,
   user-select: text;
 }
 
+/* Word marks the active comment's range in red, with a bracket at each end (22.18). */
 .comment-mark.is-active {
-  background: color-mix(in srgb, var(--app-theme-primary) 22%, transparent);
-  box-shadow: inset 0 -2px 0 var(--app-theme-primary);
+  background: color-mix(in srgb, var(--app-comment-active) 28%, transparent);
+}
+
+.comment-mark.is-active.is-first {
+  box-shadow: inset 2px 0 0 var(--app-comment-active);
+}
+
+.comment-mark.is-active.is-last {
+  box-shadow: inset -2px 0 0 var(--app-comment-active);
+}
+
+.comment-mark.is-active.is-first.is-last {
+  box-shadow:
+    inset 2px 0 0 var(--app-comment-active),
+    inset -2px 0 0 var(--app-comment-active);
+}
+
+.comment-anchor-line {
+  position: fixed;
+  inset: 0;
+  z-index: 79;
+  width: 100vw;
+  height: 100vh;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.comment-anchor-line polyline {
+  fill: none;
+  stroke: var(--app-comment-active);
+  stroke-width: 1;
 }
 
 .comment-mark[data-resolved="true"] {
@@ -5243,6 +5275,11 @@ body,
 
 .dark .comment-popover {
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.45);
+}
+
+/* The open card is the active comment: Word outlines it in red. */
+.comment-popover {
+  border-color: var(--app-comment-active);
 }
 
 .comment-popover-header {
@@ -5420,8 +5457,8 @@ body,
 }
 
 .comment-sidebar-card.is-active {
-  border-color: var(--app-comment-active, #c50f1f);
-  box-shadow: 0 0 0 2px var(--app-comment-active, #c50f1f);
+  border-color: var(--app-comment-active);
+  box-shadow: 0 0 0 2px var(--app-comment-active);
 }
 
 .comment-sidebar-card.is-resolved {
