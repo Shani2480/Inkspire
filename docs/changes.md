@@ -7,6 +7,18 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### Tables in a header or footer could not be clicked into or resized
+
+- **Bug:** while a header or footer was open, its margin's zone (`.page-chrome-zone`, z-index 3, the double-click
+  target that opens it) lay over the header's content (z-index 2). A click in a header table's cell, or a drag of its
+  border, reached the zone instead of the editor: the zone only reopened the header with the caret at its end, so the
+  table could not be typed in, and resizing never reached the table either.
+- **Changed:** the header or footer being edited is raised over the zone (`.is-chrome-editing .chrome-box.is-live`,
+  `index.css`); the zone still takes clicks in the rest of the margin, which open that page's header.
+- **Checked** in headless Chrome: a 2×2 table pasted into the header takes typing in a cell, a row border dragged
+  20 → 50 px and a column border 311 → 231 px, typing still lands in the cells after each, and the closed header's
+  copy shows the edited table.
+
 ### Tables: fit every column of a selected table, and fit a row to its contents, by double-clicking a border
 
 - **Missing:** with the whole table selected, double-clicking a column border fitted only that column; double-clicking

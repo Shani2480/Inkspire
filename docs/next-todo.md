@@ -16,6 +16,9 @@ Phases 1–14 are done.
 
 ## Rich header and footer (H1-H4 done; left over below)
 
+Fixed 2026-10-26: a table in an open header or footer could not be clicked into or resized (the margin's zone lay
+over the header's content); the live header or footer now sits over the zone.
+
 Fixed 2026-10-21: after a header picture was edited and the header closed, the closed header's copy kept the picture's selection frame and handles (and, through `.page-canvas:has(.ProseMirror-selectednode …)`, switched the header zone off so it could not be opened again). The copy (`drawnMarkup` in `chrome-editors.tsx`) now drops the selection class and handles, and is no longer re-taken once the editor is off the page. While the header was open the first page's header was padded 1.75rem each side (room for the First page checkbox), so its picture or text sat 28 px to the right of where the closed header draws it; that padding rule is gone (the checkbox sits in the margin). The rotate handle (every picture, shape and object) now sits above the middle of the top edge on a short stem, as in Word.
 
 Fixed 2026-10-22: printing lays the pages out as the editor drew them (`document/print-copy.ts`: one paper-sized
