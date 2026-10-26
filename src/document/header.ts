@@ -6,7 +6,9 @@ import {
   clipWatermark,
   columnCount,
   formatPageSetup,
+  borderDisplay,
   borderLine,
+  borderSpace,
   effectPreset,
   pageBorder,
   pageNumberPlace,
@@ -16,7 +18,7 @@ import {
 } from "@/document/page-setup"
 
 const CHROME_MARK =
-  /^<!-- aiword-(header|footer|first-header|first-footer|even-header|even-footer|first|oddeven|page|columns|colgap|colline|lines|watermark|border|borderwidth|borderline|pagecolor|pagenum|hyphens|language|fonts|spacing|headerstyle|footerstyle|colors|effects):([^\n>]*) -->\n?/
+  /^<!-- aiword-(header|footer|first-header|first-footer|even-header|even-footer|first|oddeven|page|columns|colgap|colline|lines|watermark|border|borderwidth|borderline|borderplace|pagecolor|pagenum|hyphens|language|fonts|spacing|headerstyle|footerstyle|colors|effects):([^\n>]*) -->\n?/
 
 export type DocumentChrome = {
   /** The header and footer of each kind of page, as editor HTML. */
@@ -80,6 +82,9 @@ export function packDocument(html: string, chrome: DocumentChrome) {
       ? ""
       : `<!-- aiword-borderwidth:${chrome.pageSetup.borderWidth} -->`,
     chrome.pageSetup.borderLine === "solid" ? "" : `<!-- aiword-borderline:${chrome.pageSetup.borderLine} -->`,
+    chrome.pageSetup.border === "none"
+      ? ""
+      : `<!-- aiword-borderplace:${chrome.pageSetup.borderDisplay},${chrome.pageSetup.borderFrom},${chrome.pageSetup.borderSpace.join(" ")} -->`,
     chrome.pageSetup.pageColor ? `<!-- aiword-pagecolor:${encodeURIComponent(chrome.pageSetup.pageColor)} -->` : "",
     chrome.pageSetup.pageNumber === "bottom-center" ? "" : `<!-- aiword-pagenum:${chrome.pageSetup.pageNumber} -->`,
     chrome.pageSetup.hyphenation ? "<!-- aiword-hyphens:1 -->" : "",
@@ -111,6 +116,7 @@ export function unpackDocument(raw: string) {
   const chrome = emptyChrome()
   // Files written while a new document was numbered at the bottom centre carry no page number mark; they keep it.
   chrome.pageSetup = { ...chrome.pageSetup, pageNumber: "bottom-center" }
+  let borderPlaced = false
 
   for (;;) {
     const match = html.match(CHROME_MARK)
@@ -171,6 +177,15 @@ export function unpackDocument(raw: string) {
       }
     } else if (match[1] === "borderline") {
       chrome.pageSetup = { ...chrome.pageSetup, borderLine: borderLine(value) }
+    } else if (match[1] === "borderplace") {
+      const [display, from, space] = value.split(",")
+      borderPlaced = true
+      chrome.pageSetup = {
+        ...chrome.pageSetup,
+        borderDisplay: borderDisplay(display),
+        borderFrom: from === "text" ? "text" : "page",
+        borderSpace: borderSpace(String(space ?? "").split(" ")) ?? DEFAULT_PAGE_SETUP.borderSpace,
+      }
     } else if (match[1] === "pagecolor") {
       chrome.pageSetup = { ...chrome.pageSetup, pageColor: /^#[0-9a-fA-F]{6}$/.test(value) ? value : "" }
     } else if (match[1] === "pagenum") {
@@ -194,6 +209,10 @@ export function unpackDocument(raw: string) {
       chrome.pageSetup = { ...chrome.pageSetup, footerStyle: builtInHeader(value) }
     }
     html = html.slice(match[0].length)
+  }
+  if (chrome.pageSetup.border !== "none" && !borderPlaced) {
+    // Written before the border had Options: it was drawn on the margins.
+    chrome.pageSetup = { ...chrome.pageSetup, borderFrom: "text", borderSpace: [0, 0, 0, 0] }
   }
 
   return { html, ...chrome }

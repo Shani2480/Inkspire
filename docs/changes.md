@@ -7,6 +7,31 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### Page borders in .docx, with Apply to and Options… (22.4, fifth part)
+
+- **Missing:** a page border lived only in the app's own file. A Word document's page border (`w:pgBorders`) was
+  not shown, and a border set in the app was not saved to .docx. Page Border had no Apply to (first page only, all
+  except first) and no Options… (margins, Measure from), and the border was always drawn on the text margins.
+- **Changed:** the section model reads and writes `w:pgBorders` (display, offsetFrom, zOrder and the four sides) in
+  schema order (`model.ts`, `wml-read.ts`, `wml-write.ts`). `project.ts` maps it to the page setup and back: the
+  first drawn side gives the line, colour and width; Word's element is written unchanged while the setup still
+  says the same, so art borders and per-side lines survive; a change writes the setup's line on all four sides.
+  The page setup has `borderDisplay`, `borderFrom` and `borderSpace` (`page-setup.ts`; default Word's 24 pt from
+  the edge of the page), kept in the app's own file (`borderplace` mark in `header.ts`; older files keep the
+  border on the margins). Each page draws the border only where Apply to says, placed in from the page edge or out
+  from the text past its line (`showsPageBorder`, `pageBorderInset`, `page-canvas.tsx`). The Page Border tab and
+  the ribbon's Page Borders dialog have Apply to (Whole document, This section, First page only, All except first
+  page) and Options… (Margin top/bottom/left/right, Measure from). The Options dialog moved to
+  `border-options-dialog.tsx`, shared with the paragraph's. A dialog opened from inside another no longer submits
+  the outer one too (`word-dialog.tsx`).
+- **Tests:** `page-borders.test.ts` (read, keep Word's element and art, write in order, None drops it, pages,
+  placement, the app's own file and older files), a Page Border case in `borders-shading-dialog.test.tsx`. All 782
+  pass; typecheck, ESLint and Prettier clean.
+- **Checked:** headless Chrome: Dashed, All except first page, Measure from Text: page 1 has no border, page 2's
+  sits 24 pt out from the text; the dialog's drop-downs no longer clip their text. Not checked in dark mode or Word.
+- **Open:** Art (picture borders) is kept from Word but not drawn or offered; per-side page borders; the Options
+  check boxes (Surround header / footer, Always display in front); a section of its own for "This section".
+
 ### Borders and Shading > Apply to Text: a box, Word's shadow, fill and pattern round selected text (22.4, fourth part)
 
 - **Missing:** Borders and Shading only applied to a paragraph, cell or table. A run's own box and shading in a Word

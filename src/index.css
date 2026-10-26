@@ -4157,6 +4157,7 @@ button.line-menu-row:focus-visible {
   border-top: var(--crop-line);
 }
 
+/* Placed by its inline inset: in from the page edge, or out from the margins (Page Border > Options…). */
 .page-border {
   position: absolute;
   top: var(--page-margin-top, 24mm);
@@ -11915,11 +11916,18 @@ textarea.text-prompt-field {
   min-width: 0;
 }
 
-.bs-apply select {
+.bs-measure {
+  grid-column: 1 / -1;
+}
+
+.bs-apply select,
+.bs-measure select {
+  height: 26px;
   border: 1px solid var(--dlg-control-border);
   border-radius: 3px;
   background: var(--dlg-surface);
-  padding: 4px 6px;
+  padding: 0 6px;
+  line-height: 24px;
   color: var(--dlg-text);
 }
 

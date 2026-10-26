@@ -12,6 +12,8 @@ import {
   paragraphBorderOf,
   settingOf,
 } from "@/components/borders-shading-dialog"
+import { DEFAULT_PAGE_SETUP } from "@/document/page-setup"
+import { useDocumentStore } from "@/document/store"
 import { IndentedParagraph } from "@/editor/indent"
 import {
   DEFAULT_PEN,
@@ -283,6 +285,28 @@ describe("the Borders and Shading dialog (22.4)", () => {
     render(<BordersShadingHost />)
     act(() => openBordersAndShading(editor))
     expect((screen.getByRole("button", { name: "Options…" }) as HTMLButtonElement).disabled).toBe(true)
+  })
+
+  it("sets the page border's pages and its distance in Options… (22.4)", () => {
+    useDocumentStore.getState().setPageSetup(DEFAULT_PAGE_SETUP)
+    const editor = make("<p>one</p>")
+    render(<BordersShadingHost />)
+    act(() => openBordersAndShading(editor, "page"))
+    fireEvent.click(screen.getByRole("button", { name: /Solid/ }))
+    fireEvent.change(screen.getByLabelText("Page border applies to"), { target: { value: "first" } })
+    fireEvent.click(screen.getByRole("button", { name: "Options…" }))
+    expect((screen.getByLabelText("Top:") as HTMLInputElement).value).toBe("24 pt")
+    fireEvent.change(screen.getByLabelText("Top:"), { target: { value: "10" } })
+    fireEvent.blur(screen.getByLabelText("Top:"))
+    fireEvent.change(screen.getByLabelText("Measure from"), { target: { value: "text" } })
+    fireEvent.click(screen.getAllByText("OK")[1])
+    fireEvent.click(screen.getByText("OK"))
+    expect(useDocumentStore.getState().pageSetup).toMatchObject({
+      border: "single",
+      borderDisplay: "first",
+      borderFrom: "text",
+      borderSpace: [10, 24, 24, 24],
+    })
   })
 
   it("reads a table's inside lines back as All", () => {

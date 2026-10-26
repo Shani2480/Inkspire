@@ -48,6 +48,7 @@ import {
   type Hyperlink,
   type Inline,
   type LineNumbering,
+  type PageBorders,
   type MediaPart,
   type NumberingDefinitions,
   type Paragraph,
@@ -648,6 +649,103 @@ function pageSetupFromSection(section: SectionProps): PageSetup {
       : DEFAULT_PAGE_SETUP.columnGap,
     columnLine: columns > 1 && section.columnSeparator === true,
     sectionStart: sectionStartFrom(section.type),
+    ...pageBorderSetup(section.pageBorders),
+  }
+}
+
+type PageBorderSetup = Pick<
+  PageSetup,
+  "border" | "borderColor" | "borderWidth" | "borderLine" | "borderDisplay" | "borderFrom" | "borderSpace"
+>
+
+const PAGE_BORDER_SIDES = ["top", "right", "bottom", "left"] as const
+
+/** The page setup's page border from a section's w:pgBorders; the first drawn side gives the line (22.4). */
+function pageBorderSetup(borders: PageBorders | undefined): PageBorderSetup {
+  const line = PAGE_BORDER_SIDES.map((side) => borders?.[side]).find(
+    (border) => border && border.value !== "none" && border.value !== "nil",
+  )
+  if (!borders || !line) {
+    return {
+      border: "none",
+      borderColor: DEFAULT_PAGE_SETUP.borderColor,
+      borderWidth: DEFAULT_PAGE_SETUP.borderWidth,
+      borderLine: DEFAULT_PAGE_SETUP.borderLine,
+      borderDisplay: DEFAULT_PAGE_SETUP.borderDisplay,
+      borderFrom: DEFAULT_PAGE_SETUP.borderFrom,
+      borderSpace: DEFAULT_PAGE_SETUP.borderSpace,
+    }
+  }
+  const value = line.value
+  const borderLine =
+    value === "dashed" || value === "dashSmallGap" || value === "dotDash" || value === "dotDotDash"
+      ? "dashed"
+      : value === "dotted"
+        ? "dotted"
+        : value === "threeDEngrave" || value === "inset"
+          ? "groove"
+          : value === "threeDEmboss" || value === "outset"
+            ? "ridge"
+            : "solid"
+  return {
+    border: value === "double" ? "double" : "single",
+    borderColor: line.color && /^[0-9A-Fa-f]{6}$/.test(line.color) ? `#${line.color.toLowerCase()}` : "#1c1c1c",
+    // w:sz counts eighths of a point.
+    borderWidth: Math.round((((line.sz ?? 4) / 8) * 25.4 * 100) / 72) / 100,
+    borderLine: value === "double" ? "solid" : borderLine,
+    borderDisplay: borders.display === "firstPage" ? "first" : borders.display === "notFirstPage" ? "not-first" : "all",
+    borderFrom: borders.offsetFrom === "page" ? "page" : "text",
+    borderSpace: PAGE_BORDER_SIDES.map((side) => borders[side]?.space ?? 0),
+  }
+}
+
+function samePageBorder(left: PageBorderSetup, right: PageBorderSetup) {
+  return (
+    left.border === right.border &&
+    (left.border === "none" ||
+      (left.borderColor === right.borderColor &&
+        left.borderWidth === right.borderWidth &&
+        left.borderLine === right.borderLine &&
+        left.borderDisplay === right.borderDisplay &&
+        left.borderFrom === right.borderFrom &&
+        left.borderSpace.join(" ") === right.borderSpace.join(" ")))
+  )
+}
+
+const PAGE_BORDER_VALUES: Record<PageSetup["borderLine"], Border["value"]> = {
+  solid: "single",
+  dashed: "dashed",
+  dotted: "dotted",
+  groove: "threeDEngrave",
+  ridge: "threeDEmboss",
+}
+
+/**
+ * The section's w:pgBorders from the page setup: what Word wrote while the setup still says the same (so its art and
+ * per-side lines are kept), else the setup's line on all four sides.
+ */
+function pageBordersFrom(setup: PageSetup, base: PageBorders | undefined): PageBorders | undefined {
+  if (samePageBorder(setup, pageBorderSetup(base))) {
+    return base
+  }
+  if (setup.border === "none") {
+    return undefined
+  }
+  const color = setup.borderColor.toLowerCase() === "#1c1c1c" ? "auto" : setup.borderColor.slice(1).toUpperCase()
+  const sz = Math.min(96, Math.max(2, Math.round(((setup.borderWidth * 72) / 25.4) * 8)))
+  const value = setup.border === "double" ? "double" : PAGE_BORDER_VALUES[setup.borderLine]
+  const side = (index: number): Border => ({ value, sz, space: setup.borderSpace[index] ?? 0, color })
+  return {
+    ...(setup.borderDisplay === "first"
+      ? { display: "firstPage" as const }
+      : setup.borderDisplay === "not-first"
+        ? { display: "notFirstPage" as const }
+        : {}),
+    ...(setup.borderFrom === "page" ? { offsetFrom: "page" as const } : {}),
+    top: side(0),
+    left: side(3),
+    bottom: side(2),
+    right: side(1),
   }
 }
 
@@ -721,6 +819,7 @@ function sectionFromChrome(chrome: DocumentChrome, base: SectionProps | null): S
       setup.columns > 1 && setup.columnLine ? true : base?.columnSeparator === undefined ? undefined : false,
     linePitch: base?.linePitch ?? DEFAULT_SECTION.linePitch,
     lineNumbers: lineNumberingFrom(setup, base?.lineNumbers),
+    pageBorders: pageBordersFrom(setup, base?.pageBorders),
     titlePg: chrome.differentFirstPage ? true : undefined,
     type: sectionTypeFrom(setup.sectionStart) ?? base?.type,
   }

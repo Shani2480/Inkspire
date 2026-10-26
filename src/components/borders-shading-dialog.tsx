@@ -1,6 +1,7 @@
 import { ColorMenu } from "@/components/color-menu"
-import { PageBorderPanel, type BorderPatch } from "@/components/design-dialogs"
-import { DialogButtons, DialogFrame, SpinField } from "@/components/word-dialog"
+import { borderPatchOf, PageBorderPanel, type BorderPatch } from "@/components/design-dialogs"
+import { BorderOptionsDialog } from "@/components/border-options-dialog"
+import { DialogButtons, DialogFrame } from "@/components/word-dialog"
 import { SHADING_PATTERNS, patternImage, patternOf, patternValue } from "@/document/docx/shading-pattern"
 import { useDocumentStore } from "@/document/store"
 import { borderSpaceOf, updateBlocks } from "@/editor/block-format"
@@ -93,59 +94,9 @@ export function edgesOfParagraphBorder(value: unknown): Set<BorderEdge> {
 
 /** Word's gaps between a paragraph's text and its box, in points: top, right, bottom, left. */
 const DEFAULT_SPACE = [1, 4, 1, 4]
-/** Word's order in the Options dialog, each with its place in a `borderSpace` value. */
-const SPACE_FIELDS = [
-  { index: 0, label: "Top" },
-  { index: 2, label: "Bottom" },
-  { index: 3, label: "Left" },
-  { index: 1, label: "Right" },
-]
-
 /** The `borderSpace` value for four gaps; null when they are Word's own. */
 export function borderSpaceValue(space: number[]): string | null {
   return space.every((value, index) => value === DEFAULT_SPACE[index]) ? null : space.join(" ")
-}
-
-/** Borders and Shading > Options… (22.4): the distance from the text to each side of the paragraph's box. */
-function BorderOptionsDialog({
-  space,
-  onDone,
-  onClose,
-}: {
-  space: number[]
-  onDone: (space: number[]) => void
-  onClose: () => void
-}) {
-  const [draft, setDraft] = useState(space.map(String))
-  return (
-    <DialogFrame
-      title="Border and Shading Options"
-      width={320}
-      level={90}
-      onClose={onClose}
-      onSubmit={() => onDone(draft.map((value) => Math.min(31, Math.max(0, Number(value) || 0))))}
-    >
-      <fieldset className="bs-options">
-        <legend>From text</legend>
-        {SPACE_FIELDS.map((field) => (
-          <label key={field.label} className="bs-option" htmlFor={`bs-space-${field.label}`}>
-            {field.label}:
-            <SpinField
-              id={`bs-space-${field.label}`}
-              value={draft[field.index]}
-              unit="pt"
-              step={1}
-              max={31}
-              onChange={(value) =>
-                setDraft((current) => current.map((item, index) => (index === field.index ? value : item)))
-              }
-            />
-          </label>
-        ))}
-      </fieldset>
-      <DialogButtons submit onCancel={onClose} />
-    </DialogFrame>
-  )
 }
 
 export function BordersShadingHost() {
@@ -260,12 +211,7 @@ function BordersShadingDialog({
   const [patternColor, setPatternColor] = useState<string | null>(openPattern?.color ?? null)
   const [patternTouched, setPatternTouched] = useState(false)
   const [bordersTouched, setBordersTouched] = useState(false)
-  const [pageDraft, setPageDraft] = useState<BorderPatch>({
-    border: setup.border,
-    borderColor: setup.borderColor,
-    borderWidth: setup.borderWidth,
-    borderLine: setup.borderLine,
-  })
+  const [pageDraft, setPageDraft] = useState<BorderPatch>(borderPatchOf(setup))
   const [pageTouched, setPageTouched] = useState(false)
   const setting = settingOf(edges, table && target === "table", shadow)
   // A new style, colour or width is applied to the lines already drawn, as in Word.

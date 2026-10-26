@@ -350,6 +350,8 @@ export function DialogFrame({
             style={bodyStyle}
             onSubmit={(event) => {
               event.preventDefault()
+              // A dialog opened from inside another one does not submit that one too.
+              event.stopPropagation()
               onSubmit(event)
             }}
           >

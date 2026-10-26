@@ -5,6 +5,10 @@ export type PageOrientation = "portrait" | "landscape"
 export type ColumnCount = 1 | 2 | 3
 export type PageBorder = "none" | "single" | "double"
 export type BorderLine = "solid" | "dashed" | "dotted" | "groove" | "ridge"
+/** Which pages of the section show the page border (Borders and Shading > Page Border > Apply to). */
+export type BorderDisplay = "all" | "first" | "not-first"
+/** What the page border's distances are measured from (Page Border > Options… > Measure from). */
+export type BorderFrom = "page" | "text"
 export type PageNumberPlace = "none" | "bottom-center" | "bottom-right" | "top-center" | "top-right"
 export type SpacingPreset = "default" | "none" | "compact" | "tight" | "open" | "relaxed" | "double"
 export type EffectPreset = "" | "office" | "subtle" | "moderate" | "intense"
@@ -50,6 +54,10 @@ export type PageSetup = {
   borderColor: string
   borderWidth: number
   borderLine: BorderLine
+  borderDisplay: BorderDisplay
+  borderFrom: BorderFrom
+  /** The border's distance from the page edge or the text, in points: top, right, bottom, left. */
+  borderSpace: number[]
   pageColor: string
   pageNumber: PageNumberPlace
   hyphenation: boolean
@@ -138,6 +146,10 @@ export const DEFAULT_PAGE_SETUP: PageSetup = {
   borderColor: "#1c1c1c",
   borderWidth: 0.5,
   borderLine: "solid",
+  // Word's own Options for a new page border: 24 pt in from the edge of the page.
+  borderDisplay: "all",
+  borderFrom: "page",
+  borderSpace: [24, 24, 24, 24],
   pageColor: "",
   // No page number until one is put in the header or footer (Insert > Page Number), as in Word.
   pageNumber: "none",
@@ -175,6 +187,9 @@ export function normalizePageSetup(setup: Partial<PageSetup> | null | undefined)
     verticalAlign: verticalAlign(setup?.verticalAlign),
     lineNumberRestart: setup?.lineNumberRestart === "page" ? "page" : "continuous",
     columnLine: Boolean(setup?.columnLine),
+    borderDisplay: borderDisplay(setup?.borderDisplay),
+    borderFrom: setup?.borderFrom === "text" ? "text" : "page",
+    borderSpace: borderSpace(setup?.borderSpace) ?? DEFAULT_PAGE_SETUP.borderSpace,
   }
 }
 
@@ -209,6 +224,9 @@ export function samePageSetup(left: PageSetup, right: PageSetup) {
     left.borderColor === right.borderColor &&
     left.borderWidth === right.borderWidth &&
     left.borderLine === right.borderLine &&
+    left.borderDisplay === right.borderDisplay &&
+    left.borderFrom === right.borderFrom &&
+    left.borderSpace.join(" ") === right.borderSpace.join(" ") &&
     left.pageColor === right.pageColor &&
     left.pageNumber === right.pageNumber &&
     left.hyphenation === right.hyphenation &&
@@ -398,6 +416,50 @@ export function effectPreset(value: unknown): EffectPreset {
 
 export function borderLine(value: unknown): BorderLine {
   return value === "dashed" || value === "dotted" || value === "groove" || value === "ridge" ? value : "solid"
+}
+
+export function borderDisplay(value: unknown): BorderDisplay {
+  return value === "first" || value === "not-first" ? value : "all"
+}
+
+/** Four distances in points (Word allows 0 to 31), or null when the value is not four numbers. */
+export function borderSpace(value: unknown): number[] | null {
+  const parts = Array.isArray(value) ? value.map(Number) : []
+  return parts.length === 4 && parts.every((part) => Number.isFinite(part))
+    ? parts.map((part) => Math.min(31, Math.max(0, Math.round(part))))
+    : null
+}
+
+/** Whether the page border is drawn on the page at this index (0 for the first). */
+export function showsPageBorder(setup: PageSetup, index: number) {
+  if (setup.border === "none") {
+    return false
+  }
+  return setup.borderDisplay === "first" ? index === 0 : setup.borderDisplay === "not-first" ? index > 0 : true
+}
+
+/** The CSS width of the page border's line, as the page draws it. */
+export function pageBorderLineWidth(setup: Pick<PageSetup, "border" | "borderWidth">) {
+  const width = Math.max(0.2, setup.borderWidth)
+  return setup.border === "double" ? `max(3px, ${width * 3}mm)` : `${width}mm`
+}
+
+/**
+ * Where the page border's box sits on the page: its distance in from the edge of the page, or out from the text
+ * (the margins) to the inside of the line, as Word measures it.
+ */
+export function pageBorderInset(setup: PageSetup) {
+  const sides = ["top", "right", "bottom", "left"] as const
+  const line = pageBorderLineWidth(setup)
+  return Object.fromEntries(
+    sides.map((side, index) => {
+      const space = setup.borderSpace[index] ?? 0
+      return [
+        side,
+        setup.borderFrom === "page" ? `${space}pt` : `calc(var(--page-margin-${side}, 24mm) - ${space}pt - ${line})`,
+      ]
+    }),
+  ) as Record<(typeof sides)[number], string>
 }
 
 export function columnCount(value: unknown): ColumnCount {

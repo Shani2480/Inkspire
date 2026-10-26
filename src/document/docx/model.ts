@@ -245,6 +245,17 @@ export type LineNumbering = {
   restart?: "continuous" | "newPage" | "newSection"
 }
 
+/** w:pgBorders: the section's page border, the pages that show it and what its distances are measured from. */
+export type PageBorders = {
+  display?: "allPages" | "firstPage" | "notFirstPage"
+  offsetFrom?: "page" | "text"
+  zOrder?: "front" | "back"
+  top?: Border
+  left?: Border
+  bottom?: Border
+  right?: Border
+}
+
 export type SectionProps = {
   /** w:sectPr as written. */
   source?: ElementSource
@@ -267,6 +278,8 @@ export type SectionProps = {
   linePitch?: number
   /** w:lnNumType: the section's line numbers (21.37). */
   lineNumbers?: LineNumbering
+  /** w:pgBorders (22.4). */
+  pageBorders?: PageBorders
   /** Header and footer parts, in the order Word wrote the references. */
   references?: HeaderFooterRef[]
 }

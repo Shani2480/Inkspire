@@ -7,6 +7,7 @@ import {
   cmToMm,
   mmToCm,
   paperBox,
+  type BorderDisplay,
   type BorderLine,
   type PageBorder,
   type PageSetup,
@@ -15,9 +16,35 @@ import {
 import { useDocumentStore } from "@/document/store"
 import { printDocument } from "@/document/commands"
 import { useEffect, useState, type ReactNode } from "react"
+import { createPortal } from "react-dom"
 import { DialogButtons, DialogFrame } from "@/components/word-dialog"
+import { BorderOptionsDialog } from "@/components/border-options-dialog"
 
-export type BorderPatch = Pick<PageSetup, "border" | "borderColor" | "borderWidth" | "borderLine">
+export type BorderPatch = Pick<
+  PageSetup,
+  "border" | "borderColor" | "borderWidth" | "borderLine" | "borderDisplay" | "borderFrom" | "borderSpace"
+>
+
+/** The page border fields of a page setup, as the Page Border tab edits them. */
+export function borderPatchOf(setup: PageSetup): BorderPatch {
+  return {
+    border: setup.border,
+    borderColor: setup.borderColor,
+    borderWidth: setup.borderWidth,
+    borderLine: setup.borderLine,
+    borderDisplay: setup.borderDisplay,
+    borderFrom: setup.borderFrom,
+    borderSpace: setup.borderSpace,
+  }
+}
+
+/** Page Border > Apply to: one section here, so the whole document and this section are the same pages. */
+const BORDER_SCOPES: { id: string; label: string; display: BorderDisplay }[] = [
+  { id: "document", label: "Whole document", display: "all" },
+  { id: "section", label: "This section", display: "all" },
+  { id: "first", label: "This section - First page only", display: "first" },
+  { id: "not-first", label: "This section - All except first page", display: "not-first" },
+]
 
 type BordersRequest = {
   setup: PageSetup
@@ -97,12 +124,7 @@ function PageBordersDialog({
   onClose: () => void
   onApply: (patch: BorderPatch) => void
 }) {
-  const [draft, setDraft] = useState<BorderPatch>({
-    border: setup.border,
-    borderColor: setup.borderColor,
-    borderWidth: setup.borderWidth,
-    borderLine: setup.borderLine,
-  })
+  const [draft, setDraft] = useState<BorderPatch>(borderPatchOf(setup))
   return (
     <Overlay title="Borders and Shading" onClose={onClose} wide level={90}>
       <PageBorderPanel draft={draft} setDraft={setDraft} />
@@ -125,6 +147,10 @@ export function PageBorderPanel({
       (item.border === "double" || item.border === "none" || item.line === draft.borderLine) &&
       (item.width == null || item.width === draft.borderWidth),
   )
+  const [scope, setScope] = useState(
+    () => BORDER_SCOPES.find((item) => item.display === draft.borderDisplay)?.id ?? "document",
+  )
+  const [options, setOptions] = useState(false)
 
   return (
     <div className="grid grid-cols-[180px_1fr] gap-4">
@@ -212,7 +238,44 @@ export function PageBorderPanel({
             }}
           />
         </div>
+        <div className="bs-apply-row mt-3">
+          <label className="bs-apply">
+            Apply to:
+            <select
+              aria-label="Page border applies to"
+              value={scope}
+              onChange={(event) => {
+                const next = BORDER_SCOPES.find((item) => item.id === event.target.value) ?? BORDER_SCOPES[0]
+                setScope(next.id)
+                setDraft((current) => ({ ...current, borderDisplay: next.display }))
+              }}
+            >
+              {BORDER_SCOPES.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="button" className="dialog-btn" onClick={() => setOptions(true)}>
+            Options…
+          </button>
+        </div>
       </div>
+      {options
+        ? createPortal(
+            <BorderOptionsDialog
+              space={draft.borderSpace}
+              from={draft.borderFrom}
+              onClose={() => setOptions(false)}
+              onDone={(borderSpace, borderFrom) => {
+                setDraft((current) => ({ ...current, borderSpace, borderFrom }))
+                setOptions(false)
+              }}
+            />,
+            document.body,
+          )
+        : null}
     </div>
   )
 }
