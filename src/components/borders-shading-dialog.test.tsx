@@ -5,6 +5,7 @@ import { StarterKit } from "@tiptap/starter-kit"
 import { afterEach, describe, expect, it } from "vitest"
 import {
   BordersShadingHost,
+  borderSpaceValue,
   edgesOf,
   openBordersAndShading,
   paragraphBorderOf,
@@ -53,6 +54,11 @@ describe("settings and edges", () => {
     expect(settingOf(new Set(["top"]), false)).toBe("custom")
     expect(settingOf(edgesOf("shadow", new Set()), false, true)).toBe("shadow")
     expect(settingOf(edgesOf("box", new Set()), true, true)).toBe("box")
+  })
+
+  it("keeps Word's own gaps as no value", () => {
+    expect(borderSpaceValue([1, 4, 1, 4])).toBeNull()
+    expect(borderSpaceValue([0, 4, 1, 4])).toBe("0 4 1 4")
   })
 
   it("writes a paragraph border value", () => {
@@ -193,6 +199,31 @@ describe("the Borders and Shading dialog (22.4)", () => {
     fireEvent.click(screen.getByLabelText("Top Border"))
     fireEvent.click(screen.getByText("OK"))
     expect(editor.state.doc.firstChild?.attrs).toMatchObject({ border: "right,bottom,left", borderShadow: false })
+  })
+
+  it("sets the distance from the text in Options… (22.4)", () => {
+    const editor = make("<p>one</p>")
+    editor.commands.setTextSelection(2)
+    render(<BordersShadingHost />)
+    act(() => openBordersAndShading(editor))
+    fireEvent.click(screen.getByRole("button", { name: "Box" }))
+    fireEvent.click(screen.getByRole("button", { name: "Options…" }))
+    expect((screen.getByLabelText("Left:") as HTMLInputElement).value).toBe("4 pt")
+    fireEvent.change(screen.getByLabelText("Top:"), { target: { value: "6" } })
+    fireEvent.blur(screen.getByLabelText("Top:"))
+    fireEvent.change(screen.getByLabelText("Left:"), { target: { value: "10" } })
+    fireEvent.blur(screen.getByLabelText("Left:"))
+    fireEvent.click(screen.getAllByText("OK")[1])
+    fireEvent.click(screen.getByText("OK"))
+    expect(editor.state.doc.firstChild?.attrs).toMatchObject({ border: "all", borderSpace: "6 4 1 10" })
+  })
+
+  it("offers Options… for a paragraph only", () => {
+    const editor = make(TABLE)
+    editor.commands.setTextSelection(4)
+    render(<BordersShadingHost />)
+    act(() => openBordersAndShading(editor))
+    expect((screen.getByRole("button", { name: "Options…" }) as HTMLButtonElement).disabled).toBe(true)
   })
 
   it("reads a table's inside lines back as All", () => {

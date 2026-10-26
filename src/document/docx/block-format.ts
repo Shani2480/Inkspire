@@ -26,6 +26,8 @@ export type BlockFormat = {
   borderPen: string | null
   /** Word's Shadow setting: the border casts a shadow to the bottom right. */
   borderShadow: boolean
+  /** The gap between the text and each side, in points ("top right bottom left"); null for Word's 1, 4, 1, 4. */
+  borderSpace: string | null
   /** The editor's paragraph fill as #rrggbb; null for none. */
   shading: string | null
 }
@@ -52,6 +54,7 @@ export const PLAIN_BLOCK: BlockFormat = {
   border: null,
   borderPen: null,
   borderShadow: false,
+  borderSpace: null,
   shading: null,
 }
 
@@ -81,7 +84,7 @@ const GROUPS: (keyof BlockFormat)[][] = [
   ["dontHyphenate"],
   ["mirrorIndents"],
   ["tightWrap"],
-  ["border", "borderPen", "borderShadow"],
+  ["border", "borderPen", "borderShadow", "borderSpace"],
   ["shading"],
 ]
 
@@ -134,6 +137,7 @@ export function blockFromProperties(pPr: ParagraphProperties): BlockFormat {
   block.tightWrap = pPr.textboxTightWrap ?? "none"
   block.border = borderOfProperties(pPr.borders)
   block.borderPen = penOfProperties(pPr.borders)
+  block.borderSpace = spaceOfProperties(pPr.borders)
   block.borderShadow = BORDER_SIDES.some((side) => drawn(pPr.borders?.[side]) && pPr.borders?.[side]?.shadow)
   block.shading = shadingOfProperties(pPr.shading)
   return block
@@ -174,6 +178,18 @@ function penOfProperties(borders: ParagraphProperties["borders"]): string | null
   return `${px}px ${CSS_STYLES[border.value] ?? "solid"} #${color.toLowerCase()}`
 }
 
+/** Word's gap between a paragraph's text and each side of its box, in points: top, right, bottom, left. */
+const DEFAULT_SPACE = [1, 4, 1, 4]
+
+/** The gaps the drawn sides keep (a side not drawn keeps Word's default); null when they are all Word's default. */
+function spaceOfProperties(borders: ParagraphProperties["borders"]): string | null {
+  const space = BORDER_SIDES.map((side, index) => {
+    const border = borders?.[side]
+    return drawn(border) && border?.space !== undefined ? border.space : DEFAULT_SPACE[index]
+  })
+  return space.every((value, index) => value === DEFAULT_SPACE[index]) ? null : space.join(" ")
+}
+
 function shadingOfProperties(shading: ParagraphProperties["shading"]): string | null {
   return shading?.fill && /^[0-9A-Fa-f]{6}$/.test(shading.fill) ? `#${shading.fill.toLowerCase()}` : null
 }
@@ -184,15 +200,24 @@ function paragraphFill(css: unknown): string | null {
   return hex ? `#${hex.toLowerCase()}` : null
 }
 
-function bordersFromBlock(border: string | null, pen: string | null, shadow: boolean): ParagraphProperties["borders"] {
+function bordersFromBlock(block: BlockFormat): ParagraphProperties["borders"] {
+  const { border, borderPen: pen, borderShadow: shadow } = block
   if (!border || border === "none") {
     return undefined
   }
   const sides = border === "all" ? [...BORDER_SIDES] : BORDER_SIDES.filter((side) => border.split(",").includes(side))
+  const gaps = (block.borderSpace ?? "").split(" ").map(Number)
   const line = pen
-    ? { ...borderOf(pen), space: 1 }
-    : { value: "single" as const, sz: PARAGRAPH_BORDER_SZ, space: 1, color: PARAGRAPH_BORDER_COLOR }
-  return Object.fromEntries(sides.map((side) => [side, shadow ? { ...line, shadow: true } : { ...line }]))
+    ? borderOf(pen)
+    : { value: "single" as const, sz: PARAGRAPH_BORDER_SZ, color: PARAGRAPH_BORDER_COLOR }
+  return Object.fromEntries(
+    sides.map((side) => {
+      const index = BORDER_SIDES.indexOf(side)
+      // w:space is whole points, at most 31.
+      const space = Math.min(31, Math.max(0, Math.round(gaps.length === 4 ? gaps[index] : DEFAULT_SPACE[index])))
+      return [side, { ...line, space, ...(shadow ? { shadow: true } : {}) }]
+    }),
+  )
 }
 
 /** HTML attributes the editor's parseHTML rules read back into exactly `block`, plus the source anchor. */
@@ -260,6 +285,9 @@ export function blockHtmlAttributes(block: BlockFormat, key?: string) {
   if (block.borderShadow) {
     data.push(`data-border-shadow="1"`)
   }
+  if (block.borderSpace) {
+    data.push(`data-border-space="${block.borderSpace}"`)
+  }
   if (block.shading) {
     style.push(`background-color: ${block.shading}`)
   }
@@ -309,6 +337,7 @@ export function blockFromAttrs(attrs: Record<string, unknown> | undefined): Bloc
     border: text("border", "") && text("border", "") !== "none" ? text("border", "") : null,
     borderPen: text("borderPen", "") || null,
     borderShadow: value.borderShadow === true,
+    borderSpace: text("borderSpace", "") || null,
     shading: paragraphFill(value.shading),
   }
 }
@@ -365,7 +394,7 @@ export function propertiesFromBlock(edited: BlockFormat, source: ParagraphProper
     }
   }
   if (changed.has("border")) {
-    const borders = bordersFromBlock(edited.border, edited.borderPen, edited.borderShadow)
+    const borders = bordersFromBlock(edited)
     if (borders) {
       base.borders = borders
     } else {

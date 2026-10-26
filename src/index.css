@@ -2062,8 +2062,35 @@ button.line-menu-row:focus-visible {
   outline-offset: -1px;
 }
 
-/* Word's Shadow paragraph border (22.4): the box casts a shadow in its own colour to the bottom right. */
-.page-editor [data-border-shadow="1"][data-border] {
+/*
+ * A paragraph's box (22.4), as Word draws it: each drawn side sits its gap (w:space, 1 pt above and below and 4 pt
+ * beside by default) plus its line away from the text. Above and below, the paragraph grows by that much; beside,
+ * the box reaches out into the indent or margin, so the text keeps its place. The lines are a layer behind the text.
+ */
+:is(p, h1, h2, h3, h4, h5, h6)[data-border] {
+  --para-line: var(--para-border-width, 1px);
+  position: relative;
+  padding-top: calc(var(--para-top-on, 0) * (var(--para-space-top, 1pt) + var(--para-line)));
+  padding-bottom: calc(var(--para-bottom-on, 0) * (var(--para-space-bottom, 1pt) + var(--para-line)));
+}
+
+:is(p, h1, h2, h3, h4, h5, h6)[data-border]::before {
+  position: absolute;
+  top: 0;
+  right: calc(-1 * var(--para-right-on, 0) * (var(--para-space-right, 4pt) + var(--para-line)));
+  bottom: 0;
+  left: calc(-1 * var(--para-left-on, 0) * (var(--para-space-left, 4pt) + var(--para-line)));
+  box-sizing: border-box;
+  border-top: var(--para-top, 0 none);
+  border-right: var(--para-right, 0 none);
+  border-bottom: var(--para-bottom, 0 none);
+  border-left: var(--para-left, 0 none);
+  content: "";
+  pointer-events: none;
+}
+
+/* Word's Shadow setting: the box casts a shadow in its own colour to the bottom right. */
+:is(p, h1, h2, h3, h4, h5, h6)[data-border][data-border-shadow="1"]::before {
   box-shadow: 3px 3px 0 0 var(--para-border-color, #1c1c1c);
 }
 
@@ -11853,6 +11880,39 @@ textarea.text-prompt-field {
   margin-top: 10px;
   color: var(--dlg-text);
   font-size: 12px;
+}
+
+/* Apply to with Word's Options… button beside it (22.4). */
+.bs-apply-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.bs-apply-row .bs-apply {
+  flex: 1;
+}
+
+.bs-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  min-width: 0;
+  padding: 8px 10px 10px;
+}
+
+.bs-option {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  color: var(--dlg-text);
+  font-size: 12px;
+}
+
+.bs-option input {
+  width: 100%;
+  min-width: 0;
 }
 
 .bs-apply select {
