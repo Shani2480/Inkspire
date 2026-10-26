@@ -1,5 +1,5 @@
 import type { Border, BorderValue, Shading, ShadingValue, TableBorders } from "@/document/docx/model"
-import { patternOf } from "@/document/docx/shading-pattern"
+import { patternOf, patternValue } from "@/document/docx/shading-pattern"
 
 /** A CSS colour as the six hex digits .docx uses, or undefined when it is not a plain colour. */
 export function hexOf(css: unknown) {
@@ -57,6 +57,45 @@ export function borderOf(pen: unknown): Border {
     space: 0,
     color: hexOf(color) ?? "auto",
   }
+}
+
+/** A Word cell's fill and pattern from its `wordShading`. */
+export function wordShadingOf(value: unknown): { fill: string | null; pattern: string | null } {
+  const [fill, pattern, color] = typeof value === "string" ? value.split(" ") : []
+  return {
+    fill: fill && fill !== "-" ? fill : null,
+    pattern: pattern && pattern !== "-" ? patternValue(pattern, color && color !== "-" ? color : null) : null,
+  }
+}
+
+/** A Word cell's shading as its `wordShading` value: "fill pattern color", each "-" when it has none; null for none. */
+export function wordShadingValue(shading: Shading | undefined): string | null {
+  if (!shading) {
+    return null
+  }
+  const hex = (value: string | undefined) => (value && /^[0-9A-Fa-f]{6}$/.test(value) ? `#${value.toLowerCase()}` : "-")
+  const fill = hex(shading.fill)
+  const pattern = patternOf(shading.value) ? shading.value : "-"
+  const color = pattern === "-" ? "-" : hex(shading.color)
+  return fill === "-" && pattern === "-" ? null : `${fill} ${pattern} ${color}`
+}
+
+/**
+ * A cell's w:shd from what the app set (backgroundColor, shadingPattern) over what the Word cell had (`wordShading`):
+ * undefined when the app set neither, so the cell keeps Word's own; a cleared fill is "transparent", a cleared pattern
+ * "clear".
+ */
+export function editedShading(attrs: Record<string, unknown> | undefined): Shading | undefined {
+  const fill = attrs?.backgroundColor
+  const pattern = attrs?.shadingPattern
+  if (fill == null && pattern == null) {
+    return undefined
+  }
+  const word = wordShadingOf(attrs?.wordShading)
+  return (
+    shadingOf(fill ?? word.fill, pattern ?? word.pattern) ??
+    (attrs?.wordShading ? { value: "clear", color: "auto", fill: "auto" } : undefined)
+  )
 }
 
 const SIDE_NAMES = ["top", "left", "bottom", "right"] as const
