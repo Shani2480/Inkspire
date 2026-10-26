@@ -1,3 +1,4 @@
+import { useChromeExtent } from "@/document/chrome-extent"
 import { useViewStore } from "@/document/view"
 
 export type PaperSize = "letter" | "a4" | "legal"
@@ -341,9 +342,11 @@ export function pageMetrics(setup: PageSetup, paper = false): PageMetrics {
   const box = paperBox(setup)
   const width = box.width * MM_TO_PX
   const height = box.height * MM_TO_PX
-  const marginTop = setup.marginTop * MM_TO_PX
+  // A header or footer taller than its margin pushes the body away from the edge, as in Word.
+  const reach = useChromeExtent.getState()
+  const marginTop = Math.max(setup.marginTop * MM_TO_PX, reach.header)
   const marginRight = setup.marginRight * MM_TO_PX
-  const marginBottom = setup.marginBottom * MM_TO_PX
+  const marginBottom = Math.max(setup.marginBottom * MM_TO_PX, reach.footer)
   const marginLeft = setup.marginLeft * MM_TO_PX
   return {
     width,
@@ -560,9 +563,10 @@ export function clipWatermark(value: string) {
 export function applyPageChrome(setup: PageSetup) {
   const root = document.documentElement.style
   const metrics = pageMetrics(setup)
-  root.setProperty("--page-margin-top", `${setup.marginTop}mm`)
+  const sheet = pageMetrics(setup, true)
+  root.setProperty("--page-margin-top", `${sheet.marginTop}px`)
   root.setProperty("--page-margin-right", `${setup.marginRight}mm`)
-  root.setProperty("--page-margin-bottom", `${setup.marginBottom}mm`)
+  root.setProperty("--page-margin-bottom", `${sheet.marginBottom}px`)
   root.setProperty("--page-margin-left", `${setup.marginLeft}mm`)
   root.setProperty("--header-from-edge", `${setup.headerFromEdge}mm`)
   root.setProperty("--footer-from-edge", `${setup.footerFromEdge}mm`)

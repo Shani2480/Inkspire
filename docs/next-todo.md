@@ -31,8 +31,13 @@ A new document has no page number overlay (`pageNumber: "none"`, the Page Number
 files without the mark keep theirs. Checked in headless Chrome: a three-page document with a logo and a page field in
 the header printed to PDF, each page with its own number, `pdftotext` finding each page's text once.
 
-Left over: a tall header does not push the body down (the header is a layer of its own, on screen and in print, where
-Word moves the body); "Link to Previous" (single section only).
+Left over: "Link to Previous" (single section only).
+
+**Done (2026-10-26).** A tall header pushes the body down and a tall footer pushes it up, as in Word: each header and
+footer box reports how far it reaches into the page (`chrome-extent.ts`) and `pageMetrics` uses the larger of the
+margin and that reach, so the paginator, page gaps, rulers and the Header/Footer boundary follow. Floating pictures
+push nothing (as in Word). The tallest header counts for every page (Word moves only the pages that header is on).
+Test: `chrome-extent.test.ts`. Checked in headless Chrome (header and footer).
 
 Today the header and footer are one-line text inputs (160 characters, plain text). A picture inserted while the header
 is open goes into the page body, and pictures that came from a .docx header sit in a read-only layer. Goal: the header
