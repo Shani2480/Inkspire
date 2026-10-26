@@ -7,6 +7,24 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### Treemap and Sunburst charts (22.6)
+
+- **Missing:** Insert Chart had no Treemap or Sunburst, and a chart's data had one column of labels only.
+- **Changed:** a chart can carry label columns before its category (`levels` on the spec and the sheet), outermost
+  first, as Word's Branch / Stem / Leaf sheet; a blank label skips that level, so a leaf can sit straight under its
+  branch. The data sheet shows and edits those columns for these two types (`gridToSheet(grid, labelColumns)`,
+  `chart-sheet-dialog.tsx`). The tree is built in `chartTree` (`chart-expand.ts`): sizes from the first shown series,
+  rows with no positive size left out, largest first. Treemap: squarified tiles (`squarify`) in the branch's colour
+  with Word's overlapping branch label in the corner and the leaf names in theirs, legend of branches on top.
+  Sunburst: one ring per level from a small hole, clockwise from twelve o'clock, labels where they fit. Both list the
+  branches as points (Format a branch's fill) and have no axes. Word has neither chart outside `chartex`, so the .docx
+  gets the leaves as columns (Treemap) or a doughnut (Sunburst); the app reopens them as themselves while Word has not
+  changed the data. Word's sample data for both. Tests: tree with a blank stem, hidden and zero rows, squarified tiles
+  in proportion with no slivers, drawing, legend, parts, what Word gets, the sheet's label columns, the .docx round
+  trip. Checked in headless Chrome: both inserted with the sample.
+- **Open:** no `chartex`; no Treemap "banner" parent-label option, no Sunburst label rotation; a new label column
+  cannot be added from the sheet (a Treemap made from another chart type has one level until its data is retyped).
+
 ### Box & Whisker charts (22.6)
 
 - **Missing:** Insert Chart had no Box & Whisker.

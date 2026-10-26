@@ -1,5 +1,5 @@
 import { parseChartSheet, type ChartSheet } from "@/editor/chart-sheet"
-import { boxGroups, expandSpec } from "@/editor/chart-expand"
+import { boxGroups, chartTree, expandSpec, squarify, type TreeNode } from "@/editor/chart-expand"
 import { THEME_ACCENTS, shade } from "@/editor/shape-style"
 
 /**
@@ -17,6 +17,8 @@ export type ChartType =
   | "scatter"
   | "stock"
   | "radar"
+  | "treemap"
+  | "sunburst"
   | "boxWhisker"
   | "histogram"
   | "waterfall"
@@ -69,6 +71,11 @@ export type ChartSpec = {
   lines: boolean
   filled: boolean
   categories: string[]
+  /**
+   * Treemap and Sunburst: the label columns before the category, outermost first (Branch, Stem), each a label per
+   * row; the category is the innermost. A blank label is skipped, so a leaf can sit in an outer column as in Word.
+   */
+  levels?: string[][]
   hiddenCategories: number[]
   series: ChartSeries[]
   title: { show: boolean; text: string }
@@ -253,6 +260,16 @@ export const CHART_FAMILIES: { id: string; label: string; items: ChartVariant[] 
     ],
   },
   {
+    id: "treemap",
+    label: "Treemap",
+    items: [{ id: "treemap", label: "Treemap", type: "treemap" }],
+  },
+  {
+    id: "sunburst",
+    label: "Sunburst",
+    items: [{ id: "sunburst", label: "Sunburst", type: "sunburst" }],
+  },
+  {
     id: "histogram",
     label: "Histogram",
     items: [{ id: "histogram", label: "Histogram", type: "histogram" }],
@@ -433,6 +450,39 @@ export function defaultChartSpec(variantId = "column"): ChartSpec {
       variant.id,
     )
   }
+  if (variant.type === "treemap" || variant.type === "sunburst") {
+    // Word's sample: branches, stems and leaves with a size; a blank stem puts the leaf straight under its branch.
+    const rows: [string, string, string, number][] = [
+      ["Branch 1", "Stem 1", "Leaf 1", 22],
+      ["Branch 1", "Stem 1", "Leaf 2", 12],
+      ["Branch 1", "Stem 1", "Leaf 3", 18],
+      ["Branch 1", "Stem 2", "Leaf 4", 87],
+      ["Branch 1", "Stem 2", "Leaf 5", 88],
+      ["Branch 1", "Leaf 6", "", 25],
+      ["Branch 1", "Leaf 7", "", 87],
+      ["Branch 2", "Stem 3", "Leaf 8", 54],
+      ["Branch 2", "Stem 3", "Leaf 9", 12],
+      ["Branch 2", "Stem 3", "Leaf 10", 34],
+      ["Branch 2", "Stem 4", "Leaf 11", 98],
+      ["Branch 2", "Stem 4", "Leaf 12", 23],
+      ["Branch 3", "Stem 5", "Leaf 13", 51],
+      ["Branch 3", "Stem 5", "Leaf 14", 61],
+      ["Branch 3", "Leaf 15", "", 41],
+    ]
+    return withVariant(
+      {
+        ...structuredClone(BASE),
+        title: { show: true, text: "Chart Title" },
+        legend: variant.type === "treemap" ? "top" : "none",
+        dataLabels: "center",
+        labelContent: { value: false, category: true, series: false, percent: false },
+        levels: [rows.map((row) => row[0]), rows.map((row) => row[1])],
+        categories: rows.map((row) => row[2]),
+        series: [{ name: "Size", values: rows.map((row) => row[3]) }],
+      },
+      variant.id,
+    )
+  }
   if (variant.type === "boxWhisker") {
     // Word's sample: test scores of three schools, one row per student, the course in the first column.
     const courses = [
@@ -526,6 +576,7 @@ export function normalizeChartSpec(value: Partial<ChartSpec>): ChartSpec {
     errorBars: { ...base.errorBars, ...value.errorBars },
     format: { ...value.format },
     categories: (value.categories ?? []).map(String),
+    levels: value.levels?.map((level) => (level ?? []).map(String)),
     hiddenCategories: value.hiddenCategories ?? [],
     series: (value.series ?? []).map((serie, index) => ({
       ...serie,
@@ -583,7 +634,13 @@ export function specToSheet(spec: ChartSpec): ChartSheet {
     series: spec.series.map((serie) => serie.name),
     categories: [...spec.categories],
     rows: spec.categories.map((_, row) => spec.series.map((serie) => serie.values[row] ?? 0)),
+    ...(isHierarchy(spec.type) ? { levels: (spec.levels ?? []).map((level) => [...level]) } : {}),
   }
+}
+
+/** Treemap and Sunburst: charts whose rows have a path of labels (`levels`) rather than one category. */
+export function isHierarchy(type: ChartType) {
+  return type === "treemap" || type === "sunburst"
 }
 
 function sheetData(sheet: ChartSheet): Pick<ChartSpec, "categories" | "series"> {
@@ -599,6 +656,7 @@ export function withSheet(spec: ChartSpec, sheet: ChartSheet): ChartSpec {
   return {
     ...spec,
     categories: data.categories,
+    levels: sheet.levels ? sheet.levels.map((level) => [...level]) : spec.levels,
     hiddenCategories: spec.hiddenCategories.filter((index) => index < data.categories.length),
     series: data.series.map((serie, index) => ({ ...spec.series[index], ...serie })),
   }
@@ -609,6 +667,7 @@ export function switchRowColumn(spec: ChartSpec): ChartSpec {
   return {
     ...spec,
     categories: spec.series.map((serie) => serie.name),
+    levels: undefined,
     hiddenCategories: [],
     series: spec.categories.map((name, row) => ({ name, values: spec.series.map((serie) => serie.values[row] ?? 0) })),
   }
@@ -916,8 +975,9 @@ function seriesPaint(painter: Painter, color: string, part: string) {
 
 /** The chart, as the markup inside an `<svg viewBox="0 0 width height">`. */
 export function renderChart(source: ChartSpec, width: number, height: number) {
-  // Box & Whisker is drawn by its own painter; the other derived types are drawn as the chart they expand to.
-  const spec = source.type === "boxWhisker" ? source : expandSpec(source)
+  // Box & Whisker, Treemap and Sunburst have their own painters; the other derived types are drawn as the chart they
+  // expand to.
+  const spec = source.type === "boxWhisker" || isHierarchy(source.type) ? source : expandSpec(source)
   const look = CHART_STYLES[spec.style - 1] ?? LIGHT
   const painter: Painter = { spec, look, out: [], defs: [] }
   const area = partLine(painter, "chartArea", look.border, 0.75)
@@ -935,20 +995,27 @@ export function renderChart(source: ChartSpec, width: number, height: number) {
   }
   const round = spec.type === "pie" || spec.type === "doughnut"
   const visibleSeries = spec.series.map((serie, index) => ({ ...serie, index })).filter((serie) => !serie.hidden)
-  const entries = round
-    ? spec.categories
-        .map((name, index) => ({ name, color: pointColor(painter, index), index, line: false }))
-        .filter((entry) => !spec.hiddenCategories.includes(entry.index))
-    : visibleSeries.map((serie) => ({
-        name: serie.name,
-        color: seriesColor(painter, serie.index),
-        index: serie.index,
-        line:
-          (serie.type ?? spec.type) === "line" || spec.type === "scatter" || (spec.type === "radar" && !spec.filled),
-        // A line series with its line off (a stock chart's prices) has no line in the key; Close keeps its tick.
-        bare: spec.format[`series:${serie.index}`]?.line === "none",
-        tick: Boolean(serie.tick),
+  const entries = isHierarchy(spec.type)
+    ? chartTree(spec).children.map((node) => ({
+        name: node.name,
+        color: pointColor(painter, node.branch),
+        index: node.branch,
+        line: false,
       }))
+    : round
+      ? spec.categories
+          .map((name, index) => ({ name, color: pointColor(painter, index), index, line: false }))
+          .filter((entry) => !spec.hiddenCategories.includes(entry.index))
+      : visibleSeries.map((serie) => ({
+          name: serie.name,
+          color: seriesColor(painter, serie.index),
+          index: serie.index,
+          line:
+            (serie.type ?? spec.type) === "line" || spec.type === "scatter" || (spec.type === "radar" && !spec.filled),
+          // A line series with its line off (a stock chart's prices) has no line in the key; Close keeps its tick.
+          bare: spec.format[`series:${serie.index}`]?.line === "none",
+          tick: Boolean(serie.tick),
+        }))
   if (spec.legend !== "none" && !(spec.dataTable && !round)) {
     legend(painter, entries, box, spec.legend)
   }
@@ -958,6 +1025,10 @@ export function renderChart(source: ChartSpec, width: number, height: number) {
     radar(painter, box, visibleSeries)
   } else if (spec.type === "boxWhisker") {
     boxWhisker(painter, box)
+  } else if (spec.type === "treemap") {
+    treemap(painter, box)
+  } else if (spec.type === "sunburst") {
+    sunburst(painter, box)
   } else {
     cartesian(painter, box, visibleSeries, entries)
   }
@@ -1804,6 +1875,125 @@ function boxWhisker(painter: Painter, box: Box) {
   painter.out.push(...parts)
 }
 
+/** A Treemap or Sunburst node's data label: its name and, when asked, its size. */
+function nodeLabel(spec: ChartSpec, node: TreeNode) {
+  const format = spec.valueAxis.numberFormat ?? "General"
+  const parts = [
+    spec.labelContent.category ? node.name : "",
+    spec.labelContent.value ? formatNumber(node.value, format) : "",
+  ].filter(Boolean)
+  return parts.join(", ")
+}
+
+/**
+ * Treemap: each branch a squarified block in its own colour, split into its stems and leaves, with Word's default
+ * "overlapping" branch labels in the top-left corner of the branch and the leaf names in the corner of each leaf.
+ */
+function treemap(painter: Painter, box: Box) {
+  const { spec } = painter
+  const plot = { x: box.x + 2, y: box.y + 2, w: box.w - 4, h: box.h - 4 }
+  const tiles: string[] = []
+  const labels: string[] = []
+  const show = spec.dataLabels !== "none"
+  const fits = (text: string, rect: { w: number; h: number }, size: number) =>
+    text.length * size * 0.55 + 6 <= rect.w && size + 4 <= rect.h
+  const place = (node: TreeNode, rect: { x: number; y: number; w: number; h: number }, corner: boolean) => {
+    if (node.children.length === 0) {
+      const color = pointColor(painter, node.branch)
+      tiles.push(
+        `<rect x="${n(rect.x)}" y="${n(rect.y)}" width="${n(Math.max(0, rect.w))}" height="${n(Math.max(0, rect.h))}" fill="${color}" stroke="${painter.look.background}" stroke-width="1.5"/>`,
+      )
+      const text = nodeLabel(spec, node)
+      // The branch's own label takes the first line of the leaf in its corner.
+      const top = rect.y + (corner && node.depth > 1 ? 30 : 14)
+      if (show && text && fits(text, { w: rect.w, h: rect.h - (top - rect.y) + 10 }, 12)) {
+        labels.push(
+          `<text x="${n(rect.x + 4)}" y="${n(top)}" fill="#ffffff" font-family="${CHART_FONT}" font-size="${spec.format.dataLabels?.fontSize ? n((spec.format.dataLabels.fontSize * 4) / 3) : 12}">${escapeXml(text)}</text>`,
+        )
+      }
+      return
+    }
+    const rects = squarify(
+      node.children.map((child) => child.value),
+      rect,
+    )
+    node.children.forEach((child, index) => {
+      const inner = rects[index]!
+      place(child, inner, corner && index === 0)
+    })
+  }
+  const root = chartTree(spec)
+  const tops = squarify(
+    root.children.map((child) => child.value),
+    plot,
+  )
+  root.children.forEach((branch, index) => {
+    const rect = tops[index]!
+    place(branch, rect, true)
+    if (show && branch.children.length && fits(branch.name, rect, 16)) {
+      labels.push(
+        `<text x="${n(rect.x + 4)}" y="${n(rect.y + 17)}" fill="#ffffff" font-family="${CHART_FONT}" font-size="16">${escapeXml(branch.name)}</text>`,
+      )
+    }
+  })
+  painter.out.push(`<g data-chart-part="series:0">${tiles.join("")}</g>`)
+  if (labels.length) {
+    painter.out.push(`<g data-chart-part="dataLabels">${labels.join("")}</g>`)
+  }
+}
+
+/** Sunburst: one ring per level from a small hole outwards, each node's arc its share of its parent's, clockwise
+ * from twelve o'clock, largest first, a branch in one colour. A leaf on an inner ring leaves the rings outside empty. */
+function sunburst(painter: Painter, box: Box) {
+  const { spec } = painter
+  const root = chartTree(spec)
+  const depth = (node: TreeNode): number => (node.children.length ? 1 + Math.max(...node.children.map(depth)) : 0)
+  const rings = Math.max(1, depth(root))
+  const radius = Math.max(4, Math.min(box.w, box.h) / 2 - 4)
+  const cx = box.x + box.w / 2
+  const cy = box.y + box.h / 2
+  const hole = radius * 0.1
+  const ring = (radius - hole) / rings
+  const arcs: string[] = []
+  const labels: string[] = []
+  const at = (r: number, angle: number) => [cx + Math.cos(angle) * r, cy + Math.sin(angle) * r] as const
+  const sector = (r0: number, r1: number, a0: number, a1: number) => {
+    const end = Math.min(a1, a0 + Math.PI * 2 - 1e-4)
+    const large = end - a0 > Math.PI ? 1 : 0
+    const [x0, y0] = at(r1, a0)
+    const [x1, y1] = at(r1, end)
+    const [x2, y2] = at(r0, end)
+    const [x3, y3] = at(r0, a0)
+    return `M${n(x0)} ${n(y0)}A${n(r1)} ${n(r1)} 0 ${large} 1 ${n(x1)} ${n(y1)}L${n(x2)} ${n(y2)}A${n(r0)} ${n(r0)} 0 ${large} 0 ${n(x3)} ${n(y3)}Z`
+  }
+  const draw = (node: TreeNode, from: number, span: number) => {
+    let angle = from
+    node.children.forEach((child) => {
+      const share = node.value > 0 ? (span * child.value) / node.value : 0
+      const r0 = hole + (child.depth - 1) * ring
+      const r1 = r0 + ring
+      arcs.push(
+        `<path d="${sector(r0, r1, angle, angle + share)}" fill="${pointColor(painter, child.branch)}" stroke="${painter.look.background}" stroke-width="1.5"/>`,
+      )
+      const text = nodeLabel(spec, child)
+      const middle = (r0 + r1) / 2
+      if (spec.dataLabels !== "none" && text && share * middle >= text.length * CHAR * 0.85 && ring >= 14) {
+        const [x, y] = at(middle, angle + share / 2)
+        labels.push(
+          `<text x="${n(x)}" y="${n(y + 4)}" text-anchor="middle" fill="#ffffff" font-family="${CHART_FONT}" font-size="${spec.format.dataLabels?.fontSize ? n((spec.format.dataLabels.fontSize * 4) / 3) : 11}">${escapeXml(text)}</text>`,
+        )
+      }
+      draw(child, angle, share)
+      angle += share
+    })
+  }
+  draw(root, -Math.PI / 2, Math.PI * 2)
+  painter.out.push(`<g data-chart-part="series:0">${arcs.join("")}</g>`)
+  if (labels.length) {
+    painter.out.push(`<g data-chart-part="dataLabels">${labels.join("")}</g>`)
+  }
+}
+
 function radar(painter: Painter, box: Box, series: Serie[]) {
   const { spec, look } = painter
   const categories = spec.categories.filter((_, index) => !spec.hiddenCategories.includes(index))
@@ -1874,7 +2064,8 @@ function radar(painter: Painter, box: Box, series: Serie[]) {
 
 /** The chart's parts as the Format tab's Current Selection lists them. */
 export function chartParts(spec: ChartSpec): { id: string; label: string }[] {
-  const round = spec.type === "pie" || spec.type === "doughnut"
+  // Treemap and Sunburst have no axes, as pie charts have none.
+  const round = spec.type === "pie" || spec.type === "doughnut" || isHierarchy(spec.type)
   const parts = [{ id: "chartArea", label: "Chart Area" }]
   if (!round) {
     parts.push({ id: "plotArea", label: "Plot Area" })
@@ -1916,7 +2107,12 @@ export function chartParts(spec: ChartSpec): { id: string; label: string }[] {
       parts.push({ id: `series:${index}`, label: `Series "${serie.name}"` })
     }
   })
-  if (round) {
+  if (isHierarchy(spec.type)) {
+    // A branch is the point whose fill colours it and everything in it.
+    chartTree(spec).children.forEach((node) =>
+      parts.push({ id: `point:${node.branch}`, label: `Point "${node.name}"` }),
+    )
+  } else if (round) {
     spec.categories.forEach((name, index) => parts.push({ id: `point:${index}`, label: `Point "${name}"` }))
   }
   return parts

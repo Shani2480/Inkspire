@@ -1,6 +1,6 @@
 import { changeChart, selectedChart } from "@/components/chart-menus"
 import { gridToSheet, sheetToGrid } from "@/editor/chart-sheet"
-import { specToSheet, withSheet } from "@/editor/chart-spec"
+import { isHierarchy, specToSheet, withSheet } from "@/editor/chart-spec"
 import { placeChartSheet, type Placement } from "@/components/chart-sheet-place"
 import type { Editor } from "@tiptap/core"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
@@ -18,6 +18,8 @@ const WIDTH = 420
 export function ChartSheetDialog({ editor, onClose }: { editor: Editor; onClose: () => void }) {
   const chart = selectedChart(editor)
   const chartPos = useRef(chart?.pos ?? -1)
+  // Treemap and Sunburst: the Branch and Stem columns come before the category's.
+  const labelColumns = chart && isHierarchy(chart.spec.type) ? 1 + (chart.spec.levels?.length ?? 0) : 1
   const initial = sheetToGrid(
     chart ? specToSheet(chart.spec) : { series: [], categories: [], rows: [] },
     COLUMNS.length,
@@ -42,9 +44,9 @@ export function ChartSheetDialog({ editor, onClose }: { editor: Editor; onClose:
   // The sheet's data, keeping each series' own options (20.8). Only while the chart is still the selection.
   const commit = useCallback(() => {
     if (selectedChart(editor)?.pos === chartPos.current) {
-      changeChart(editor, (spec) => withSheet(spec, gridToSheet(latest.current)))
+      changeChart(editor, (spec) => withSheet(spec, gridToSheet(latest.current, labelColumns)))
     }
-  }, [editor])
+  }, [editor, labelColumns])
 
   const finish = useCallback(() => {
     commit()

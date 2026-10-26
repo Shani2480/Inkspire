@@ -1,6 +1,24 @@
 import { describe, expect, it } from "vitest"
-import { boxGroups, boxStats, expandSpec, histogramBins, waterfallPieces } from "@/editor/chart-expand"
-import { CHART_VARIANTS, defaultChartSpec, renderChart, variantOf, withVariant } from "@/editor/chart-spec"
+import {
+  boxGroups,
+  boxStats,
+  chartTree,
+  expandSpec,
+  histogramBins,
+  squarify,
+  waterfallPieces,
+} from "@/editor/chart-expand"
+import { gridToSheet, sheetToGrid } from "@/editor/chart-sheet"
+import {
+  CHART_VARIANTS,
+  chartParts,
+  defaultChartSpec,
+  renderChart,
+  specToSheet,
+  variantOf,
+  withSheet,
+  withVariant,
+} from "@/editor/chart-spec"
 import { chartSpaceXml, chartWorkbook, readChartSpace } from "@/document/docx/chart-xml"
 
 describe("Histogram, Waterfall and Funnel (22.6)", () => {
@@ -118,5 +136,75 @@ describe("Box & Whisker (22.6)", () => {
     expect(word).toMatchObject({ type: "column", categories: ["English", "Physics", "Math"] })
     expect(word.series[0]!.values[0]).toBe(boxGroups(spec)[0]!.boxes[0]!.median)
     expect(chartSpaceXml(spec)).toContain("<c:barChart>")
+  })
+})
+
+describe("Treemap and Sunburst (22.6)", () => {
+  it("builds the tree from each row's labels, skipping a blank stem, largest first", () => {
+    const tree = chartTree(defaultChartSpec("treemap"))
+    expect(tree.children.map((node) => node.name)).toEqual(["Branch 1", "Branch 2", "Branch 3"])
+    const branch = tree.children[0]!
+    expect(branch.value).toBe(22 + 12 + 18 + 87 + 88 + 25 + 87)
+    // Leaf 6 and Leaf 7 sit straight under Branch 1; Stem 2 (175) comes before Leaf 7 (87).
+    expect(branch.children.map((node) => node.name)).toEqual(["Stem 2", "Leaf 7", "Stem 1", "Leaf 6"])
+    expect(branch.children[1]!.children).toEqual([])
+    expect(tree.children[2]!.children.map((node) => node.branch)).toEqual([2, 2])
+  })
+
+  it("leaves out hidden rows and rows with no positive size", () => {
+    const spec = defaultChartSpec("treemap")
+    spec.hiddenCategories = [0]
+    spec.series[0]!.values[1] = 0
+    const stem = chartTree(spec).children[0]!.children.find((node) => node.name === "Stem 1")!
+    expect(stem.children.map((node) => node.name)).toEqual(["Leaf 3"])
+  })
+
+  it("lays out squarified tiles that fill the box in proportion", () => {
+    const rects = squarify([6, 6, 4, 3, 2, 2, 1], { x: 0, y: 0, w: 600, h: 400 })
+    const area = rects.reduce((sum, rect) => sum + rect.w * rect.h, 0)
+    expect(area).toBeCloseTo(240000, 3)
+    expect(rects[0]!.w * rects[0]!.h).toBeCloseTo(240000 * (6 / 24), 3)
+    for (const rect of rects) {
+      expect(rect.x + rect.w).toBeLessThanOrEqual(600.0001)
+      expect(rect.y + rect.h).toBeLessThanOrEqual(400.0001)
+      // Squarified: no sliver.
+      expect(Math.max(rect.w / rect.h, rect.h / rect.w)).toBeLessThan(3)
+    }
+  })
+
+  it("draws a tile per leaf and a ring arc per node, with branch labels and a branch legend", () => {
+    const treemap = renderChart(defaultChartSpec("treemap"), 576, 336)
+    expect(treemap.match(/<rect x=/g)!.length).toBeGreaterThanOrEqual(15)
+    expect(treemap).toContain(">Branch 1<")
+    expect(treemap).toContain('data-chart-part="legend"')
+    const sunburst = renderChart(defaultChartSpec("sunburst"), 576, 336)
+    // One arc per node: 3 branches, 5 stems, 15 leaves.
+    expect(sunburst.match(/<path d="M/g)).toHaveLength(3 + 5 + 15)
+    expect(sunburst).not.toContain("NaN")
+    expect(variantOf(defaultChartSpec("sunburst"))).toBe("sunburst")
+    expect(chartParts(defaultChartSpec("treemap")).map((part) => part.id)).not.toContain("axis:value")
+  })
+
+  it("gives Word the leaves: columns for a Treemap, a doughnut for a Sunburst", () => {
+    const word = expandSpec(defaultChartSpec("treemap"))
+    expect(word).toMatchObject({ type: "column", levels: undefined })
+    expect(word.categories).toHaveLength(15)
+    expect(word.categories[0]).toBe("Leaf 5")
+    expect(expandSpec(defaultChartSpec("sunburst")).type).toBe("doughnut")
+    expect(chartSpaceXml(defaultChartSpec("sunburst"))).toContain("<c:doughnutChart>")
+  })
+
+  it("edits the Branch and Stem columns in the data sheet", () => {
+    const spec = defaultChartSpec("treemap")
+    const grid = sheetToGrid(specToSheet(spec), 7, 20)
+    expect(grid[0]!.slice(0, 4)).toEqual(["", "", "", "Size"])
+    expect(grid[6]!.slice(0, 4)).toEqual(["Branch 1", "Leaf 6", "", "25"])
+    grid[1]![1] = "Stem 9"
+    const next = withSheet(spec, gridToSheet(grid, 3))
+    expect(next.levels![1]![0]).toBe("Stem 9")
+    expect(next.categories[5]).toBe("")
+    expect(next.series[0]!.values).toEqual(spec.series[0]!.values)
+    // Other charts keep one label column.
+    expect(gridToSheet(sheetToGrid(specToSheet(defaultChartSpec("column")))).levels).toBeUndefined()
   })
 })
