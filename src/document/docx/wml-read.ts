@@ -1673,6 +1673,14 @@ function readRunModel(node: MarkupNode): RunProperties {
   if (underline) {
     props.u = underline
   }
+  const bdr = readBorder(wordChild(node, "bdr"))
+  if (bdr) {
+    props.bdr = bdr
+  }
+  const shd = readShading(wordChild(node, "shd"))
+  if (shd) {
+    props.shd = shd
+  }
   const vertAlign = oneOf(childVal(node, "vertAlign"), VERTICAL_ALIGNS)
   if (vertAlign) {
     props.vertAlign = vertAlign

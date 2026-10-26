@@ -7,6 +7,27 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-26
 
+### Borders and Shading > Apply to Text: a box, Word's shadow, fill and pattern round selected text (22.4, fourth part)
+
+- **Missing:** Borders and Shading only applied to a paragraph, cell or table. A run's own box and shading in a Word
+  file (`w:bdr`, `w:shd` in `w:rPr`) were not shown, and were lost once the run was edited.
+- **Changed:** the run model has `bdr` and `shd`, read and written in schema order (`model.ts`, `wml-read.ts`,
+  `wml-write.ts`, which now shares `writeShading`). New `document/docx/text-box.ts` maps them to the editor's
+  `textBorder` mark (line, shadow, fill, pattern) and draws it (`data-text-border` span; each wrapped line closed);
+  `inlines.ts` shows a run's box and saves the mark, and an edited run keeps Word's own `w:bdr` / `w:shd` while the
+  editor shows the same (a wave line stays a wave). The mark is in `character-format.ts`, registered in
+  `extensions.ts`. Dialog: Apply to lists Text whenever text is selected and starts on it when part of one paragraph
+  is selected; for Text the settings are None, Box and Shadow, the preview is a boxed sample, Options… is off, and
+  fill and pattern apply to the text (`editor/text-box.ts`: `applyTextBox` changes only what was touched, piece by
+  piece, and drops the mark when nothing is left). Opening the dialog brings back the selection a ribbon click
+  dropped (`restoreSelection`), as other ribbon actions do.
+- **Checked:** `text-box.test.ts` (mapping both ways, `w:rPr` order, one `w:bdr`, reopen, an edit keeps Word's own
+  line), `borders-shading-dialog.test.tsx` (starts on Text, Shadow and fill on the selection only, reopened, None
+  keeps the fill). Headless Chrome: a selected word gets the shadowed box and yellow fill, Apply to reads Text 3 runs
+  out of 3. 775 tests pass; tsc, ESLint and Prettier clean.
+- **Open:** Word's 3-D setting; the box's distance from the text (`w:space` on `w:bdr`) is written as 0 and not
+  drawn; text boxes are not compared with Word.
+
 ### Borders and Shading > Shading > Patterns: Word's 37 patterns over a paragraph's fill (22.4, third part)
 
 - **Missing:** the Shading tab said "Patterns are not supported". A Word paragraph shaded with a pattern (a

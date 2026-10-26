@@ -4,6 +4,9 @@ import { DialogButtons, DialogFrame, SpinField } from "@/components/word-dialog"
 import { SHADING_PATTERNS, patternImage, patternOf, patternValue } from "@/document/docx/shading-pattern"
 import { useDocumentStore } from "@/document/store"
 import { borderSpaceOf, updateBlocks } from "@/editor/block-format"
+import { restoreSelection } from "@/editor/selection-memory"
+import { applyTextBox, hasSelectedText, selectedTextBox, selectsPartOfParagraph } from "@/editor/text-box"
+import type { TextBox } from "@/document/docx/text-box"
 import {
   BORDER_STYLES,
   BORDER_WEIGHTS,
@@ -24,7 +27,7 @@ import { create } from "zustand"
 
 type Tab = "borders" | "page" | "shading"
 type Setting = "none" | "box" | "all" | "shadow" | "custom"
-type Target = TableScope | "paragraph"
+type Target = TableScope | "paragraph" | "text"
 
 /** Opens Borders and Shading (22.4) for the editor's selection, from the Home or Table Design Borders menu. */
 export const useBordersShading = create<{ open: { editor: Editor; tab: Tab; id: number } | null }>(() => ({
@@ -35,6 +38,8 @@ let opened = 0
 
 /** Each opening starts from what is drawn now, even when the dialog was already open. */
 export function openBordersAndShading(editor: Editor, tab: Tab = "borders") {
+  // A click in the ribbon drops the editor's selection; the text selected before it is what Apply to Text means.
+  restoreSelection(editor)
   opened += 1
   useBordersShading.setState({ open: { editor, tab, id: opened } })
 }
@@ -215,8 +220,21 @@ function BordersShadingDialog({
   const setup = useDocumentStore((state) => state.pageSetup)
   const setPageSetup = useDocumentStore((state) => state.setPageSetup)
   const [tab, setTab] = useState<Tab>(initialTab)
-  // The dialog opens on what is drawn now (the first cell scope, or the paragraph the cursor is in).
+  const textSelected = hasSelectedText(editor)
+  // Part of a paragraph selected starts on Text, as in Word; otherwise the cell or the paragraph.
+  const [target, setTarget] = useState<Target>(selectsPartOfParagraph(editor) ? "text" : table ? "cell" : "paragraph")
+  // The dialog opens on what is drawn now (the selected text, the first cell scope, or the cursor's paragraph).
   const [current] = useState(() => {
+    if (target === "text") {
+      const box = selectedTextBox(editor)
+      return {
+        edges: new Set<BorderEdge>(box.border ? BOX : []),
+        pen: parsePen(box.border) ?? DEFAULT_PEN,
+        fill: box.fill,
+        shadow: box.shadow,
+        pattern: patternOf(box.pattern),
+      }
+    }
     if (table) {
       return readScopedBorders(editor, "cell")
     }
@@ -235,7 +253,6 @@ function BordersShadingDialog({
   const [shadow, setShadow] = useState(current && "shadow" in current ? current.shadow : false)
   const [space, setSpace] = useState<number[] | null>(null)
   const [options, setOptions] = useState(false)
-  const [target, setTarget] = useState<Target>(table ? "cell" : "paragraph")
   const [fill, setFill] = useState<string | null>(current?.fill ?? null)
   const [fillTouched, setFillTouched] = useState(false)
   const openPattern = current && "pattern" in current ? current.pattern : null
@@ -263,6 +280,10 @@ function BordersShadingDialog({
     if (target === "paragraph") {
       setEdges((current) => new Set([...current].filter((edge) => BOX.includes(edge))))
     }
+    // Text has a box or none.
+    if (target === "text") {
+      setEdges((current) => new Set(current.size > 0 ? BOX : []))
+    }
   }, [target])
 
   const choose = (next: Setting) => {
@@ -285,6 +306,27 @@ function BordersShadingDialog({
   }
 
   const apply = () => {
+    if (target === "text") {
+      const patch: Partial<TextBox> = {}
+      if (bordersTouched) {
+        patch.border = edges.size > 0 ? penLine(pen) : null
+        patch.shadow = edges.size > 0 && shadow
+      }
+      if (fillTouched) {
+        patch.fill = fill
+      }
+      if (patternTouched) {
+        patch.pattern = patternValue(patternStyle, patternColor)
+      }
+      if (Object.keys(patch).length > 0) {
+        applyTextBox(editor, patch)
+      }
+      if (pageTouched) {
+        setPageSetup({ ...setup, ...pageDraft })
+      }
+      onClose()
+      return
+    }
     if (bordersTouched) {
       if (target === "paragraph") {
         const border = paragraphBorderOf(edges)
@@ -314,18 +356,25 @@ function BordersShadingDialog({
     onClose()
   }
 
-  const targets: { id: Target; label: string }[] = table
-    ? [
-        { id: "cell", label: "Cell" },
-        { id: "table", label: "Table" },
-      ]
-    : [{ id: "paragraph", label: "Paragraph" }]
+  const targets: { id: Target; label: string }[] = [
+    ...(textSelected ? [{ id: "text" as const, label: "Text" }] : []),
+    ...(table
+      ? [
+          { id: "cell" as const, label: "Cell" },
+          { id: "table" as const, label: "Table" },
+        ]
+      : [{ id: "paragraph" as const, label: "Paragraph" }]),
+  ]
+  // Text has a box or none, so its edges cannot be picked one by one.
+  const byEdge = target !== "text"
+  // Patterns are for a paragraph or text; cells keep a fill only.
+  const patterned = target === "paragraph" || target === "text"
   const settings: { id: Setting; label: string; disabled?: boolean; note?: string }[] = [
     { id: "none", label: "None" },
     { id: "box", label: "Box" },
     ...(table && target === "table" ? [{ id: "all" as const, label: "All" }] : []),
-    ...(!table ? [{ id: "shadow" as const, label: "Shadow" }] : []),
-    { id: "custom", label: "Custom" },
+    ...(!table || target === "text" ? [{ id: "shadow" as const, label: "Shadow" }] : []),
+    ...(byEdge ? [{ id: "custom" as const, label: "Custom" }] : []),
   ]
   const applyTo = (
     <label className="bs-apply">
@@ -430,53 +479,69 @@ function BordersShadingDialog({
             </div>
             <div className="bs-preview-column">
               <p className="bs-heading">Preview</p>
-              <p className="bs-hint">Click on diagram below or use buttons to apply borders.</p>
-              <div className="bs-preview" data-keep-light aria-label="Preview">
-                <div
-                  className="bs-page"
-                  style={{
-                    borderTop: edgeLine("top"),
-                    borderBottom: edgeLine("bottom"),
-                    borderLeft: edgeLine("left"),
-                    borderRight: edgeLine("right"),
-                    boxShadow: setting === "shadow" ? `4px 4px 0 0 ${lineColor}` : undefined,
-                  }}
-                >
-                  {table && target === "table" ? (
-                    <>
-                      <span className="bs-inside-h" style={{ borderTop: edgeLine("insideH") }} />
-                      <span className="bs-inside-v" style={{ borderLeft: edgeLine("insideV") }} />
-                    </>
-                  ) : null}
-                  {table && target === "cell" ? (
-                    <>
-                      <span
-                        className="bs-diag bs-diag-down"
-                        style={edges.has("diagDown") ? { background: lineColor } : undefined}
-                      />
-                      <span
-                        className="bs-diag bs-diag-up"
-                        style={edges.has("diagUp") ? { background: lineColor } : undefined}
-                      />
-                    </>
-                  ) : null}
-                  {!table ? <span className="bs-text-lines" aria-hidden /> : null}
+              <p className="bs-hint">
+                {byEdge ? "Click on diagram below or use buttons to apply borders." : "A box goes round the text."}
+              </p>
+              {byEdge ? null : (
+                <div className="bs-text-preview" data-keep-light aria-label="Preview">
+                  <span
+                    style={{
+                      border: edges.size > 0 ? `${Math.max(1, pen.width)}px ${pen.style} ${lineColor}` : undefined,
+                      boxShadow: setting === "shadow" ? `2px 2px 0 0 ${lineColor}` : undefined,
+                    }}
+                  >
+                    AaBbCcYyZz
+                  </span>
                 </div>
-                {edgeButton("top", "Top Border", "bs-edge-top")}
-                {edgeButton("bottom", "Bottom Border", "bs-edge-bottom")}
-                {edgeButton("left", "Left Border", "bs-edge-left")}
-                {edgeButton("right", "Right Border", "bs-edge-right")}
-                {table && target === "table"
-                  ? edgeButton("insideH", "Inside Horizontal Border", "bs-edge-inside-h")
-                  : null}
-                {table && target === "table"
-                  ? edgeButton("insideV", "Inside Vertical Border", "bs-edge-inside-v")
-                  : null}
-                {table && target === "cell"
-                  ? edgeButton("diagDown", "Diagonal Down Border", "bs-edge-diag-down")
-                  : null}
-                {table && target === "cell" ? edgeButton("diagUp", "Diagonal Up Border", "bs-edge-diag-up") : null}
-              </div>
+              )}
+              {byEdge ? (
+                <div className="bs-preview" data-keep-light aria-label="Preview">
+                  <div
+                    className="bs-page"
+                    style={{
+                      borderTop: edgeLine("top"),
+                      borderBottom: edgeLine("bottom"),
+                      borderLeft: edgeLine("left"),
+                      borderRight: edgeLine("right"),
+                      boxShadow: setting === "shadow" ? `4px 4px 0 0 ${lineColor}` : undefined,
+                    }}
+                  >
+                    {table && target === "table" ? (
+                      <>
+                        <span className="bs-inside-h" style={{ borderTop: edgeLine("insideH") }} />
+                        <span className="bs-inside-v" style={{ borderLeft: edgeLine("insideV") }} />
+                      </>
+                    ) : null}
+                    {table && target === "cell" ? (
+                      <>
+                        <span
+                          className="bs-diag bs-diag-down"
+                          style={edges.has("diagDown") ? { background: lineColor } : undefined}
+                        />
+                        <span
+                          className="bs-diag bs-diag-up"
+                          style={edges.has("diagUp") ? { background: lineColor } : undefined}
+                        />
+                      </>
+                    ) : null}
+                    {!table || target === "paragraph" ? <span className="bs-text-lines" aria-hidden /> : null}
+                  </div>
+                  {edgeButton("top", "Top Border", "bs-edge-top")}
+                  {edgeButton("bottom", "Bottom Border", "bs-edge-bottom")}
+                  {edgeButton("left", "Left Border", "bs-edge-left")}
+                  {edgeButton("right", "Right Border", "bs-edge-right")}
+                  {table && target === "table"
+                    ? edgeButton("insideH", "Inside Horizontal Border", "bs-edge-inside-h")
+                    : null}
+                  {table && target === "table"
+                    ? edgeButton("insideV", "Inside Vertical Border", "bs-edge-inside-v")
+                    : null}
+                  {table && target === "cell"
+                    ? edgeButton("diagDown", "Diagonal Down Border", "bs-edge-diag-down")
+                    : null}
+                  {table && target === "cell" ? edgeButton("diagUp", "Diagonal Up Border", "bs-edge-diag-up") : null}
+                </div>
+              ) : null}
               <div className="bs-apply-row">
                 {applyTo}
                 <button
@@ -524,7 +589,7 @@ function BordersShadingDialog({
                   <select
                     aria-label="Pattern style"
                     value={patternStyle}
-                    disabled={target !== "paragraph"}
+                    disabled={!patterned}
                     onChange={(event) => {
                       setPatternTouched(true)
                       setPatternStyle(event.target.value)
@@ -541,7 +606,7 @@ function BordersShadingDialog({
                   label="Color"
                   color={patternColor ?? ""}
                   clearLabel="Automatic"
-                  disabled={target !== "paragraph" || patternStyle === "clear"}
+                  disabled={!patterned || patternStyle === "clear"}
                   onClear={() => {
                     setPatternTouched(true)
                     setPatternColor(null)
@@ -551,7 +616,7 @@ function BordersShadingDialog({
                     setPatternColor(color)
                   }}
                 />
-                {target !== "paragraph" ? <p className="bs-hint">Patterns apply to a paragraph.</p> : null}
+                {patterned ? null : <p className="bs-hint">Patterns apply to a paragraph or text.</p>}
               </fieldset>
             </div>
             <div className="bs-preview-column">
@@ -561,8 +626,7 @@ function BordersShadingDialog({
                 data-keep-light
                 style={{
                   backgroundColor: fill ?? "#ffffff",
-                  backgroundImage:
-                    (target === "paragraph" && patternImage(patternValue(patternStyle, patternColor))) || undefined,
+                  backgroundImage: (patterned && patternImage(patternValue(patternStyle, patternColor))) || undefined,
                 }}
                 aria-label="Preview"
               />

@@ -166,6 +166,10 @@ export type RunProperties = {
   szCs?: number
   highlight?: HighlightValue
   u?: Underline
+  /** The box round the text (Borders and Shading > Apply to Text). */
+  bdr?: Border
+  /** The text's shading: fill and pattern. */
+  shd?: Shading
   vertAlign?: VerticalAlign
   rStyle?: string
   lang?: Language

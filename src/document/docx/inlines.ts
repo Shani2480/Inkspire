@@ -16,6 +16,7 @@ import { diagramDataRelId, diagramDrawingRelId, renderDiagramDrawing } from "@/d
 import { shapeMarkup } from "@/editor/insert-blocks"
 import { hasPictureFormat } from "@/editor/picture-format"
 import { fontOf, fontStack, themeFontsOf, type ThemeFonts } from "@/document/docx/word-styles"
+import { runBoxOf, textBoxAttributes, textBoxOfRun, type TextBox } from "@/document/docx/text-box"
 import { chartSpecOf, renderChart, serializeChartSpec, variantOf, type ChartSpec } from "@/editor/chart-spec"
 import { DATE_PICTURES, dateFormat, formatDate } from "@/editor/formula"
 import {
@@ -952,6 +953,13 @@ function wrapText(text: string, props: RunProperties, theme: ThemeFonts) {
   if (style) {
     html = `<span style="${style}">${html}</span>`
   }
+  const box = textBoxOfRun(props)
+  if (box) {
+    const attributes = Object.entries(textBoxAttributes(box))
+      .map(([name, value]) => `${name}="${escapeHtml(value)}"`)
+      .join(" ")
+    html = `<span ${attributes}>${html}</span>`
+  }
   return html
 }
 
@@ -1012,6 +1020,8 @@ type VisibleRun = {
   color: string
   font: string
   sz: number
+  /** The box and shading (Borders and Shading > Apply to Text), as the editor draws them. */
+  box: string
 }
 
 function visibleRun(props: RunProperties, theme: ThemeFonts): VisibleRun {
@@ -1024,6 +1034,7 @@ function visibleRun(props: RunProperties, theme: ThemeFonts): VisibleRun {
     color: props.color && props.color !== "auto" ? props.color.toUpperCase() : "",
     font: fontOf(props.rFonts, theme) || "",
     sz: props.sz ?? 0,
+    box: JSON.stringify(textBoxOfRun(props)),
   }
 }
 
@@ -1075,6 +1086,10 @@ export function runPropertiesFromEdit(
   if (after.sz !== before.sz) {
     base.sz = after.sz || undefined
     base.szCs = after.sz || undefined
+  }
+  if (after.box !== before.box) {
+    base.bdr = edited.bdr
+    base.shd = edited.shd
   }
   return Object.fromEntries(Object.entries(base).filter(([, value]) => value !== undefined)) as RunProperties
 }
@@ -1426,6 +1441,10 @@ export function propsFromMarks(marks: JsonMark[]): RunProperties {
   }
   if (marks.some((mark) => mark.type === "superscript")) {
     props.vertAlign = "superscript"
+  }
+  const box = marks.find((mark) => mark.type === "textBorder")
+  if (box?.attrs) {
+    Object.assign(props, runBoxOf(box.attrs as TextBox))
   }
   const style = marks.find((mark) => mark.type === "textStyle")
   const color = colorHex(style?.attrs?.color)

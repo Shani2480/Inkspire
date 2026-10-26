@@ -39,6 +39,7 @@ import {
   type Run,
   type RunProperties,
   type SectionProps,
+  type Shading,
   type Settings,
   type Spacing,
   type Style,
@@ -1133,10 +1134,13 @@ function writeParagraphBox(props: ParagraphProperties) {
   const sides = (["top", "left", "bottom", "right"] as const)
     .map((side) => writeBorder(side, props.borders?.[side]))
     .join("")
-  const shading = props.shading
-    ? `<w:shd w:val="${props.shading.value}"${props.shading.color ? ` w:color="${props.shading.color}"` : ""}${props.shading.fill ? ` w:fill="${props.shading.fill}"` : ""}/>`
+  return `${sides ? `<w:pBdr>${sides}</w:pBdr>` : ""}${writeShading(props.shading)}`
+}
+
+function writeShading(shading: Shading | undefined) {
+  return shading
+    ? `<w:shd w:val="${shading.value}"${shading.color ? ` w:color="${shading.color}"` : ""}${shading.fill ? ` w:fill="${shading.fill}"` : ""}/>`
     : ""
-  return `${sides ? `<w:pBdr>${sides}</w:pBdr>` : ""}${shading}`
 }
 
 function writeTabs(tabs: ParagraphProperties["tabs"]) {
@@ -1224,6 +1228,8 @@ function generateRunProperties(props: RunProperties): string {
     props.szCs !== undefined ? `<w:szCs w:val="${props.szCs}"/>` : "",
     props.highlight ? `<w:highlight w:val="${props.highlight}"/>` : "",
     writeUnderline(props),
+    writeBorder("bdr", props.bdr),
+    writeShading(props.shd),
     props.vertAlign ? `<w:vertAlign w:val="${props.vertAlign}"/>` : "",
     writeLanguage(props),
     writePropertyChange(props),

@@ -7,7 +7,7 @@ import TextAlign from "@tiptap/extension-text-align"
 import { FontSize, TextStyle } from "@tiptap/extension-text-style"
 import { WordLineHeight } from "@/editor/line-height"
 import StarterKit from "@tiptap/starter-kit"
-import { CharacterStyle, StyledUnderline, SubscriptMark, SuperscriptMark } from "@/editor/character-format"
+import { CharacterStyle, StyledUnderline, SubscriptMark, SuperscriptMark, TextBoxMark } from "@/editor/character-format"
 import { FormatPainter } from "@/editor/home-actions"
 import { StyledBulletList, StyledOrderedList } from "@/editor/lists"
 import { BlankPage } from "@/editor/blank-page"
@@ -86,6 +86,7 @@ export function createExtensions() {
     StyledUnderline.configure(),
     SubscriptMark.configure(),
     SuperscriptMark.configure(),
+    TextBoxMark.configure(),
     CharacterStyle.configure(),
     FormatPainter.configure(),
     TextStyle.configure(),
