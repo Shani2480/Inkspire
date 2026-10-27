@@ -1697,8 +1697,8 @@ Source: the 48 top-level files in `screenshots/` taken on 2026-10-19 (`screensho
   Volume-Open-High-Low-Close, the volume as columns on the left axis and the prices on a right one, saved as Word's
   bar group plus stock group. **3-D and of-pie (2026-10-27):** the 3-D variants of Column (4), Bar (3),
   Line, Pie and Area (3), Pie of Pie and Bar of Pie, drawn and saved as Word's own 3-D and of-pie charts (see
-  changes.md); 3-D Rotation (X and Y) in the Format pane since 2026-10-27, but no Perspective, Depth or Height, and no view from below or the left; no of-pie split by value; no `chartex` is written, so Word shows these as plain stacked or clustered charts (since 2026-10-26 they come back
-  into the app as Histogram/Waterfall/Funnel while Word has not edited their data); a Waterfall that goes below zero is drawn from zero for that bar; no "set as total" for a point; Histogram has fixed automatic bins (no bin width, count, overflow or underflow); Histogram was not looked at in Chrome.
+  changes.md); 3-D Rotation (X and Y) in the Format pane since 2026-10-27, but no Perspective, Depth or Height, and no view from below or the left; of-pie split by value, percentage and custom points, and Second Plot Size, since 2026-10-27; no `chartex` is written, so Word shows these as plain stacked or clustered charts (since 2026-10-26 they come back
+  into the app as Histogram/Waterfall/Funnel while Word has not edited their data); a Waterfall that goes below zero is drawn from zero for that bar; no "set as total" for a point; Histogram bins (Automatic by Scott's rule, By Category, Bin width, Number of bins, Overflow, Underflow) since 2026-10-27, kept in the app's own copy of the chart only; Histogram was not looked at in Chrome.
 
 #### 22.7 — Columns dialog and the Text Wrapping break (screenshots 082750, 082741, 082806)
 

@@ -5,6 +5,7 @@ import {
   chartTree,
   expandSpec,
   histogramBins,
+  scottWidth,
   squarify,
   waterfallPieces,
 } from "@/editor/chart-expand"
@@ -33,7 +34,44 @@ describe("Histogram, Waterfall and Funnel (22.6)", () => {
     expect(counts.reduce((a, b) => a + b, 0)).toBe(6)
     expect(labels).toHaveLength(counts.length)
     expect(labels[0]!.startsWith("[1,")).toBe(true)
-    expect(histogramBins([])).toEqual({ labels: [], counts: [] })
+    expect(histogramBins([])).toMatchObject({ labels: [], counts: [] })
+  })
+
+  it("bins as Word does: Automatic by Scott's rule, a bin width, a number of bins, overflow and underflow", () => {
+    const sample = [4, 7, 9, 10, 12, 12, 13, 15, 18, 21, 22, 30]
+    const auto = histogramBins(sample)
+    expect(auto.width).toBeCloseTo(scottWidth(sample), 6)
+    expect(auto.regular).toBe(3)
+    expect(auto.counts).toEqual([8, 3, 1])
+    const tens = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    // Each bin takes the values above its start up to its end; the first takes its start too.
+    expect(histogramBins(tens, { by: "width", width: 3 })).toMatchObject({
+      labels: ["[1, 4]", "(4, 7]", "(7, 10]"],
+      counts: [4, 3, 3],
+    })
+    expect(histogramBins(tens, { by: "count", count: 2 })).toMatchObject({ counts: [5, 5], width: 4.5 })
+    expect(histogramBins(tens, { by: "width", width: 2, underflow: 2, overflow: 8 })).toMatchObject({
+      labels: ["≤2", "(2, 4]", "(4, 6]", "(6, 8]", ">8"],
+      counts: [2, 2, 2, 2, 2],
+      regular: 3,
+    })
+    expect(histogramBins([1, 2, 3], { by: "category" }, ["a", "b", "a"])).toMatchObject({
+      labels: ["a", "b"],
+      counts: [4, 2],
+    })
+    // A bin width typed by hand too small for the data is held to a number of bins that can be drawn.
+    expect(histogramBins(tens, { by: "width", width: 0.000001 }).regular).toBe(500)
+  })
+
+  it("keeps each value with its own category when a value is blank", () => {
+    const spec = defaultChartSpec("waterfall")
+    spec.categories = ["A", "B", "C"]
+    spec.series = [{ name: "Change", values: [10, Number.NaN, -4] }]
+    expect(expandSpec(spec).categories).toEqual(["A", "C", "Total"])
+    const histogram = { ...defaultChartSpec("histogram"), bins: { by: "category" as const } }
+    histogram.categories = ["x", "y", "x"]
+    histogram.series = [{ name: "Values", values: [Number.NaN, 2, 5] }]
+    expect(expandSpec(histogram)).toMatchObject({ categories: ["y", "x"], series: [{ values: [2, 5] }] })
   })
 
   it("floats each waterfall bar from the running total", () => {

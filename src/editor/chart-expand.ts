@@ -1,4 +1,4 @@
-import type { ChartSeries, ChartSpec } from "@/editor/chart-spec"
+import type { ChartSeries, ChartSpec, HistogramBins } from "@/editor/chart-spec"
 
 /**
  * Histogram, Waterfall and Funnel (22.6) are kept as the data the person typed and drawn, and saved to .docx, as the
@@ -37,35 +37,94 @@ function numbers(spec: ChartSpec) {
   return {
     name: first?.name ?? "Series 1",
     values,
-    categories: spec.categories.filter((_, index) => !spec.hiddenCategories.includes(index)),
+    /** The category of each value: a blank value leaves its category out too, so the two stay in step. */
+    categories: (first?.values ?? []).flatMap((value, index) =>
+      Number.isFinite(value) && !spec.hiddenCategories.includes(index) ? [spec.categories[index] ?? ""] : [],
+    ),
   }
 }
 
 const label = (value: number) => String(Math.round(value * 100) / 100)
 
-/** Bins by the square-root-of-two rule Word's Sturges-style automatic setting gives: ceil(log2(n) + 1) bins. */
-export function histogramBins(values: number[]) {
+/** The most bins drawn, so a tiny bin width typed by hand cannot make thousands. */
+const MOST_BINS = 500
+
+/** Word's automatic bin width, Scott's normal reference rule: 3.49 standard deviations over the cube root of n. */
+export function scottWidth(values: number[]) {
+  if (values.length < 2) {
+    return 0
+  }
+  const mean = values.reduce((sum, value) => sum + value, 0) / values.length
+  const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / (values.length - 1)
+  return (3.49 * Math.sqrt(variance)) / Math.cbrt(values.length)
+}
+
+/**
+ * The values in bins as Word's histogram puts them (`bins` from Format Axis): each bin takes the values above its
+ * start up to and including its end, the first its start too. By Category adds up the values of each category,
+ * in the order they first come.
+ */
+export function histogramBins(values: number[], bins: HistogramBins = { by: "auto" }, categories: string[] = []) {
+  if (bins.by === "category") {
+    const totals = new Map<string, number>()
+    values.forEach((value, index) => {
+      const name = categories[index] ?? ""
+      totals.set(name, (totals.get(name) ?? 0) + value)
+    })
+    return { labels: [...totals.keys()], counts: [...totals.values()], width: 0, regular: totals.size }
+  }
   if (values.length === 0) {
-    return { labels: [] as string[], counts: [] as number[] }
+    return { labels: [] as string[], counts: [] as number[], width: 0, regular: 0 }
   }
   const low = Math.min(...values)
   const high = Math.max(...values)
-  const bins = Math.max(1, Math.ceil(Math.log2(values.length) + 1))
-  const width = (high - low) / bins || 1
-  const counts = Array.from({ length: bins }, () => 0)
+  const under = Number.isFinite(bins.underflow) ? bins.underflow! : undefined
+  const over = Number.isFinite(bins.overflow) && (under === undefined || bins.overflow! > under) ? bins.overflow! : undefined
+  const start = under ?? low
+  const end = Math.max(start, over ?? high)
+  const span = end - start
+  let width: number
+  let count: number
+  if (bins.by === "count" && Number(bins.count) >= 1) {
+    count = Math.min(MOST_BINS, Math.round(bins.count!))
+    width = span / count || 1
+  } else {
+    width = bins.by === "width" && Number(bins.width) > 0 ? bins.width! : scottWidth(values) || span || 1
+    count = Math.max(1, Math.min(MOST_BINS, Math.ceil(span / width - 1e-9)))
+  }
+  const counts = Array.from({ length: count }, () => 0)
+  let below = 0
+  let above = 0
   for (const value of values) {
-    const index = Math.min(bins - 1, Math.floor((value - low) / width))
-    counts[index]! += 1
+    if (under !== undefined && value <= under) {
+      below += 1
+    } else if (over !== undefined && value > over) {
+      above += 1
+    } else {
+      counts[Math.max(0, Math.min(count - 1, Math.ceil((value - start) / width) - 1))]! += 1
+    }
   }
   const labels = counts.map(
-    (_, index) => `${index === 0 ? "[" : "("}${label(low + index * width)}, ${label(low + (index + 1) * width)}]`,
+    (_, index) =>
+      `${index === 0 && under === undefined ? "[" : "("}${label(start + index * width)}, ${label(start + (index + 1) * width)}]`,
   )
-  return { labels, counts }
+  return {
+    labels: [...(under !== undefined ? [`≤${label(under)}`] : []), ...labels, ...(over !== undefined ? [`>${label(over)}`] : [])],
+    counts: [...(under !== undefined ? [below] : []), ...counts, ...(over !== undefined ? [above] : [])],
+    /** The bin width and the number of bins between the underflow and overflow bins, as chosen. */
+    width,
+    regular: count,
+  }
+}
+
+/** The numbers a histogram bins: its first shown series, without blanks and hidden categories. */
+export function histogramValues(spec: ChartSpec) {
+  return numbers(spec).values
 }
 
 function histogram(spec: ChartSpec): ChartSpec {
-  const { name, values } = numbers(spec)
-  const { labels, counts } = histogramBins(values)
+  const { name, values, categories } = numbers(spec)
+  const { labels, counts } = histogramBins(values, spec.bins, categories)
   return {
     ...spec,
     type: "column",

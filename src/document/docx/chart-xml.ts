@@ -5,7 +5,10 @@ import {
   CHART_STYLES,
   defaultChartSpec,
   normalizeChartSpec,
+  ofPieSecond,
+  ofPieSize,
   ofPieSplit,
+  ofPieThreshold,
   chartRotation,
   paletteColor,
   type ChartSpec,
@@ -348,11 +351,18 @@ export function chartSpaceXml(source: ChartSpec, workbookRelId?: string) {
     const first = shown[0]
     const series = `<c:varyColors val="1"/>${first ? seriesXml(spec, first.index, "pie", rows) : ""}${labelsXml(spec, "pie", text)}`
     if (spec.ofPie) {
-      // Split by position: the last points go to the second plot, as the app draws it.
-      const split = ofPieSplit(spec, rows)
+      // Split Series By: position (the last points), value, percentage value, or the points picked (by their place
+      // among the points written).
+      const by = spec.ofPieSplitBy ?? "pos"
+      const split =
+        by === "cust"
+          ? `<c:custSplit>${ofPieSecond(spec)
+              .map((second, place) => (second ? `<c:secondPiePt val="${place}"/>` : ""))
+              .join("")}</c:custSplit>`
+          : `<c:splitPos val="${by === "pos" ? ofPieSplit(spec, rows) : ofPieThreshold(spec)}"/>`
       groups.push(
-        `<c:ofPieChart><c:ofPieType val="${spec.ofPie}"/>${series}<c:gapWidth val="100"/><c:splitType val="pos"/>` +
-          `<c:splitPos val="${split}"/><c:secondPieSize val="75"/><c:serLines/></c:ofPieChart>`,
+        `<c:ofPieChart><c:ofPieType val="${spec.ofPie}"/>${series}<c:gapWidth val="100"/><c:splitType val="${by}"/>` +
+          `${split}<c:secondPieSize val="${Math.round(ofPieSize(spec) * 100)}"/><c:serLines/></c:ofPieChart>`,
       )
     } else {
       groups.push(`<c:pie3DChart>${series}</c:pie3DChart>`)
@@ -918,8 +928,23 @@ export function readChartSpace(xml: string): ChartSpec | null {
   } else if (first.name === "ofPieChart") {
     spec.ofPie = value(first, "ofPieType") === "bar" ? "bar" : "pie"
     const split = Number(value(first, "splitPos"))
-    if ((value(first, "splitType") ?? "auto") === "pos" && Number.isFinite(split) && split > 0) {
+    const by = value(first, "splitType") ?? "auto"
+    if (by === "pos" && Number.isFinite(split) && split > 0) {
       spec.ofPieSplit = split
+    } else if ((by === "val" || by === "percent") && Number.isFinite(split)) {
+      spec.ofPieSplitBy = by
+      spec.ofPieSplitValue = split
+    } else if (by === "cust") {
+      // The points are read in order, with no hidden categories: a point's place is its category.
+      spec.ofPieSplitBy = "cust"
+      spec.ofPieCustom = children(child(first, "custSplit"), "secondPiePt")
+        .map((point) => Number(point.attrs.val))
+        .filter((place) => Number.isInteger(place) && place >= 0)
+    }
+    // "auto" is Word's own choice, drawn here as the split by position the app makes by default.
+    const size = Number(value(first, "secondPieSize"))
+    if (Number.isFinite(size) && size !== 75) {
+      spec.ofPieSize = size
     }
   }
   // A 3-D chart's rotation, kept only where it is not Word's own view.

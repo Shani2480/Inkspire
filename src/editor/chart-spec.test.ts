@@ -7,6 +7,7 @@ import {
   chartSpecOf,
   defaultChartSpec,
   niceScale,
+  ofPieSecond,
   ofPieSplit,
   renderChart,
   serializeChartSpec,
@@ -112,6 +113,35 @@ describe("chart spec", () => {
     expect(withVariant(turnedColumn, "column-3d-stacked").rotX).toBe(40)
     expect(withVariant(turnedColumn, "column").rotX).toBeUndefined()
     expect(withVariant(turnedColumn, "pie-3d").rotY).toBeUndefined()
+  })
+
+  it("splits an of-pie chart by position, value, percentage or the points picked, as Word's Split Series By", () => {
+    const spec = defaultChartSpec("pie-of-pie")
+    spec.categories = ["A", "B", "C", "D", "E"]
+    spec.series = [{ name: "Sales", values: [40, 3, 30, 5, 22] }]
+    expect(ofPieSecond(spec)).toEqual([false, false, false, true, true])
+    // The small ones wherever they are, kept in their order.
+    expect(ofPieSecond({ ...spec, ofPieSplitBy: "val", ofPieSplitValue: 10 })).toEqual([false, true, false, true, false])
+    expect(ofPieSecond({ ...spec, ofPieSplitBy: "percent", ofPieSplitValue: 25 })).toEqual([false, true, false, true, true])
+    // Unset, a tenth of the whole.
+    expect(ofPieSecond({ ...spec, ofPieSplitBy: "val" })).toEqual([false, true, false, true, false])
+    expect(ofPieSecond({ ...spec, ofPieSplitBy: "cust", ofPieCustom: [0, 2] })).toEqual([true, false, true, false, false])
+    const count = (svg: string, text: string) => svg.split(text).length - 1
+    const bar = renderChart({ ...spec, ofPie: "bar", ofPieSplitBy: "val", ofPieSplitValue: 10 }, 576, 336)
+    expect(bar).toContain('<rect data-chart-part="point:1"')
+    expect(bar).toContain('<rect data-chart-part="point:3"')
+    expect(count(bar, '<path data-chart-part="point:')).toBe(4)
+    // Nothing for the second plot: the pie is drawn whole.
+    expect(renderChart({ ...spec, ofPieSplitBy: "val", ofPieSplitValue: 1 }, 576, 336)).not.toContain("point:other")
+    // Second Plot Size: the second pie grows with it.
+    const radius = (svg: string) => {
+      // A slice of the second pie: from its centre to the rim.
+      const [cx, cy, x, y] = /data-chart-part="point:4" d="M([\d.]+) ([\d.]+) L([\d.]+) ([\d.]+)/.exec(svg)!.slice(1).map(Number)
+      return Math.hypot(x! - cx!, y! - cy!)
+    }
+    const small = renderChart({ ...spec, ofPieSize: 50 }, 576, 336)
+    const large = renderChart({ ...spec, ofPieSize: 100 }, 576, 336)
+    expect(radius(large)).toBeGreaterThan(radius(small))
   })
 
   it("applies Quick Layouts and leaves out hidden series and categories", () => {
