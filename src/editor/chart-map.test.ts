@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { drawMap, loadMapCountries, matchCountry, matchState, mixColor } from "@/editor/chart-map"
+import { drawMap, loadMapCountries, matchCountry, matchRegion, matchState, mixColor } from "@/editor/chart-map"
 import { gridToSheet, sheetToGrid } from "@/editor/chart-sheet"
 import {
   chartParts,
@@ -149,6 +149,52 @@ describe("Filled Map (22.6)", () => {
     // Back to numbers: no texts.
     grid[1]![1] = "5"
     expect(withSheet(next, gridToSheet(grid)).series[0]!.texts).toBeUndefined()
+  })
+
+  it("draws the states and provinces of Canada, Australia, Germany and others, by name or code", async () => {
+    await loadMapCountries()
+    expect(matchRegion("Bavaria", "Germany")?.properties.code).toBe("BY")
+    expect(matchRegion("Bayern", "Germany")?.properties.code).toBe("BY")
+    expect(matchRegion("Quebec", "Canada")?.properties.code).toBe("QC")
+    expect(matchRegion("ON", "Canada")?.properties.name).toBe("Ontario")
+    expect(matchRegion("NSW", "Australia")?.properties.name).toBe("New South Wales")
+    expect(matchRegion("Ontario", "Australia")).toBeNull()
+    const box = { x: 0, y: 0, w: 400, h: 300 }
+    const points = (names: string[]) => names.map((name, index) => ({ index, name, value: index }))
+    const canada = drawMap(points(["Ontario", "Québec", "BC", "Alberta"]), box, {})!
+    expect(canada.shapes).toHaveLength(4)
+    expect(canada.unmatched).toEqual([])
+    // The rest of Canada round them, and nothing of the United States.
+    expect(canada.rest.length).toBeGreaterThan(1000)
+    // Australia's states, by name and code; a name no state has is left out.
+    const australia = drawMap(points(["Victoria", "Tasmania", "QLD", "Narnia"]), box, {})!
+    expect(australia.shapes.map((shape) => shape.point.name)).toEqual(["Victoria", "Tasmania", "QLD"])
+    expect(australia.unmatched).toEqual(["Narnia"])
+    // A few countries are still countries: Germany as a country, not its states.
+    const europe = drawMap(points(["Germany", "France", "Bavaria"]), box, {})!
+    expect(europe.shapes.map((shape) => shape.point.name)).toEqual(["Germany", "France"])
+    // Albers away from the United States: a cone on the area shown, every state inside the box.
+    const albers = drawMap(points(["Bavaria", "Berlin", "Hamburg"]), box, { projection: "albers" })!
+    for (const shape of albers.shapes) {
+      expect(shape.at[0]).toBeGreaterThan(0)
+      expect(shape.at[0]).toBeLessThan(400)
+    }
+  })
+
+  it("puts a label on a region's largest piece, at the roomiest point, outside a hole", async () => {
+    await loadMapCountries()
+    const box = { x: 0, y: 0, w: 576, h: 336 }
+    const drawn = drawMap(
+      ["France", "Germany", "South Africa", "Lesotho"].map((name, index) => ({ index, name, value: index })),
+      box,
+      { area: "world" },
+    )!
+    const [france, germany, africa, lesotho] = drawn.shapes
+    // France's French Guiana is left aside: the label is in Europe, next to Germany.
+    expect(Math.hypot(france!.at[0] - germany!.at[0], france!.at[1] - germany!.at[1])).toBeLessThan(20)
+    // South Africa's label is not on Lesotho, which sits inside it.
+    expect(Math.hypot(africa!.at[0] - lesotho!.at[0], africa!.at[1] - lesotho!.at[1])).toBeGreaterThan(4)
+    expect(africa!.size[0]).toBeGreaterThan(lesotho!.size[0])
   })
 
   it("writes names where they fit with Best Fit, and on every region with Show all", async () => {

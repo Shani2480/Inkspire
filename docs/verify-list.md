@@ -378,6 +378,15 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Column chart, Gridlines > Primary Minor Vertical, save, open in Word: the minor vertical gridlines are there.
 - Histogram with axis titles and gridlines, save, open in Word: the titles and gridlines show; reopen here, same.
 
+## Maps round 3 (2026-10-27)
+
+- Insert a Filled Map with Ontario, Quebec, Alberta and BC: Canada's provinces are drawn, the rest of Canada round
+  them; Bayern, Berlin, Hamburg: Germany's states; NSW, Victoria, QLD: Australia's.
+- Make a map in Word (Excel data), open it here: it opens as a map (not a picture); change a value and the colours,
+  save, open in Word: still Word's map (Chart Design and the Format Data Series pane offer the map's options), with
+  the new colours and values.
+- Same file, add a region Word did not have, save, open in Word: a picture of the map.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

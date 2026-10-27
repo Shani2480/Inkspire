@@ -28,11 +28,11 @@ function chartImage(spec: ChartSpec) {
   }
 }
 
-async function save(spec: ChartSpec) {
+async function save(spec: ChartSpec, content?: unknown[], word: Parameters<typeof saveDocxBytes>[0]["word"] = null) {
   const saved = await saveDocxBytes({
-    json: { type: "doc", content: [chartImage(spec)] },
+    json: { type: "doc", content: content ?? [chartImage(spec)] },
     chrome: emptyChrome(),
-    word: null,
+    word,
     unchanged: false,
     fileName: "c.docx",
   })
@@ -170,7 +170,7 @@ describe("Word's chartex charts (Histogram, Pareto, Waterfall, Funnel, Box & Whi
         .replace(
           /<cx:layoutPr>[^]*?<\/cx:layoutPr>/,
           `<cx:valueColors><cx:minColor><a:srgbClr val="F8696B"/></cx:minColor><cx:midColor><a:srgbClr val="FFEB84"/></cx:midColor><cx:maxColor><a:srgbClr val="63BE7B"/></cx:maxColor></cx:valueColors>` +
-            `<cx:valueColorPositions count="3"><cx:minPosition><cx:auto/></cx:minPosition><cx:midPosition><cx:number val="5"/></cx:midPosition><cx:maxPosition><cx:auto/></cx:maxPosition></cx:valueColorPositions>` +
+            `<cx:valueColorPositions count="3"><cx:mid><cx:number val="5"/></cx:mid></cx:valueColorPositions>` +
             `<cx:layoutPr><cx:regionLabelLayout val="bestFitOnly"/></cx:layoutPr>`,
         )
         .replace(
@@ -249,6 +249,79 @@ describe("Word's chartex charts (Histogram, Pareto, Waterfall, Funnel, Box & Whi
         )!.data,
       ),
     ).toContain('Requires="cx2"')
+  })
+
+  it("opens Word's Map (Requires cx4) as a map, and writes it back as Word's own with Bing's outlines once changed", async () => {
+    // Word's file: its map part with Bing's outlines (`cx:geoCache`), behind Requires="cx4", no copy of the app's.
+    const entries = await readZip(await save(defaultChartSpec("histogram")))
+    const geography =
+      `<cx:geography projectionType="mercator" cultureLanguage="en-US" cultureRegion="US" attribution="Powered by Bing">` +
+      `<cx:geoCache provider="{E9337A44-BEBE-4D9F-B70C-5C5E7DAFC167}"><cx:binary>Qk lORw==</cx:binary></cx:geoCache></cx:geography>`
+    const word = { ...defaultChartSpec("filled-map"), categories: ["France", "Spain", "Italy"] }
+    word.series = [{ name: "Sales", values: [10, 20, 30] }]
+    const part = chartExXml(word, "rId1", geography)
+    const rewritten = entries.map((entry) => {
+      if (entry.name === "word/document.xml") {
+        const xml = decodeXml(entry.data)
+          .replace(/<a:extLst><a:ext uri="\{6F1C2B7E[^]*?<\/a:extLst>/g, "")
+          .replace(
+            'xmlns:cx1="http://schemas.microsoft.com/office/drawing/2015/9/8/chartex" Requires="cx1"',
+            'xmlns:cx4="http://schemas.microsoft.com/office/drawing/2016/5/10/chartex" Requires="cx4"',
+          )
+        return { ...entry, data: new TextEncoder().encode(xml) }
+      }
+      return /^word\/charts\/chartEx\d+\.xml$/.test(entry.name)
+        ? { ...entry, data: new TextEncoder().encode(part) }
+        : entry
+    })
+    const opened = await openDocxBytes(storedZip(rewritten), "c.docx")
+    const img = /<img [^>]*>/.exec(opened.view.html)![0]
+    const object = /data-inkspire-object="([^"]+)"/.exec(img)![1]!
+    const figure = decode(object)
+    const read = JSON.parse(figure.attrs.chart) as ChartSpec
+    expect(read.type).toBe("map")
+    expect(read.categories).toEqual(["France", "Spain", "Italy"])
+
+    // Changed in the app: new values, a diverging scale, Robinson; the same regions.
+    const changedSpec = {
+      ...read,
+      mapProjection: "robinson" as const,
+      mapDiverging: true,
+      series: [{ name: "Sales", values: [5, 50, 25] }],
+    }
+    const image = (spec: ChartSpec) => ({
+      type: "image",
+      attrs: {
+        src: PNG,
+        width: figure.attrs.width,
+        height: figure.attrs.height,
+        docxKey: /data-docx="([^"]+)"/.exec(img)![1],
+        objectNode: encode({ ...figure, attrs: { ...figure.attrs, chart: serializeChartSpec(spec) } }),
+      },
+    })
+    const pkg = await openPackage(await save(changedSpec, [image(changedSpec)], opened.word), "c.docx")
+    const document = decodeXml(findPart(pkg, pkg.mainPartName)!.data)
+    expect(document).toMatch(
+      /<mc:Choice xmlns:cx4="http:\/\/schemas.microsoft.com\/office\/drawing\/2016\/5\/10\/chartex" Requires="cx4">/,
+    )
+    // The app's picture of the map for programs without Word's Map.
+    expect(document).toMatch(/<mc:Fallback><w:drawing[ >][^]*<pic:pic[^]*<\/mc:Fallback>/)
+    const relId = /<cx:chart [^>]*r:id="(rId\d+)"/.exec(document)![1]
+    const rel = relationshipsFor(pkg, pkg.mainPartName).find((item) => item.id === relId)!
+    const written = decodeXml(findPart(pkg, rel.partName!)!.data)
+    expect(written).toContain('<cx:series layoutId="regionMap">')
+    expect(written).toContain('<cx:numDim type="colorVal">')
+    expect(written).toContain('<cx:geography projectionType="robinson" cultureLanguage="en-US"')
+    expect(written).toContain("<cx:binary>Qk lORw==</cx:binary>")
+    expect(readChartEx(written)).toMatchObject({ type: "map", mapProjection: "robinson", mapDiverging: true })
+    expect(readChartEx(written)!.series[0]!.values).toEqual([5, 50, 25])
+
+    // A region Word has no outline for: the picture alone.
+    const other = { ...changedSpec, categories: ["France", "Spain", "Portugal"] }
+    const picture = await openPackage(await save(other, [image(other)], opened.word), "c.docx")
+    const plain = decodeXml(findPart(picture, picture.mainPartName)!.data)
+    expect(plain).not.toContain("<cx:chart ")
+    expect(plain).toContain("<pic:pic")
   })
 
   it("opens its own chartex charts as they were, and Word's own (with no app copy) from the chartex part", async () => {

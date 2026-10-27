@@ -7,6 +7,55 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Maps round 3: states and provinces of nine more countries, Best Fit on the mainland, Word's own Map kept
+
+- **What was wrong:**
+  - A Filled Map knew countries and US states only: Canadian provinces, Australian states or German Länder
+    matched nothing.
+  - Best Fit put a label at the centroid of the whole region and judged the fit by its bounding box, so France's
+    label was pulled towards French Guiana and a region with islands looked roomier than it is.
+  - Albers away from the United States drew nothing (`geoAlbersUsa` leaves out everything else), and with "Only
+    regions with data" the neighbours were drawn whole, over the title.
+  - Word's Map sits behind `Requires="cx4"`, which the reader did not understand: every Word map opened as Word's
+    fallback picture, never as a map. Tests used cx1 fixtures, so nothing noticed.
+  - An edited map was always saved as a picture, so a map from Word stopped being Word's map.
+- **What changed:**
+  - `src/editor/map-regions.json` (121 KB, loaded with the other outlines): Natural Earth's 1:10m admin-1 states and
+    provinces (public domain) of Canada, Australia, Germany, Brazil, India, China, Mexico, South Africa and Japan,
+    a TopoJSON per country simplified on its own scale, small islands left out. Each region has its English name,
+    its other names ("Bayern", "Québec") and its ISO 3166-2 code ("BY", "ON", "NSW"; Natural Earth's own postal
+    codes are wrong in places). Built by `docs/maps/build-map-regions.mjs` (`tools/` and `scripts/` are ignored).
+  - `chart-map.ts`:
+    - `matchRegion` and `regionCountries`;
+    - `drawMap` picks the level most categories name (countries first on a tie, then US states, then a country's
+      regions) and shows the whole country round them, as for US states;
+    - Albers elsewhere is an equal-area cone fitted to the area shown;
+    - `labelSpot`: the label goes on the region's largest piece (signed ring areas, so an outline cut at the
+      antimeridian is not taken for a hole), at the point furthest inside on a 24-line grid, centred on the
+      stretch across that line; the room is the stretch's width and twice the distance to the nearest edge.
+  - `chart-spec.ts`: the map's shapes are clipped to the plot.
+  - `mce.ts`, `chartex-xml.ts`: cx4 understood and written for a Map. `chartExXml` writes a Map: regions,
+    `colorVal` values or `colorStr` text, Series Color (`valueColors`, `valueColorPositions` with `cx:mid`), label
+    layout and the geography. The reader also takes `cx:mid` (Word's), not only `midPosition`.
+  - `inlines.ts`: `wordMapRun` writes an edited Word map back as Word's Map, carrying Word's `cx:geography` with
+    Bing's outlines (`cx:geoCache`) and the app's picture as the fallback, while every region is one Word had; a
+    new region, or a map made in the app, is still a picture. `chartExChoice` is the chartex `mc:AlternateContent`
+    for both.
+- **Native Map without Word's cache (investigated, not done):** Word's outlines are Bing's binary data, which the
+  app cannot make. `cx:geoCache` is optional in the schema, and Excel writers that leave it out report that Excel
+  looks the regions up on Bing when the file opens, but that was not checked in Word, and offline Word would show an
+  empty map where the picture shows one. So maps made in the app stay pictures.
+- **Tests:** `chart-map.test.ts` (regions by name and code, Canada and Australia, countries win a tie, Albers in
+  Germany; labels on France's mainland and outside Lesotho), `chartex.test.ts` (a Word Map behind cx4 opens as a
+  map; changed, it is written back as Word's with its cache, cx4 and a picture fallback; a new region gives the
+  picture). 1114 tests pass; the type-check and eslint are clean.
+- **Checked:** two saved edited Word maps (diverging and two-colour, labels, Robinson, data only) pass the Open XML
+  validator with no errors (the first try caught `minPosition`). Drawn in Chrome: Canada, Germany (Berlin and
+  Hamburg included), Australia, Brazil, Germany on Albers clipped to the plot, and the world with labels inside
+  their regions.
+- **Open:** not opened in Word. No counties, UK nations, French or Spanish regions; Canada's labels are small at
+  the default size, as its Arctic takes the room.
+
 ### Charts against Word's menus: Funnel's axes, the secondary axis, Primary Minor Vertical gridlines, chartex axes
 
 - **What was wrong:**
