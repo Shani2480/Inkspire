@@ -11,7 +11,14 @@ import {
   preferredFromWord,
   preferredToWord,
 } from "@/document/docx/table-props-docx"
-import { marginsValue, parseMargins, parsePreferredWidth, preferredWidthValue } from "@/editor/table-props"
+import {
+  marginsValue,
+  parseMargins,
+  parsePreferredWidth,
+  preferredWidthValue,
+  presetAttrs,
+  presetOf,
+} from "@/editor/table-props"
 
 const paragraph = { type: "paragraph", content: [{ type: "text", text: "x" }] }
 
@@ -141,5 +148,29 @@ describe("Table Properties values (22.10)", () => {
     const { view } = await openDocxBytes(bytes, "t.docx")
     const attribute = /data-float="([^"]+)"/.exec(view.html)?.[1]?.replaceAll("&quot;", '"')
     expect(JSON.parse(attribute!)).toEqual(float)
+  })
+})
+
+describe("the Narrow / Normal / Wide cell margins in .docx", () => {
+  it("saves a preset as the table's default cell margins and opens it as the same preset", async () => {
+    for (const pad of ["narrow", "wide"] as const) {
+      const { bytes, xml } = await save(presetAttrs(pad))
+      expect(xml).toContain("<w:tblCellMar>")
+      const { view } = await openDocxBytes(bytes, "t.docx")
+      const margins = /data-margins="([^"]+)"/.exec(view.html)?.[1]
+      expect(presetOf({ margins })).toBe(pad)
+    }
+  })
+
+  it("saves the margins of a table that only carries the preset (older documents, templates)", async () => {
+    const { xml } = await save({ cellPad: "wide" })
+    expect(xml).toContain('<w:left w:w="210" w:type="dxa"/>')
+  })
+
+  it("leaves Normal out, as Word does, and a preset replaces margins the table came with", async () => {
+    const { xml } = await save(presetAttrs("normal"))
+    expect(xml).not.toContain("<w:tblCellMar>")
+    expect(presetAttrs("normal").margins).toBeNull()
+    expect(presetOf({ cellPad: "wide", margins: "0.1,0.1,0.5,0.5" })).toBe("normal")
   })
 })

@@ -7,6 +7,21 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Narrow and Wide cell margins are saved to .docx
+
+- **Bug:** Table Layout → Cell Margins and Table Properties' Narrow / Normal / Wide only set an app-only `cellPad`
+  flag. Nothing wrote it to .docx, so a Wide table reopened as Normal. On a table opened from Word with its own
+  margins, those margins were drawn over the preset, so choosing Narrow or Wide changed nothing. (Custom table
+  margins and per-cell margins were already saved and reopened; a save probe confirmed it.)
+- **Changed:** `presetAttrs` and `presetOf` (`src/editor/table-props.ts`). A preset now sets the table's default
+  cell margins (Normal clears them, Word's default), and the preset shown is read back from the margins.
+  `cycleCellMargins` and `applyTableProperties` (`table-layout.ts`) use them. Saving (`docx/project.ts`) also writes
+  the margins of a table that only carries the old flag.
+- **Checked:** `table-props.test.ts` covers Narrow and Wide written as `w:tblCellMar` and reopened as the same preset,
+  the old flag alone, Normal left out, and other margins counting as Normal. In Chrome, cycling Cell Margins on a
+  new table draws 1/3 px, 10/14 px and Word's 0/7 px. Full suite 852 passing.
+- **Open:** not opened in Word itself.
+
 ### Mail merge taken out of the app, kept on the backlog
 
 - **Why:** Preview Results never filled the recipient's values into the page and the fields were not saved as

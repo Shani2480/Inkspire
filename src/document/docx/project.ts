@@ -6,6 +6,7 @@ import { chromeJson } from "@/document/chrome-json"
 import { bordersOf, editedShading, sidePensOf, wordShadingValue } from "@/document/docx/cell-edits"
 import { cellCss, tableLookTokens, tableVariables, themeFontsOf } from "@/document/docx/word-styles"
 import { floatValue } from "@/editor/table-float"
+import { presetAttrs, presetOf } from "@/editor/table-props"
 import {
   floatFromWord,
   floatToWord,
@@ -1504,7 +1505,7 @@ function tableFromNode(node: JsonNode, build: Build): Table {
   if (spacing && spacing.value > 0) {
     table.cellSpacing = structuredClone(spacing)
   }
-  const margins = marginsToWord(attrs.margins, origin?.cellMargins)
+  const margins = marginsToWord(attrs.margins ?? presetAttrs(presetOf(attrs)).margins, origin?.cellMargins)
   if (margins) {
     table.cellMargins = structuredClone(margins)
   }
