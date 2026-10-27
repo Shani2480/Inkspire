@@ -7,6 +7,21 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Column breaks are saved; two stale notes corrected
+
+- **Bug:** a column break (Layout → Breaks → Column, Ctrl+Shift+Enter) was dropped when saving to .docx, so it was
+  gone on reopening.
+- **Changed (`docx/project.ts`):**
+  - A column break is written as Word's paragraph holding only `<w:br w:type="column"/>`.
+  - On open, such a paragraph becomes the editor's column break again (`breakOnly`, shared with page breaks).
+- **Checked:** a save-and-reopen test in `column-line.test.ts`. Full suite passing.
+- **Corrected:** next-todo 20.6 said shapes, charts and 3D models still save in line and the Layout dialog has no
+  Text Wrapping tab. Both were already done. A save in Chrome of a floating native shape, a shape saved as a
+  picture and a chart wrote `wp:anchor` for each.
+- **Open:**
+  - A column break in the middle of a Word paragraph opens as a line break.
+  - Unequal columns (Left and Right presets, per-column widths) can't be drawn with the browser's equal columns.
+
 ### Word's remaining formatting keys
 
 - **Missing:** Ctrl+Shift+D (double underline), Ctrl+Shift+K (small caps), Ctrl+Shift+H (hidden), Ctrl+T and

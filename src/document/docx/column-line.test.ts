@@ -47,3 +47,21 @@ describe("Line between columns (22.7)", () => {
     expect(unpackDocument(packed).pageSetup.columnLine).toBe(true)
   })
 })
+
+describe("column breaks in .docx", () => {
+  it("are written as Word's paragraph holding a column break and open as one again", async () => {
+    const paragraph = (text: string) => ({ type: "paragraph", content: [{ type: "text", text }] })
+    const saved = await saveDocxBytes({
+      json: { type: "doc", content: [paragraph("one"), { type: "columnBreak" }, paragraph("two")] },
+      chrome: emptyChrome(),
+      word: null,
+      unchanged: false,
+      fileName: "c.docx",
+    })
+    const pkg = await openPackage(saved.bytes, "c.docx")
+    const xml = decodeXml(findPart(pkg, pkg.mainPartName)!.data)
+    expect(xml).toContain('<w:p><w:r><w:br w:type="column"/></w:r></w:p>')
+    const { view } = await openDocxBytes(saved.bytes, "c.docx")
+    expect(view.html).toMatch(/one<\/span><\/p><div data-column-break="" class="column-break"><\/div><p[^>]*><span[^>]*>two/)
+  })
+})
