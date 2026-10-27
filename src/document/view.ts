@@ -97,7 +97,6 @@ type ViewState = {
   immersive: boolean
   restricted: boolean
   hideInk: boolean
-  highlightMerge: boolean
   selectionPane: boolean
   setZoom: (zoom: number) => void
   setZoomMode: (zoomMode: ZoomMode) => void
@@ -137,7 +136,6 @@ type ViewState = {
   resetWindow: () => void
   setRestricted: (restricted: boolean) => void
   setHideInk: (hideInk: boolean) => void
-  setHighlightMerge: (highlightMerge: boolean) => void
   toggleSelectionPane: () => void
 }
 
@@ -178,7 +176,6 @@ export const useViewStore = create<ViewState>((set, get) => ({
   immersive: false,
   restricted: false,
   hideInk: false,
-  highlightMerge: false,
   selectionPane: false,
   setZoom: (zoom) => set({ zoom: clampZoom(zoom), zoomMode: "manual" }),
   setZoomMode: (zoomMode) => set({ zoomMode }),
@@ -255,7 +252,6 @@ export const useViewStore = create<ViewState>((set, get) => ({
     }),
   setRestricted: (restricted) => set({ restricted }),
   setHideInk: (hideInk) => set({ hideInk }),
-  setHighlightMerge: (highlightMerge) => set({ highlightMerge }),
   toggleSelectionPane: () => set((state) => ({ selectionPane: !state.selectionPane })),
 }))
 

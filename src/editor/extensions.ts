@@ -42,7 +42,6 @@ import {
 } from "@/editor/insert-blocks"
 import { ShortcutKeymap } from "@/editor/shortcut-keymap"
 import { EditingBehavior } from "@/editor/editing-behavior"
-import { MergeField } from "@/editor/merge-field"
 import { DocumentTheme } from "@/editor/document-theme"
 import { SectionBreak } from "@/editor/section-break"
 import { SheetBlock } from "@/editor/sheet-block"
@@ -148,7 +147,6 @@ export function createExtensions() {
     SectionBreak.configure(),
     SheetBlock.configure(),
     insertBlockCommands.configure(),
-    MergeField.configure(),
     Insertion.configure(),
     Deletion.configure(),
     TrackChanges.configure(),

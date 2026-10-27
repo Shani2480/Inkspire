@@ -6037,15 +6037,6 @@ li[data-drop-cap="margin"]::first-letter {
   outline-offset: 2px;
 }
 
-.merge-field {
-  background: #fff4ce;
-  border-radius: 2px;
-}
-
-.page-editor.highlight-merge .merge-field {
-  outline: 1px solid #ca5010;
-}
-
 .page-canvas.is-line-select,
 .page-canvas.is-line-select * {
   cursor:

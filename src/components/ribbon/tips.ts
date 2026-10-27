@@ -153,27 +153,6 @@ export const RIBBON_TIPS: Record<string, RibbonTip> = {
   "Mark Citation": { description: "Mark the selected text for the table of authorities." },
   "Insert Table of Authorities": { description: "Insert a table of authorities from marked citations." },
 
-  Envelopes: { description: "Insert a return address and a recipient address." },
-  Labels: { description: "Insert a sheet of address labels." },
-  "Start Mail Merge": { description: "Choose Letters, E-mail, Envelopes, Labels, or Directory." },
-  "Select Recipients": { description: "Load a CSV list or use the sample recipient list." },
-  "Edit Recipient List": { description: "Edit the names and addresses in the current recipient list." },
-  "Highlight Merge Fields": { description: "Highlight merge fields such as «Name» so they are easy to see." },
-  "Address Block": { description: "Insert a block of address merge fields." },
-  "Greeting Line": { description: "Insert a greeting that uses the recipient’s name." },
-  "Insert Merge Field": { description: "Insert a merge field that can be filled in later." },
-  Rules: { description: "Insert If…Then…Else, Next Record, or Skip Record If rules." },
-  "Match Fields": { description: "Map address fields to columns in your recipient list." },
-  "Update Labels": { description: "Rebuild the label sheet from the current recipient list." },
-  "Preview Results": { description: "Show how the merge looks for the current recipient." },
-  "First Record": { description: "Go to the first recipient." },
-  "Previous Record": { description: "Go to the previous recipient." },
-  "Next Record": { description: "Go to the next recipient." },
-  "Last Record": { description: "Go to the last recipient." },
-  "Find Recipient": { description: "Search the recipient list for matching text." },
-  "Check for Errors": { description: "Find merge fields that are not in the recipient list." },
-  "Finish & Merge": { description: "Create individual documents, print, or start an e-mail merge." },
-
   "Spelling & Grammar": {
     description:
       "Turn spelling underlines on or off, or run a grammar check. Spelling, grammar, and thesaurus follow the document language.",
