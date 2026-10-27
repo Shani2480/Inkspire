@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { Editor } from "@tiptap/core"
 import { StarterKit } from "@tiptap/starter-kit"
 import { TableRow } from "@tiptap/extension-table"
+import { useTableDraw } from "@/editor/table-draw"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { BordersMenu, borderLabel } from "@/components/table-design-menus"
 import { DEFAULT_PEN, FramedTable, ShadedTableCell, ShadedTableHeader } from "@/editor/table-tools"
@@ -59,15 +60,15 @@ describe("Borders menu (22.3)", () => {
     editor.destroy()
   })
 
-  it("Draw Table puts a table in", () => {
+  it("Draw Table picks up the pencil", () => {
     const editor = new Editor({
       extensions: [StarterKit, FramedTable, TableRow, ShadedTableCell, ShadedTableHeader],
       content: "<p>Text</p>",
     })
     render(<BordersMenu editor={editor} pen={DEFAULT_PEN} close={() => {}} gridlines onGridlines={() => {}} />)
     fireEvent.click(screen.getByRole("button", { name: "Draw Table" }))
-    expect(editor.getHTML()).toContain("<table")
-    expect(editor.getHTML().match(/<tr>/g)).toHaveLength(3)
+    expect(useTableDraw.getState().mode).toBe("draw")
+    useTableDraw.getState().stop()
     editor.destroy()
   })
 })

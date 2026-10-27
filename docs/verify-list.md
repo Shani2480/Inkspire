@@ -197,6 +197,17 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - [ ] **Line numbering options (2026-10-27)** — Start at 5, Count by 5, From text 1 cm in Word, open in the app:
       numbers 5, 10… at the same distance; change them in the app, save, and Word's Line Numbers dialog shows the same.
 
+## Draw Table and Eraser (2026-10-27)
+
+- Desktop app: Table Layout → Draw Table shows the pencil cursor (WebKitGTK may fall back to the crosshair).
+  Drag a box below a paragraph and a table that size appears, set in as far as the box started. Drag a line down
+  and across a cell and the cell splits. Escape puts the pencil down.
+- Eraser: clicking the line between two cells merges them, and one Ctrl+Z splits them again.
+- Save a document with a drawn and split table, open it in Word: the column widths, the row height, the indent and
+  the merged cells are as drawn.
+- A table from Word with an indent (Table Properties → Indent from left) now shows set in. Check one in Chrome
+  and in the desktop app.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

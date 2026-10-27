@@ -7,6 +7,42 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Draw Table and Eraser draw and erase as Word's do; a table's indent shows again
+
+- **Missing:** Draw Table only put in a 3×3 table, and Eraser took the borders off the cell holding the cursor.
+  Word's Draw Table is a pencil: a box dragged on the page becomes a table that size, and a line dragged in a cell
+  splits it. Its Eraser merges the two cells on either side of the line you click.
+- **Changed:** new `src/editor/table-draw.ts`.
+  - `useTableDraw` is the mode store. Draw Table and Eraser on the Table Layout tab (both ribbon layouts) and Draw
+    Table in Table Design → Borders now switch the pencil or eraser on and off. The active one shows as pressed.
+    Escape or a second click puts it down. The page shows a pencil or eraser cursor.
+  - A box drawn outside a table becomes a one-cell table the box's size (column width, row height). It is set in
+    from the margin as far as the box starts, and goes after the paragraph the box starts on (`insertDrawnTable`).
+  - A line down through a cell adds a grid column there, and the other cells over that column widen to span both
+    halves (`splitCellDown`). On an existing column edge inside a merged cell, the cell divides there instead.
+    A line across does the same with rows (`splitCellAcross`).
+  - A click within 6 px of the border between two cells merges them, when the two make a rectangle by themselves
+    (`eraseBetween`). Each action is one undo step, and the eraser leaves the cursor in the merged cell.
+  - The pointer handling is the `TableDrawing` extension. It works from screen rectangles divided by the zoom.
+  - `clearCellBorders` (the old Eraser stand-in) is gone.
+- **Fixed alongside:** `drawTableFloat` cleared `margin-left` on every table that does not float, right after
+  `applyTableProps` drew the indent. So no table's indent showed, including tables from Word with `w:tblInd`. It
+  now leaves `margin-left` alone (`table-float.ts`).
+- **Tests:** `table-draw.test.ts` (9): both splits, the edge cases, the eraser, one undo step, and the drawn table's
+  size and indent. The indent test fails without the float fix. `table-design-menus.test.tsx` now checks that Draw
+  Table picks up the pencil. 874 tests pass.
+- **Checked in Chrome:**
+  - From the Table Layout ribbon, with the pencil on, a line down cell "a" gave `a _ b / c(span 2) d`, and a line
+    across "b" gave a new row with "a" and its new neighbour spanning both.
+  - A box under "Below" became a table 40 px in.
+  - The eraser on the line between "a" and its neighbour merged them. Escape put it down, and one undo brought the
+    split back.
+- **Open:**
+  - Word's pencil can also draw a line along an existing border to put back a border taken off, and it can draw
+    diagonals. Neither is done.
+  - A box drawn beside text in Word makes a floating table; here it always goes in the text after the paragraph.
+  - Lines across several cells split only the cell the line starts in.
+
 ### Line numbering: Start at, Count by and From text; numbers show at once
 
 - **Missing:** the app numbered every line from 1 at a fixed distance. Word's Start at, Count by and From text

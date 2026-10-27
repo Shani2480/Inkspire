@@ -159,7 +159,8 @@ export function drawTableFloat(table: HTMLElement, float: unknown) {
   if (!float) {
     delete table.dataset.float
     delete table.dataset.floatFlow
-    for (const name of ["position", "left", "top", "z-index", "margin-left"]) {
+    // Not margin-left: that is the table's indent, which `applyTableProps` has just drawn.
+    for (const name of ["position", "left", "top", "z-index"]) {
       table.style.removeProperty(name)
     }
     return

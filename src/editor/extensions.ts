@@ -30,6 +30,7 @@ import { Equation } from "@/editor/equation"
 import { ColumnBreak } from "@/editor/column-break"
 import { ColumnSection } from "@/editor/columns"
 import { DrawingCanvas } from "@/editor/drawing"
+import { TableDrawing } from "@/editor/table-draw"
 import { ObjectGrouping } from "@/editor/object-group"
 import {
   Bookmark,
@@ -133,6 +134,7 @@ export function createExtensions() {
     AuthorityMark.configure(),
     Figure.configure(),
     DrawingCanvas.configure(),
+    TableDrawing,
     ColumnSection.configure(),
     ColumnBreak.configure(),
     ObjectGrouping.configure(),

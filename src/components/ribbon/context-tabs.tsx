@@ -58,7 +58,6 @@ import { BordersIcon, ShadingIcon } from "@/components/ribbon/icons"
 import {
   alignTableCell,
   autoFitTable,
-  clearCellBorders,
   convertTableToText,
   cycleCellMargins,
   distributeColumns,
@@ -105,6 +104,7 @@ import { chromeStep } from "@/document/chrome-editing"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
 import { useBodyEditor, useDocumentEditor } from "@/editor/document-editor"
+import { useTableDraw } from "@/editor/table-draw"
 import type { Editor } from "@tiptap/core"
 import { NodeSelection } from "@tiptap/pm/state"
 import { useEditorState } from "@tiptap/react"
@@ -391,6 +391,11 @@ export function TableLayoutTab() {
     selector: ({ editor: current }) => (current ? tableLayoutState(current) : null),
   })
   const ready = Boolean(editor && layout)
+  const drawMode = useTableDraw((state) => state.mode)
+  const drawWith = (mode: "draw" | "erase") => {
+    useTableDraw.getState().toggle(mode)
+    editor?.view.focus()
+  }
   const selectMenu = () => (
     <>
       <MenuButton onClick={() => editor && selectTablePart(editor, "cell")}>Select Cell</MenuButton>
@@ -530,15 +535,17 @@ export function TableLayoutTab() {
             id: "draw-table",
             label: "Draw Table",
             icon: <ContextGlyph label="Draw Table" />,
+            active: drawMode === "draw",
             disabled: !editor,
-            onClick: () => editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
+            onClick: () => drawWith("draw"),
           },
           {
             id: "eraser",
             label: "Eraser",
             icon: <ContextGlyph label="Eraser" />,
-            disabled: !ready,
-            onClick: () => editor && clearCellBorders(editor),
+            active: drawMode === "erase",
+            disabled: !editor,
+            onClick: () => drawWith("erase"),
           },
           {
             id: "split-table",
@@ -676,11 +683,18 @@ export function TableLayoutTab() {
           size="large"
           label="Draw Table"
           disabled={!editor}
-          onClick={() => editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
+          active={drawMode === "draw"}
+          onClick={() => drawWith("draw")}
         >
           <ContextGlyph label="Draw Table" />
         </RibbonCommand>
-        <RibbonCommand size="large" label="Eraser" disabled={!ready} onClick={() => editor && clearCellBorders(editor)}>
+        <RibbonCommand
+          size="large"
+          label="Eraser"
+          disabled={!editor}
+          active={drawMode === "erase"}
+          onClick={() => drawWith("erase")}
+        >
           <ContextGlyph label="Eraser" />
         </RibbonCommand>
       </RibbonGroup>

@@ -1,5 +1,6 @@
 import { openBordersAndShading } from "@/components/borders-shading-dialog"
 import { insertHorizontalLine } from "@/editor/home-actions"
+import { useTableDraw } from "@/editor/table-draw"
 import { ColorMenu } from "@/components/color-menu"
 import { MenuButton } from "@/components/ribbon/ribbon-button"
 import {
@@ -228,7 +229,8 @@ export function BordersMenu({
       </MenuButton>
       <MenuButton
         onClick={() => {
-          editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+          useTableDraw.getState().toggle("draw")
+          editor?.view.focus()
           close()
         }}
       >
