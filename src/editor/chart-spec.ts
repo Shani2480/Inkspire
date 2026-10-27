@@ -52,6 +52,19 @@ export type ChartSeries = {
   tick?: boolean
 }
 
+/**
+ * Word's histogram bins: Automatic (Scott's rule), By Category (the values of each category added up), a Bin width
+ * or a Number of bins; an Overflow bin takes every value above `overflow`, an Underflow bin every value at or below
+ * `underflow`.
+ */
+export type HistogramBins = {
+  by: "auto" | "category" | "width" | "count"
+  width?: number
+  count?: number
+  overflow?: number
+  underflow?: number
+}
+
 export type LabelContent = { value: boolean; category: boolean; series: boolean; percent: boolean }
 
 export type ValueAxis = {
@@ -85,9 +98,20 @@ export type ChartSpec = {
    */
   rotX?: number
   rotY?: number
-  /** Pie of Pie and Bar of Pie: the last points (`ofPieSplit` of them) drawn again as a second pie or a bar. */
+  /**
+   * Pie of Pie and Bar of Pie: some points drawn again as a second pie or a bar, chosen as Word's Split Series By
+   * says (`ofPieSplitBy`, unset is Position): the last `ofPieSplit` points; those below `ofPieSplitValue`, or below
+   * that percentage of the whole; or the categories in `ofPieCustom`. `ofPieSize` is the Second Plot Size, a
+   * percentage of the first (75 unset).
+   */
   ofPie?: "pie" | "bar"
   ofPieSplit?: number
+  ofPieSplitBy?: "pos" | "val" | "percent" | "cust"
+  ofPieSplitValue?: number
+  ofPieCustom?: number[]
+  ofPieSize?: number
+  /** Histogram: how the values go into bins (Format Axis → Bins); unset is Automatic. */
+  bins?: HistogramBins
   /** Stock: the first series is the volume traded, drawn as columns on the left axis, the prices on a right one. */
   volume?: boolean
   categories: string[]
@@ -2079,9 +2103,39 @@ export function ofPieSplit(spec: ChartSpec, count: number) {
   return Math.max(1, Math.min(count - 1, Math.round(asked)))
 }
 
+/** The threshold Split by Value or Percentage value uses until one is typed: a tenth of the whole. */
+export function ofPieThreshold(spec: ChartSpec) {
+  if (Number.isFinite(spec.ofPieSplitValue)) {
+    return spec.ofPieSplitValue!
+  }
+  return spec.ofPieSplitBy === "percent" ? 10 : Math.round(pieData(spec).total * 10) / 100
+}
+
+/** Which of the shown points Pie of Pie and Bar of Pie draw in the second plot, by Split Series By. */
+export function ofPieSecond(spec: ChartSpec): boolean[] {
+  const { shown, values, total } = pieData(spec)
+  switch (spec.ofPieSplitBy ?? "pos") {
+    case "val":
+      return values.map((value) => value < ofPieThreshold(spec))
+    case "percent":
+      return values.map((value) => (value / total) * 100 < ofPieThreshold(spec))
+    case "cust":
+      return shown.map((index) => Boolean(spec.ofPieCustom?.includes(index)))
+    default: {
+      const split = ofPieSplit(spec, values.length)
+      return values.map((_, place) => place >= values.length - split)
+    }
+  }
+}
+
+/** The Second Plot Size, as a share of the first plot: Word's 5 to 200%, 75 unset. */
+export function ofPieSize(spec: ChartSpec) {
+  return Math.max(5, Math.min(200, Number.isFinite(spec.ofPieSize) ? spec.ofPieSize! : 75)) / 100
+}
+
 /**
- * Pie of Pie and Bar of Pie: the first points as a pie whose last slice, Other, gathers the rest, and the rest again
- * to its right as a smaller pie or a stacked bar, joined to Other by two lines.
+ * Pie of Pie and Bar of Pie: the points of the first plot as a pie whose last slice, Other, gathers the rest, and
+ * the rest again to its right as a smaller pie or a stacked bar, joined to Other by two lines.
  */
 function ofPie(painter: Painter, box: Box, second: "pie" | "bar") {
   const { spec, look } = painter
@@ -2090,9 +2144,16 @@ function ofPie(painter: Painter, box: Box, second: "pie" | "bar") {
     wholePie(painter, box)
     return
   }
-  const split = ofPieSplit(spec, values.length)
-  const main = values.slice(0, values.length - split)
-  const rest = values.slice(values.length - split)
+  const inSecond = ofPieSecond(spec)
+  const mainPlaces = values.map((_, place) => place).filter((place) => !inSecond[place])
+  const restPlaces = values.map((_, place) => place).filter((place) => inSecond[place])
+  if (!restPlaces.length) {
+    wholePie(painter, box)
+    return
+  }
+  const main = mainPlaces.map((place) => values[place]!)
+  const rest = restPlaces.map((place) => values[place]!)
+  const size = ofPieSize(spec)
   const other = rest.reduce((sum, value) => sum + value, 0)
   const total = main.reduce((sum, value) => sum + value, 0) + other || 1
   const labels = spec.dataLabels !== "none"
@@ -2126,7 +2187,8 @@ function ofPie(painter: Painter, box: Box, second: "pie" | "bar") {
   // Other faces the second plot: centred on the right.
   const otherSweep = (other / total) * Math.PI * 2
   let angle = otherSweep / 2
-  main.forEach((value, place) => {
+  main.forEach((value, offset) => {
+    const place = mainPlaces[offset]!
     const index = shown[place]!
     const sweep = (value / total) * Math.PI * 2
     slices.push(wedge(cx1, r1, angle, angle + sweep, paintOf(pointColor(painter, index), `point:${index}`), `point:${index}`))
@@ -2136,15 +2198,16 @@ function ofPie(painter: Painter, box: Box, second: "pie" | "bar") {
   })
   const otherColor = paletteColor(spec, shown.length)
   slices.push(wedge(cx1, r1, -otherSweep / 2, otherSweep / 2, paintOf(otherColor, "point:other"), "point:other"))
-  label(other, main.length, cx1 + r1 * 0.62, cy)
+  // Other's own category is none of the data's.
+  label(other, -1, cx1 + r1 * 0.62, cy)
   const top = [cx1 + Math.cos(-otherSweep / 2) * r1, cy + Math.sin(-otherSweep / 2) * r1]
   const bottom = [cx1 + Math.cos(otherSweep / 2) * r1, cy + Math.sin(otherSweep / 2) * r1]
   let joins: [number, number][]
   if (second === "pie") {
-    const r2 = r1 * 0.75
+    const r2 = Math.min(r1 * size, box.x + box.w - cx2 - 4, box.h / 2 - 4)
     let from = Math.PI - ((rest[0]! / (other || 1)) * Math.PI * 2) / 2
     rest.forEach((value, offset) => {
-      const place = main.length + offset
+      const place = restPlaces[offset]!
       const index = shown[place]!
       const sweep = (value / (other || 1)) * Math.PI * 2
       slices.push(wedge(cx2, r2, from, from + sweep, paintOf(pointColor(painter, index), `point:${index}`), `point:${index}`))
@@ -2157,11 +2220,11 @@ function ofPie(painter: Painter, box: Box, second: "pie" | "bar") {
       [cx2, cy + r2],
     ]
   } else {
-    const height = r1 * 1.6
+    const height = Math.min(r1 * 1.6 * (size / 0.75), box.h - 8)
     const width = Math.max(10, r1 * 0.45)
     let y = cy - height / 2
     rest.forEach((value, offset) => {
-      const place = main.length + offset
+      const place = restPlaces[offset]!
       const index = shown[place]!
       const tall = (value / (other || 1)) * height
       slices.push(

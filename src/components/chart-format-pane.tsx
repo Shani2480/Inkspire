@@ -5,6 +5,10 @@ import {
   NUMBER_FORMATS,
   chartParts,
   chartRotation,
+  ofPieSecond,
+  ofPieSize,
+  ofPieSplit,
+  ofPieThreshold,
   isTextPart,
   partLabel,
   type ChartSpec,
@@ -12,7 +16,9 @@ import {
   type LegendPosition,
   type PartFormat,
   type TrendlineKind,
+  type HistogramBins,
 } from "@/editor/chart-spec"
+import { histogramBins, histogramValues } from "@/editor/chart-expand"
 import { useEditorState } from "@tiptap/react"
 import { X } from "lucide-react"
 import { useState } from "react"
@@ -275,6 +281,183 @@ function SizeOptions({ width, height }: { width: number; height: number }) {
   )
 }
 
+/**
+ * Pie of Pie and Bar of Pie (Format Data Series): Split Series By Position, Value, Percentage value or Custom, with
+ * its number, and the Second Plot Size. Custom puts the point picked on the chart in the first or second plot.
+ */
+function OfPieOptions({ spec, part, set }: { spec: ChartSpec; part: string; set: Setter }) {
+  const by = spec.ofPieSplitBy ?? "pos"
+  const shown = spec.categories.map((_, index) => index).filter((index) => !spec.hiddenCategories.includes(index))
+  const point = part.startsWith("point:") ? Number(part.slice("point:".length)) : NaN
+  const options = [
+    { value: "pos", label: "Position" },
+    { value: "val", label: "Value" },
+    { value: "percent", label: "Percentage value" },
+    { value: "cust", label: "Custom" },
+  ]
+  return (
+    <>
+      <Select
+        label="Split Series By"
+        value={by}
+        options={options}
+        onChange={(value) =>
+          set((current) => {
+            const next = { ...current, ofPieSplitBy: value as ChartSpec["ofPieSplitBy"] }
+            delete next.ofPieSplitValue
+            if (value === "cust") {
+              // Custom starts from the points the second plot has now.
+              const second = ofPieSecond(current)
+              const visible = current.categories
+                .map((_, index) => index)
+                .filter((index) => !current.hiddenCategories.includes(index))
+              next.ofPieCustom = visible.filter((_, place) => second[place])
+            }
+            return next
+          })
+        }
+      />
+      {by === "pos" ? (
+        <NumberField
+          label="Values in second plot"
+          value={ofPieSplit(spec, shown.length)}
+          unit=""
+          step={1}
+          min={1}
+          max={Math.max(1, shown.length - 1)}
+          onChange={(split) => set((current) => ({ ...current, ofPieSplit: Math.round(split) }))}
+        />
+      ) : by === "val" || by === "percent" ? (
+        <NumberField
+          label="Values less than"
+          value={ofPieThreshold(spec)}
+          unit={by === "percent" ? "%" : ""}
+          step={1}
+          min={0}
+          max={by === "percent" ? 100 : 1e9}
+          onChange={(threshold) => set((current) => ({ ...current, ofPieSplitValue: threshold }))}
+        />
+      ) : Number.isInteger(point) ? (
+        <Select
+          label="Point belongs to"
+          value={spec.ofPieCustom?.includes(point) ? "second" : "first"}
+          options={[
+            { value: "first", label: "First plot" },
+            { value: "second", label: "Second plot" },
+          ]}
+          onChange={(plot) =>
+            set((current) => {
+              const others = (current.ofPieCustom ?? []).filter((index) => index !== point)
+              return { ...current, ofPieCustom: plot === "second" ? [...others, point].sort((a, b) => a - b) : others }
+            })
+          }
+        />
+      ) : (
+        <p className="format-pane-note">Click a slice on the chart, then choose the plot it belongs to.</p>
+      )}
+      <NumberField
+        label="Second Plot Size"
+        value={Math.round(ofPieSize(spec) * 100)}
+        unit="%"
+        step={5}
+        min={5}
+        max={200}
+        onChange={(size) => set((current) => ({ ...current, ofPieSize: size }))}
+      />
+    </>
+  )
+}
+
+/**
+ * Format Axis → Bins on a histogram, as Word has it: By Category, Automatic, Bin width or Number of bins, and an
+ * Overflow and Underflow bin. The width and number shown are the ones in use, whichever was set.
+ */
+function HistogramBinOptions({ spec, set }: { spec: ChartSpec; set: Setter }) {
+  const bins: HistogramBins = spec.bins ?? { by: "auto" }
+  const values = histogramValues(spec)
+  const chosen = histogramBins(values, bins.by === "category" ? { by: "auto" } : bins)
+  const low = values.length ? Math.min(...values) : 0
+  const high = values.length ? Math.max(...values) : 0
+  const setBins = (change: Partial<HistogramBins>) =>
+    set((current) => {
+      const next: HistogramBins = { ...(current.bins ?? { by: "auto" }), ...change }
+      for (const key of Object.keys(next) as (keyof HistogramBins)[]) {
+        if (next[key] === undefined) {
+          delete next[key]
+        }
+      }
+      return { ...current, bins: next }
+    })
+  const modes: [HistogramBins["by"], string][] = [
+    ["category", "By Category"],
+    ["auto", "Automatic"],
+    ["width", "Bin width"],
+    ["count", "Number of bins"],
+  ]
+  const round = (value: number) => Math.round(value * 100) / 100
+  return (
+    <Section title="Bins">
+      {modes.map(([by, label]) => (
+        <Radio key={by} name="chart-bins" checked={bins.by === by} label={label} onChange={() => setBins({ by })} />
+      ))}
+      {bins.by !== "category" && (
+        <>
+          <NumberField
+            label="Bin width"
+            value={round(chosen.width)}
+            unit=""
+            step={1}
+            min={0}
+            max={1e9}
+            onChange={(width) => setBins({ by: "width", width })}
+          />
+          <NumberField
+            label="Number of bins"
+            value={chosen.regular}
+            unit=""
+            step={1}
+            min={1}
+            max={500}
+            onChange={(count) => setBins({ by: "count", count: Math.round(count) })}
+          />
+          <Check
+            label="Overflow bin"
+            checked={bins.overflow !== undefined}
+            onChange={(on) => setBins({ overflow: on ? round(low + (high - low) * 0.75) : undefined })}
+          />
+          {bins.overflow !== undefined && (
+            <NumberField
+              label="Above"
+              value={bins.overflow}
+              unit=""
+              step={1}
+              min={-1e9}
+              max={1e9}
+              onChange={(overflow) => setBins({ overflow })}
+            />
+          )}
+          <Check
+            label="Underflow bin"
+            checked={bins.underflow !== undefined}
+            onChange={(on) => setBins({ underflow: on ? round(low + (high - low) * 0.25) : undefined })}
+          />
+          {bins.underflow !== undefined && (
+            <NumberField
+              label="At or below"
+              value={bins.underflow}
+              unit=""
+              step={1}
+              min={-1e9}
+              max={1e9}
+              onChange={(underflow) => setBins({ underflow })}
+            />
+          )}
+        </>
+      )}
+    </Section>
+  )
+}
+
 function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) {
   return (
     <label className="format-pane-check">
@@ -387,6 +570,9 @@ function PartOptions({ spec, part, set }: { spec: ChartSpec; part: string; set: 
         </Section>
       </>
     )
+  }
+  if (part === "axis:category" && spec.type === "histogram") {
+    return <HistogramBinOptions spec={spec} set={set} />
   }
   if (part === "axis:category") {
     return (
@@ -524,17 +710,20 @@ function PartOptions({ spec, part, set }: { spec: ChartSpec; part: string; set: 
               />
             </>
           ) : null}
+          {spec.ofPie ? <OfPieOptions spec={spec} part={part} set={set} /> : null}
           {round ? (
             <>
-              <NumberField
-                label="Angle of first slice"
-                value={spec.firstSliceAngle}
-                unit="°"
-                step={5}
-                min={0}
-                max={360}
-                onChange={(firstSliceAngle) => set((current) => ({ ...current, firstSliceAngle }))}
-              />
+              {spec.ofPie ? null : (
+                <NumberField
+                  label="Angle of first slice"
+                  value={spec.firstSliceAngle}
+                  unit="°"
+                  step={5}
+                  min={0}
+                  max={360}
+                  onChange={(firstSliceAngle) => set((current) => ({ ...current, firstSliceAngle }))}
+                />
+              )}
               <NumberField
                 label="Pie Explosion"
                 value={spec.explosion}

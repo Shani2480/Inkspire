@@ -270,6 +270,13 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Open Path, Delete Segment and Close Path, then save: Word opens the shape with the same open or closed outline.
 - Desktop app: right-click a point and a segment (WebKitGTK), and the curve handles on a turned and flipped shape.
 
+## Histogram bins and of-pie splits (2026-10-27)
+
+- Compare the same data in Word's histogram: Automatic gives the same bin width and count; Overflow and Underflow
+  labels read the same (">x", "≤x").
+- Save a Pie of Pie split by value, by percentage and custom, and a Bar of Pie at Second Plot Size 120%: Word
+  shows the same split and size in Format Data Series. Open Word's own of-pie chart split by value here.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

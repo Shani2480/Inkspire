@@ -7,6 +7,46 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Histogram bins, and Pie of Pie / Bar of Pie split by value, percentage or custom points
+
+- **Missing:**
+  - A histogram had fixed automatic bins: no bin width, number of bins, overflow or underflow bin, and no By
+    Category. Its automatic count used Sturges' rule, where Word uses Scott's.
+  - Pie of Pie and Bar of Pie split only by position and could not change the second plot's size.
+  - Found while doing this: with a blank value, Histogram, Waterfall and Funnel paired values with the wrong
+    categories, because the blank's category was not left out with it.
+- **Changed:**
+  - Format Axis on a histogram has Word's Bins section: By Category, Automatic, Bin width, Number of bins, and an
+    Overflow and Underflow bin with their values. The boxes show the width and count in use.
+  - Automatic is Scott's rule, as in Word. Each bin takes the values above its start up to its end, the first its
+    start too; the overflow bin is labelled ">x" and the underflow bin "≤x". At most 500 bins are drawn.
+    (`histogramBins`, `scottWidth`, `histogramValues` in `src/editor/chart-expand.ts`; `bins` on the chart.)
+  - Format Data Series on Pie of Pie and Bar of Pie has Split Series By (Position, Value, Percentage value,
+    Custom). Position has "Values in second plot", Value and Percentage have "Values less than", and Custom has
+    "Point belongs to" on a clicked slice; Custom starts from the current split. Also Second Plot Size (5–200%).
+    "Angle of first slice" is hidden there, as Word hides it.
+  - The second plot takes the points in their own order wherever they sit. With nothing to put in it, the pie is
+    drawn whole. (`ofPieSecond`, `ofPieThreshold`, `ofPieSize` in `src/editor/chart-spec.ts`.)
+  - Saved as Word's `splitType` val, percent or cust, with `splitPos` or `custSplit`/`secondPiePt`, and
+    `secondPieSize`; read back the same (`src/document/docx/chart-xml.ts`).
+  - `numbers()` in `chart-expand.ts` keeps each value with its own category.
+- **Tests:**
+  - `chart-expand.test.ts`: Scott's rule, bin width, number of bins, overflow and underflow, By Category, the
+    500-bin cap, and categories kept in step with blank values.
+  - `chart-spec.test.ts`: each split mode, drawing by value, a pie drawn whole, and the second plot's size.
+  - `chart-docx.test.ts`: the value, percentage and custom splits and the plot size written and read back.
+  - All tests pass.
+- **Checked in Chrome:**
+  - Histogram: Number of bins 5 gave five bins of 3.9, and Overflow bin added ">23.5".
+  - Bar of Pie: Values less than 2 put the two small quarters in the bar. Custom kept them, and a clicked slice
+    went to the second plot with "Point belongs to". Second Plot Size 120% grew the bar.
+- **Still open:**
+  - Other's data label has no category name, where Word writes "Other".
+  - Word's "auto" split opens as a split by position.
+  - A histogram is still saved as a column chart (no `chartex`), so Word does not see its bin settings.
+  - No Pareto chart.
+  - Gap Width between the two plots is fixed.
+
 ### Edit Points: curve handles and Word's point and segment menus
 
 - **Missing:** Edit Points could only move, add and delete points. There were no curve handles, no Smooth,

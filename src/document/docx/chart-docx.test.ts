@@ -251,6 +251,19 @@ describe("3-D charts, Pie of Pie and Bar of Pie (22.6)", () => {
     expect([pie.rotX, pie.rotY]).toEqual([undefined, 120])
   })
 
+  it("saves an of-pie chart split by value, percentage or custom points, and its second plot size", () => {
+    const spec = withVariant(defaultChartSpec("bar-of-pie"), "bar-of-pie")
+    const byValue = chartSpaceXml({ ...spec, ofPieSplitBy: "val", ofPieSplitValue: 12, ofPieSize: 120 })
+    expect(byValue).toContain('<c:splitType val="val"/><c:splitPos val="12"/><c:secondPieSize val="120"/>')
+    expect(readChartSpace(byValue)).toMatchObject({ ofPieSplitBy: "val", ofPieSplitValue: 12, ofPieSize: 120 })
+    const byPercent = readChartSpace(chartSpaceXml({ ...spec, ofPieSplitBy: "percent", ofPieSplitValue: 20 }))!
+    expect(byPercent).toMatchObject({ ofPieSplitBy: "percent", ofPieSplitValue: 20 })
+    expect(byPercent.ofPieSize).toBeUndefined()
+    const custom = chartSpaceXml({ ...spec, ofPieSplitBy: "cust", ofPieCustom: [0, 2] })
+    expect(custom).toContain('<c:splitType val="cust"/><c:custSplit><c:secondPiePt val="0"/><c:secondPiePt val="2"/></c:custSplit>')
+    expect(readChartSpace(custom)).toMatchObject({ ofPieSplitBy: "cust", ofPieCustom: [0, 2] })
+  })
+
   it("keeps the split Word gave an of-pie chart", () => {
     const spec = { ...withVariant(defaultChartSpec("pie-of-pie"), "pie-of-pie"), ofPieSplit: 1 }
     expect(readChartSpace(chartSpaceXml(spec))!.ofPieSplit).toBe(1)
