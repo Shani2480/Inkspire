@@ -1,19 +1,21 @@
-import { geoCentroid, geoMercator, geoPath, geoProjection, type GeoProjection } from "d3-geo"
+import { geoAlbersUsa, geoCentroid, geoMercator, geoPath, geoProjection, type GeoProjection } from "d3-geo"
 import type { Feature, FeatureCollection, Geometry } from "geojson"
 
 /**
- * Word's Filled Map (22.6): each category a country or region, coloured by its value from the Minimum colour to
- * the Maximum. Word draws it from Bing's map data; here the outlines are Natural Earth's countries (world-atlas,
- * 1:110m), loaded the first time a map is drawn.
+ * Word's Filled Map (22.6): each category a country, or a state of the United States, coloured by its value from
+ * the Minimum colour to the Maximum (through a Midpoint colour on a diverging scale), or by its text, a colour per
+ * different text. Word draws it from Bing's map data; here the outlines are Natural Earth's countries (world-atlas,
+ * 1:110m) and the Census Bureau's states (us-atlas, 1:10m), loaded the first time a map is drawn.
  */
 
-export type MapProjection = "auto" | "mercator" | "miller" | "robinson"
+export type MapProjection = "auto" | "mercator" | "miller" | "robinson" | "albers"
 export type MapArea = "auto" | "data" | "world"
-export type MapLabels = "none" | "show"
+export type MapLabels = "none" | "bestFit" | "show"
 
 type Country = Feature<Geometry, { name: string }>
 
 let countries: Country[] | null = null
+let states: Country[] | null = null
 let loading: Promise<void> | null = null
 const listeners = new Set<() => void>()
 
@@ -22,21 +24,30 @@ export function mapCountries() {
   return countries
 }
 
+type Topology = Parameters<(typeof import("topojson-client"))["feature"]>[0]
+
+function features(topojson: typeof import("topojson-client"), atlas: unknown, name: string) {
+  const topology = ((atlas as { default?: unknown }).default ?? atlas) as Topology
+  const object = (topology as unknown as { objects: Record<string, Parameters<typeof topojson.feature>[1]> }).objects[
+    name
+  ]!
+  return (topojson.feature(topology, object) as unknown as FeatureCollection<Geometry, { name: string }>).features
+}
+
 /** Loads the outlines (once); everything that drew a map without them is told to draw it again. */
 export function loadMapCountries() {
-  loading ??= Promise.all([import("world-atlas/countries-110m.json"), import("topojson-client")]).then(
-    ([atlas, topojson]) => {
-      const topology = (atlas.default ?? atlas) as unknown as Parameters<typeof topojson.feature>[0]
-      const collection = topojson.feature(
-        topology,
-        (topology as unknown as { objects: { countries: Parameters<typeof topojson.feature>[1] } }).objects.countries,
-      ) as unknown as FeatureCollection<Geometry, { name: string }>
-      countries = collection.features
-      for (const listener of listeners) {
-        listener()
-      }
-    },
-  )
+  loading ??= Promise.all([
+    import("world-atlas/countries-110m.json"),
+    import("us-atlas/states-10m.json"),
+    import("topojson-client"),
+  ]).then(([world, us, topojson]) => {
+    countries = features(topojson, world, "countries")
+    // The fifty states and the District of Columbia: Word's map of the United States has no territories.
+    states = features(topojson, us, "states").filter((state) => Number(state.id) <= 56 && state.id !== "60")
+    for (const listener of listeners) {
+      listener()
+    }
+  })
   return loading
 }
 
@@ -119,6 +130,78 @@ export function matchCountry(name: string, list: Country[] | null = countries): 
   return list.find((country) => normal(country.properties.name) === wanted) ?? null
 }
 
+const POSTAL: Record<string, string> = {
+  AL: "Alabama",
+  AK: "Alaska",
+  AZ: "Arizona",
+  AR: "Arkansas",
+  CA: "California",
+  CO: "Colorado",
+  CT: "Connecticut",
+  DE: "Delaware",
+  DC: "District of Columbia",
+  FL: "Florida",
+  GA: "Georgia",
+  HI: "Hawaii",
+  ID: "Idaho",
+  IL: "Illinois",
+  IN: "Indiana",
+  IA: "Iowa",
+  KS: "Kansas",
+  KY: "Kentucky",
+  LA: "Louisiana",
+  ME: "Maine",
+  MD: "Maryland",
+  MA: "Massachusetts",
+  MI: "Michigan",
+  MN: "Minnesota",
+  MS: "Mississippi",
+  MO: "Missouri",
+  MT: "Montana",
+  NE: "Nebraska",
+  NV: "Nevada",
+  NH: "New Hampshire",
+  NJ: "New Jersey",
+  NM: "New Mexico",
+  NY: "New York",
+  NC: "North Carolina",
+  ND: "North Dakota",
+  OH: "Ohio",
+  OK: "Oklahoma",
+  OR: "Oregon",
+  PA: "Pennsylvania",
+  RI: "Rhode Island",
+  SC: "South Carolina",
+  SD: "South Dakota",
+  TN: "Tennessee",
+  TX: "Texas",
+  UT: "Utah",
+  VT: "Vermont",
+  VA: "Virginia",
+  WA: "Washington",
+  WV: "West Virginia",
+  WI: "Wisconsin",
+  WY: "Wyoming",
+}
+
+const STATE_NAMES: Record<string, string> = {
+  "washington dc": "District of Columbia",
+  "washington d c": "District of Columbia",
+  "d c": "District of Columbia",
+  "washington state": "Washington",
+}
+
+/** The state a category names, by its name or its two-letter postal code; null when none matches. */
+export function matchState(name: string, list: Country[] | null = states): Country | null {
+  if (!list || !name.trim()) {
+    return null
+  }
+  const code = name.trim().toUpperCase()
+  const key = normal(name).replace(/ (state|usa|us)$/, "")
+  const wanted = normal(POSTAL[code] ?? STATE_NAMES[normal(name)] ?? STATE_NAMES[key] ?? key)
+  return list.find((state) => normal(state.properties.name) === wanted) ?? null
+}
+
 // Miller's cylindrical projection: Mercator with the latitudes eased, so the poles stay in reach.
 function millerRaw(lambda: number, phi: number): [number, number] {
   return [lambda, 1.25 * Math.log(Math.tan(Math.PI / 4 + 0.4 * phi))]
@@ -156,9 +239,13 @@ function robinsonRaw(lambda: number, phi: number): [number, number] {
   return [0.8487 * (x0 + (x1 - x0) * share) * lambda, 1.3523 * (y0 + (y1 - y0) * share) * Math.sign(phi)]
 }
 
-function projectionOf(kind: MapProjection, world: boolean): GeoProjection {
-  // Automatic: Miller for the whole world, as Word shows it, and Mercator for a part of it.
-  const chosen = kind === "auto" ? (world ? "miller" : "mercator") : kind
+function projectionOf(kind: MapProjection, world: boolean, us: boolean): GeoProjection {
+  // Automatic: Albers for the United States (Alaska and Hawaii moved in beside the others), Miller for the whole
+  // world, as Word shows them, and Mercator for a part of it.
+  const chosen = kind === "auto" ? (us ? "albers" : world ? "miller" : "mercator") : kind
+  if (chosen === "albers") {
+    return geoAlbersUsa()
+  }
   if (chosen === "miller") {
     return geoProjection(millerRaw)
   }
@@ -171,8 +258,8 @@ function projectionOf(kind: MapProjection, world: boolean): GeoProjection {
 export type MapPoint = { index: number; name: string; value: number }
 
 export type MapDrawing = {
-  /** Each country with data: its category, the outline as a path, and where its label goes. */
-  shapes: { point: MapPoint; d: string; at: [number, number] }[]
+  /** Each region with data: its category, the outline as a path, where its label goes, and its size there. */
+  shapes: { point: MapPoint; d: string; at: [number, number]; size: [number, number] }[]
   /** The countries without data, as one path. */
   rest: string
   /** Categories whose names no country matched. */
@@ -188,27 +275,32 @@ export function drawMap(
   box: { x: number; y: number; w: number; h: number },
   options: { projection?: MapProjection; area?: MapArea },
 ): MapDrawing | null {
-  if (!countries) {
+  if (!countries || !states) {
     return null
   }
+  // States when more categories name a state than a country, as Word picks the level the data is at.
+  const named = (match: (name: string) => Country | null) => points.filter((point) => match(point.name)).length
+  const us = named(matchState) > named(matchCountry)
+  const regions = us ? states : countries
   const matched: { point: MapPoint; country: Country }[] = []
   const unmatched: string[] = []
   for (const point of points) {
-    const country = matchCountry(point.name)
+    const country = us ? matchState(point.name) : matchCountry(point.name)
     if (country) {
       matched.push({ point, country })
     } else {
       unmatched.push(point.name)
     }
   }
-  const world = options.area === "world" || matched.length === 0
+  // The whole country for states, unless only the regions with data are asked for.
+  const world = options.area === "world" || matched.length === 0 || (us && options.area !== "data")
   // Antarctica only when it has data: Word's world map leaves it out.
   const shown = world
-    ? countries.filter(
+    ? regions.filter(
         (country) => country.properties.name !== "Antarctica" || matched.some((item) => item.country === country),
       )
     : matched.map((item) => item.country)
-  const projection = projectionOf(options.projection ?? "auto", world)
+  const projection = projectionOf(options.projection ?? "auto", world && !us, us)
   projection.fitExtent(
     [
       [box.x, box.y],
@@ -219,7 +311,7 @@ export function drawMap(
   const path = geoPath(projection)
   const withData = new Set(matched.map((item) => item.country))
   // The countries without data that fall in the box, so the map has its neighbours round it.
-  const rest = countries
+  const rest = regions
     .filter((country) => !withData.has(country) && country.properties.name !== "Antarctica")
     .filter((country) => {
       const [[left, top], [right, bottom]] = path.bounds(country)
@@ -230,7 +322,13 @@ export function drawMap(
   return {
     shapes: matched.map(({ point, country }) => {
       const centre = projection(geoCentroid(country)) ?? path.centroid(country)
-      return { point, d: path(country) ?? "", at: [centre[0], centre[1]] as [number, number] }
+      const [[left, top], [right, bottom]] = path.bounds(country)
+      return {
+        point,
+        d: path(country) ?? "",
+        at: [centre[0], centre[1]] as [number, number],
+        size: [right - left, bottom - top] as [number, number],
+      }
     }),
     rest,
     unmatched,
@@ -246,5 +344,11 @@ export function mixColor(from: string, to: string, share: number) {
   const a = parse(from)
   const b = parse(to)
   const t = Math.max(0, Math.min(1, Number.isFinite(share) ? share : 0))
-  return `#${a.map((value, index) => Math.round(value + (b[index]! - value) * t).toString(16).padStart(2, "0")).join("")}`
+  return `#${a
+    .map((value, index) =>
+      Math.round(value + (b[index]! - value) * t)
+        .toString(16)
+        .padStart(2, "0"),
+    )
+    .join("")}`
 }

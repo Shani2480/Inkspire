@@ -163,6 +163,28 @@ describe("Word's chartex charts (Histogram, Pareto, Waterfall, Funnel, Box & Whi
     )!
     expect(map).toMatchObject({ type: "map", mapProjection: "robinson", mapArea: "world", mapLabels: "show" })
     expect(map.series[0]!.values).toEqual([1, 4, 9, 16])
+    // A diverging scale with its colours and midpoint, values typed as text, and Best Fit labels.
+    const typed = readChartEx(
+      xml
+        .replace("clusteredColumn", "regionMap")
+        .replace(
+          /<cx:layoutPr>[^]*?<\/cx:layoutPr>/,
+          `<cx:valueColors><cx:minColor><a:srgbClr val="F8696B"/></cx:minColor><cx:midColor><a:srgbClr val="FFEB84"/></cx:midColor><cx:maxColor><a:srgbClr val="63BE7B"/></cx:maxColor></cx:valueColors>` +
+            `<cx:valueColorPositions count="3"><cx:minPosition><cx:auto/></cx:minPosition><cx:midPosition><cx:number val="5"/></cx:midPosition><cx:maxPosition><cx:auto/></cx:maxPosition></cx:valueColorPositions>` +
+            `<cx:layoutPr><cx:regionLabelLayout val="bestFitOnly"/></cx:layoutPr>`,
+        )
+        .replace(
+          /(<cx:data id="0">)/,
+          `$1<cx:strDim type="colorStr"><cx:lvl ptCount="4"><cx:pt idx="0">Low</cx:pt><cx:pt idx="1">High</cx:pt><cx:pt idx="2">Low</cx:pt><cx:pt idx="3">High</cx:pt></cx:lvl></cx:strDim>`,
+        ),
+    )!
+    expect(typed).toMatchObject({
+      mapLabels: "bestFit",
+      mapDiverging: true,
+      mapMidpoint: 5,
+      mapColors: { min: "#f8696b", mid: "#ffeb84", max: "#63be7b" },
+    })
+    expect(typed.series[0]!.texts).toEqual(["Low", "High", "Low", "High"])
   })
 
   it("saves a Filled Map as its picture, which opens as the map again", async () => {

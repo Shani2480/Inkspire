@@ -45,7 +45,7 @@ export function chartExRequires(spec: ChartSpec): keyof typeof CHARTEX_REQUIRES 
  */
 export function chartExData(spec: ChartSpec): ChartSpec {
   const rows = spec.categories.map((_, index) => index).filter((index) => !spec.hiddenCategories.includes(index))
-  const pick = <T,>(items: T[]) => rows.map((index) => items[index]!)
+  const pick = <T>(items: T[]) => rows.map((index) => items[index]!)
   const series = spec.series.filter((serie) => !serie.hidden)
   const data: ChartSpec = {
     ...spec,
@@ -61,7 +61,9 @@ export function chartExData(spec: ChartSpec): ChartSpec {
         // Series and points are numbered as written: the hidden ones are left out.
         const [part, at] = key.split(":")
         if (part === "series" || part === "point") {
-          const place = (part === "series" ? series.map((serie) => spec.series.indexOf(serie)) : rows).indexOf(Number(at))
+          const place = (part === "series" ? series.map((serie) => spec.series.indexOf(serie)) : rows).indexOf(
+            Number(at),
+          )
           return place < 0 ? [] : [[`${part}:${place}`, value]]
         }
         return [[key, value]]
@@ -221,8 +223,7 @@ function binningXml(bins: HistogramBins | undefined) {
   if (bins?.by === "category") {
     return "<cx:aggregation/>"
   }
-  const limit = (name: string, value: number | undefined) =>
-    Number.isFinite(value) ? ` ${name}="${value}"` : ""
+  const limit = (name: string, value: number | undefined) => (Number.isFinite(value) ? ` ${name}="${value}"` : "")
   const size =
     bins?.by === "width" && Number(bins.width) > 0
       ? `<cx:binSize>${bins.width}</cx:binSize>`
@@ -298,7 +299,8 @@ export function readChartEx(xml: string): ChartSpec | null {
     pareto ? "pareto" : kind === "boxWhisker" ? "box-whisker" : kind === "map" ? "filled-map" : kind,
   )
   const datas = children(child(root, "chartData"), "data")
-  const dataFor = (item: Element) => datas.find((data) => data.attrs.id === child(item, "dataId")?.attrs.val) ?? datas[0]
+  const dataFor = (item: Element) =>
+    datas.find((data) => data.attrs.id === child(item, "dataId")?.attrs.val) ?? datas[0]
   const firstData = dataFor(series[0]!)
   const labels = children(
     children(firstData, "strDim").find((dim) => (dim.attrs.type ?? "cat") === "cat"),
@@ -341,7 +343,40 @@ export function readChartEx(xml: string): ChartSpec | null {
     spec.mapProjection = PROJECTIONS[geography?.attrs.projectionType ?? ""]
     const area = geography?.attrs.viewedRegionType
     spec.mapArea = area === "world" ? "world" : area === "dataOnly" ? "data" : undefined
-    spec.mapLabels = child(layout, "regionLabelLayout")?.attrs.val === "showAll" ? "show" : undefined
+    const labels = child(layout, "regionLabelLayout")?.attrs.val
+    spec.mapLabels = labels === "showAll" ? "show" : labels === "bestFitOnly" ? "bestFit" : undefined
+    // Values given as text: Word colours each different one.
+    const typed = children(firstData, "strDim").find((dim) => dim.attrs.type === "colorStr")
+    if (typed && spec.series[0]) {
+      const texts = points(child(typed, "lvl"))
+      spec.series[0].texts = Array.from({ length: rows }, (_, index) => texts[index] ?? "")
+    }
+    // The Series Color: two colours, or three on a diverging scale with the midpoint where Word put it.
+    const colors = child(series[0]!, "valueColors")
+    const color = (name: string) => {
+      const value = find(child(colors, name), "srgbClr")?.attrs.val
+      return value ? `#${value.toLowerCase()}` : undefined
+    }
+    const [min, mid, max] = [color("minColor"), color("midColor"), color("maxColor")]
+    if (min || mid || max) {
+      spec.mapColors = { ...(min ? { min } : {}), ...(mid ? { mid } : {}), ...(max ? { max } : {}) }
+    }
+    const positions = child(series[0]!, "valueColorPositions")
+    if (positions?.attrs.count === "3") {
+      spec.mapDiverging = true
+      const middle = child(positions, "midPosition")
+      const number = Number(child(middle, "number")?.attrs.val)
+      const percent = Number(child(middle, "percent")?.attrs.val)
+      const values = (spec.series[0]?.values ?? []).filter((value) => Number.isFinite(value))
+      if (Number.isFinite(number)) {
+        spec.mapMidpoint = number
+      } else if (Number.isFinite(percent) && values.length) {
+        // A percentage of the way from the lowest value to the highest (Word writes 50 for halfway).
+        const low = Math.min(...values)
+        const share = percent > 1 ? percent / 100 : percent
+        spec.mapMidpoint = share === 0.5 ? undefined : low + (Math.max(...values) - low) * share
+      }
+    }
   }
   if (kind === "boxWhisker") {
     const shown = child(layout, "visibility")
@@ -378,14 +413,20 @@ export function readChartEx(xml: string): ChartSpec | null {
     }
   }
   const title = child(chart, "title")
-  spec.title = { ...spec.title, show: Boolean(title), text: title ? textOf(child(title, "tx")) || spec.title.text : spec.title.text }
+  spec.title = {
+    ...spec.title,
+    show: Boolean(title),
+    text: title ? textOf(child(title, "tx")) || spec.title.text : spec.title.text,
+  }
   const legend = child(chart, "legend")
-  const position = Object.entries(LEGEND).find(([, value]) => value === legend?.attrs.pos)?.[0] as LegendPosition | undefined
+  const position = Object.entries(LEGEND).find(([, value]) => value === legend?.attrs.pos)?.[0] as
+    LegendPosition | undefined
   spec.legend = legend ? (position ?? "top") : "none"
   const labelsXml = child(series[0]!, "dataLabels")
   if (labelsXml) {
     const at = Object.entries(LABEL_POSITION).find(([, value]) => value === labelsXml.attrs.pos)?.[0]
-    spec.dataLabels = (at as ChartSpec["dataLabels"] | undefined) ?? (spec.dataLabels === "none" ? "center" : spec.dataLabels)
+    spec.dataLabels =
+      (at as ChartSpec["dataLabels"] | undefined) ?? (spec.dataLabels === "none" ? "center" : spec.dataLabels)
     const shown = child(labelsXml, "visibility")
     if (shown) {
       spec.labelContent = {

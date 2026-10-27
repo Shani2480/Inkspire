@@ -16,6 +16,8 @@ import {
   chartHasAxes,
   isStatisticChart,
   isTextPart,
+  mapMidpoint,
+  mapTextValues,
   partLabel,
   type ChartSpec,
   type LabelPosition,
@@ -509,6 +511,11 @@ function BoxWhiskerOptions({ spec, set }: { spec: ChartSpec; set: Setter }) {
  */
 function MapOptions({ spec, set }: { spec: ChartSpec; set: Setter }) {
   const colors = mapColors(spec)
+  const values = (spec.series.find((serie) => !serie.hidden)?.values ?? []).filter(
+    (value, index) => Number.isFinite(value) && !spec.hiddenCategories.includes(index),
+  )
+  const low = values.length ? Math.min(...values) : 0
+  const high = values.length ? Math.max(...values) : 0
   return (
     <>
       <Select
@@ -519,6 +526,7 @@ function MapOptions({ spec, set }: { spec: ChartSpec; set: Setter }) {
           { value: "mercator", label: "Mercator" },
           { value: "miller", label: "Miller" },
           { value: "robinson", label: "Robinson" },
+          { value: "albers", label: "Albers" },
         ]}
         onChange={(value) =>
           set((current) => ({
@@ -544,20 +552,61 @@ function MapOptions({ spec, set }: { spec: ChartSpec; set: Setter }) {
         value={spec.mapLabels ?? "none"}
         options={[
           { value: "none", label: "None" },
+          { value: "bestFit", label: "Best Fit only" },
           { value: "show", label: "Show all" },
         ]}
-        onChange={(value) => set((current) => ({ ...current, mapLabels: value === "show" ? "show" : undefined }))}
+        onChange={(value) =>
+          set((current) => ({
+            ...current,
+            mapLabels: value === "none" ? undefined : (value as ChartSpec["mapLabels"]),
+          }))
+        }
       />
-      <ColorField
-        label="Minimum"
-        color={colors.min}
-        onPick={(min) => set((current) => ({ ...current, mapColors: { ...current.mapColors, min } }))}
-      />
-      <ColorField
-        label="Maximum"
-        color={colors.max}
-        onPick={(max) => set((current) => ({ ...current, mapColors: { ...current.mapColors, max } }))}
-      />
+      {mapTextValues(spec).length ? (
+        // Values typed as text take a colour each, from the chart's colours, as categories do.
+        <p className="format-pane-note">Each value is coloured as a category.</p>
+      ) : (
+        <>
+          <Select
+            label="Series Color"
+            value={spec.mapDiverging ? "diverging" : "sequential"}
+            options={[
+              { value: "sequential", label: "Sequential (2-color)" },
+              { value: "diverging", label: "Diverging (3-color)" },
+            ]}
+            onChange={(value) =>
+              set(({ mapDiverging: _d, ...current }) =>
+                value === "diverging" ? { ...current, mapDiverging: true } : current,
+              )
+            }
+          />
+          <ColorField
+            label="Minimum"
+            color={colors.min}
+            onPick={(min) => set((current) => ({ ...current, mapColors: { ...current.mapColors, min } }))}
+          />
+          {spec.mapDiverging ? (
+            <>
+              <ColorField
+                label="Midpoint"
+                color={colors.mid}
+                onPick={(mid) => set((current) => ({ ...current, mapColors: { ...current.mapColors, mid } }))}
+              />
+              <AutoNumber
+                label="Midpoint value"
+                value={spec.mapMidpoint}
+                auto={mapMidpoint({}, low, high)}
+                onChange={(mapMidpoint) => set((current) => ({ ...current, mapMidpoint }))}
+              />
+            </>
+          ) : null}
+          <ColorField
+            label="Maximum"
+            color={colors.max}
+            onPick={(max) => set((current) => ({ ...current, mapColors: { ...current.mapColors, max } }))}
+          />
+        </>
+      )}
     </>
   )
 }
