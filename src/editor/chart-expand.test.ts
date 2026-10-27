@@ -106,6 +106,45 @@ describe("Stock (22.6)", () => {
       expect(variantOf(back)).toBe(id)
     }
   })
+
+  it("draws Volume as columns on the left axis and the prices on a right one", () => {
+    expect(defaultChartSpec("stock-vhlc").series.map((serie) => serie.name)).toEqual(["Volume", "High", "Low", "Close"])
+    expect(defaultChartSpec("stock-vohlc").series.map((serie) => serie.name)).toEqual([
+      "Volume",
+      "Open",
+      "High",
+      "Low",
+      "Close",
+    ])
+    const vhlc = expandSpec(defaultChartSpec("stock-vhlc"))
+    expect(vhlc.series.map((serie) => [serie.type ?? null, Boolean(serie.secondary), Boolean(serie.tick)])).toEqual([
+      ["column", false, false],
+      [null, true, false],
+      [null, true, false],
+      [null, true, true],
+    ])
+    expect(vhlc.format["series:0"]?.line).toBeUndefined()
+    expect(expandSpec(defaultChartSpec("stock-vohlc")).upDownBars).toBe(true)
+    const svg = renderChart(defaultChartSpec("stock-vohlc"), 480, 300)
+    expect(svg).toContain('data-chart-part="axis:secondary"')
+    expect(svg).toContain('data-chart-part="upDownBars"')
+    expect(svg).toMatch(/data-chart-part="series:0"><rect/)
+  })
+
+  it("saves Volume as Word's bar group with the stock group on the second axes, and reads it back", () => {
+    for (const id of ["stock-vhlc", "stock-vohlc"]) {
+      const spec = defaultChartSpec(id)
+      const xml = chartSpaceXml(spec)
+      expect(xml).toMatch(/<c:barChart>.*<c:axId val="1"\/><c:axId val="2"\/><\/c:barChart><c:stockChart>.*<c:axId val="3"\/><c:axId val="4"\/><\/c:stockChart>/)
+      expect(xml.includes("<c:upDownBars>")).toBe(id === "stock-vohlc")
+      const back = readChartSpace(xml)!
+      expect(back.type).toBe("stock")
+      expect(back.volume).toBe(true)
+      expect(back.series.every((serie) => !serie.type && !serie.secondary)).toBe(true)
+      expect(back.series.map((serie) => serie.values)).toEqual(spec.series.map((serie) => serie.values))
+      expect(variantOf(back)).toBe(id)
+    }
+  })
 })
 
 describe("Box & Whisker (22.6)", () => {
