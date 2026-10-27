@@ -41,11 +41,8 @@ function TooltipContent({
         <TooltipPrimitive.Popup
           data-slot="tooltip-content"
           className={cn(
+            // Both kinds fade in from script (src/document/entrances.ts), not with a CSS transition.
             "z-50 w-fit max-w-xs",
-            office
-              ? // Office tips fade in place, from a first frame Base UI renders transparent, so they never flash.
-                "transition-opacity duration-150 ease-out data-[ending-style]:opacity-0 data-[ending-style]:duration-75 data-[starting-style]:opacity-0"
-              : "origin-(--transform-origin) data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:zoom-in-95 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
             office
               ? "flex flex-col items-start gap-0.5 rounded-lg border border-[#d1d1d1] bg-white px-2 py-1.5 text-left text-[#242424] shadow-[0_2px_10px_rgba(0,0,0,0.14)]"
               : "inline-flex items-center gap-1.5 rounded-md bg-foreground px-3 py-1.5 text-xs text-background has-data-[slot=kbd]:pr-1.5 **:data-[slot=kbd]:relative **:data-[slot=kbd]:isolate **:data-[slot=kbd]:z-50 **:data-[slot=kbd]:rounded-sm",

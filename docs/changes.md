@@ -7,6 +7,33 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Animations back, drawn frame by frame, so they no longer jump in the desktop app
+
+- **Bug:** the previous fix turned every entrance off in the Linux desktop app, and the app felt dead ("animation is
+  completely gone in all"). Recording the app's own engine (WebKitGTK 2.54's MiniBrowser on a hidden Xvfb display,
+  ffmpeg x11grab at 60 fps, frames diffed with PIL) showed the real faults:
+  - When a CSS animation or transition ends, WebKitGTK shows one stale frame from its start: the ribbon tab jumped
+    back, the Office tooltip faded for a frame.
+  - When an element goes from having a `translate` to having none, it draws one stale frame of it: a ribbon menu
+    jumped up 3 px after settling.
+  - Fluent's decelerate curve over 120-150 ms is over 80% done by the first frame the webview draws (about 30 fps
+    there), so the motion was never seen, only a snap.
+- **Changed:**
+  - Every entrance is drawn from script a frame at a time: `playFrames` and `playEntrance` (`motion.ts`), started for
+    dialogs, menus, popovers, tooltips, the File pane and page, and context menus by one observer in
+    `src/document/entrances.ts` (installed in `main.tsx`). The ribbon tab slide uses it too (`tab-motion.ts`), as
+    does the new document fade-in cover.
+  - The clock starts a frame in, after the slow frame that lays the new content out. The curve is
+    `cubic-bezier(0.2, 0, 0, 1)` over 150-260 ms.
+  - An entrance ends on `opacity: 1` and a `0px 0px` translate written on the element, instead of removing them.
+  - The CSS keyframes, the ribbon menus' transition, and the UI kit's animate-in classes on popovers and tooltips
+    are gone (`index.css`, `ui/popover.tsx`, `ui/tooltip.tsx`). `data-no-entrance` and `isWebKitGtk` are removed.
+    The Options switch and reduced motion still stop it all.
+- **Checked:** in WebKitGTK, recordings of tab switches, the Margins menu and its tooltip, Page Setup, File and File >
+  New: an automatic scan for one-frame jump-backs finds none, and the frames show each entrance moving. 849 tests
+  pass (tab motion and entrance tests rewritten).
+- **Open:** confirm in the desktop app with a GPU (the Xvfb display renders in software).
+
 ### No entrance motion in the Linux desktop app; the tab underline moves with its tab
 
 - **Bug** (from `screenshots/ribbon.mp4`, recorded with the fix below): switching tabs in the desktop app showed a

@@ -7,59 +7,64 @@ beforeEach(() => {
 })
 afterEach(() => {
   vi.useRealTimers()
+  document.documentElement.removeAttribute("data-no-motion")
 })
 
 function setup() {
-  const card = { current: document.createElement("div") }
-  const { result } = renderHook(() => useTabMotion(card))
-  return { card: card.current, start: () => act(() => result.current.start()) }
+  const card = document.createElement("div")
+  const hidden = document.createElement("div")
+  hidden.dataset.slot = "tabs-content"
+  hidden.hidden = true
+  const panel = document.createElement("div")
+  panel.dataset.slot = "tabs-content"
+  card.append(hidden, panel)
+  const { result } = renderHook(() => useTabMotion({ current: card }))
+  return { panel, hidden, start: () => act(() => result.current.start()) }
 }
 
 describe("the ribbon tab animation (21.40)", () => {
-  it("is still at first and moves only after a tab is chosen", () => {
-    const { card, start } = setup()
-    expect(card.dataset.tabMotion).toBeUndefined()
-    start()
-    expect(card.dataset.tabMotion).toBeDefined()
+  it("leaves the tab alone until one is chosen", () => {
+    const { panel } = setup()
+    vi.advanceTimersToNextFrame()
+    expect(panel.style.opacity).toBe("")
   })
 
-  it("draws the new tab's first frame with its commands unseen, and slides them in from the next", () => {
-    const { card, start } = setup()
+  it("brings the shown tab's commands in from unseen and a little to the right, frame by frame", () => {
+    const { panel, hidden, start } = setup()
     start()
-    expect(card.dataset.tabMotion).toBe("waiting")
+    // The tab is shown once the switch has rendered: the frame after, it starts out unseen.
     vi.advanceTimersToNextFrame()
-    expect(card.dataset.tabMotion).toBe("waiting")
+    expect(panel.style.opacity).toBe("0")
+    expect(panel.style.translate).toBe("12px 0px")
+    expect(hidden.style.opacity).toBe("")
     vi.advanceTimersToNextFrame()
-    expect(card.dataset.tabMotion).toBe("on")
+    const opacity = Number(panel.style.opacity)
+    expect(opacity).toBeGreaterThan(0)
+    expect(opacity).toBeLessThan(1)
   })
 
-  it("settles once the animation has run", () => {
-    const { card, start } = setup()
+  it("settles in place, with the motion's end written rather than removed", () => {
+    const { panel, start } = setup()
     start()
     vi.advanceTimersByTime(TAB_MOTION_MS + 100)
-    expect(card.dataset.tabMotion).toBeUndefined()
+    expect(panel.style.opacity).toBe("1")
+    expect(panel.style.translate).toBe("0px 0px")
   })
 
-  it("starts over when another tab is chosen at once, and the last choice settles last", () => {
-    const { card, start } = setup()
+  it("starts over when another tab is chosen at once", () => {
+    const { panel, start } = setup()
     start()
-    vi.advanceTimersByTime(TAB_MOTION_MS - 20)
+    vi.advanceTimersByTime(TAB_MOTION_MS - 50)
     start()
-    expect(card.dataset.tabMotion).toBe("waiting")
-    vi.advanceTimersByTime(TAB_MOTION_MS - 20)
-    expect(card.dataset.tabMotion).toBe("on")
-    vi.advanceTimersByTime(100)
-    expect(card.dataset.tabMotion).toBeUndefined()
+    vi.advanceTimersToNextFrame()
+    expect(panel.style.opacity).toBe("0")
   })
 
-  it("stays still in the Linux desktop app, whose webview replays a frame of it after it has settled", () => {
-    document.documentElement.setAttribute("data-no-entrance", "")
-    try {
-      const { card, start } = setup()
-      start()
-      expect(card.dataset.tabMotion).toBeUndefined()
-    } finally {
-      document.documentElement.removeAttribute("data-no-entrance")
-    }
+  it("does not move with animation turned off", () => {
+    document.documentElement.setAttribute("data-no-motion", "")
+    const { panel, start } = setup()
+    start()
+    vi.advanceTimersToNextFrame()
+    expect(panel.style.opacity).toBe("")
   })
 })
