@@ -207,6 +207,55 @@ describe("Word features survive the editor", () => {
     }
   })
 
+  it("opens the f17 equation to edit, and saves it as Word wrote it until it is changed", async () => {
+    const { bytes, opened, editor } = await openInEditor("f17_equation.docx")
+    const equation = () => {
+      let found: { pos: number; attrs: Record<string, unknown> } | null = null
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === "equation") {
+          found = { pos, attrs: node.attrs }
+        }
+      })
+      return found as unknown as { pos: number; attrs: Record<string, unknown> }
+    }
+    expect(equation().attrs).toMatchObject({ tex: "x=\\frac{a+b}{c}", display: true })
+    const original = /<m:oMathPara>.*<\/m:oMathPara>/.exec(partXml(await openPackage(bytes, "f17.docx"), "/word/document.xml")!)![0]
+    insertMarker(editor)
+    let written = partXml(await openPackage(await saveBytes(opened, editor), "f17.docx"), "/word/document.xml")!
+    expect(written).toContain(original)
+
+    const { pos, attrs } = equation()
+    editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, undefined, { ...attrs, tex: "x=\\frac{a+b}{2c}" }))
+    const saved = await saveBytes(opened, editor)
+    written = partXml(await openPackage(saved, "f17.docx"), "/word/document.xml")!
+    expect(written).not.toContain(original)
+    expect(written).toMatch(/<m:oMathPara[^>]*><m:oMath>.*<m:t xml:space="preserve">2c<\/m:t>/)
+    const reopened = await openDocxBytes(saved, "f17.docx")
+    expect(reopened.view.html).toContain('data-tex="x=\\frac{a+b}{2c}"')
+  })
+
+  it("saves an equation made here as Word's math, in the line or on its own line, and opens it again", async () => {
+    const { opened, editor } = await openInEditor("f17_equation.docx")
+    editor
+      .chain()
+      .insertContentAt(0, {
+        type: "paragraph",
+        content: [
+          { type: "text", text: "Area " },
+          { type: "equation", attrs: { tex: "A=\\pi r^{2}" } },
+          { type: "equation", attrs: { tex: "\\sum_{k=0}^{n} k", display: true } },
+        ],
+      })
+      .run()
+    const saved = await saveBytes(opened, editor)
+    const written = partXml(await openPackage(saved, "new.docx"), "/word/document.xml")!
+    expect(written).toMatch(/Area <\/w:t><\/w:r><m:oMath xmlns:m="[^"]+"><m:r>/)
+    expect(written).toContain('<m:oMathPara xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><m:oMath><m:nary>')
+    const html = (await openDocxBytes(saved, "new.docx")).view.html
+    expect(html).toContain('data-tex="A=\\pi r^{2}"')
+    expect(html).toMatch(/data-tex="\\sum_\{k=0\}\^\{n\}\{k\}" data-display="1"/)
+  })
+
   it("keeps f11 hyperlink relationships and history, and links new links with the Hyperlink style", async () => {
     const { opened, editor } = await openInEditor("f11_hyperlink_bookmark.docx")
     editor

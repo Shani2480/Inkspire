@@ -208,6 +208,15 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - A table from Word with an indent (Table Properties → Indent from left) now shows set in. Check one in Chrome
   and in the desktop app.
 
+## Equations in Word (2026-10-27)
+
+- Save a document with an inline equation (A=πr²), a display one (the Quadratic Formula), a matrix, cases, a sum
+  with limits and an integral. Open it in Word: each should be a real Word equation that Word can edit, drawn as
+  in the app, with inline equations in the line and display ones centred.
+- Open a Word document with equations, change none of them, and save: Word shows them unchanged. Change one and
+  save: Word shows the change.
+- Desktop app: equations draw (KaTeX fonts load in WebKitGTK), and Change to Display / Inline works.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

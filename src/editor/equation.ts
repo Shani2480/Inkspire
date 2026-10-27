@@ -14,10 +14,10 @@ declare module "@tiptap/core" {
   }
 }
 
-function paintEquation(dom: HTMLElement, tex: string) {
+function paintEquation(dom: HTMLElement, tex: string, display: boolean) {
   const draw = (katex: NonNullable<ReturnType<typeof katexIfLoaded>>) => {
     try {
-      katex.render(texFromTyped(tex) || "x", dom, { throwOnError: false, displayMode: false })
+      katex.render(texFromTyped(tex) || "x", dom, { throwOnError: false, displayMode: display })
     } catch {
       dom.textContent = tex
     }
@@ -50,6 +50,26 @@ export const Equation = Node.create({
         parseHTML: (element) => element.getAttribute("data-tex") || "x=y",
         renderHTML: (attributes) => ({ "data-tex": attributes.tex }),
       },
+      /** On a line of its own, centred and drawn full size (Word's Display), rather than in the line of text. */
+      display: {
+        default: false,
+        parseHTML: (element) => element.getAttribute("data-display") === "1",
+        renderHTML: (attributes) => (attributes.display ? { "data-display": "1" } : {}),
+      },
+      /**
+       * Word's own markup for an equation read from a .docx, and the LaTeX it was read as: while the LaTeX is
+       * unchanged the equation is saved as Word wrote it (see `equationOmml`).
+       */
+      omml: {
+        default: null as string | null,
+        parseHTML: (element) => element.getAttribute("data-omml"),
+        renderHTML: (attributes) => (attributes.omml ? { "data-omml": attributes.omml } : {}),
+      },
+      ommlTex: {
+        default: null as string | null,
+        parseHTML: (element) => element.getAttribute("data-omml-tex"),
+        renderHTML: (attributes) => (attributes.ommlTex ? { "data-omml-tex": attributes.ommlTex } : {}),
+      },
     }
   },
 
@@ -66,7 +86,11 @@ export const Equation = Node.create({
       const dom = document.createElement("span")
       dom.className = "equation"
       dom.contentEditable = "false"
-      const paint = (current: ProseNode) => paintEquation(dom, String(current.attrs.tex ?? ""))
+      const paint = (current: ProseNode) => {
+        const display = current.attrs.display === true
+        dom.classList.toggle("equation-display", display)
+        paintEquation(dom, String(current.attrs.tex ?? ""), display)
+      }
       paint(node)
       return {
         dom,
@@ -85,8 +109,12 @@ export const Equation = Node.create({
     return {
       insertEquation:
         (tex) =>
-        ({ commands }) =>
-          commands.insertContent({ type: this.name, attrs: { tex: tex.trim() || "x=y" } }),
+        ({ commands, state }) =>
+          // On an empty line Word makes a display equation, set apart and centred; within text, an inline one.
+          commands.insertContent({
+            type: this.name,
+            attrs: { tex: tex.trim() || "x=y", display: state.selection.$from.parent.content.size === 0 },
+          }),
     }
   },
 })

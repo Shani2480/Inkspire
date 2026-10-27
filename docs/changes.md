@@ -7,6 +7,46 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Equations are saved to Word, Word's equations open to edit, and Display / Inline switches
+
+- **Wrong:** an equation made in the app was dropped when saving to .docx, because `inlinesFromEditor` had no case
+  for the `equation` node. An equation from Word was kept as raw markup that showed only as plain text and could
+  not be edited. There was no way to put an equation on a line of its own.
+- **Changed:**
+  - New `src/document/docx/omml.ts` converts between the editor's LaTeX and Word's Office Math (OMML), both ways.
+    - It covers fractions (bar, no bar, linear), scripts and pre-scripts, radicals, large operators (with limits
+      under/over or at the side), brackets with `\middle`, matrices, cases, aligned rows, functions,
+      `\lim`/`\max`/`\min`, accents, over/under bars, braces, `\overset`/`\underset`, arrows with text, boxes,
+      `\text`, bold and upright runs, and about 150 symbols.
+    - On reading, a property Word leaves out takes Word's default: parentheses, an integral, a hat.
+    - Unknown elements are read for their text, so nothing disappears.
+  - Opening: an `m:oMath` / `m:oMathPara` becomes an editable equation. It keeps Word's markup and the LaTeX it was
+    read as (`omml`, `ommlTex`).
+  - Saving: an equation whose LaTeX and layout are unchanged goes back exactly as Word wrote it; otherwise it is
+    written from the LaTeX (`equationOmml`). Generated markup declares `xmlns:m` itself, since a new document's
+    root does not.
+  - The equation node has a `display` attribute: centred on its own line and drawn full size, saved as
+    `m:oMathPara`. The Equation tab has Change to Display / Change to Inline (both ribbon layouts). Insert
+    Equation on an empty line makes a display equation, as Word does.
+- **Tests:**
+  - `omml.test.ts` (114). Every structure template, symbol and gallery equation is written as well-formed OMML,
+    reads back as LaTeX that KaTeX draws, and writes the same OMML again. There are checks per element, Word's
+    defaults, a Word-written quadratic formula, another prefix, and bad input.
+  - `edit-fidelity.test.ts` (2 new). The f17 fixture opens as `x=\frac{a+b}{c}` (display) and saves byte for
+    byte as Word wrote it; once edited, it saves the new fraction and reopens with it. An app equation, inline and
+    display, saves as `m:oMath` / `m:oMathPara` and reopens.
+  - 990 tests pass.
+- **Checked in Chrome:**
+  - The f17 equation opened drawn as a fraction, centred.
+  - An equation inserted on an empty line was centred; one inserted after text sat in the line.
+  - Change to Inline on the Equation tab moved the display equation into the line.
+- **Open:**
+  - Not yet opened in Word. Saved equations should be checked there (verify-list).
+  - Word's linear format (UnicodeMath) and Professional/Linear switching are not done.
+  - `m:oMathPara` justification (`m:jc`) is not read.
+  - Word math run styles other than plain, bold and upright (script, fraktur, double-struck as styles) are read as
+    plain.
+
 ### Draw Table and Eraser draw and erase as Word's do; a table's indent shows again
 
 - **Missing:** Draw Table only put in a 3×3 table, and Eraser took the borders off the cell holding the cursor.

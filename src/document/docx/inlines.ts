@@ -1,3 +1,5 @@
+import { equationOmml, isOmml, ommlToTex } from "@/document/docx/omml"
+import { equationToText } from "@/editor/equation-gallery"
 import {
   CHART_CONTENT_TYPE,
   CHART_NS,
@@ -209,7 +211,7 @@ function inlineHtml(inline: Inline, ctx: Projection): string {
     case "simpleField":
       return wrapComments(atomHtml("field", [inline], visibleText([inline])), ctx)
     case "raw":
-      return wrapComments(atomHtml("raw", [inline], inline.text), ctx)
+      return wrapComments(equationHtml(inline.xml) ?? atomHtml("raw", [inline], inline.text), ctx)
     case "bookmarkStart":
     case "bookmarkEnd":
       return atomHtml("bookmark", [inline], "")
@@ -653,6 +655,17 @@ function shapePictureHtml(run: Run, ctx: Projection) {
     drawing.rot,
     encodeObjectJson(figure),
   )
+}
+
+/** A Word equation as the editor's equation: its LaTeX to edit, with Word's markup kept for saving it unchanged. */
+function equationHtml(xml: string) {
+  const read = isOmml(xml) ? ommlToTex(xml) : null
+  if (!read || !read.tex) {
+    return null
+  }
+  const tex = escapeHtml(read.tex)
+  const display = read.display ? ' data-display="1"' : ""
+  return `<span data-equation="" data-tex="${tex}"${display} data-omml="${escapeHtml(xml)}" data-omml-tex="${tex}"></span>`
 }
 
 function atomHtml(role: string, payload: unknown, text: string) {
@@ -1161,6 +1174,11 @@ export function inlinesFromEditor(nodes: JsonNode[], build: InlineBuild): Inline
         },
         ...annotations,
       })
+      continue
+    }
+    if (node.type === "equation") {
+      const text = equationToText(String(node.attrs?.tex ?? ""), "unicode")
+      pieces.push({ inline: { kind: "raw", xml: equationOmml(node.attrs), text }, ...annotations })
       continue
     }
     if (node.type === "wordInline") {
