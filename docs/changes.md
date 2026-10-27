@@ -7,6 +7,22 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Edit Points: the box grows while dragging
+
+- **Wrong:** while a point, curve handle or segment was being dragged, the outline was drawn outside the shape's
+  old box. The box, its handles and the text around it only caught up on release.
+- **Changed:** each move writes the shape with its box fitted to the outline, as on release, so the box grows and
+  shrinks while dragging (a floating shape's corner moves too, so the point stays under the pointer). These moves
+  are not undo steps. On release the shape is put back as it was and the whole drag is written as one step. The
+  drag is measured in the box it started in (`press`, `preview`, `release` and `fitted` in
+  `src/editor/edit-points.ts`).
+- **Tests:** `edit-points.test.ts`: a point dragged 50 then 60 pixels out of a 100-pixel box makes it 150 tall
+  during the drag and 160 after, Edit Points stays on, and one undo gives back the shape as it was.
+- **Checked in Chrome:** a floating triangle's top point dragged 70 pixels up grew the box to 160 then 170 pixels
+  during and after the drag, the point under the pointer; one Ctrl+Z restored it. All 1076 tests pass.
+- **Open:** an inline shape grows down from its line, as Word's does, so the dragged point is not under the
+  pointer while it grows.
+
 ### Waterfall Set as total, Box & Whisker options, colours in Word's chartex charts
 
 - **Missing:**
@@ -248,7 +264,8 @@ in Word, Chrome or the desktop app.
   put under three turns and flips; curve reach; a straight line.
 - **Checked in Chrome:** dragging a triangle's top point up out of the box grew the shape from 72 to 92 pixels
   tall, with the outline filling it. Add, delete and undo still work. All tests pass.
-- **Still open:** while dragging, the preview still draws outside the old box until the drag ends.
+- **Still open:** while dragging, the preview still draws outside the old box until the drag ends (done later the
+  same day: the box grows while dragging).
 
 ### Edit Points: the resize and rotate handles step aside
 

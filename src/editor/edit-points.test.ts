@@ -1,6 +1,7 @@
 import { Editor } from "@tiptap/core"
 import { NodeSelection } from "@tiptap/pm/state"
 import { StarterKit } from "@tiptap/starter-kit"
+import { undo } from "@tiptap/pm/history"
 import { describe, expect, it } from "vitest"
 import {
   EditPoints,
@@ -49,5 +50,35 @@ describe("Edit Points and Convert to Freeform", () => {
     expect(points(editor, at)).not.toBe("")
     stopEditPoints(editor.view)
     expect(editingPointsAt(editor.view)).toBeNull()
+  })
+
+  it("grows the box as a point is dragged out, and the drag is one undo step", () => {
+    const { editor, at } = make("rect")
+    editor.view.dispatch(
+      editor.state.tr.setNodeMarkup(at, undefined, {
+        ...editor.state.doc.nodeAt(at)!.attrs,
+        points: "M50 0 L100 100 L0 100 Z",
+        width: 100,
+        height: 100,
+      }),
+    )
+    editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, at)))
+    expect(startEditPoints(editor)).toBe(true)
+    const before = editor.state.doc.nodeAt(at)!.attrs
+    const handle = [...document.querySelectorAll<HTMLElement>(".edit-points:not([hidden]) .edit-points-handle")].find(
+      (item) => !item.hidden && item.dataset.index === "0",
+    )!
+    const pointer = (target: EventTarget, type: string, clientY: number) =>
+      target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX: 50, clientY }))
+    pointer(handle, "pointerdown", 0)
+    pointer(window, "pointermove", -50)
+    // While dragging, the box has grown with the outline already.
+    expect(editor.state.doc.nodeAt(at)!.attrs.height).toBe(150)
+    pointer(window, "pointermove", -60)
+    pointer(window, "pointerup", -60)
+    expect(editor.state.doc.nodeAt(at)!.attrs.height).toBe(160)
+    expect(editingPointsAt(editor.view)).toBe(at)
+    undo(editor.state, editor.view.dispatch)
+    expect(editor.state.doc.nodeAt(at)!.attrs).toMatchObject({ height: before.height, points: before.points })
   })
 })

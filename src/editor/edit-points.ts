@@ -110,6 +110,17 @@ export function editingPointsAt(view: EditorView) {
 /** How near (in screen pixels) a Ctrl+click must be to the outline to add a point there. */
 const REACH = 6
 
+/** Where the overlay sits on screen, and how the shape is turned and flipped. */
+type Frame = {
+  left: number
+  top: number
+  width: number
+  height: number
+  rotate: number
+  flipH: boolean
+  flipV: boolean
+}
+
 class PointsOverlay {
   private readonly root: HTMLDivElement
   private readonly outline: SVGPathElement
@@ -126,7 +137,12 @@ class PointsOverlay {
   /** A handle or the outline is being pressed: the shape may lose its selection meanwhile, which must not end it. */
   private pressing = false
   private segments: Segment[] = []
-  private frame = { left: 0, top: 0, width: 0, height: 0, rotate: 0, flipH: false, flipV: false }
+  private frame: Frame = { left: 0, top: 0, width: 0, height: 0, rotate: 0, flipH: false, flipV: false }
+  /**
+   * A drag under way: the shape as it was when pressed, and its frame on screen then. The shape grows and shrinks
+   * with the outline as it is dragged, while the drag is measured in the box it started in.
+   */
+  private drag: { attrs: Record<string, unknown>; floating: boolean; frame: Frame } | null = null
 
   constructor(private readonly view: EditorView) {
     this.root = document.createElement("div")
@@ -291,16 +307,17 @@ class PointsOverlay {
 
   /** Screen movement as movement in the points' box, undoing the shape's turn and flips. */
   private toBox(dx: number, dy: number): [number, number] {
-    const turn = (-this.frame.rotate * Math.PI) / 180
+    const frame = this.drag?.frame ?? this.frame
+    const turn = (-frame.rotate * Math.PI) / 180
     let x = dx * Math.cos(turn) - dy * Math.sin(turn)
     let y = dx * Math.sin(turn) + dy * Math.cos(turn)
-    if (this.frame.flipH) {
+    if (frame.flipH) {
       x = -x
     }
-    if (this.frame.flipV) {
+    if (frame.flipV) {
       y = -y
     }
-    return [(x / this.frame.width) * POINTS_BOX, (y / this.frame.height) * POINTS_BOX]
+    return [(x / frame.width) * POINTS_BOX, (y / frame.height) * POINTS_BOX]
   }
 
   /** A point under the pointer, in the points' box. */
@@ -311,13 +328,79 @@ class PointsOverlay {
     return [x + POINTS_BOX / 2, y + POINTS_BOX / 2]
   }
 
-  /** Shows the shape with `segments` straight away, before the change is written. */
+  /** Starts a drag: the shape as it is now is what the drag is measured from, and what undo goes back to. */
+  private press() {
+    const node = this.pos == null ? null : this.view.state.doc.nodeAt(this.pos)
+    this.pressing = true
+    this.drag = node ? { attrs: { ...node.attrs }, floating: isFloating(node), frame: { ...this.frame } } : null
+  }
+
+  /**
+   * Shows the shape with `segments` while dragging, its box fitted to them as it will be when let go, as Word's
+   * grows. It is not an undo step: `release` puts the shape back and writes the whole drag as one.
+   */
   private preview(segments: Segment[]) {
-    this.segments = segments
-    this.draw()
-    const dom = this.pos == null ? null : this.view.nodeDOM(this.pos)
-    const path = dom instanceof HTMLElement ? dom.querySelector("path[data-shape-points]") : null
-    path?.setAttribute("d", pathString(segments))
+    const pos = this.pos
+    const node = pos == null ? null : this.view.state.doc.nodeAt(pos)
+    if (pos == null || !node || !this.drag) {
+      return
+    }
+    const tr = this.view.state.tr
+    tr.setNodeMarkup(pos, undefined, this.fitted(segments, this.drag.attrs, this.drag.floating, this.drag.frame))
+    tr.setSelection(NodeSelection.create(tr.doc, pos))
+    this.view.dispatch(tr.setMeta("addToHistory", false))
+  }
+
+  /** Ends a drag: the shape as it was, then the change written from there as one undo step. */
+  private release(segments: Segment[] | null) {
+    const drag = this.drag
+    this.drag = null
+    this.pressing = false
+    const pos = this.pos
+    const node = pos == null ? null : this.view.state.doc.nodeAt(pos)
+    if (drag && pos != null && node && Object.keys(drag.attrs).some((name) => drag.attrs[name] !== node.attrs[name])) {
+      const tr = this.view.state.tr.setNodeMarkup(pos, undefined, drag.attrs)
+      tr.setSelection(NodeSelection.create(tr.doc, pos))
+      this.view.dispatch(tr.setMeta("addToHistory", false))
+    }
+    if (segments) {
+      this.commit(segments)
+    }
+  }
+
+  /** The shape's attributes with `segments` as its outline and its box fitted to them, from `attrs` as it was. */
+  private fitted(segments: Segment[], attrs: Record<string, unknown>, floating: boolean, frame = this.frame) {
+    const next: Record<string, unknown> = { ...attrs, points: pathString(segments) }
+    // The box fits the outline again, as Word's does: a point dragged out grows it, one pulled in shrinks it.
+    const zoom = useViewStore.getState().zoom || 1
+    const fit = fitPoints(segments, {
+      width: Number(attrs.width) || frame.width / zoom,
+      height: Number(attrs.height) || frame.height / zoom,
+      rotate: frame.rotate,
+      flipH: frame.flipH,
+      flipV: frame.flipV,
+    })
+    if (fit) {
+      Object.assign(next, {
+        points: pathString(fit.segments),
+        width: Math.round(fit.width * 100) / 100,
+        height: Math.round(fit.height * 100) / 100,
+      })
+      // A floating shape's corner moves so the outline stays where it was drawn; an inline one flows with the text.
+      if (floating) {
+        if (!attrs.alignH) {
+          next.x = Number(attrs.x) + fit.dx
+        }
+        if (!attrs.alignV) {
+          if (attrs.anchoring === "fixed") {
+            next.y = Number(attrs.y) + fit.dy
+          } else {
+            next.dy = Number(attrs.dy) + fit.dy
+          }
+        }
+      }
+    }
+    return next
   }
 
   private commit(segments: Segment[]) {
@@ -327,36 +410,7 @@ class PointsOverlay {
       return
     }
     const tr = this.view.state.tr
-    const attrs: Record<string, unknown> = { ...node.attrs, points: pathString(segments) }
-    // The box fits the outline again, as Word's does: a point dragged out grows it, one pulled in shrinks it.
-    const zoom = useViewStore.getState().zoom || 1
-    const fit = fitPoints(segments, {
-      width: Number(node.attrs.width) || this.frame.width / zoom,
-      height: Number(node.attrs.height) || this.frame.height / zoom,
-      rotate: this.frame.rotate,
-      flipH: this.frame.flipH,
-      flipV: this.frame.flipV,
-    })
-    if (fit) {
-      Object.assign(attrs, {
-        points: pathString(fit.segments),
-        width: Math.round(fit.width * 100) / 100,
-        height: Math.round(fit.height * 100) / 100,
-      })
-      // A floating shape's corner moves so the outline stays where it was drawn; an inline one flows with the text.
-      if (isFloating(node)) {
-        if (!node.attrs.alignH) {
-          attrs.x = Number(node.attrs.x) + fit.dx
-        }
-        if (!node.attrs.alignV) {
-          if (node.attrs.anchoring === "fixed") {
-            attrs.y = Number(node.attrs.y) + fit.dy
-          } else {
-            attrs.dy = Number(node.attrs.dy) + fit.dy
-          }
-        }
-      }
-    }
+    const attrs = this.fitted(segments, node.attrs, isFloating(node))
     if (Object.keys(attrs).some((name) => attrs[name] !== node.attrs[name])) {
       tr.setNodeMarkup(pos, undefined, attrs)
     }
@@ -379,7 +433,7 @@ class PointsOverlay {
     }
     this.selected = index
     this.draw()
-    this.pressing = true
+    this.press()
     const start = this.segments
     const startX = event.clientX
     const startY = event.clientY
@@ -392,8 +446,7 @@ class PointsOverlay {
     const up = () => {
       window.removeEventListener("pointermove", move)
       window.removeEventListener("pointerup", up)
-      this.pressing = false
-      this.commit(latest)
+      this.release(latest === start ? null : latest)
     }
     window.addEventListener("pointermove", move)
     window.addEventListener("pointerup", up)
@@ -419,7 +472,7 @@ class PointsOverlay {
     if (!found || found.distance > reach) {
       return
     }
-    this.pressing = true
+    this.press()
     const start = this.segments
     const startX = event.clientX
     const startY = event.clientY
@@ -432,7 +485,7 @@ class PointsOverlay {
     const up = () => {
       window.removeEventListener("pointermove", move)
       window.removeEventListener("pointerup", up)
-      this.pressing = false
+      this.release(null)
       if (latest === start) {
         return
       }
@@ -465,7 +518,7 @@ class PointsOverlay {
     }
     event.preventDefault()
     event.stopPropagation()
-    this.pressing = true
+    this.press()
     const start = this.segments
     const kind = this.kinds.get(index) ?? pointKind(start, index)
     const startX = event.clientX
@@ -479,10 +532,7 @@ class PointsOverlay {
     const up = () => {
       window.removeEventListener("pointermove", move)
       window.removeEventListener("pointerup", up)
-      this.pressing = false
-      if (latest !== start) {
-        this.commit(latest)
-      }
+      this.release(latest === start ? null : latest)
     }
     window.addEventListener("pointermove", move)
     window.addEventListener("pointerup", up)

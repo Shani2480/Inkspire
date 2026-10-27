@@ -298,6 +298,11 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Set totals in Word and open here: the same points come back as totals.
 - Save a Box & Whisker with inner points, mean line and inclusive median: Word's Format Data Series shows them.
 
+## Edit Points box grows while dragging (2026-10-27)
+
+- Desktop app: drag a floating shape's point out of its box; the box and text wrap follow during the drag, and
+  one Ctrl+Z undoes it.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and
