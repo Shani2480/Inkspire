@@ -31,7 +31,17 @@ export function EquationTab() {
         : null
     },
   })
+  const display = useEditorState({
+    editor,
+    selector: ({ editor: current }) => {
+      const selection = current?.state.selection
+      return selection instanceof NodeSelection && selection.node.attrs.display === true
+    },
+  })
   const ready = Boolean(editor) && tex !== null
+  // Word's Change to Display / Change to Inline, from the equation's own menu.
+  const layoutLabel = display ? "Change to Inline" : "Change to Display"
+  const toggleLayout = () => editor?.chain().focus().updateAttributes("equation", { display: !display }).run()
   const [saved, setSaved] = useState(loadSavedEquations)
   const [conversion, setConversion] = useState<EquationText>("unicode")
   const [category, setCategory] = useState(EQUATION_SYMBOLS[0]!.id)
@@ -192,6 +202,14 @@ export function EquationTab() {
                   onClick: convert,
                 },
                 {
+                  id: "layout",
+                  label: layoutLabel,
+                  icon: <LineEquationIcon />,
+                  priority: 2,
+                  disabled: !ready,
+                  onClick: toggleLayout,
+                },
+                {
                   id: "edit",
                   label: "Edit Equation",
                   icon: <LineEquationIcon />,
@@ -225,6 +243,9 @@ export function EquationTab() {
           <LineEquationIcon />
         </RibbonCommand>
         <RibbonCommand size="large" label="Edit Equation" disabled={!ready} onClick={() => setEditing(true)}>
+          <LineEquationIcon />
+        </RibbonCommand>
+        <RibbonCommand size="large" label={layoutLabel} disabled={!ready} onClick={toggleLayout}>
           <LineEquationIcon />
         </RibbonCommand>
       </RibbonGroup>

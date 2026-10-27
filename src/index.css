@@ -5957,6 +5957,17 @@ li[data-drop-cap="margin"]::first-letter {
   outline: 1px solid #0f6cbd;
 }
 
+/* Display: on a line of its own, centred (Word's Change to Display). */
+.equation.equation-display {
+  display: block;
+  margin: 0.25em 0;
+  text-align: center;
+}
+
+.equation.equation-display .katex-display {
+  margin: 0;
+}
+
 .signature-line {
   display: grid;
   width: 220px;
