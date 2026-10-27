@@ -2603,7 +2603,12 @@ function filledMap(painter: Painter, box: Box) {
       )
     }
   }
-  painter.out.push(`<g data-chart-part="series:${Math.max(0, serie)}">${parts.join("")}</g>`)
+  // Kept to the plot: a neighbour round the regions shown is cut at its edge.
+  const clip = `map-clip-${painter.defs.length}`
+  painter.defs.push(
+    `<clipPath id="${clip}"><rect x="${n(plot.x)}" y="${n(plot.y)}" width="${n(plot.w)}" height="${n(plot.h)}"/></clipPath>`,
+  )
+  painter.out.push(`<g data-chart-part="series:${Math.max(0, serie)}" clip-path="url(#${clip})">${parts.join("")}</g>`)
   if (labels.length) {
     painter.out.push(`<g data-chart-part="dataLabels">${labels.join("")}</g>`)
   }

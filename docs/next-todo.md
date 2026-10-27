@@ -1692,7 +1692,7 @@ Source: the 48 top-level files in `screenshots/` taken on 2026-10-19 (`screensho
   mean ×, a label per statistic); Word gets the medians as columns; reopens as itself. No inclusive-median option, no
   inner points. **Stock (2026-10-26).** High-Low-Close and Open-High-Low-Close, drawn as Word's (high-low lines, up/down
   bars, Close tick), saved and read as `c:stockChart`; the dialog preview now uses each type's own sample. Not done:
-  Map (Filled Map done 2026-10-27, countries, and US states on Albers with a diverging scale, text values and Best Fit labels since 2026-10-27; no counties, provinces or postal codes beyond US states; see changes.md), Combo
+  Map (Filled Map done 2026-10-27, countries, and US states on Albers with a diverging scale, text values and Best Fit labels since 2026-10-27; states and provinces of Canada, Australia, Germany, Brazil, India, China, Mexico, South Africa and Japan, labels on the largest piece, and a Word map edited here saved back as Word's own since 2026-10-27; no counties, UK nations, French or Spanish regions; a map made here is still a picture, as Word's needs Bing's outlines; see changes.md), Combo
   beyond the three that exist. Templates done 2026-10-27 (see changes.md). **Volume stock charts (2026-10-27):** Volume-High-Low-Close and
   Volume-Open-High-Low-Close, the volume as columns on the left axis and the prices on a right one, saved as Word's
   bar group plus stock group. **3-D and of-pie (2026-10-27):** the 3-D variants of Column (4), Bar (3),

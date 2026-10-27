@@ -3,6 +3,7 @@ import { escapeXml, escapeXmlText } from "@/document/docx/xml"
 import {
   boxOptions,
   defaultChartSpec,
+  mapColors,
   type BoxOptions,
   type ChartSpec,
   type HistogramBins,
@@ -22,10 +23,11 @@ export const CHARTEX_RELATIONSHIP = "http://schemas.microsoft.com/office/2014/re
 const A_NS = "http://schemas.openxmlformats.org/drawingml/2006/main"
 const REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 
-/** The namespaces Word puts in `mc:Choice Requires`: Funnel came a version later than the others. */
+/** The namespaces Word puts in `mc:Choice Requires`: Funnel came a version later than the others, Map later still. */
 export const CHARTEX_REQUIRES = {
   cx1: "http://schemas.microsoft.com/office/drawing/2015/9/8/chartex",
   cx2: "http://schemas.microsoft.com/office/drawing/2015/10/21/chartex",
+  cx4: "http://schemas.microsoft.com/office/drawing/2016/5/10/chartex",
 } as const
 
 const KINDS = ["histogram", "waterfall", "funnel", "boxWhisker", "treemap", "sunburst"]
@@ -36,7 +38,7 @@ export function isChartEx(spec: ChartSpec) {
 }
 
 export function chartExRequires(spec: ChartSpec): keyof typeof CHARTEX_REQUIRES {
-  return spec.type === "funnel" ? "cx2" : "cx1"
+  return spec.type === "funnel" ? "cx2" : spec.type === "map" ? "cx4" : "cx1"
 }
 
 /**
@@ -55,6 +57,7 @@ export function chartExData(spec: ChartSpec): ChartSpec {
     series: (spec.type === "boxWhisker" ? series : series.slice(0, 1)).map((serie) => ({
       ...serie,
       values: pick(serie.values),
+      ...(serie.texts ? { texts: pick(serie.texts).map((item) => item ?? "") } : {}),
     })),
     format: Object.fromEntries(
       Object.entries(spec.format).flatMap(([key, value]) => {
@@ -108,6 +111,7 @@ const LAYOUT: Record<string, string> = {
   boxWhisker: "boxWhisker",
   treemap: "treemap",
   sunburst: "sunburst",
+  map: "regionMap",
 }
 
 const LEGEND: Partial<Record<LegendPosition, string>> = { top: "t", bottom: "b", left: "l", right: "r" }
@@ -123,8 +127,11 @@ function text(value: string, formula?: string) {
   return `<cx:tx><cx:txData>${formula ? `<cx:f>${escapeXmlText(formula)}</cx:f>` : ""}<cx:v>${escapeXmlText(value)}</cx:v></cx:txData></cx:tx>`
 }
 
-/** Word's chartex part for a chart of one of these kinds, its data read from the workbook at `workbookRelId`. */
-export function chartExXml(source: ChartSpec, workbookRelId?: string) {
+/**
+ * Word's chartex part for a chart of one of these kinds, its data read from the workbook at `workbookRelId`. A Map
+ * takes the `cx:geography` Word wrote, which holds Bing's outlines of its regions (`cx:geoCache`).
+ */
+export function chartExXml(source: ChartSpec, workbookRelId?: string, geography?: string) {
   const spec = chartExData(source)
   const rows = spec.categories.length
   const levels = spec.levels ?? []
@@ -141,14 +148,24 @@ export function chartExXml(source: ChartSpec, workbookRelId?: string) {
     `<cx:strDim type="cat"><cx:f${levels.length ? ` dir="row"` : ""}>${range(0, levels.length)}</cx:f>` +
     `${labels.map(level).join("")}</cx:strDim>`
   const hierarchy = spec.type === "treemap" || spec.type === "sunburst"
-  const data = spec.series.map(
-    (serie, index) =>
-      `<cx:data id="${index}">${categories}<cx:numDim type="${hierarchy ? "size" : "val"}">` +
-      `<cx:f>${range(first + index, first + index)}</cx:f><cx:lvl ptCount="${rows}" formatCode="General">` +
-      serie.values
-        .map((value, row) => (Number.isFinite(value) ? `<cx:pt idx="${row}">${value}</cx:pt>` : ""))
-        .join("") +
-      `</cx:lvl></cx:numDim></cx:data>`,
+  const map = spec.type === "map"
+  // A Map's values typed as text: Word colours each different one (`colorStr`) instead of by value.
+  const typed = map && spec.series[0]?.texts?.some(Boolean) ? spec.series[0].texts : null
+  const data = spec.series.map((serie, index) =>
+    typed
+      ? `<cx:data id="${index}">${categories}<cx:strDim type="colorStr"><cx:f>${range(first + index, first + index)}</cx:f>` +
+        `<cx:lvl ptCount="${rows}">${typed
+          .map((item, row) => {
+            const value = item || (Number.isFinite(serie.values[row]) ? String(serie.values[row]) : "")
+            return value ? `<cx:pt idx="${row}">${escapeXmlText(value)}</cx:pt>` : ""
+          })
+          .join("")}</cx:lvl></cx:strDim></cx:data>`
+      : `<cx:data id="${index}">${categories}<cx:numDim type="${hierarchy ? "size" : map ? "colorVal" : "val"}">` +
+        `<cx:f>${range(first + index, first + index)}</cx:f><cx:lvl ptCount="${rows}" formatCode="General">` +
+        serie.values
+          .map((value, row) => (Number.isFinite(value) ? `<cx:pt idx="${row}">${value}</cx:pt>` : ""))
+          .join("") +
+        `</cx:lvl></cx:numDim></cx:data>`,
   )
   const labelsShown = spec.dataLabels !== "none"
   const dataLabels = labelsShown
@@ -173,6 +190,8 @@ export function chartExXml(source: ChartSpec, workbookRelId?: string) {
       }
       case "treemap":
         return `<cx:layoutPr><cx:parentLabelLayout val="overlapping"/></cx:layoutPr>`
+      case "map":
+        return `<cx:layoutPr>${MAP_LABELS[spec.mapLabels ?? ""] ? `<cx:regionLabelLayout val="${MAP_LABELS[spec.mapLabels!]}"/>` : ""}${geographyXml(spec, geography)}</cx:layoutPr>`
       default:
         return ""
     }
@@ -190,7 +209,7 @@ export function chartExXml(source: ChartSpec, workbookRelId?: string) {
   const series = spec.series.map(
     (serie, index) =>
       `<cx:series layoutId="${LAYOUT[spec.type]}">${text(serie.name, `Sheet1!$${column(first + index)}$1`)}` +
-      `${fillXml(spec.format[`series:${index}`]?.fill)}${points}` +
+      `${fillXml(spec.format[`series:${index}`]?.fill)}${map ? mapColorsXml(spec) : ""}${points}` +
       `${dataLabels}<cx:dataId val="${index}"/>${layoutPr()}${spec.pareto ? `<cx:axisId>1</cx:axisId>` : ""}</cx:series>`,
   )
   if (spec.pareto) {
@@ -203,7 +222,7 @@ export function chartExXml(source: ChartSpec, workbookRelId?: string) {
     `${major ? "<cx:majorGridlines/>" : ""}${minor ? "<cx:minorGridlines/>" : ""}`
   const hidden = (shown: boolean | undefined) => (shown === false ? ` hidden="1"` : "")
   const axes =
-    spec.type === "treemap" || spec.type === "sunburst"
+    spec.type === "treemap" || spec.type === "sunburst" || map
       ? ""
       : spec.type === "funnel"
         ? `<cx:axis id="0"${hidden(spec.axes.category)}><cx:catScaling gapWidth="0.06"/><cx:tickLabels/></cx:axis>`
@@ -223,6 +242,42 @@ export function chartExXml(source: ChartSpec, workbookRelId?: string) {
     `<cx:chart>${title}<cx:plotArea><cx:plotAreaRegion>${series.join("")}</cx:plotAreaRegion>${axes}</cx:plotArea>${legend}</cx:chart>` +
     `</cx:chartSpace>`
   )
+}
+
+const MAP_LABELS: Record<string, string> = { none: "none", bestFit: "bestFitOnly", show: "showAll" }
+const AREA_OF_MAP: Record<string, string> = { world: "world", data: "dataOnly" }
+
+/** A Map's Series Color: two colours, or three on a diverging scale with the midpoint (halfway unless set). */
+function mapColorsXml(spec: ChartSpec) {
+  const colors = mapColors(spec)
+  const color = (name: string, value: string) => `<cx:${name}><a:srgbClr val="${hex(value) ?? "808080"}"/></cx:${name}>`
+  const middle = Number.isFinite(spec.mapMidpoint) ? `<cx:number val="${spec.mapMidpoint}"/>` : `<cx:percent val="50"/>`
+  return spec.mapDiverging
+    ? `<cx:valueColors>${color("minColor", colors.min)}${color("midColor", colors.mid)}${color("maxColor", colors.max)}</cx:valueColors>` +
+        `<cx:valueColorPositions count="3"><cx:mid>${middle}</cx:mid></cx:valueColorPositions>`
+    : `<cx:valueColors>${color("minColor", colors.min)}${color("maxColor", colors.max)}</cx:valueColors>` +
+        `<cx:valueColorPositions count="2"/>`
+}
+
+/**
+ * A Map's geography: Word's own (its culture, attribution and Bing's outlines kept) with the projection and area
+ * the app has now; without one, the projection and area alone.
+ */
+function geographyXml(spec: ChartSpec, geography: string | undefined) {
+  const projection = spec.mapProjection && spec.mapProjection !== "auto" ? spec.mapProjection : undefined
+  const area = AREA_OF_MAP[spec.mapArea ?? ""]
+  const open = /^<cx:geography\b[^>]*?(\/?)>/.exec(geography ?? "")
+  if (!geography || !open) {
+    return ""
+  }
+  let tag = open[0]
+    .replace(/\s(?:projectionType|viewedRegionType)="[^"]*"/g, "")
+    .replace(
+      /^<cx:geography/,
+      `<cx:geography${projection ? ` projectionType="${projection}"` : ""}${area ? ` viewedRegionType="${area}"` : ""}`,
+    )
+  tag = tag.replace(/\s+(\/?>)$/, "$1")
+  return tag + geography.slice(open[0].length)
 }
 
 /** A histogram's bins as Word writes them: By Category is aggregation, the rest binning (Automatic has no size). */
@@ -400,7 +455,7 @@ export function readChartEx(xml: string): ChartSpec | null {
     const positions = child(series[0]!, "valueColorPositions")
     if (positions?.attrs.count === "3") {
       spec.mapDiverging = true
-      const middle = child(positions, "midPosition")
+      const middle = child(positions, "mid") ?? child(positions, "midPosition")
       const number = Number(child(middle, "number")?.attrs.val)
       const percent = Number(child(middle, "percent")?.attrs.val)
       const values = (spec.series[0]?.values ?? []).filter((value) => Number.isFinite(value))

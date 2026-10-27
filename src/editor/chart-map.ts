@@ -1,11 +1,21 @@
-import { geoAlbersUsa, geoCentroid, geoMercator, geoPath, geoProjection, type GeoProjection } from "d3-geo"
-import type { Feature, FeatureCollection, Geometry } from "geojson"
+import {
+  geoAlbersUsa,
+  geoBounds,
+  geoConicEqualArea,
+  geoMercator,
+  geoPath,
+  geoProjection,
+  type GeoProjection,
+} from "d3-geo"
+import type { Feature, FeatureCollection, Geometry, Polygon } from "geojson"
 
 /**
- * Word's Filled Map (22.6): each category a country, or a state of the United States, coloured by its value from
- * the Minimum colour to the Maximum (through a Midpoint colour on a diverging scale), or by its text, a colour per
- * different text. Word draws it from Bing's map data; here the outlines are Natural Earth's countries (world-atlas,
- * 1:110m) and the Census Bureau's states (us-atlas, 1:10m), loaded the first time a map is drawn.
+ * Word's Filled Map (22.6): each category a country, a state of the United States, or a state or province of one
+ * of a few other countries, coloured by its value from the Minimum colour to the Maximum (through a Midpoint colour
+ * on a diverging scale), or by its text, a colour per different text. Word draws it from Bing's map data; here the
+ * outlines are Natural Earth's countries (world-atlas, 1:110m), the Census Bureau's states (us-atlas, 1:10m) and
+ * Natural Earth's states and provinces of Canada, Australia, Germany, Brazil, India, China, Mexico, South Africa
+ * and Japan (`map-regions.json`, built by `docs/maps/build-map-regions.mjs`), loaded the first time a map is drawn.
  */
 
 export type MapProjection = "auto" | "mercator" | "miller" | "robinson" | "albers"
@@ -13,9 +23,12 @@ export type MapArea = "auto" | "data" | "world"
 export type MapLabels = "none" | "bestFit" | "show"
 
 type Country = Feature<Geometry, { name: string }>
+/** A state or province: its English name, its country, its ISO 3166-2 code and the names it goes by. */
+type Region = Feature<Geometry, { name: string; country: string; code: string; names: string }>
 
 let countries: Country[] | null = null
 let states: Country[] | null = null
+let regions: Region[] | null = null
 let loading: Promise<void> | null = null
 const listeners = new Set<() => void>()
 
@@ -26,12 +39,12 @@ export function mapCountries() {
 
 type Topology = Parameters<(typeof import("topojson-client"))["feature"]>[0]
 
-function features(topojson: typeof import("topojson-client"), atlas: unknown, name: string) {
+function features<P = { name: string }>(topojson: typeof import("topojson-client"), atlas: unknown, name: string) {
   const topology = ((atlas as { default?: unknown }).default ?? atlas) as Topology
   const object = (topology as unknown as { objects: Record<string, Parameters<typeof topojson.feature>[1]> }).objects[
     name
   ]!
-  return (topojson.feature(topology, object) as unknown as FeatureCollection<Geometry, { name: string }>).features
+  return (topojson.feature(topology, object) as unknown as FeatureCollection<Geometry, P>).features
 }
 
 /** Loads the outlines (once); everything that drew a map without them is told to draw it again. */
@@ -39,9 +52,13 @@ export function loadMapCountries() {
   loading ??= Promise.all([
     import("world-atlas/countries-110m.json"),
     import("us-atlas/states-10m.json"),
+    import("./map-regions.json"),
     import("topojson-client"),
-  ]).then(([world, us, topojson]) => {
+  ]).then(([world, us, provinces, topojson]) => {
     countries = features(topojson, world, "countries")
+    // A topology per country.
+    const atlas = ((provinces as { default?: unknown }).default ?? provinces) as Record<string, unknown>
+    regions = Object.values(atlas).flatMap((topology) => features<Region["properties"]>(topojson, topology, "regions"))
     // The fifty states and the District of Columbia: Word's map of the United States has no territories.
     states = features(topojson, us, "states").filter((state) => Number(state.id) <= 56 && state.id !== "60")
     for (const listener of listeners) {
@@ -202,6 +219,30 @@ export function matchState(name: string, list: Country[] | null = states): Count
   return list.find((state) => normal(state.properties.name) === wanted) ?? null
 }
 
+/**
+ * The state or province of `country` a category names, by any of its names ("Bavaria" or "Bayern") or its code
+ * ("ON", "NSW"); null when none matches.
+ */
+export function matchRegion(name: string, country: string, list: Region[] | null = regions): Region | null {
+  if (!list || !name.trim()) {
+    return null
+  }
+  const key = normal(name)
+  const code = name.trim().toUpperCase()
+  return (
+    list.find(
+      (region) =>
+        region.properties.country === country &&
+        (region.properties.code === code || region.properties.names.split("|").some((other) => normal(other) === key)),
+    ) ?? null
+  )
+}
+
+/** The countries whose states or provinces the map knows. */
+export function regionCountries(list: Region[] | null = regions) {
+  return [...new Set((list ?? []).map((region) => region.properties.country))]
+}
+
 // Miller's cylindrical projection: Mercator with the latitudes eased, so the poles stay in reach.
 function millerRaw(lambda: number, phi: number): [number, number] {
   return [lambda, 1.25 * Math.log(Math.tan(Math.PI / 4 + 0.4 * phi))]
@@ -239,12 +280,21 @@ function robinsonRaw(lambda: number, phi: number): [number, number] {
   return [0.8487 * (x0 + (x1 - x0) * share) * lambda, 1.3523 * (y0 + (y1 - y0) * share) * Math.sign(phi)]
 }
 
-function projectionOf(kind: MapProjection, world: boolean, us: boolean): GeoProjection {
+function projectionOf(kind: MapProjection, world: boolean, us: boolean, shown: FeatureCollection): GeoProjection {
   // Automatic: Albers for the United States (Alaska and Hawaii moved in beside the others), Miller for the whole
   // world, as Word shows them, and Mercator for a part of it.
   const chosen = kind === "auto" ? (us ? "albers" : world ? "miller" : "mercator") : kind
-  if (chosen === "albers") {
+  if (chosen === "albers" && us) {
     return geoAlbersUsa()
+  }
+  if (chosen === "albers") {
+    // Elsewhere an equal-area cone on the area shown: its standard parallels a sixth in from its edges.
+    const [[west, south], [east, north]] = geoBounds(shown)
+    const middle = west <= east ? (west + east) / 2 : (west + east + 360) / 2
+    const span = Math.max(1, north - south)
+    return geoConicEqualArea()
+      .rotate([-middle, 0])
+      .parallels([south + span / 6, north - span / 6])
   }
   if (chosen === "miller") {
     return geoProjection(millerRaw)
@@ -275,17 +325,36 @@ export function drawMap(
   box: { x: number; y: number; w: number; h: number },
   options: { projection?: MapProjection; area?: MapArea },
 ): MapDrawing | null {
-  if (!countries || !states) {
+  if (!countries || !states || !regions) {
     return null
   }
-  // States when more categories name a state than a country, as Word picks the level the data is at.
+  // The level the data is at, as Word picks it: countries, or the states or provinces of the country most
+  // categories name one of (countries first on a tie, then the United States).
   const named = (match: (name: string) => Country | null) => points.filter((point) => match(point.name)).length
-  const us = named(matchState) > named(matchCountry)
-  const regions = us ? states : countries
+  const levels: { country: string | null; match: (name: string) => Country | null; count: number }[] = [
+    { country: null, match: (name) => matchCountry(name), count: 0 },
+    { country: "United States", match: (name) => matchState(name), count: 0 },
+    ...regionCountries().map((country) => ({
+      country,
+      match: (name: string) => matchRegion(name, country) as Country | null,
+      count: 0,
+    })),
+  ]
+  for (const level of levels) {
+    level.count = named(level.match)
+  }
+  const level = levels.reduce((best, next) => (next.count > best.count ? next : best))
+  const us = level.country === "United States"
+  const within = level.country !== null
+  const list: Country[] = !within
+    ? countries
+    : us
+      ? states
+      : (regions ?? []).filter((region) => region.properties.country === level.country)
   const matched: { point: MapPoint; country: Country }[] = []
   const unmatched: string[] = []
   for (const point of points) {
-    const country = us ? matchState(point.name) : matchCountry(point.name)
+    const country = level.match(point.name)
     if (country) {
       matched.push({ point, country })
     } else {
@@ -293,25 +362,26 @@ export function drawMap(
     }
   }
   // The whole country for states, unless only the regions with data are asked for.
-  const world = options.area === "world" || matched.length === 0 || (us && options.area !== "data")
+  const world = options.area === "world" || matched.length === 0 || (within && options.area !== "data")
   // Antarctica only when it has data: Word's world map leaves it out.
   const shown = world
-    ? regions.filter(
+    ? list.filter(
         (country) => country.properties.name !== "Antarctica" || matched.some((item) => item.country === country),
       )
     : matched.map((item) => item.country)
-  const projection = projectionOf(options.projection ?? "auto", world && !us, us)
+  const collection = { type: "FeatureCollection", features: shown } as FeatureCollection
+  const projection = projectionOf(options.projection ?? "auto", world && !within, us, collection)
   projection.fitExtent(
     [
       [box.x, box.y],
       [box.x + box.w, box.y + box.h],
     ],
-    { type: "FeatureCollection", features: shown } as FeatureCollection,
+    collection,
   )
   const path = geoPath(projection)
   const withData = new Set(matched.map((item) => item.country))
   // The countries without data that fall in the box, so the map has its neighbours round it.
-  const rest = regions
+  const rest = list
     .filter((country) => !withData.has(country) && country.properties.name !== "Antarctica")
     .filter((country) => {
       const [[left, top], [right, bottom]] = path.bounds(country)
@@ -320,19 +390,124 @@ export function drawMap(
     .map((country) => path(country) ?? "")
     .join("")
   return {
-    shapes: matched.map(({ point, country }) => {
-      const centre = projection(geoCentroid(country)) ?? path.centroid(country)
-      const [[left, top], [right, bottom]] = path.bounds(country)
-      return {
-        point,
-        d: path(country) ?? "",
-        at: [centre[0], centre[1]] as [number, number],
-        size: [right - left, bottom - top] as [number, number],
-      }
-    }),
+    shapes: matched.map(({ point, country }) => ({ point, d: path(country) ?? "", ...labelSpot(country, projection) })),
     rest,
     unmatched,
   }
+}
+
+type Ring = [number, number][]
+
+/** A polygon as drawn: its rings in the box, the antimeridian's cuts and all. */
+function drawnRings(polygon: Polygon, projection: GeoProjection) {
+  const rings: Ring[] = []
+  geoPath(projection, {
+    moveTo: (x: number, y: number) => rings.push([[x, y]]),
+    lineTo: (x: number, y: number) => rings[rings.length - 1]?.push([x, y]),
+    closePath: () => {},
+    arc: () => {},
+    beginPath: () => {},
+  } as unknown as CanvasRenderingContext2D)(polygon)
+  return rings.filter((ring) => ring.length > 2)
+}
+
+/** A ring's area, signed by the way it winds: a hole winds the other way round from the outline it is in. */
+function ringArea(ring: Ring) {
+  let sum = 0
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    sum += (ring[j]![0] + ring[i]![0]) * (ring[j]![1] - ring[i]![1])
+  }
+  return sum / 2
+}
+
+/** Where the rings cross the line at `y`, left to right. */
+function crossings(rings: Ring[], y: number) {
+  const xs: number[] = []
+  for (const ring of rings) {
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [x0, y0] = ring[j]!
+      const [x1, y1] = ring[i]!
+      if (y0 > y !== y1 > y) {
+        xs.push(x0 + ((y - y0) / (y1 - y0)) * (x1 - x0))
+      }
+    }
+  }
+  return xs.sort((a, b) => a - b)
+}
+
+/** How far a point is from the nearest edge. */
+function edgeDistance(rings: Ring[], x: number, y: number) {
+  let best = Infinity
+  for (const ring of rings) {
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [x0, y0] = ring[j]!
+      const [x1, y1] = ring[i]!
+      const dx = x1 - x0
+      const dy = y1 - y0
+      const t = dx || dy ? Math.max(0, Math.min(1, ((x - x0) * dx + (y - y0) * dy) / (dx * dx + dy * dy))) : 0
+      best = Math.min(best, Math.hypot(x - x0 - t * dx, y - y0 - t * dy))
+    }
+  }
+  return best
+}
+
+/**
+ * Where a region's label goes: on its largest piece (the mainland, not its islands), at the point furthest inside
+ * it, centred on the stretch of the region across that line; with the room there, the stretch's width and twice
+ * the distance to the nearest edge.
+ */
+function labelSpot(region: Country, projection: GeoProjection) {
+  const geometry = region.geometry
+  const polygons: Polygon[] =
+    geometry.type === "Polygon"
+      ? [geometry]
+      : geometry.type === "MultiPolygon"
+        ? geometry.coordinates.map((coordinates) => ({ type: "Polygon", coordinates }))
+        : []
+  let rings: Ring[] = []
+  let largest = -1
+  for (const polygon of polygons) {
+    const drawn = drawnRings(polygon, projection)
+    // The outlines less the holes (an outline cut at the antimeridian comes as two rings, both outlines).
+    const area = Math.abs(drawn.reduce((sum, ring) => sum + ringArea(ring), 0))
+    if (area > largest) {
+      largest = area
+      rings = drawn
+    }
+  }
+  const fallback = geoPath(projection).centroid(region)
+  if (!rings.length) {
+    return { at: [fallback[0], fallback[1]] as [number, number], size: [0, 0] as [number, number] }
+  }
+  const all = rings.flat()
+  const left = Math.min(...all.map((p) => p[0]))
+  const right = Math.max(...all.map((p) => p[0]))
+  const top = Math.min(...all.map((p) => p[1]))
+  const bottom = Math.max(...all.map((p) => p[1]))
+  // The point furthest inside, from a grid over the piece: on each line across it, the middle of each stretch
+  // inside.
+  let best = { x: (left + right) / 2, y: (top + bottom) / 2, room: -1, width: 0 }
+  const steps = 24
+  for (let row = 1; row < steps; row++) {
+    const y = top + ((bottom - top) * row) / steps
+    const xs = crossings(rings, y)
+    for (let at = 0; at + 1 < xs.length; at += 2) {
+      const width = xs[at + 1]! - xs[at]!
+      const x = (xs[at]! + xs[at + 1]!) / 2
+      const room = Math.min(edgeDistance(rings, x, y), width / 2)
+      // Wide stretches first, as a label is wider than it is high.
+      if (room * 2 + width / 4 > best.room * 2 + best.width / 4) {
+        best = { x, y, room, width }
+      }
+    }
+  }
+  if (best.room < 0) {
+    return {
+      at: [fallback[0], fallback[1]] as [number, number],
+      size: [right - left, bottom - top] as [number, number],
+    }
+  }
+  return { at: [best.x, best.y] as [number, number], size: [best.width, best.room * 2] as [number, number] }
 }
 
 /** A colour between two, by `share` (0 to 1). */

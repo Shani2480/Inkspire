@@ -381,13 +381,18 @@ function drawingText(drawing: Extract<RunContent, { kind: "drawing" }>) {
 
 /** The chart part a drawing in the main document shows, from the parts kept whole on open. */
 function chartPart(doc: WordDocument, drawing: Extract<RunContent, { kind: "drawing" }>) {
+  return keptChartPart(doc.preserved, drawing)
+}
+
+/** The chart part a drawing in the document points at, as the package kept it. */
+function keptChartPart(preserved: PreservedPackage | undefined, drawing: Extract<RunContent, { kind: "drawing" }>) {
   const relId = chartRelId(drawing.xml)
   if (!relId) {
     return null
   }
-  const group = doc.preserved?.relationships.find((item) => item.source === "/word/document.xml")
+  const group = preserved?.relationships.find((item) => item.source === "/word/document.xml")
   const partName = group?.items.find((item) => item.id === relId)?.partName
-  const part = partName ? doc.preserved?.parts.find((item) => item.name === partName) : undefined
+  const part = partName ? preserved?.parts.find((item) => item.name === partName) : undefined
   return part ? decodeXml(part.data) : null
 }
 
@@ -1609,11 +1614,12 @@ export function propsFromMarks(marks: JsonMark[]): RunProperties {
  * A picture from the editor. While it is the picture and size the source run had, the source drawing goes back
  * as Word wrote it (position, wrapping, cropping, effects); otherwise it becomes a new inline picture.
  */
-export function imageRun(node: JsonNode, build: InlineBuild): Run | null {
+export function imageRun(node: JsonNode, build: InlineBuild, asPicture = false): Run | null {
   const object = typeof node.attrs?.objectNode === "string" ? node.attrs.objectNode : ""
   const figure = object ? decodeObjectJson(object) : null
-  if (figure?.type === "figure" && figure.attrs?.kind === "chart") {
-    // A Map is written as its picture, carrying the chart to open again: Word's own needs Bing's map data.
+  if (figure?.type === "figure" && figure.attrs?.kind === "chart" && !asPicture) {
+    // A Map is written as its picture, carrying the chart to open again: Word's own needs Bing's map data, which
+    // only a map opened from Word has.
     const run = chartRun(node, figure, object, build)
     if (run) {
       return run
@@ -2005,7 +2011,7 @@ function chartRun(node: JsonNode, figure: JsonNode, object: string, build: Inlin
   }
   const spec = chartSpecOf(attrs)
   if (spec.type === "map") {
-    return null
+    return wordMapRun(node, spec, object, drawing, build)
   }
   const relId = `rId${20 + build.media.length}`
   const id = build.picture
@@ -2052,34 +2058,7 @@ function chartRun(node: JsonNode, figure: JsonNode, object: string, build: Inlin
   if (isChartEx(spec)) {
     // Word's own chart of this kind, with the ordinary chart drawn the same as the fallback for programs that do
     // not know it (and for Word before 2016).
-    const exRelId = `rId${20 + build.media.length}`
-    const exName = freePartName(build, (index) => `/word/charts/chartEx${index}.xml`)
-    const exWorkbook = freePartName(build, (index) => `/word/embeddings/Microsoft_Excel_Worksheet${index}.xlsx`)
-    build.media.push({
-      relId: exRelId,
-      type: CHARTEX_RELATIONSHIP,
-      target: exName.slice("/word/".length),
-      name: exName,
-      contentType: CHARTEX_CONTENT_TYPE,
-      data: new TextEncoder().encode(chartExXml(spec, "rId1")),
-      related: [
-        {
-          relId: "rId1",
-          type: PACKAGE_RELATIONSHIP,
-          target: `../embeddings/${exWorkbook.split("/").pop()}`,
-          name: exWorkbook,
-          contentType: WORKBOOK_CONTENT_TYPE,
-          data: chartWorkbook(chartExData(spec), { raw: true }),
-        },
-      ],
-    })
-    const requires = chartExRequires(spec)
-    const exGraphic =
-      `<a:graphicData uri="${CHARTEX_NS}"><cx:chart xmlns:cx="${CHARTEX_NS}" ` +
-      `xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="${exRelId}"/></a:graphicData>`
-    xml =
-      `<mc:AlternateContent xmlns:mc="${MC_NS}"><mc:Choice xmlns:${requires}="${CHARTEX_REQUIRES[requires]}" Requires="${requires}">` +
-      `${drawingOf(exGraphic)}</mc:Choice><mc:Fallback>${xml}</mc:Fallback></mc:AlternateContent>`
+    xml = chartExChoice(spec, build, drawingOf, xml)
   }
   return {
     kind: "run",
@@ -2095,6 +2074,109 @@ function chartRun(node: JsonNode, figure: JsonNode, object: string, build: Inlin
         cy,
       },
     ],
+  }
+}
+
+/**
+ * Word's chartex chart in an `mc:AlternateContent`: its part and workbook, the drawing pointing at it as the
+ * choice, and `fallback` (a drawing) for programs that do not know it.
+ */
+function chartExChoice(
+  spec: ChartSpec,
+  build: InlineBuild,
+  drawingOf: (graphicData: string) => string,
+  fallback: string,
+  geography?: string,
+) {
+  const exRelId = `rId${20 + build.media.length}`
+  const exName = freePartName(build, (index) => `/word/charts/chartEx${index}.xml`)
+  const exWorkbook = freePartName(build, (index) => `/word/embeddings/Microsoft_Excel_Worksheet${index}.xlsx`)
+  build.media.push({
+    relId: exRelId,
+    type: CHARTEX_RELATIONSHIP,
+    target: exName.slice("/word/".length),
+    name: exName,
+    contentType: CHARTEX_CONTENT_TYPE,
+    data: new TextEncoder().encode(chartExXml(spec, "rId1", geography)),
+    related: [
+      {
+        relId: "rId1",
+        type: PACKAGE_RELATIONSHIP,
+        target: `../embeddings/${exWorkbook.split("/").pop()}`,
+        name: exWorkbook,
+        contentType: WORKBOOK_CONTENT_TYPE,
+        data: chartWorkbook(chartExData(spec), { raw: true }),
+      },
+    ],
+  })
+  const requires = chartExRequires(spec)
+  const exGraphic =
+    `<a:graphicData uri="${CHARTEX_NS}"><cx:chart xmlns:cx="${CHARTEX_NS}" ` +
+    `xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="${exRelId}"/></a:graphicData>`
+  return (
+    `<mc:AlternateContent xmlns:mc="${MC_NS}"><mc:Choice xmlns:${requires}="${CHARTEX_REQUIRES[requires]}" Requires="${requires}">` +
+    `${drawingOf(exGraphic)}</mc:Choice><mc:Fallback>${fallback}</mc:Fallback></mc:AlternateContent>`
+  )
+}
+
+/** A region's name as compared: no case, accents or punctuation. */
+function regionKey(name: string) {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+}
+
+/**
+ * A Map opened from Word and changed in the app (values, colours, labels, projection, area) goes back as Word's own
+ * Map while every region it shows is one Word had: the outlines are Bing's, kept in the part Word wrote
+ * (`cx:geoCache`), which the app cannot make. The app's picture of it is the fallback. Otherwise null: the picture.
+ */
+function wordMapRun(
+  node: JsonNode,
+  spec: ChartSpec,
+  object: string,
+  drawing: RunContent | undefined,
+  build: InlineBuild,
+): Run | null {
+  if (drawing?.kind !== "drawing") {
+    return null
+  }
+  const xml = keptChartPart(build.preserved, drawing)
+  const geography = xml ? /<cx:geography\b(?:[^>]*\/>|[^]*?<\/cx:geography>)/.exec(xml)?.[0] : undefined
+  const before = xml ? readChartEx(xml) : null
+  if (!geography || !geography.includes("<cx:geoCache") || before?.type !== "map") {
+    return null
+  }
+  const known = new Set(before.categories.map(regionKey))
+  if (!chartExData(spec).categories.every((name) => known.has(regionKey(name)))) {
+    return null
+  }
+  const picture = imageRun(node, build, true)
+  const fallback = picture?.content.find((item) => item.kind === "drawing")
+  if (!picture || fallback?.kind !== "drawing") {
+    return null
+  }
+  const id = build.picture
+  build.picture += 1
+  const name = typeof node.attrs?.alt === "string" && node.attrs.alt ? node.attrs.alt : `Map ${id}`
+  const drawingOf = (graphic: string) =>
+    drawingXml(
+      id,
+      "",
+      fallback.cx ?? 0,
+      fallback.cy ?? 0,
+      editorLayout(node),
+      rotationRot(numberAttr(node.attrs?.rotate) ?? 0),
+      build.section,
+      object,
+      { graphic, name },
+    )
+  return {
+    ...picture,
+    content: [{ ...fallback, xml: chartExChoice(spec, build, drawingOf, fallback.xml, geography) }],
   }
 }
 
