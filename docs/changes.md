@@ -7,6 +7,39 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Charts: what Word's 2016 kinds offer, Waterfall colours in the fallback, 3-D pie Height
+
+- **What was wrong:**
+  - Add Chart Element and Chart Elements (+) offered Error Bars, Data Table and Trendline on Histogram, Waterfall,
+    Funnel, Box & Whisker, Treemap, Sunburst and Map, which Word does not.
+  - Treemap and Sunburst also offered Axes, Axis Titles and Gridlines.
+  - The Format pane offered Trendline and Plot on secondary axis on them.
+  - A Waterfall point's own colour was only in the chartex part: the ordinary chart other programs show drew
+    the bar in its series colour.
+  - 3-D pie had no Height.
+- **What changed:**
+  - `chart-spec.ts`: `chartHasAxes` (no axes on pie, doughnut, map, treemap or sunburst; `chartParts` uses it) and
+    `isStatisticChart` (Word's 2016 kinds and the map).
+  - `chart-menus.tsx` `chartElements` disables Axes, Axis Titles and Gridlines without axes, and Error Bars, Data
+    Table and Trendline on those kinds.
+  - `chart-format-pane.tsx` hides Trendline and the secondary axis there.
+  - `chart-xml.ts`: the stacked-column Waterfall writes a `c:dPt` for each bar with its point's own fill (from
+    `pointColumns`).
+  - 3-D pie Height (% of base) is the rim's thickness:
+    - drawn by `pie3d`;
+    - written as `c:hPercent` between `rotX` and `rotY`, and read back;
+    - in the 3-D Rotation section, with no Autoscale (a pie's axes are never at right angles).
+- **Tests:** 1092 in all.
+  - `chart-menus.test.ts` (new): what Add Chart Element offers per kind.
+  - Fallback `c:dPt` in `chartex.test.ts`.
+  - Pie `hPercent` write/read in `chart-docx.test.ts`.
+  - Rim thickness against the radius in `chart-spec.test.ts`.
+- **How checked:**
+  - Headless Chrome: a Treemap's Add Chart Element greys out Axes, Axis Titles, Data Table, Gridlines and every
+    line element; a 3-D pie's Height field set to 250% draws a thicker rim.
+  - Open XML SDK validator: 0 errors on a saved 3-D pie at 250% and a Waterfall with a coloured point.
+- **Open:** not compared with Word's own menus per kind (Funnel's single axis, Histogram's gridline choices).
+
 ### Linked text boxes: deleting, copying, the right-click menu and undo
 
 - **What was wrong:** deleting a box in the middle of a chain lost the text it held. A copied box was pasted still

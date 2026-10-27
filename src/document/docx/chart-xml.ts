@@ -189,7 +189,18 @@ function seriesXml(spec: ChartSpec, index: number, group: Group, rows: number) {
               `<c:dPt><c:idx val="${place}"/><c:bubble3D val="0"/><c:spPr>${solid(spec.format[`point:${point}`]?.fill || paletteColor(spec, point))}<a:ln w="19050">${solid("#FFFFFF")}</a:ln></c:spPr></c:dPt>`,
           )
           .join("")
-      : ""
+      : spec.pointColumns && index > 0
+        ? // A Waterfall drawn as stacked columns: each bar coloured as its point is.
+          values
+            .map((value, row) => {
+              const owner = spec.pointColumns![row] ?? -1
+              const fill = owner >= 0 && value ? spec.format[`point:${owner}`]?.fill : undefined
+              return fill
+                ? `<c:dPt><c:idx val="${row}"/><c:invertIfNegative val="0"/><c:bubble3D val="0"/><c:spPr>${solid(fill)}</c:spPr></c:dPt>`
+                : ""
+            })
+            .join("")
+        : ""
   const trend =
     serie.trendline && serie.trendline !== "none" && group !== "pie" && group !== "doughnut" && group !== "radar"
       ? `<c:trendline><c:spPr><a:ln w="19050" cap="rnd">${solid(color)}<a:prstDash val="sysDot"/></a:ln></c:spPr>` +
@@ -221,7 +232,7 @@ function seriesXml(spec: ChartSpec, index: number, group: Group, rows: number) {
     `<c:val>${numberCache(`Sheet1!${range}`, values, format)}</c:val>`
   switch (group) {
     case "bar":
-      return `<c:ser>${head}<c:invertIfNegative val="0"/>${trend}${bars}${data}</c:ser>`
+      return `<c:ser>${head}<c:invertIfNegative val="0"/>${points}${trend}${bars}${data}</c:ser>`
     case "line":
       return `<c:ser>${head}${marker}${trend}${bars}${data}<c:smooth val="${spec.smooth ? 1 : 0}"/></c:ser>`
     case "area":
@@ -285,11 +296,12 @@ function axisXml(spec: ChartSpec, kind: "cat" | "val", ids: [number, number], op
         )
       : ""
   const text = spec.format[`axis:${isCategory ? "category" : "value"}`]?.color || look.text
-  const format = !isCategory && options.secondary && spec.pareto
-    ? `<c:numFmt formatCode="0%" sourceLinked="0"/>`
-    : !isCategory
-    ? `<c:numFmt formatCode="${escapeXml(spec.valueAxis.numberFormat ?? (spec.grouping === "percent" ? "0%" : "General"))}" sourceLinked="${spec.valueAxis.numberFormat ? 0 : 1}"/>`
-    : `<c:numFmt formatCode="General" sourceLinked="1"/>`
+  const format =
+    !isCategory && options.secondary && spec.pareto
+      ? `<c:numFmt formatCode="0%" sourceLinked="0"/>`
+      : !isCategory
+        ? `<c:numFmt formatCode="${escapeXml(spec.valueAxis.numberFormat ?? (spec.grouping === "percent" ? "0%" : "General"))}" sourceLinked="${spec.valueAxis.numberFormat ? 0 : 1}"/>`
+        : `<c:numFmt formatCode="General" sourceLinked="1"/>`
   const line = isCategory
     ? `<c:spPr><a:noFill/><a:ln w="9525">${solid(spec.format["axis:category"]?.line || look.axis)}</a:ln></c:spPr>`
     : `<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>`
@@ -539,7 +551,7 @@ export function chartSpaceXml(source: ChartSpec, workbookRelId?: string) {
   // Autoscale.
   const view = chartView3d(spec)
   const rotation =
-    `<c:rotX val="${turn.x}"/>${view.height !== undefined && spec.type !== "pie" ? `<c:hPercent val="${view.height}"/>` : ""}` +
+    `<c:rotX val="${turn.x}"/>${view.height !== undefined ? `<c:hPercent val="${view.height}"/>` : ""}` +
     `<c:rotY val="${turn.y}"/>`
   const sight =
     `${view.depth !== 100 ? `<c:depthPercent val="${view.depth}"/>` : ""}<c:rAngAx val="${view.rightAngle ? 1 : 0}"/>` +
@@ -980,6 +992,10 @@ export function readChartSpace(xml: string): ChartSpec | null {
     if (Number.isFinite(rotY) && rotY !== own.y) {
       spec.rotY = rotY
     }
+    const height = Number(value(view, "hPercent"))
+    if (value(view, "hPercent") !== undefined && Number.isFinite(height)) {
+      spec.heightPercent = height
+    }
     if (spec.type !== "pie" && view) {
       const word = chartView3d({ type: spec.type, threeD: spec.threeD })
       const rightAngle = value(view, "rAngAx")
@@ -993,10 +1009,6 @@ export function readChartSpace(xml: string): ChartSpec | null {
       const depth = Number(value(view, "depthPercent"))
       if (Number.isFinite(depth) && depth !== word.depth) {
         spec.depthPercent = depth
-      }
-      const height = Number(value(view, "hPercent"))
-      if (value(view, "hPercent") !== undefined && Number.isFinite(height)) {
-        spec.heightPercent = height
       }
     }
   }

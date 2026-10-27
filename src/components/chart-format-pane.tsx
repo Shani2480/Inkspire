@@ -13,6 +13,8 @@ import {
   ofPieSize,
   ofPieSplit,
   ofPieThreshold,
+  chartHasAxes,
+  isStatisticChart,
   isTextPart,
   partLabel,
   type ChartSpec,
@@ -624,8 +626,8 @@ function AutoNumber({
 
 function PartOptions({ spec, part, set }: { spec: ChartSpec; part: string; set: Setter }) {
   const round = spec.type === "pie" || spec.type === "doughnut"
-  // No axes: no secondary axis and no trendline.
-  const axisless = round || spec.type === "map"
+  // No secondary axis and no trendline without axes, nor on Word's 2016 kinds.
+  const axisless = !chartHasAxes(spec.type) || isStatisticChart(spec.type)
   if (part === "title" || part.startsWith("axisTitle:")) {
     const axis = part === "title" ? null : (part.slice("axisTitle:".length) as "category" | "value")
     const value = axis ? spec.axisTitles[axis].text : spec.title.text
@@ -943,7 +945,18 @@ function PartOptions({ spec, part, set }: { spec: ChartSpec; part: string; set: 
           max={359}
           onChange={(rotY) => set((current) => ({ ...current, rotY: Math.round(rotY) }))}
         />
-        {pie ? null : (
+        {pie ? (
+          // A pie's height is its thickness; it has no Autoscale, as its axes are never at right angles.
+          <NumberField
+            label="Height (% of base)"
+            value={view.height ?? 100}
+            unit="%"
+            step={10}
+            min={5}
+            max={500}
+            onChange={(heightPercent) => set((current) => ({ ...current, heightPercent: Math.round(heightPercent) }))}
+          />
+        ) : (
           <>
             <Check
               label="Right Angle Axes"

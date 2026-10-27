@@ -1,6 +1,12 @@
 import { mapCountries, onMapCountries } from "@/editor/chart-map"
 import { useObjectPreview } from "@/components/object-preview-hook"
-import { TEMPLATE_PREFIX, applyChartTemplate, deleteChartTemplate, loadChartTemplates, saveChartTemplate } from "@/editor/chart-templates"
+import {
+  TEMPLATE_PREFIX,
+  applyChartTemplate,
+  deleteChartTemplate,
+  loadChartTemplates,
+  saveChartTemplate,
+} from "@/editor/chart-templates"
 import { askText } from "@/components/text-prompt"
 import { DialogButtons, DialogFrame } from "@/components/word-dialog"
 import { MenuFlyout, MenuHeading, MenuRow, MenuSeparator, PreviewTile } from "@/components/shape-menus"
@@ -11,6 +17,8 @@ import {
   QUICK_LAYOUTS,
   chartSpecOf,
   defaultChartSpec,
+  chartHasAxes,
+  isStatisticChart,
   renderChart,
   serializeChartSpec,
   switchRowColumn,
@@ -200,9 +208,11 @@ export function chartElements(spec: ChartSpec): {
   choices: Choice[]
   disabled?: boolean
 }[] {
-  const round = isRound(spec)
+  // No axes: no axis titles or gridlines; Word's 2016 kinds take none of the extras drawn from the series.
+  const round = !chartHasAxes(spec.type)
+  const ownRules = isStatisticChart(spec.type)
   const horizontal = spec.type === "bar"
-  const trendable = !round && spec.type !== "radar" && spec.grouping === "clustered"
+  const trendable = !round && !ownRules && spec.type !== "radar" && spec.grouping === "clustered"
   return [
     {
       id: "axes",
@@ -320,7 +330,7 @@ export function chartElements(spec: ChartSpec): {
       part: "dataTable",
       more: "More Data Table Options…",
       shown: spec.dataTable,
-      disabled: round || horizontal || spec.type === "scatter" || spec.type === "radar",
+      disabled: round || ownRules || horizontal || spec.type === "scatter" || spec.type === "radar",
       toggle: (current) => ({ ...current, dataTable: !current.dataTable }),
       choices: [
         { label: "None", on: (current) => !current.dataTable, change: (current) => ({ ...current, dataTable: false }) },
@@ -379,7 +389,7 @@ export function chartElements(spec: ChartSpec): {
       part: "series:0",
       more: "More Error Bars Options…",
       shown: spec.errorBars.kind !== "none",
-      disabled: round || spec.type === "radar",
+      disabled: round || ownRules || spec.type === "radar",
       toggle: (current) => ({
         ...current,
         errorBars: { ...current.errorBars, kind: current.errorBars.kind === "none" ? "stderr" : "none" },
