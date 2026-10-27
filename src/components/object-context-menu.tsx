@@ -1,6 +1,7 @@
 import { openTableProperties } from "@/components/table-properties-dialog"
 import { openBordersAndShading } from "@/components/borders-shading-dialog"
 import { useCropMode } from "@/editor/picture-crop"
+import { startEditPoints } from "@/editor/edit-points"
 import { useLayoutDialog } from "@/document/object-layout"
 import { useViewStore } from "@/document/view"
 import { MenuLabel } from "@/components/menu-icons"
@@ -349,6 +350,14 @@ function itemsFor(
     return (
       <>
         {shared}
+        {kind === "shape"
+          ? leaf("Edit Points", () =>
+              run(() => {
+                editor.view.dispatch(editor.state.tr.setSelection(NodeSelection.create(editor.state.doc, target.pos)))
+                startEditPoints(editor)
+              }),
+            )
+          : null}
         {leaf(label, () => openDialog("figure"))}
         {submenu("Wrap Text", openSub, setOpenSub, wrapItems(editor, target, close, attrs))}
         {leaf("Bring to Front", () => run(() => editor.chain().focus().setObjectLayer("front").run()))}

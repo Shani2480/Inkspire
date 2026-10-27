@@ -3,6 +3,7 @@ import { STANDARD_COLORS, THEME_COLUMNS } from "@/components/color-menu"
 import { useObjectPreview } from "@/components/object-preview-hook"
 import type { ObjectRun } from "@/editor/object-preview"
 import { selectedObject } from "@/editor/objects"
+import { canConvertToFreeform, canEditPoints, convertToFreeform, startEditPoints } from "@/editor/edit-points"
 import { SHAPE_NAMES, shapeMarkup } from "@/editor/insert-blocks"
 import {
   ARROW_STYLES,
@@ -318,15 +319,32 @@ export function EditShapeMenu({ editor, close }: MenuProps) {
           current={current}
           onPick={(name) => {
             rememberShape(name)
-            editor?.chain().focus().updateObject({ variant: name, kind: "shape" }).run()
+            // A new shape is drawn as the gallery draws it: points edited on the old one go.
+            editor?.chain().focus().updateObject({ variant: name, kind: "shape", points: "" }).run()
             close()
           }}
         />
       </MenuFlyout>
-      <MenuRow disabled title="Edit Points needs shapes drawn from points, which these are not yet.">
+      <MenuRow
+        disabled={!canEditPoints(editor)}
+        onClick={() => {
+          close()
+          if (editor) {
+            startEditPoints(editor)
+          }
+        }}
+      >
         Edit Points
       </MenuRow>
-      <MenuRow disabled title="Converting to a freeform needs shapes drawn from points, which these are not yet.">
+      <MenuRow
+        disabled={!canConvertToFreeform(editor)}
+        onClick={() => {
+          close()
+          if (editor) {
+            convertToFreeform(editor)
+          }
+        }}
+      >
         Convert to Freeform
       </MenuRow>
       <MenuRow disabled title="For connectors between shapes.">

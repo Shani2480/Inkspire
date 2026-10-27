@@ -11582,6 +11582,46 @@ textarea.text-prompt-field {
   pointer-events: none;
 }
 
+/* Edit Points: the outline and a black handle on each point, laid over the shape. */
+.edit-points {
+  position: fixed;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.edit-points > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.edit-points-outline {
+  fill: none;
+  stroke: #c00000;
+  stroke-width: 1px;
+  stroke-dasharray: 3 2;
+}
+
+.edit-points-target {
+  fill: none;
+  stroke: transparent;
+  pointer-events: stroke;
+  cursor: crosshair;
+}
+
+.edit-points-handle {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  background: #000;
+  border: 1px solid #fff;
+  pointer-events: auto;
+  cursor: move;
+}
+
 /* A picture border along a Crop to Shape outline. */
 .image-shape-outline {
   position: absolute;

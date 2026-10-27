@@ -7,6 +7,39 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Edit Points and Convert to Freeform
+
+- **Missing:** Edit Points and Convert to Freeform (Shape Format → Edit Shape) were disabled, since shapes could
+  only be drawn from the gallery.
+- **Changed:**
+  - **Shapes from points:** a shape can now hold its own outline as points (the figure's `points` attribute, an
+    SVG path in a 0–100 box stretched to the shape). `src/editor/shape-points.ts` reads the gallery's drawings
+    (rects, rounded rects, ellipses, circles, polygons, polylines, lines and paths, with arcs as curves) into
+    points, and moves, deletes and adds points.
+  - **Edit Points** (Edit Shape menu and the shape's right-click menu): black handles on each point over the shape,
+    turned and flipped with it (`src/editor/edit-points.ts`).
+    - Drag a handle to move the point. The shape redraws as it is dragged.
+    - Ctrl+click a point to delete it; Ctrl+click the outline to add one there (a curve is split where clicked).
+    - Each change is one undo step. Escape, or a click away from the shape, ends it.
+  - **Convert to Freeform:** turns a gallery shape into points without changing how it looks.
+  - Change Shape draws the new gallery shape and drops the points.
+  - **.docx:** a shape with points is written as Word's freeform (`a:custGeom` with moveTo, lnTo, cubicBezTo and
+    close in place of `a:prstGeom`). Word's freeforms open as points. Their arcs and quadratic curves are read as
+    curves. Geometry built from guide formulas is still drawn as a rectangle.
+- **Fixed on the way:** a shape's drawing changing (as Edit Points redraws it) was read by ProseMirror as an edit,
+  which moved the selection off the shape. The figure node view now ignores changes to its drawing
+  (`ignoreMutation` in `insert-blocks.ts`).
+- **Tests:** `shape-points.test.ts` (every gallery shape converts; move, delete, add; custGeom both ways),
+  `edit-points.test.ts` (convert, start and stop), and a save and reopen of a freeform in `shape-write.test.ts`.
+- **Checked:** in Chrome on a triangle: drag the top point, Ctrl+click the base to add a point, Ctrl+click it to
+  delete it, Escape, then undo one change at a time. All 1009 tests pass.
+- **Still open:**
+  - A point dragged outside the shape's box is drawn outside it. Word grows the box to fit.
+  - Word's right-click menu on a point (Smooth, Straight and Corner Point, Open/Close Path) and its curve handles
+    are not done.
+  - The resize handles stay visible while editing points (Word hides them).
+  - Not opened in Word itself.
+
 ### Crop: Crop to Shape, Aspect Ratio, Fill and Fit; pictures stretch to their box as in Word
 
 - **Missing:** Crop was a plain button. Word's Crop is a split button with Crop to Shape, Aspect Ratio, Fill and Fit.
