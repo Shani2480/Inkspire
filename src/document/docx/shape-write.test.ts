@@ -3,6 +3,8 @@ import { shapeMarkup } from "@/editor/insert-blocks"
 import { openDocxBytes, saveDocxBytes } from "@/document/docx/io"
 import { findPart, openPackage } from "@/document/docx/opc"
 import { readWordShape } from "@/document/docx/shape-import"
+import { readDash } from "@/document/docx/shape-effects"
+import { cssGradient, gradientVector, parseWordGradient } from "@/editor/shape-style"
 import { WPS_URI, plainShapePreset, wordShapeGraphic } from "@/document/docx/shape-write"
 import { decodeXml } from "@/document/docx/xml"
 import { emptyChrome } from "@/document/header"
@@ -188,5 +190,77 @@ describe("text in a shape", () => {
 
   it("writes no text body for a shape without text", () => {
     expect(wordShapeGraphic({ variant: "ellipse" }, 1, 1)).not.toContain("txbx")
+  })
+})
+
+describe("Word's own gradients and dashes", () => {
+  const wsp = (spPr: string, style = "") =>
+    `<wps:wsp><wps:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom>${spPr}</wps:spPr>${style}</wps:wsp><a:graphicData uri="${WPS_URI}">`
+  const THEME =
+    `<a:theme><a:clrScheme name="t"><a:accent2><a:srgbClr val="E97132"/></a:accent2></a:clrScheme>` +
+    `<a:fmtScheme><a:fillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill>` +
+    `<a:gradFill rotWithShape="1"><a:gsLst><a:gs pos="0"><a:schemeClr val="phClr"><a:lumMod val="50000"/></a:schemeClr></a:gs>` +
+    `<a:gs pos="100000"><a:schemeClr val="phClr"/></a:gs></a:gsLst><a:lin ang="5400000" scaled="0"/></a:gradFill>` +
+    `<a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:fillStyleLst></a:fmtScheme></a:theme>`
+
+  it("keeps a gradient with more stops and its own angle whole, and draws it", () => {
+    const read = readWordShape(
+      wsp(
+        `<a:gradFill><a:gsLst><a:gs pos="100000"><a:srgbClr val="0000FF"/></a:gs><a:gs pos="0"><a:srgbClr val="FF0000"/></a:gs>` +
+          `<a:gs pos="50000"><a:srgbClr val="00FF00"/></a:gs></a:gsLst><a:lin ang="2700000" scaled="1"/></a:gradFill>`,
+      ),
+      null,
+    )!
+    expect(read.gradient).toBe("word:45:0#ff0000;50#00ff00;100#0000ff")
+    expect(read.fill).toBe("#ff0000")
+    expect(gradientVector(read.gradient)).toEqual([0, 0, 1, 1])
+    expect(gradientVector("word:90:0#000000;100#ffffff")).toEqual([0.5, 0, 0.5, 1])
+    expect(cssGradient("", read.gradient)).toBe("linear-gradient(135deg, #ff0000 0%, #00ff00 50%, #0000ff 100%)")
+    expect(cssGradient("", "word:radial:0#ffffff;100#000000")).toBe("radial-gradient(circle, #ffffff 0%, #000000 100%)")
+  })
+
+  it("writes Word's gradient back with every stop and its angle", () => {
+    const gradient = "word:30.5:0#ff0000;35#00ff00;100#0000ff"
+    const xml = wordShapeGraphic({ variant: "rect", fill: "#ff0000", fillGradient: gradient }, 1, 1)!
+    expect(xml).toContain('<a:gs pos="35000"><a:srgbClr val="00FF00"/></a:gs>')
+    expect(xml).toContain('<a:lin ang="1830000" scaled="0"/>')
+    const read = readWordShape(
+      `<wps:wsp>${xml.slice(xml.indexOf("<wps:cNvSpPr/>"))}</wps:wsp><a:graphicData uri="${WPS_URI}">`,
+      null,
+    )!
+    expect(read.gradient).toBe(gradient)
+  })
+
+  it("survives saving to a file and opening it again", async () => {
+    const gradient = "word:270:0#0e4057;48#1c6586;100#73a0b4"
+    const { bytes } = await save([
+      shapeImage({ variant: "rect", fill: "#0e4057", fillGradient: gradient, strokeDash: "dash" }),
+    ])
+    const reopened = await openDocxBytes(bytes, "s.docx")
+    const object = /data-inkspire-object="([^"]*)"/.exec(reopened.view.html)?.[1] ?? ""
+    const figure = JSON.parse(atob(object)) as { attrs: Record<string, unknown> }
+    expect(figure.attrs).toMatchObject({ fillGradient: gradient, strokeDash: "dash" })
+  })
+
+  it("reads the theme gradient a shape style refers to, in the style's colour", () => {
+    const style = `<wps:style><a:lnRef idx="0"><a:schemeClr val="accent2"/></a:lnRef><a:fillRef idx="2"><a:schemeClr val="accent2"/></a:fillRef></wps:style>`
+    const read = readWordShape(wsp("", style), THEME)!
+    expect(parseWordGradient(read.gradient)).toEqual({
+      angle: 90,
+      stops: [
+        [0, "#753919"],
+        [100, "#e97132"],
+      ],
+    })
+    // Its own fill wins over the style's.
+    expect(readWordShape(wsp(`<a:solidFill><a:srgbClr val="123456"/></a:solidFill>`, style), THEME)!.gradient).toBe("")
+  })
+
+  it("reads Word's other dashes as the nearest one in the list", () => {
+    expect(readDash('<a:ln><a:prstDash val="sysDashDot"/></a:ln>')).toBe("dash-dot")
+    expect(readDash('<a:ln><a:prstDash val="sysDashDotDot"/></a:ln>')).toBe("long-dash-dot-dot")
+    expect(readDash('<a:ln><a:custDash><a:ds d="100000" sp="50000"/></a:custDash></a:ln>')).toBe("dash")
+    expect(readDash('<a:ln><a:prstDash val="lgDash"/></a:ln>')).toBe("long-dash")
+    expect(readDash('<a:ln><a:prstDash val="solid"/></a:ln>')).toBe("")
   })
 })

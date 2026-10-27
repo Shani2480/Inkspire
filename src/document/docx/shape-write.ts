@@ -2,7 +2,7 @@ import { VARIANT_OF_PRESET } from "@/document/docx/shape-import"
 import { escapeXml, escapeXmlText } from "@/document/docx/xml"
 import { shapeMarkup } from "@/editor/insert-blocks"
 import { PRESET_DASH, effectListXml, plainEffects } from "@/document/docx/shape-effects"
-import { gradientStops, gradientVector } from "@/editor/shape-style"
+import { gradientStopList, gradientVector, parseWordGradient } from "@/editor/shape-style"
 
 /**
  * A shape made or formatted in the app, written as Word's own drawing (a `wps:wsp` with a preset geometry, a solid
@@ -51,13 +51,21 @@ export function plainShapePreset(attrs: Attrs) {
 }
 
 function gradientFill(fill: string, gradient: string) {
-  const [from, to] = gradientStops(fill === "none" ? "" : fill, gradient)
-  const stop = (pos: number, hex: string) => `<a:gs pos="${pos}">${solid(hex).replace(/<\/?a:solidFill>/g, "")}</a:gs>`
+  const stops = gradientStopList(fill === "none" ? "" : fill, gradient)
+    .map(
+      ([offset, hex]) =>
+        `<a:gs pos="${Math.round(offset * 100000)}">${solid(hex).replace(/<\/?a:solidFill>/g, "")}</a:gs>`,
+    )
+    .join("")
   const vector = gradientVector(gradient)
+  // Word's own angle is kept as it was; the app's directions are worked out from their vector.
+  const degrees =
+    parseWordGradient(gradient)?.angle ??
+    (vector ? Math.round(((Math.atan2(vector[3] - vector[1], vector[2] - vector[0]) * 180) / Math.PI + 360) % 360) : 0)
   const direction = vector
-    ? `<a:lin ang="${Math.round(((Math.atan2(vector[3] - vector[1], vector[2] - vector[0]) * 180) / Math.PI + 360) % 360) * 60000}" scaled="0"/>`
+    ? `<a:lin ang="${Math.round(degrees * 60000)}" scaled="0"/>`
     : `<a:path path="circle"><a:fillToRect l="50000" t="50000" r="50000" b="50000"/></a:path>`
-  return `<a:gradFill rotWithShape="1"><a:gsLst>${stop(0, from)}${stop(100000, to)}</a:gsLst>${direction}</a:gradFill>`
+  return `<a:gradFill rotWithShape="1"><a:gsLst>${stops}</a:gsLst>${direction}</a:gradFill>`
 }
 
 const solid = (hex: string) => `<a:solidFill><a:srgbClr val="${hex.slice(1).toUpperCase()}"/></a:solidFill>`

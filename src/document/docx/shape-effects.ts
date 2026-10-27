@@ -1,4 +1,4 @@
-import { gradientStops, gradientVector } from "@/editor/shape-style"
+import { gradientStops, gradientVector, wordGradientValue } from "@/editor/shape-style"
 import { colorOf } from "@/document/docx/shape-import"
 
 /**
@@ -122,9 +122,16 @@ export const PRESET_DASH: Record<string, string> = {
   "long-dash-dot-dot": "lgDashDotDot",
 }
 
+/** Word dashes its Dash Type list does not offer, read as the nearest one it does. */
+const NEAREST_DASH: Record<string, string> = { sysDashDot: "dash-dot", sysDashDotDot: "long-dash-dot-dot" }
+
 export function readDash(line: string) {
   const preset = /<a:prstDash val="(\w+)"/.exec(line)?.[1]
-  return Object.entries(PRESET_DASH).find(([, value]) => value === preset)?.[0] ?? ""
+  if (!preset) {
+    // A custom dash (a:custDash) shows as a plain dash.
+    return /<a:custDash\b/.test(line) ? "dash" : ""
+  }
+  return Object.entries(PRESET_DASH).find(([, value]) => value === preset)?.[0] ?? NEAREST_DASH[preset] ?? ""
 }
 
 const DIRECTIONS = ["down", "up", "right", "left", "diagonal", "diagonal-up", "diagonal-back"]
@@ -135,14 +142,37 @@ const hexOf = (xml: string) => {
 }
 
 /**
- * A gradient fill the app itself would have written (a light or dark two-stop gradient in one of its directions) as
- * the app's `fill` and `fillGradient`; null for any other gradient, which the app cannot show.
+ * A gradient fill as the app's `fill` and `fillGradient`: one of the app's own presets when it is one the app would
+ * have written (a light or dark two-stop gradient in one of its directions), otherwise Word's stops and angle kept
+ * whole (`wordGradientValue`), with its first colour as the fill. Null only when a stop's colour cannot be read.
  */
-export function readGradient(properties: string): { fill: string; gradient: string } | null {
+export function readGradient(
+  properties: string,
+  scheme: Map<string, string> = new Map(),
+): { fill: string; gradient: string } | null {
   const body = /<a:gradFill\b[\s\S]*?<\/a:gradFill>/.exec(properties)?.[0]
   if (!body) {
     return null
   }
+  return appGradient(body) ?? wordGradient(body, scheme)
+}
+
+function wordGradient(body: string, scheme: Map<string, string>) {
+  const stops = [...body.matchAll(/<a:gs pos="(\d+)">([\s\S]*?)<\/a:gs>/g)].map((match): [number, string] => [
+    Number(match[1]) / 1000,
+    colorOf(match[2] ?? "", scheme),
+  ])
+  if (stops.length < 2 || stops.some(([, color]) => !color)) {
+    return null
+  }
+  stops.sort((a, b) => a[0] - b[0])
+  const angle = /<a:lin ang="(\d+)"/.exec(body)?.[1]
+  // Word's path gradients (circle, rectangle, shape) all show as a radial one.
+  const gradient = wordGradientValue({ angle: angle === undefined ? null : Number(angle) / 60000, stops })
+  return { fill: stops[0]![1], gradient }
+}
+
+function appGradient(body: string): { fill: string; gradient: string } | null {
   const stops = [...body.matchAll(/<a:gs pos="(\d+)">([\s\S]*?)<\/a:gs>/g)].map((match) => hexOf(match[2] ?? ""))
   if (stops.length !== 2 || stops.some((stop) => !stop)) {
     return null
