@@ -185,6 +185,12 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       (Shape Styles' lower rows, or Format Shape → Gradient) opens with the same colours and direction; change its
       outline in the app, save, and Word still shows the same gradient.
 
+- [ ] **Tables across pages (2026-10-27)** — a long table breaks between rows at the page end, no row cut by the
+      page edge; with Repeat as header row its first row shows again on the next page; typing in a row near the end
+      of a page moves rows over. A long floating table breaks the same way, at its place across. Two floating
+      tables, the second with Allow overlap off, do not cover each other. Checked in Chrome; check the desktop app
+      and against Word with a .docx.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

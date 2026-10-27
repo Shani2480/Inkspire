@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest"
-import { defaultFloat, floatPlace, floatSide, parseFloatValue, type FloatFrame } from "@/editor/table-float"
+import {
+  clearOfFloats,
+  defaultFloat,
+  floatPlace,
+  floatSide,
+  parseFloatValue,
+  type FloatFrame,
+} from "@/editor/table-float"
 import { PX_PER_CM } from "@/editor/table-props"
 
 // A Letter page with 1" margins: 816 × 1056 px, a 624 px text width.
@@ -48,5 +55,19 @@ describe("tables text wraps around (22.10)", () => {
     expect(floatSide(0, 200, gaps, 624)).toEqual({ float: "left", width: 212 })
     expect(floatSide(424, 200, gaps, 624)).toEqual({ float: "right", width: 212 })
     expect(floatSide(10, 600, gaps, 624)).toEqual({ float: "left", width: 624 })
+  })
+})
+
+describe("floating tables that may not overlap (w:tblOverlap never)", () => {
+  const first = { x: 0, y: 100, width: 300, height: 200 }
+
+  it("moves down past a table it would cover", () => {
+    expect(clearOfFloats([first], { x: 100, y: 150, width: 200, height: 50 })).toBe(300)
+  })
+
+  it("keeps its place beside one it does not reach, and past several in turn", () => {
+    expect(clearOfFloats([first], { x: 320, y: 150, width: 200, height: 50 })).toBe(150)
+    const second = { x: 200, y: 300, width: 300, height: 100 }
+    expect(clearOfFloats([first, second], { x: 250, y: 120, width: 100, height: 50 })).toBe(400)
   })
 })

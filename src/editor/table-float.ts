@@ -158,12 +158,17 @@ export function floatSide(x: number, width: number, gaps: Margins, textWidth: nu
 export function drawTableFloat(table: HTMLElement, float: unknown) {
   if (!float) {
     delete table.dataset.float
-    for (const name of ["position", "left", "top", "z-index"]) {
+    delete table.dataset.floatFlow
+    for (const name of ["position", "left", "top", "z-index", "margin-left"]) {
       table.style.removeProperty(name)
     }
     return
   }
   table.dataset.float = "1"
+  // Too tall for the rest of its page, the layout put it in the text to break between rows (placeFloatingTables).
+  if (table.dataset.floatFlow) {
+    return
+  }
   table.style.position = "absolute"
   table.style.zIndex = "3"
   table.style.left = `${Number(table.dataset.floatLeft) || 0}px`
@@ -173,4 +178,28 @@ export function drawTableFloat(table: HTMLElement, float: unknown) {
   if (!table.style.width) {
     table.style.width = table.style.minWidth
   }
+}
+
+export type FloatRect = { x: number; y: number; width: number; height: number }
+
+/**
+ * Where a floating table that may not overlap others (Allow overlap off, Word's w:tblOverlap "never") goes: down
+ * past each floating table already on the page that it would cover, until it covers none.
+ */
+export function clearOfFloats(placed: FloatRect[], own: FloatRect) {
+  let y = own.y
+  for (let step = 0; step <= placed.length; step += 1) {
+    const hit = placed.find(
+      (other) =>
+        own.x < other.x + other.width &&
+        other.x < own.x + own.width &&
+        y < other.y + other.height &&
+        other.y < y + own.height,
+    )
+    if (!hit) {
+      break
+    }
+    y = hit.y + hit.height
+  }
+  return y
 }
