@@ -260,7 +260,10 @@ function paginationPlugin(storage: PaginationStorage) {
                   : `${Math.max(0, Math.round(laid.contentHeight - laid.lastUsed))}px`
               }
               const lines = pageSetup.lineNumbers
-                ? collectLineNumbers(view, pageSetup.lineNumberRestart === "page", metrics.contentHeight)
+                ? collectLineNumbers(view, pageSetup.lineNumberRestart === "page", metrics.contentHeight, {
+                    start: pageSetup.lineNumberStart,
+                    countBy: pageSetup.lineNumberCountBy,
+                  })
                 : []
               if (laid.sideKey !== sideKey) {
                 // The floats text wraps beside changed, so lines after them changed width: measure afresh.
@@ -379,6 +382,8 @@ function paginationPlugin(storage: PaginationStorage) {
         }
         forceFull = true
         measureCache.clear()
+        // A change that leaves the page's size alone (line numbers, columns) must still be laid out again.
+        placedDoc = null
         schedule()
       })
       const unsubscribeView = useViewStore.subscribe((state, previous) => {
@@ -585,9 +590,18 @@ function createLineNumber(n: number, top: number) {
   return mark
 }
 
-function collectLineNumbers(view: EditorView, restartEachPage = false, pageContentHeight = 0): LineMark[] {
+/**
+ * The number beside each line: counting on from `start` (from it again on each page when numbering restarts there),
+ * shown only on every `countBy`th line, as Word shows them.
+ */
+function collectLineNumbers(
+  view: EditorView,
+  restartEachPage = false,
+  pageContentHeight = 0,
+  { start = 1, countBy = 1 } = {},
+): LineMark[] {
   const lines: LineMark[] = []
-  let n = 0
+  let n = start - 1
   let currentPage = -1
   const editorTop = view.dom.getBoundingClientRect().top
   const zoom = zoomOf(view.dom)
@@ -614,10 +628,13 @@ function collectLineNumbers(view: EditorView, restartEachPage = false, pageConte
         const pageIndex = Math.max(0, Math.floor(y / pageContentHeight))
         if (pageIndex !== currentPage) {
           currentPage = pageIndex
-          n = 0
+          n = start - 1
         }
       }
       n += 1
+      if (n % Math.max(1, countBy) !== 0) {
+        continue
+      }
       lines.push({
         n,
         pos: pos + 1,

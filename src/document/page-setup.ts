@@ -52,6 +52,11 @@ export type PageSetup = {
   lineNumbers: boolean
   /** When line numbers are on, restart numbering at the top of each page. */
   lineNumberRestart: "continuous" | "page"
+  /** Line Numbers dialog: the first line's number, every how many lines a number shows, and how far from the text
+   * (mm; 0 is Auto). */
+  lineNumberStart: number
+  lineNumberCountBy: number
+  lineNumberDistance: number
   watermark: string
   border: PageBorder
   borderColor: string
@@ -156,6 +161,9 @@ export const DEFAULT_PAGE_SETUP: PageSetup = {
   columnLine: false,
   lineNumbers: false,
   lineNumberRestart: "continuous",
+  lineNumberStart: 1,
+  lineNumberCountBy: 1,
+  lineNumberDistance: 0,
   watermark: "",
   border: "none",
   borderColor: "#1c1c1c",
@@ -206,6 +214,9 @@ export function normalizePageSetup(setup: Partial<PageSetup> | null | undefined)
     footerFromEdge: clampNonNeg(setup?.footerFromEdge, DEFAULT_PAGE_SETUP.footerFromEdge),
     verticalAlign: verticalAlign(setup?.verticalAlign),
     lineNumberRestart: setup?.lineNumberRestart === "page" ? "page" : "continuous",
+    lineNumberStart: Math.max(1, Math.round(Number(setup?.lineNumberStart) || 1)),
+    lineNumberCountBy: Math.max(1, Math.min(100, Math.round(Number(setup?.lineNumberCountBy) || 1))),
+    lineNumberDistance: clampNonNeg(setup?.lineNumberDistance, 0),
     columnLine: Boolean(setup?.columnLine),
     borderDisplay: borderDisplay(setup?.borderDisplay),
     borderFrom: setup?.borderFrom === "text" ? "text" : "page",
@@ -244,6 +255,9 @@ export function samePageSetup(left: PageSetup, right: PageSetup) {
     left.columnLine === right.columnLine &&
     left.lineNumbers === right.lineNumbers &&
     left.lineNumberRestart === right.lineNumberRestart &&
+    left.lineNumberStart === right.lineNumberStart &&
+    left.lineNumberCountBy === right.lineNumberCountBy &&
+    left.lineNumberDistance === right.lineNumberDistance &&
     left.watermark === right.watermark &&
     left.border === right.border &&
     left.borderColor === right.borderColor &&

@@ -89,25 +89,28 @@ const LINE_CHOICES: { id: string; label: string; border: PageBorder; line: Borde
 ]
 
 let bordersListener: ((request: BordersRequest) => void) | null = null
-let setupListener: (() => void) | null = null
+type PageSetupTab = "margins" | "paper" | "layout"
+
+let setupListener: ((tab: PageSetupTab) => void) | null = null
 
 export function requestPageBorders(request: BordersRequest) {
   bordersListener?.(request)
 }
 
-export function requestPageSetup() {
-  setupListener?.()
+/** Opens Page Setup, on the tab asked for (Line Numbering Options… opens it on Layout, as Word does). */
+export function requestPageSetup(tab: PageSetupTab = "margins") {
+  setupListener?.(tab)
 }
 
 export function DesignDialogs() {
   const setup = useDocumentStore((state) => state.pageSetup)
   const setPageSetup = useDocumentStore((state) => state.setPageSetup)
   const [borders, setBorders] = useState<BordersRequest | null>(null)
-  const [pageSetupOpen, setPageSetupOpen] = useState(false)
+  const [pageSetupOpen, setPageSetupOpen] = useState<PageSetupTab | null>(null)
 
   useEffect(() => {
     bordersListener = setBorders
-    setupListener = () => setPageSetupOpen(true)
+    setupListener = (tab) => setPageSetupOpen(tab)
     return () => {
       bordersListener = null
       setupListener = null
@@ -119,10 +122,11 @@ export function DesignDialogs() {
       {pageSetupOpen ? (
         <PageSetupDialog
           setup={setup}
-          onClose={() => setPageSetupOpen(false)}
+          initialTab={pageSetupOpen}
+          onClose={() => setPageSetupOpen(null)}
           onApply={(next) => {
             setPageSetup(next)
-            setPageSetupOpen(false)
+            setPageSetupOpen(null)
           }}
         />
       ) : null}
@@ -348,17 +352,19 @@ function toggleSide(current: BorderPatch, side: PageSide): BorderPatch {
 
 function PageSetupDialog({
   setup,
+  initialTab = "margins",
   onClose,
   onApply,
 }: {
   setup: PageSetup
+  initialTab?: PageSetupTab
   onClose: () => void
   onApply: (next: PageSetup) => void
 }) {
   const differentFirstPage = useDocumentStore((state) => state.differentFirstPage)
   const setDifferentFirstPage = useDocumentStore((state) => state.setDifferentFirstPage)
   const [draft, setDraft] = useState(setup)
-  const [tab, setTab] = useState<"margins" | "paper" | "layout">("margins")
+  const [tab, setTab] = useState<PageSetupTab>(initialTab)
   const [applyTo, setApplyTo] = useState("whole")
   const [firstPage, setFirstPage] = useState(differentFirstPage)
   const [lineNumbersOpen, setLineNumbersOpen] = useState(false)
@@ -855,6 +861,11 @@ function LineNumbersDialog({
   const [mode, setMode] = useState<"none" | "continuous" | "page">(
     !setup.lineNumbers ? "none" : setup.lineNumberRestart === "page" ? "page" : "continuous",
   )
+  const [start, setStart] = useState(setup.lineNumberStart)
+  const [countBy, setCountBy] = useState(setup.lineNumberCountBy)
+  // From text in centimetres, as Word's dialog shows it; 0 is Auto.
+  const [distance, setDistance] = useState(setup.lineNumberDistance / 10)
+  const field = "h-7 w-16 rounded border border-black/15 px-2 disabled:opacity-50"
   return (
     <Overlay title="Line Numbers" onClose={onClose} level={92}>
       <fieldset className="grid gap-2 text-sm text-neutral-800">
@@ -869,12 +880,51 @@ function LineNumbersDialog({
           <input type="radio" checked={mode === "page"} onChange={() => setMode("page")} /> Restart Each Page
         </label>
       </fieldset>
+      <div className="mt-3 grid grid-cols-[auto_auto] items-center gap-x-3 gap-y-2 text-sm text-neutral-800">
+        <label htmlFor="ln-start">Start at:</label>
+        <input
+          id="ln-start"
+          type="number"
+          min={1}
+          max={32767}
+          value={start}
+          disabled={mode === "none"}
+          className={field}
+          onChange={(event) => setStart(Math.max(1, Math.round(Number(event.target.value) || 1)))}
+        />
+        <label htmlFor="ln-distance">From text (cm, 0 for Auto):</label>
+        <input
+          id="ln-distance"
+          type="number"
+          min={0}
+          max={5}
+          step={0.1}
+          value={distance}
+          disabled={mode === "none"}
+          className={field}
+          onChange={(event) => setDistance(Math.max(0, Number(event.target.value) || 0))}
+        />
+        <label htmlFor="ln-count">Count by:</label>
+        <input
+          id="ln-count"
+          type="number"
+          min={1}
+          max={100}
+          value={countBy}
+          disabled={mode === "none"}
+          className={field}
+          onChange={(event) => setCountBy(Math.max(1, Math.min(100, Math.round(Number(event.target.value) || 1))))}
+        />
+      </div>
       <DialogActions
         onClose={onClose}
         onOk={() =>
           onApply({
             lineNumbers: mode !== "none",
             lineNumberRestart: mode === "page" ? "page" : "continuous",
+            lineNumberStart: start,
+            lineNumberCountBy: countBy,
+            lineNumberDistance: distance * 10,
           })
         }
       />
