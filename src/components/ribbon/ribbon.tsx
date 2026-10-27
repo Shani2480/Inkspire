@@ -1,7 +1,8 @@
 import { HIDEABLE_TABS, useCustomize } from "@/document/customize"
 import { ChartDesignTab, ChartFormatTab } from "@/components/ribbon/chart-tabs"
 import { ShapeFormatTab } from "@/components/ribbon/shape-format-tab"
-import { FileMenu } from "@/components/quick-access"
+import { CommandMenuHost, FileMenu, openRibbonCommandMenu } from "@/components/quick-access"
+import { registerRibbonTabSetter } from "@/components/ribbon/ribbon-commands"
 import { AiTab } from "@/components/ribbon/ai-tab"
 import { shownTabPanel, useTabMotion } from "@/components/ribbon/tab-motion"
 import { HomeTab } from "@/components/ribbon/home-tab"
@@ -128,6 +129,14 @@ const CONTEXT_TAB: Record<Exclude<RibbonContext, "none">, { id: string; label: s
   equation: { id: "ctx-equation", label: "Equation" },
   draw: { id: "ctx-draw", label: "Draw" },
   headerFooter: { id: "ctx-header-footer", label: "Header & Footer" },
+}
+
+/** A tab's name, as its trigger shows it; the Quick Access Toolbar names a ribbon command's tab with it. */
+function tabLabel(id: string) {
+  const fixed = id === "home" ? "Home" : HIDEABLE_TABS.find((tab) => tab.id === id)?.label
+  const tool = Object.values(CONTEXT_TAB).find((tab) => tab.id === id)?.label
+  const extra: Record<string, string> = { "ctx-table-layout": "Table Layout", "ctx-chart-format": "Chart Format" }
+  return fixed ?? tool ?? extra[id] ?? id
 }
 
 function ColorModeToggle() {
@@ -343,7 +352,17 @@ export function Ribbon() {
   const cardRef = useRef<HTMLDivElement>(null)
   useLayoutAnimation(cardRef, ribbonLayout)
   const tabMotion = useTabMotion(cardRef)
+  const startTabMotion = tabMotion.start
   const hiddenTabs = useCustomize((state) => state.hiddenTabs)
+
+  useEffect(() => {
+    // The Quick Access Toolbar brings a ribbon command's tab to the front before opening its menu.
+    registerRibbonTabSetter((id) => {
+      startTabMotion()
+      setTab(id)
+    })
+    return () => registerRibbonTabSetter(null)
+  }, [startTabMotion])
 
   useEffect(() => {
     // A tab the user hid in Customize Ribbon cannot stay the open one.
@@ -439,67 +458,73 @@ export function Ribbon() {
         <div
           ref={cardRef}
           data-ribbon-layout={ribbonLayout}
+          onContextMenu={(event) => {
+            // Right-click on a command: Add to Quick Access Toolbar, as in Word.
+            if (!event.defaultPrevented && openRibbonCommandMenu(event.target, event.clientX, event.clientY)) {
+              event.preventDefault()
+            }
+          }}
           className="ribbon-card relative mx-3 mb-1.5 overflow-hidden rounded-[8px] border border-[var(--app-ribbon-border)] bg-[var(--app-ribbon-card)] shadow-[var(--app-ribbon-shadow)]"
         >
           {MAIN_TABS.filter(([id]) => visited.includes(id)).map(([id, Content]) => (
             <Activity key={id} mode={tab === id ? "visible" : "hidden"}>
-              <TabsContent value={id} keepMounted>
+              <TabsContent value={id} keepMounted data-ribbon-tab={id} data-ribbon-tab-label={tabLabel(id)}>
                 <Content />
               </TabsContent>
             </Activity>
           ))}
           {tab === "ctx-table-design" && (
-            <TabsContent value="ctx-table-design">
+            <TabsContent value="ctx-table-design" data-ribbon-tab="ctx-table-design" data-ribbon-tab-label={tabLabel("ctx-table-design")}>
               <TableDesignTab />
             </TabsContent>
           )}
           {tab === "ctx-table-layout" && (
-            <TabsContent value="ctx-table-layout">
+            <TabsContent value="ctx-table-layout" data-ribbon-tab="ctx-table-layout" data-ribbon-tab-label={tabLabel("ctx-table-layout")}>
               <TableLayoutTab />
             </TabsContent>
           )}
           {tab === "ctx-smartart" && (
-            <TabsContent value="ctx-smartart">
+            <TabsContent value="ctx-smartart" data-ribbon-tab="ctx-smartart" data-ribbon-tab-label={tabLabel("ctx-smartart")}>
               <SmartArtDesignTab />
             </TabsContent>
           )}
           {tab === "ctx-picture" && (
-            <TabsContent value="ctx-picture">
+            <TabsContent value="ctx-picture" data-ribbon-tab="ctx-picture" data-ribbon-tab-label={tabLabel("ctx-picture")}>
               <PictureFormatTab />
             </TabsContent>
           )}
           {tab === "ctx-shape" && (
-            <TabsContent value="ctx-shape">
+            <TabsContent value="ctx-shape" data-ribbon-tab="ctx-shape" data-ribbon-tab-label={tabLabel("ctx-shape")}>
               <ShapeFormatTab />
             </TabsContent>
           )}
           {tab === "ctx-chart" && (
-            <TabsContent value="ctx-chart">
+            <TabsContent value="ctx-chart" data-ribbon-tab="ctx-chart" data-ribbon-tab-label={tabLabel("ctx-chart")}>
               <ChartDesignTab />
             </TabsContent>
           )}
           {tab === "ctx-chart-format" && (
-            <TabsContent value="ctx-chart-format">
+            <TabsContent value="ctx-chart-format" data-ribbon-tab="ctx-chart-format" data-ribbon-tab-label={tabLabel("ctx-chart-format")}>
               <ChartFormatTab />
             </TabsContent>
           )}
           {tab === "ctx-model" && (
-            <TabsContent value="ctx-model">
+            <TabsContent value="ctx-model" data-ribbon-tab="ctx-model" data-ribbon-tab-label={tabLabel("ctx-model")}>
               <ModelTab />
             </TabsContent>
           )}
           {tab === "ctx-equation" && (
-            <TabsContent value="ctx-equation">
+            <TabsContent value="ctx-equation" data-ribbon-tab="ctx-equation" data-ribbon-tab-label={tabLabel("ctx-equation")}>
               <EquationTab />
             </TabsContent>
           )}
           {tab === "ctx-header-footer" && (
-            <TabsContent value="ctx-header-footer">
+            <TabsContent value="ctx-header-footer" data-ribbon-tab="ctx-header-footer" data-ribbon-tab-label={tabLabel("ctx-header-footer")}>
               <HeaderFooterTab />
             </TabsContent>
           )}
           {tab === "ctx-draw" && (
-            <TabsContent value="ctx-draw">
+            <TabsContent value="ctx-draw" data-ribbon-tab="ctx-draw" data-ribbon-tab-label={tabLabel("ctx-draw")}>
               <DrawTab />
             </TabsContent>
           )}
@@ -507,6 +532,7 @@ export function Ribbon() {
           <RibbonLayoutToggle />
         </div>
         <DesignDialogs />
+        <CommandMenuHost />
       </Tabs>
     </div>
   )

@@ -7,6 +7,41 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Quick Access Toolbar: any ribbon command, below the ribbon, with labels
+
+- **Missing:** the Quick Access Toolbar could hold only eleven commands (New, Open, Save, Undo, Bold…). Word lets any
+  ribbon button go on it, can put it below the ribbon, and can show each command's name.
+- **Changed:**
+  - **Add to Quick Access Toolbar:** right-click any ribbon button. The menu offers Add (or Remove, when it is there),
+    Customize Quick Access Toolbar…, Show Quick Access Toolbar Below/Above the Ribbon and Customize the Ribbon….
+    Right-click a toolbar button to remove it.
+  - **Running a ribbon command from the toolbar:** the toolbar presses the ribbon's own button, so it does just what
+    the ribbon does (`src/components/ribbon/ribbon-commands.ts`).
+    - A plain button runs where it is, even while its tab is hidden.
+    - A button that opens a menu or gallery (Table, Columns) brings its tab to the front first, so the menu opens
+      under it.
+    - A command from a tool tab (Picture Format, Table Layout…) is greyed while that tab is not there.
+  - The icon is copied from the ribbon when the command is added, with the ribbon's colours, and kept with the
+    settings. A saved icon is cleaned to plain SVG before it is drawn.
+  - **Customize dialog:** "Choose commands from" lists Popular Commands, All Commands and each tab's commands (read
+    from the ribbon). New check boxes: Show Quick Access Toolbar below the Ribbon, Always show command labels. The
+    toolbar's ▾ menu gains Show Below/Above the Ribbon and Hide Quick Access Toolbar.
+  - Each ribbon panel carries `data-ribbon-tab` and its tab's name; the ribbon registers how to bring a tab forward.
+- **Tests:** `ribbon-commands.test.ts` (finding a command, one of each per tab, running it and not when off, cleaning
+  icons), `customize.test.ts` (ribbon commands, position and labels read back; looks of removed commands dropped).
+- **Checked in Chrome:** right-click Page Break → Add; it inserted a page break from the toolbar while Home was in
+  front. Table from the toolbar brought Insert forward with its grid open. Moved the toolbar below the ribbon and
+  added Columns from the dialog's Layout Tab list with labels on. All of it was still there after a reload. All
+  1014 tests pass.
+- **Still open:**
+  - Import/Export of customizations. The desktop app writes only document file types, so it needs a Rust-side
+    change.
+  - New Tab, New Group, Rename and moving ribbon groups or commands.
+  - "For this document" (the toolbar is for all documents).
+  - A ribbon command whose button is renamed in a later version drops off the toolbar's working set (it stays
+    greyed until removed).
+  - Commands of the Simplified ribbon layout use its own button names.
+
 ### Edit Points and Convert to Freeform
 
 - **Missing:** Edit Points and Convert to Freeform (Shape Format → Edit Shape) were disabled, since shapes could

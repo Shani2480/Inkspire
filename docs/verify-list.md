@@ -236,6 +236,13 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Edit Points on a rotated and a flipped shape: the handles sit on the shape and drag the right way.
 - Desktop app: the handles show, drag, and Ctrl+click adds and deletes in WebKitGTK.
 
+## Quick Access Toolbar with ribbon commands (2026-10-27)
+
+- Desktop app: right-click a ribbon button → Add to Quick Access Toolbar, then use it from the title bar: a plain
+  command (Page Break), one with a menu (Table, Columns) and one from a tool tab (Crop with a picture selected).
+- Move the toolbar below the ribbon and turn on command labels; check light and dark mode and the Simplified ribbon.
+- Dark mode: icons added in light mode keep their accent colours; check they still read on the dark title bar.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

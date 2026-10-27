@@ -5,8 +5,10 @@ import {
   addCommand,
   defaults,
   moveCommand,
+  parseRibbonCommandId,
   readCustomization,
   removeCommand,
+  ribbonCommandId,
 } from "@/document/customize"
 
 const known = (id: string) => ["save", "undo", "bold"].includes(id)
@@ -33,7 +35,32 @@ describe("customization (22.5)", () => {
       JSON.stringify({ qatShown: false, qat: ["bold", "gone", SEPARATOR, "save"], hiddenTabs: ["review", "bogus"] }),
       known,
     )
-    expect(saved).toEqual({ qatShown: false, qat: ["bold", SEPARATOR, "save"], hiddenTabs: ["review"] })
+    expect(saved).toEqual({
+      ...defaults(),
+      qatShown: false,
+      qat: ["bold", SEPARATOR, "save"],
+      hiddenTabs: ["review"],
+    })
     expect(defaults().qat).toEqual(DEFAULT_QAT)
+  })
+
+  it("keeps a ribbon button on the toolbar with its look, and drops a look whose button was taken off", () => {
+    const page = ribbonCommandId("insert", "Page Break")
+    const table = ribbonCommandId("insert", "Table")
+    const saved = readCustomization(
+      JSON.stringify({
+        qat: ["save", page, "ribbon:nonsense"],
+        qatBelow: true,
+        qatLabels: true,
+        ribbon: { [page]: { icon: "<svg/>", tab: "Insert" }, [table]: { icon: "<svg/>", tab: "Insert" }, x: 1 },
+      }),
+      known,
+    )
+    expect(saved.qat).toEqual(["save", page])
+    expect(saved.ribbon).toEqual({ [page]: { icon: "<svg/>", tab: "Insert" } })
+    expect(saved.qatBelow && saved.qatLabels).toBe(true)
+    expect(parseRibbonCommandId(page)).toEqual({ tab: "insert", label: "Page Break" })
+    // A name may hold a colon.
+    expect(parseRibbonCommandId(ribbonCommandId("home", "Font: size"))).toEqual({ tab: "home", label: "Font: size" })
   })
 })
