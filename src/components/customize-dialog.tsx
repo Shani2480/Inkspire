@@ -3,7 +3,6 @@ import { QUICK_COMMANDS } from "@/components/quick-commands"
 import { DialogButtons, DialogFrame } from "@/components/word-dialog"
 import { ribbonCommandsOn } from "@/components/ribbon/ribbon-commands"
 import {
-  HIDEABLE_TABS,
   SEPARATOR,
   addCommand,
   defaults,
@@ -12,9 +11,25 @@ import {
   moveCommand,
   parseRibbonCommandId,
   removeCommand,
+  usedLooks,
   useCustomize,
   type RibbonCommandLook,
 } from "@/document/customize"
+import {
+  addToGroup,
+  canRemove,
+  groupsOf,
+  isCustomTab,
+  moveItem,
+  newGroup,
+  newTab,
+  removeItem,
+  renameItem,
+  tabName,
+  tabOrder,
+  type RibbonLayout,
+  type RibbonTarget,
+} from "@/document/ribbon-layout"
 import { errorMessage } from "@/document/commands"
 import { openSettingsFile, saveSettingsFile } from "@/lib/file-io"
 import { useMemo, useState } from "react"
@@ -46,13 +61,22 @@ type Choice = { id: string; label: string; look?: RibbonCommandLook }
  */
 function commandSources(): { id: string; label: string; choices: () => Choice[] }[] {
   const popular = () => QUICK_COMMANDS.map((command) => ({ id: command.id, label: command.label }))
-  const tabs = [...document.querySelectorAll<HTMLElement>("[data-ribbon-tab]")].map((panel) => ({
+  // The tabs the app draws; not the user's own, whose buttons are copies of these.
+  const tabs = [...document.querySelectorAll<HTMLElement>("[data-ribbon-tab]:not([data-custom-tab])")].map((panel) => ({
     id: panel.dataset.ribbonTab!,
     label: `${panel.dataset.ribbonTabLabel || panel.dataset.ribbonTab} Tab`,
     choices: (): Choice[] => ribbonCommandsOn(panel.dataset.ribbonTab!),
   }))
   return [
     { id: "popular", label: "Popular Commands", choices: popular },
+    {
+      id: "not-in-ribbon",
+      label: "Commands Not in the Ribbon",
+      choices: () => {
+        const onRibbon = new Set(tabs.flatMap((tab) => tab.choices().map((choice) => choice.label)))
+        return popular().filter((choice) => !onRibbon.has(choice.label))
+      },
+    },
     {
       id: "all",
       label: "All Commands",
@@ -79,6 +103,11 @@ function CustomizeDialog({ initial, onClose }: { initial: Page; onClose: () => v
   const [below, setBelow] = useState(stored.qatBelow)
   const [labels, setLabels] = useState(stored.qatLabels)
   const [looks, setLooks] = useState(stored.ribbon)
+  const [layout, setLayout] = useState<RibbonLayout>({
+    customTabs: stored.customTabs,
+    customGroups: stored.customGroups,
+    tabNames: stored.tabNames,
+  })
   const [sources] = useState(commandSources)
   const [from, setFrom] = useState("popular")
   const choices = useMemo(
@@ -117,8 +146,9 @@ function CustomizeDialog({ initial, onClose }: { initial: Page; onClose: () => v
     hiddenTabs: hidden,
     qatBelow: below,
     qatLabels: labels,
-    // Only the looks of ribbon commands still on the toolbar are kept.
-    ribbon: Object.fromEntries(Object.entries(looks).filter(([id]) => qat.includes(id))),
+    // Only the looks of ribbon commands still on the toolbar or in a group are kept.
+    ribbon: usedLooks({ qat, ribbon: looks, ...layout }),
+    ...layout,
   })
 
   // Word's Import/Export: an imported file replaces what the dialog shows, and OK keeps it, as with any change here.
@@ -139,6 +169,7 @@ function CustomizeDialog({ initial, onClose }: { initial: Page; onClose: () => v
       setBelow(read.qatBelow)
       setLabels(read.qatLabels)
       setLooks(read.ribbon)
+      setLayout({ customTabs: read.customTabs, customGroups: read.customGroups, tabNames: read.tabNames })
       setRight(-1)
       setNotice("Customizations imported. Click OK to use them.")
     } catch (error) {
@@ -148,7 +179,9 @@ function CustomizeDialog({ initial, onClose }: { initial: Page; onClose: () => v
 
   const exportFile = async () => {
     try {
-      if (await saveSettingsFile("Inkspire Customizations.json", exportCustomization(current()), "Export Customizations")) {
+      if (
+        await saveSettingsFile("Inkspire Customizations.json", exportCustomization(current()), "Export Customizations")
+      ) {
         setNotice("Customizations exported.")
       }
     } catch (error) {
@@ -164,13 +197,14 @@ function CustomizeDialog({ initial, onClose }: { initial: Page; onClose: () => v
     setBelow(base.qatBelow)
     setLabels(base.qatLabels)
     setLooks(base.ribbon)
+    setLayout({ customTabs: base.customTabs, customGroups: base.customGroups, tabNames: base.tabNames })
     setRight(-1)
   }
 
   return (
     <DialogFrame
       title="Customize the Ribbon and Quick Access Toolbar"
-      width={560}
+      width={page === "ribbon" ? 720 : 560}
       onClose={onClose}
       onSubmit={() => {
         stored.set(current())
@@ -284,25 +318,15 @@ function CustomizeDialog({ initial, onClose }: { initial: Page; onClose: () => v
           </label>
         </div>
       ) : (
-        <div className="cz-panel">
-          <span>Main tabs to show on the ribbon (Home always shows):</span>
-          <ul className="cz-tabs">
-            {HIDEABLE_TABS.map((tab) => (
-              <li key={tab.id}>
-                <label className="cz-check">
-                  <input
-                    type="checkbox"
-                    checked={!hidden.includes(tab.id)}
-                    onChange={(event) =>
-                      setHidden(event.target.checked ? hidden.filter((id) => id !== tab.id) : [...hidden, tab.id])
-                    }
-                  />
-                  {tab.label}
-                </label>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <RibbonPage
+          sources={sources}
+          layout={layout}
+          setLayout={setLayout}
+          hidden={hidden}
+          setHidden={setHidden}
+          labelOf={labelOf}
+          onLook={(id, look) => setLooks((current) => ({ ...current, [id]: look }))}
+        />
       )}
       {notice ? (
         <p className="cz-notice" role="status">
@@ -334,5 +358,321 @@ function CustomizeDialog({ initial, onClose }: { initial: Page; onClose: () => v
         </button>
       </DialogButtons>
     </DialogFrame>
+  )
+}
+
+/** The groups a main tab draws itself, by their captions, as the tree lists them; none before the tab is built. */
+function ownGroups(tab: string) {
+  const panel = document.querySelector(`[data-ribbon-tab="${CSS.escape(tab)}"]`)
+  const captions = panel?.querySelectorAll(
+    ":scope .ribbon-group-labeled:not([data-group^='custom:']) > .ribbon-caption > span",
+  )
+  return [...new Set([...(captions ?? [])].map((caption) => caption.textContent?.trim() ?? "").filter(Boolean))]
+}
+
+const same = (a: RibbonTarget | null, b: RibbonTarget) =>
+  Boolean(a) && a!.tab === b.tab && a!.group === b.group && a!.command === b.command
+
+/**
+ * Customize Ribbon: the commands to choose from, and the ribbon's tabs as a tree. The main tabs can be hidden and
+ * renamed and given groups of their own; New Tab and New Group make the user's own, which hold the commands added
+ * to them and can be moved, renamed and removed.
+ */
+function RibbonPage({
+  sources,
+  layout,
+  setLayout,
+  hidden,
+  setHidden,
+  labelOf,
+  onLook,
+}: {
+  sources: { id: string; label: string; choices: () => Choice[] }[]
+  layout: RibbonLayout
+  setLayout: (layout: RibbonLayout) => void
+  hidden: string[]
+  setHidden: (hidden: string[]) => void
+  labelOf: (id: string) => string
+  onLook: (id: string, look: RibbonCommandLook) => void
+}) {
+  const [from, setFrom] = useState("popular")
+  const choices = useMemo(() => sources.find((source) => source.id === from)?.choices() ?? [], [sources, from])
+  const [left, setLeft] = useState("")
+  const [target, setTarget] = useState<RibbonTarget | null>({ tab: "home" })
+  const [open, setOpen] = useState<string[]>([])
+  const [renaming, setRenaming] = useState<string | null>(null)
+  const own = useMemo(() => Object.fromEntries(tabOrder(layout).map((tab) => [tab, ownGroups(tab)])), [layout])
+
+  const select = (next: RibbonTarget) => {
+    setTarget(next)
+    setRenaming(null)
+  }
+  const apply = (result: { layout: RibbonLayout; target: RibbonTarget } | null) => {
+    if (result) {
+      setLayout(result.layout)
+      setOpen((current) => [...new Set([...current, result.target.tab, result.target.group ?? ""].filter(Boolean))])
+      select(result.target)
+    }
+  }
+  const add = () => {
+    const choice = choices.find((item) => item.id === left)
+    if (!choice || !target?.group) {
+      return
+    }
+    if (choice.look) {
+      onLook(choice.id, choice.look)
+    }
+    apply(addToGroup(layout, target, choice.id))
+  }
+  const toggle = (id: string) =>
+    setOpen((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]))
+  const nameNow = target
+    ? target.group
+      ? (groupsOf(layout, target.tab).find((group) => group.id === target.group)?.label ?? "")
+      : tabName(layout, target.tab)
+    : ""
+  const canAdd = Boolean(left && target?.group)
+  const rename = () => {
+    if (target && renaming !== null) {
+      setLayout(renameItem(layout, target, renaming))
+    }
+    setRenaming(null)
+  }
+  const renamable = Boolean(target && target.command === undefined)
+
+  return (
+    <div className="cz-panel">
+      <div className="cz-lists">
+        <div className="cz-column">
+          <label className="cz-from">
+            Choose commands from:
+            <select
+              aria-label="Choose commands from"
+              value={from}
+              onChange={(event) => {
+                setFrom(event.target.value)
+                setLeft("")
+              }}
+            >
+              {sources.map((source) => (
+                <option key={source.id} value={source.id}>
+                  {source.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <select size={14} aria-label="Commands" value={left} onChange={(event) => setLeft(event.target.value)}>
+            {choices.map((choice) => (
+              <option key={choice.id} value={choice.id}>
+                {choice.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="cz-buttons">
+          <button
+            type="button"
+            className="dialog-btn"
+            disabled={!canAdd}
+            onClick={add}
+            title="Add to the selected group (one you made)"
+          >
+            Add &gt;&gt;
+          </button>
+          <button
+            type="button"
+            className="dialog-btn"
+            disabled={!canRemove(layout, target)}
+            onClick={() => {
+              setLayout(removeItem(layout, target!))
+              select({ tab: isCustomTab(layout, target!.tab) && !target!.group ? "home" : target!.tab })
+            }}
+          >
+            &lt;&lt; Remove
+          </button>
+        </div>
+        <div className="cz-column">
+          <span className="cz-from">Customize the Ribbon: Main Tabs</span>
+          <ul className="cz-tree" role="tree" aria-label="Ribbon tabs">
+            {tabOrder(layout).map((tab) => {
+              const custom = isCustomTab(layout, tab)
+              const shown = custom ? !layout.customTabs.find((item) => item.id === tab)?.hidden : !hidden.includes(tab)
+              const expanded = open.includes(tab)
+              return (
+                <li key={tab} role="treeitem" aria-expanded={expanded} aria-selected={same(target, { tab })}>
+                  <div
+                    className={`cz-row${same(target, { tab }) ? " is-selected" : ""}`}
+                    onClick={() => select({ tab })}
+                  >
+                    <button
+                      type="button"
+                      className="cz-twisty"
+                      aria-label={expanded ? "Collapse" : "Expand"}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        toggle(tab)
+                      }}
+                    >
+                      {expanded ? "▾" : "▸"}
+                    </button>
+                    <input
+                      type="checkbox"
+                      aria-label={`Show ${tabName(layout, tab)}`}
+                      checked={shown}
+                      disabled={tab === "home"}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => {
+                        const on = event.target.checked
+                        if (custom) {
+                          setLayout({
+                            ...layout,
+                            customTabs: layout.customTabs.map((item) =>
+                              item.id === tab ? { ...item, hidden: on ? undefined : true } : item,
+                            ),
+                          })
+                        } else {
+                          setHidden(on ? hidden.filter((id) => id !== tab) : [...hidden, tab])
+                        }
+                      }}
+                    />
+                    {tabName(layout, tab)}
+                    {custom ? " (Custom)" : ""}
+                  </div>
+                  {expanded ? (
+                    <ul role="group">
+                      {(own[tab] ?? []).map((group) => (
+                        <li
+                          key={`own-${group}`}
+                          role="treeitem"
+                          className="cz-row cz-own"
+                          onClick={() => select({ tab })}
+                        >
+                          {group}
+                        </li>
+                      ))}
+                      {groupsOf(layout, tab).map((group) => {
+                        const here = { tab, group: group.id }
+                        const groupOpen = open.includes(group.id)
+                        return (
+                          <li
+                            key={group.id}
+                            role="treeitem"
+                            aria-expanded={groupOpen}
+                            aria-selected={same(target, here)}
+                          >
+                            <div
+                              className={`cz-row${same(target, here) ? " is-selected" : ""}`}
+                              onClick={() => select(here)}
+                            >
+                              <button
+                                type="button"
+                                className="cz-twisty"
+                                aria-label={groupOpen ? "Collapse" : "Expand"}
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  toggle(group.id)
+                                }}
+                              >
+                                {groupOpen ? "▾" : "▸"}
+                              </button>
+                              {group.label} (Custom)
+                            </div>
+                            {groupOpen ? (
+                              <ul role="group">
+                                {group.commands.map((command, index) => {
+                                  const at = { tab, group: group.id, command: index }
+                                  return (
+                                    <li
+                                      key={command}
+                                      role="treeitem"
+                                      aria-selected={same(target, at)}
+                                      className={`cz-row cz-command${same(target, at) ? " is-selected" : ""}`}
+                                      onClick={() => select(at)}
+                                    >
+                                      {labelOf(command)}
+                                    </li>
+                                  )
+                                })}
+                              </ul>
+                            ) : null}
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  ) : null}
+                </li>
+              )
+            })}
+          </ul>
+          <div className="cz-row-buttons">
+            <button type="button" className="dialog-btn" onClick={() => apply(newTab(layout, target?.tab ?? "home"))}>
+              New Tab
+            </button>
+            <button
+              type="button"
+              className="dialog-btn"
+              disabled={!target}
+              onClick={() => target && apply(newGroup(layout, target))}
+            >
+              New Group
+            </button>
+            <button type="button" className="dialog-btn" disabled={!renamable} onClick={() => setRenaming(nameNow)}>
+              Rename…
+            </button>
+          </div>
+          {renaming !== null && target ? (
+            // Word's Rename box, here in the dialog; Enter keeps the name, Escape gives up (the dialog's own form is not
+            // submitted).
+            <div className="cz-rename" role="group" aria-label="Rename" data-own-escape="">
+              <label className="cz-from">
+                Display name:
+                <input
+                  autoFocus
+                  aria-label="Display name"
+                  value={renaming}
+                  onChange={(event) => setRenaming(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault()
+                      rename()
+                    } else if (event.key === "Escape") {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      setRenaming(null)
+                    }
+                  }}
+                />
+              </label>
+              <button type="button" className="dialog-btn" onClick={rename}>
+                OK
+              </button>
+              <button type="button" className="dialog-btn" onClick={() => setRenaming(null)}>
+                Cancel
+              </button>
+            </div>
+          ) : null}
+        </div>
+        <div className="cz-buttons">
+          <button
+            type="button"
+            className="dialog-btn"
+            aria-label="Move Up"
+            disabled={!target || !moveItem(layout, target, -1)}
+            onClick={() => target && apply(moveItem(layout, target, -1))}
+          >
+            ▲
+          </button>
+          <button
+            type="button"
+            className="dialog-btn"
+            aria-label="Move Down"
+            disabled={!target || !moveItem(layout, target, 1)}
+            onClick={() => target && apply(moveItem(layout, target, 1))}
+          >
+            ▼
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }

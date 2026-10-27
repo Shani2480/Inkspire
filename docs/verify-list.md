@@ -345,6 +345,13 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Open a Word file with a diverging (3-color) map and a midpoint set as a percentage: the midpoint lands where
   Word puts it.
 
+## Customize Ribbon tabs and groups (2026-10-27)
+
+- Desktop app: New Tab after Insert, add a few commands (one from a tool tab such as Table Design), rename it, OK.
+  Restart: the tab is still there; a tool tab's command is greyed until its object is selected.
+- Single line ribbon: a group added to Home shows and its buttons work.
+- Export all customizations, Reset, Import: the tabs and groups come back.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

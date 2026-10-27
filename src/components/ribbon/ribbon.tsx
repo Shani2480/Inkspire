@@ -1,4 +1,6 @@
 import { HIDEABLE_TABS, useCustomize } from "@/document/customize"
+import { tabName, tabOrder } from "@/document/ribbon-layout"
+import { CustomGroups, MainTabGroups } from "@/components/ribbon/custom-groups"
 import { ChartDesignTab, ChartFormatTab } from "@/components/ribbon/chart-tabs"
 import { ShapeFormatTab } from "@/components/ribbon/shape-format-tab"
 import { CommandMenuHost } from "@/components/command-menu"
@@ -34,7 +36,7 @@ import { rememberSelection } from "@/editor/selection-memory"
 import { NodeSelection } from "@tiptap/pm/state"
 import { useEditorState } from "@tiptap/react"
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Moon, Sun } from "lucide-react"
-import { Activity, memo, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type RefObject } from "react"
+import { Activity, memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type RefObject } from "react"
 import { prefersReducedMotion } from "@/document/motion"
 
 type RibbonContext =
@@ -355,6 +357,17 @@ export function Ribbon() {
   const tabMotion = useTabMotion(cardRef)
   const startTabMotion = tabMotion.start
   const hiddenTabs = useCustomize((state) => state.hiddenTabs)
+  // The tabs and groups the user made, and the names given to the main tabs (Customize Ribbon).
+  const customTabs = useCustomize((state) => state.customTabs)
+  const customGroups = useCustomize((state) => state.customGroups)
+  const tabNames = useCustomize((state) => state.tabNames)
+  const ribbonTabs = useMemo(() => {
+    const layout = { customTabs, customGroups, tabNames }
+    return tabOrder(layout)
+      .filter((id) => id !== "home")
+      .filter((id) => !hiddenTabs.includes(id) && !customTabs.find((custom) => custom.id === id)?.hidden)
+      .map((id) => ({ id, label: tabName(layout, id) }))
+  }, [customTabs, customGroups, tabNames, hiddenTabs])
 
   useEffect(() => {
     // The Quick Access Toolbar brings a ribbon command's tab to the front before opening its menu.
@@ -366,9 +379,13 @@ export function Ribbon() {
   }, [startTabMotion])
 
   useEffect(() => {
-    // A tab the user hid in Customize Ribbon cannot stay the open one.
-    setTab((current) => (hiddenTabs.includes(current) ? "home" : current))
-  }, [hiddenTabs])
+    // A tab the user hid or removed in Customize Ribbon cannot stay the open one.
+    setTab((current) =>
+      current === "home" || current.startsWith("ctx-") || ribbonTabs.some((item) => item.id === current)
+        ? current
+        : "home",
+    )
+  }, [ribbonTabs])
 
   useEffect(() => {
     setTab((current) => {
@@ -414,9 +431,9 @@ export function Ribbon() {
           <FileMenu className="ribbon-file-tab mb-px inline-flex h-8 items-center rounded-none px-3 text-[13px] font-semibold text-[var(--app-theme-primary)] hover:bg-[var(--app-hover)] data-popup-open:bg-[var(--app-hover)]" />
           <TabsList variant="line" className="h-8 flex-1 items-end justify-start gap-0 bg-transparent p-0">
             <TabsTrigger value="home" className={ribbonTabClassName}>
-              Home
+              {tabNames.home ?? "Home"}
             </TabsTrigger>
-            {HIDEABLE_TABS.filter((item) => !hiddenTabs.includes(item.id)).map((item) => (
+            {ribbonTabs.map((item) => (
               <TabsTrigger key={item.id} value={item.id} className={ribbonTabClassName}>
                 {item.label}
               </TabsTrigger>
@@ -471,6 +488,22 @@ export function Ribbon() {
             <Activity key={id} mode={tab === id ? "visible" : "hidden"}>
               <TabsContent value={id} keepMounted data-ribbon-tab={id} data-ribbon-tab-label={tabLabel(id)}>
                 <Content />
+                <MainTabGroups tab={id} />
+              </TabsContent>
+            </Activity>
+          ))}
+          {customTabs.map((custom) => (
+            <Activity key={custom.id} mode={tab === custom.id ? "visible" : "hidden"}>
+              <TabsContent
+                value={custom.id}
+                keepMounted
+                data-ribbon-tab={custom.id}
+                data-ribbon-tab-label={custom.label}
+                data-custom-tab=""
+              >
+                <div role="toolbar" aria-label={custom.label} className="ribbon-home flex items-stretch overflow-x-hidden">
+                  <CustomGroups groups={custom.groups} />
+                </div>
               </TabsContent>
             </Activity>
           ))}

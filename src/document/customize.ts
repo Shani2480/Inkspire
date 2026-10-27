@@ -1,7 +1,11 @@
 import { create } from "zustand"
+import { emptyLayout, layoutCommands, readLayout, type RibbonLayout } from "@/document/ribbon-layout"
 
-/** The Quick Access Toolbar and the ribbon's tabs as the user arranged them (22.5), kept in the user's config. */
-export type Customization = {
+/**
+ * The Quick Access Toolbar and the ribbon as the user arranged them (22.5), kept in the user's config: the tabs
+ * shown, and the tabs and groups the user made (`RibbonLayout`).
+ */
+export type Customization = RibbonLayout & {
   /** Show the Quick Access Toolbar at all. */
   qatShown: boolean
   /** Command ids in order; "|" is a separator. */
@@ -13,8 +17,8 @@ export type Customization = {
   /** Always show command labels: each toolbar button shows its name beside its icon. */
   qatLabels: boolean
   /**
-   * Ribbon buttons put on the toolbar ("ribbon:<tab>:<label>" ids): their icon as it was when added (SVG markup) and
-   * their tab's name, so the toolbar can draw them while their tab is not built.
+   * Ribbon buttons put on the toolbar or in a group the user made ("ribbon:<tab>:<label>" ids): their icon as it was
+   * when added (SVG markup) and their tab's name, so they can be drawn while their tab is not built.
    */
   ribbon: Record<string, RibbonCommandLook>
 }
@@ -48,7 +52,21 @@ export const HIDEABLE_TABS = [
 ]
 
 export function defaults(): Customization {
-  return { qatShown: true, qat: [...DEFAULT_QAT], hiddenTabs: [], qatBelow: false, qatLabels: false, ribbon: {} }
+  return {
+    qatShown: true,
+    qat: [...DEFAULT_QAT],
+    hiddenTabs: [],
+    qatBelow: false,
+    qatLabels: false,
+    ribbon: {},
+    ...emptyLayout(),
+  }
+}
+
+/** The looks still needed: those of ribbon commands on the toolbar or in a group the user made. */
+export function usedLooks(value: Pick<Customization, "qat" | "ribbon"> & RibbonLayout) {
+  const used = new Set([...value.qat, ...layoutCommands(value)])
+  return Object.fromEntries(Object.entries(value.ribbon).filter(([id]) => used.has(id)))
 }
 
 /** Reads what was saved, ignoring anything that is not the right shape. */
@@ -76,14 +94,16 @@ export function readCustomization(raw: string | null, known: (id: string) => boo
     const tabs = Array.isArray(parsed.hiddenTabs)
       ? parsed.hiddenTabs.filter((id): id is string => HIDEABLE_TABS.some((tab) => tab.id === id))
       : []
+    const layout = readLayout(parsed, (id) => id !== SEPARATOR && (known(id) || id in ribbon))
     return {
       qatShown: parsed.qatShown !== false,
       qat,
       hiddenTabs: tabs,
       qatBelow: parsed.qatBelow === true,
       qatLabels: parsed.qatLabels === true,
-      // Only the ribbon commands still on the toolbar.
-      ribbon: Object.fromEntries(Object.entries(ribbon).filter(([id]) => qat.includes(id))),
+      // Only the ribbon commands still on the toolbar or in a group.
+      ribbon: usedLooks({ qat, ribbon, ...layout }),
+      ...layout,
     }
   } catch {
     return base
@@ -95,12 +115,13 @@ export const CUSTOMIZATION_FORMAT = "inkspire-customizations"
 
 /** Export all customizations: the toolbar and the tabs, as a file to import on another computer. */
 export function exportCustomization(value: Customization) {
-  const { qatShown, qat, hiddenTabs, qatBelow, qatLabels, ribbon } = value
-  return JSON.stringify(
-    { format: CUSTOMIZATION_FORMAT, version: 1, qatShown, qat, hiddenTabs, qatBelow, qatLabels, ribbon },
-    null,
-    2,
-  )
+  return JSON.stringify({ format: CUSTOMIZATION_FORMAT, version: 2, ...pick(value) }, null, 2)
+}
+
+/** The customization alone, without the store's functions. */
+function pick(value: Customization): Customization {
+  const { qatShown, qat, hiddenTabs, qatBelow, qatLabels, ribbon, customTabs, customGroups, tabNames } = value
+  return { qatShown, qat, hiddenTabs, qatBelow, qatLabels, ribbon, customTabs, customGroups, tabNames }
 }
 
 /** Import customization file: what it holds, checked as a saved one is; null when it is not such a file. */
@@ -167,8 +188,7 @@ export const useCustomize = create<Store>((set, get) => ({
   ...load(),
   set: (patch) => {
     set(patch)
-    const { qatShown, qat, hiddenTabs, qatBelow, qatLabels, ribbon } = get()
-    save({ qatShown, qat, hiddenTabs, qatBelow, qatLabels, ribbon })
+    save(pick(get()))
   },
   reset: () => {
     const next = defaults()

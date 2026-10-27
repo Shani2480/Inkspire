@@ -12668,6 +12668,93 @@ textarea.tp-input {
   gap: 6px;
 }
 
+/* Customize Ribbon's tree of tabs, groups and commands. */
+.cz-tree {
+  height: 250px;
+  margin: 0;
+  overflow: auto;
+  border: 1px solid var(--dlg-control-border);
+  background: var(--dlg-surface);
+  padding: 2px 0;
+  list-style: none;
+}
+
+.cz-tree ul {
+  margin: 0;
+  padding: 0 0 0 18px;
+  list-style: none;
+}
+
+.cz-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 20px;
+  padding: 0 4px;
+  cursor: default;
+  white-space: nowrap;
+}
+
+.cz-row:hover {
+  background: var(--dlg-item-hover);
+}
+
+.cz-row.is-selected {
+  background: var(--dlg-accent);
+  color: var(--dlg-accent-text);
+}
+
+/* A main tab's own groups: listed, but not the user's to change. */
+.cz-own {
+  padding-left: 22px;
+  color: var(--dlg-muted);
+}
+
+.cz-command {
+  padding-left: 22px;
+}
+
+.cz-twisty {
+  width: 14px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: 10px;
+}
+
+.cz-row-buttons,
+.cz-rename {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.cz-rename input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--dlg-control-border);
+  background: var(--dlg-surface);
+  color: inherit;
+  font-size: 12px;
+}
+
+/* The user's own groups on the ribbon: icons at the ribbon's large size, and room for an empty group's name. */
+.ribbon-custom-icon {
+  display: inline-flex;
+}
+
+.ribbon-custom-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.ribbon-custom-empty {
+  display: block;
+  width: 48px;
+}
+
 /* The Quick Access Toolbar under the ribbon (Toolbar Position), and ribbon icons on it. */
 .quick-access-strip {
   margin: -2px 12px 6px;
@@ -12687,8 +12774,16 @@ textarea.tp-input {
   gap: 6px;
 }
 
+/* In Customize Ribbon's columns the label goes over its list. */
+.cz-column > .cz-from {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+
 .cz-from select {
   flex: 1;
+  min-height: 0;
   border: 1px solid var(--dlg-control-border);
   background: var(--dlg-surface);
   color: inherit;

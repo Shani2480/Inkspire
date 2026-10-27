@@ -111,7 +111,7 @@ export function QuickAccessToolbar({ placement = "title" }: { placement?: "title
  * Which of the toolbar's ribbon commands can be used now. Looked at after each change to the document or selection
  * (a tool tab comes and goes with its object) once the ribbon has drawn it.
  */
-function useRibbonCommandsUsable(arrangement: string[]) {
+export function useRibbonCommandsUsable(arrangement: string[]) {
   const editor = useDocumentEditor()
   const ribbonIds = arrangement.filter((id) => parseRibbonCommandId(id))
   const key = ribbonIds.join("\n")

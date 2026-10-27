@@ -7,6 +7,59 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Customize Ribbon: New Tab, New Group, Rename, moving commands, Commands Not in the Ribbon
+
+- **What was wrong:** the Customize Ribbon page only had a check box per main tab. There was no New Tab, New
+  Group, Rename or moving, and no "Commands Not in the Ribbon" list.
+- **What changed:**
+  - `src/document/ribbon-layout.ts` (new): the user's tabs (`CustomTab`, placed after a main tab), groups on main
+    tabs (`customGroups`) and names for main tabs (`tabNames`), with pure operations:
+    - `newTab` (with a New Group, straight after the selected tab), `newGroup`;
+    - `renameItem` (a blank name gives a main tab its own back);
+    - `addToGroup` (after the selected command, once a group), `removeItem` (only what the user made);
+    - `moveItem`: commands within a group and over its edge into the next group, groups within the tab, the
+      user's tabs past the main tabs but never before Home;
+    - `tabOrder`, and `readLayout`, which drops bad shapes and commands that are gone.
+  - `customize.ts`:
+    - the customization holds the layout, saved with the rest;
+    - exported as format version 2 (version 1 files still import);
+    - a ribbon command's look is kept while a group or the toolbar holds it (`usedLooks`).
+  - The Customize Ribbon page (`customize-dialog.tsx`, 720 px wide):
+    - "Choose commands from" with "Commands Not in the Ribbon" (the toolbar's commands on no tab; also on the
+      Quick Access Toolbar page);
+    - Add and Remove;
+    - a tree of tabs with show check boxes, expanding to the tab's own groups (greyed, read from the ribbon) and
+      the user's groups and commands, marked "(Custom)" as in Word;
+    - New Tab, New Group, Rename… (an inline Display name box: Enter keeps, Esc gives up) and Move Up/Down.
+  - `word-dialog.tsx`: the dialog frame leaves Esc to an element marked `data-own-escape`.
+  - Ribbon:
+    - The tabs follow `tabOrder` with the names given.
+    - The user's tabs are drawn by `custom-groups.tsx`; groups on a main tab are portalled to the end of that
+      tab's toolbar.
+    - A ribbon command in a user's group presses the ribbon's own button, as the toolbar does.
+    - The quick commands run as they do on the toolbar.
+    - `ribbon-commands.ts` leaves the copies (`data-group="custom:…"`) out of `ribbonCommandAt` and `buttonFor`,
+      so a copy never presses itself.
+- **Tests:** 1102 in all.
+  - `ribbon-layout.test.ts` (new, 5): order, rename, add, the moves, remove, read and export.
+  - `customize-dialog.test.tsx`: New Tab, Add from Commands Not in the Ribbon, Rename with Esc and Enter, kept on
+    OK; the check box test now uses "Show Review".
+  - `customize.test.ts`: version 2.
+- **How checked (headless Chrome):**
+  - Commands Not in the Ribbon lists New, Open, Save, Save As, Print, Undo, Redo, Ask AI.
+  - A new tab after Insert with Bold (from Home) and Save, renamed "My Tools"; Bold there bolds the selection.
+  - A new group on Home with Print, at Home's end.
+  - Review renamed "Check"; the tab row reads Home | Insert | My Tools | Design | Layout | References | Check |
+    View | Help | AI Tools.
+  - Reopening shows the tree.
+  - Esc in Rename keeps the dialog open; a second Esc closes it.
+- **Open:**
+  - "For this document".
+  - Moving or hiding a main tab's own groups.
+  - "Reset only selected Ribbon tab".
+  - Custom groups in the single line ribbon are drawn as classic groups.
+  - Not checked in the desktop app.
+
 ### Filled Map: US states, diverging colours, values as text, Best Fit labels
 
 - **What was wrong:**

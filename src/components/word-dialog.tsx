@@ -293,10 +293,12 @@ export function DialogFrame({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      // A dialog opened over this one handles its own Esc, and so does a menu opened from this one.
+      // A dialog opened over this one handles its own Esc, and so does a menu opened from this one, and a box in
+      // this one that takes Esc itself (`data-own-escape`, such as Customize Ribbon's Rename).
       const open = document.querySelectorAll('[role="dialog"][aria-modal="true"]')
       const top = open[open.length - 1]
-      if (event.key === "Escape" && top === dialogRef.current && !document.querySelector(".command-menu")) {
+      const own = event.target instanceof Element && event.target.closest("[data-own-escape]")
+      if (event.key === "Escape" && top === dialogRef.current && !document.querySelector(".command-menu") && !own) {
         event.preventDefault()
         event.stopPropagation()
         closeRef.current()

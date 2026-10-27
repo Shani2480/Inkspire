@@ -71,7 +71,7 @@ describe("customization (22.5)", () => {
     const id = ribbonCommandId("home", "Bold")
     const value = { ...defaults(), qat: ["save", SEPARATOR, id], hiddenTabs: ["review"], qatBelow: true, ribbon: { [id]: look } }
     const text = exportCustomization(value)
-    expect(JSON.parse(text)).toMatchObject({ format: "inkspire-customizations", version: 1 })
+    expect(JSON.parse(text)).toMatchObject({ format: "inkspire-customizations", version: 2 })
     expect(importCustomization(text, known)).toEqual(value)
     // Any other JSON, or no JSON at all.
     expect(importCustomization(JSON.stringify(value), known)).toBeNull()
