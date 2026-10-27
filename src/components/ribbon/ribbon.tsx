@@ -3,7 +3,7 @@ import { ChartDesignTab, ChartFormatTab } from "@/components/ribbon/chart-tabs"
 import { ShapeFormatTab } from "@/components/ribbon/shape-format-tab"
 import { FileMenu } from "@/components/quick-access"
 import { AiTab } from "@/components/ribbon/ai-tab"
-import { useTabMotion } from "@/components/ribbon/tab-motion"
+import { shownTabPanel, useTabMotion } from "@/components/ribbon/tab-motion"
 import { HomeTab } from "@/components/ribbon/home-tab"
 import { InsertTab } from "@/components/ribbon/insert-tab"
 import { DesignTab } from "@/components/ribbon/design-tab"
@@ -179,7 +179,8 @@ function RibbonLayoutToggle() {
  * ribbon does.
  */
 /** The toolbar of the tab in front; the tabs behind it stay built, hidden. */
-const SHOWN_TOOLBAR = '[data-slot="tabs-content"]:not([hidden]) [role="toolbar"]'
+const shownToolbar = (card: HTMLElement | null) =>
+  shownTabPanel(card)?.querySelector<HTMLElement>('[role="toolbar"]') ?? null
 
 function RibbonScrollButtons({
   card,
@@ -191,10 +192,10 @@ function RibbonScrollButtons({
   layout: RibbonLayout
 }) {
   const [edges, setEdges] = useState({ left: false, right: false })
-  const toolbar = () => card.current?.querySelector<HTMLElement>(SHOWN_TOOLBAR) ?? null
+  const toolbar = () => shownToolbar(card.current)
 
   useLayoutEffect(() => {
-    const bar = card.current?.querySelector<HTMLElement>(SHOWN_TOOLBAR)
+    const bar = shownToolbar(card.current)
     if (!bar) {
       setEdges({ left: false, right: false })
       return

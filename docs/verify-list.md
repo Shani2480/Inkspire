@@ -173,6 +173,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       switches at once with no blink at the end of the slide. Since: no blank ribbon frame and no late jump on a
       switch, the underline moves with the tab. Menus, tooltips, dialogs and File slide or fade in visibly and never
       jump after settling (checked in WebKitGTK on a software display; confirm with the GPU).
+      Every tab slides in, not only Home; the scroll arrows follow the tab in front on a narrow window.
 - [ ] **Open Containing Folder (21.34)** — the file manager actually opens (`ShowItems`); macOS and Windows
       branches untested.
 - [ ] **First-run setup wizard (21.42)** — `system_defaults` returns the real author and locale live.

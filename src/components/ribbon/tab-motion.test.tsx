@@ -12,14 +12,18 @@ afterEach(() => {
 
 function setup() {
   const card = document.createElement("div")
+  // A tab just put behind: React's Activity has hidden it, but not yet marked its panel hidden.
+  const behind = document.createElement("div")
+  behind.dataset.slot = "tabs-content"
+  behind.style.setProperty("display", "none", "important")
   const hidden = document.createElement("div")
   hidden.dataset.slot = "tabs-content"
   hidden.hidden = true
   const panel = document.createElement("div")
   panel.dataset.slot = "tabs-content"
-  card.append(hidden, panel)
+  card.append(behind, hidden, panel)
   const { result } = renderHook(() => useTabMotion({ current: card }))
-  return { panel, hidden, start: () => act(() => result.current.start()) }
+  return { panel, hidden, behind, start: () => act(() => result.current.start()) }
 }
 
 describe("the ribbon tab animation (21.40)", () => {
@@ -30,13 +34,14 @@ describe("the ribbon tab animation (21.40)", () => {
   })
 
   it("brings the shown tab's commands in from unseen and a little to the right, frame by frame", () => {
-    const { panel, hidden, start } = setup()
+    const { panel, hidden, behind, start } = setup()
     start()
     // The tab is shown once the switch has rendered: the frame after, it starts out unseen.
     vi.advanceTimersToNextFrame()
     expect(panel.style.opacity).toBe("0")
     expect(panel.style.translate).toBe("12px 0px")
     expect(hidden.style.opacity).toBe("")
+    expect(behind.style.opacity).toBe("")
     vi.advanceTimersToNextFrame()
     const opacity = Number(panel.style.opacity)
     expect(opacity).toBeGreaterThan(0)

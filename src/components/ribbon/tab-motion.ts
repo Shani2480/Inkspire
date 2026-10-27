@@ -1,6 +1,16 @@
 import { useCallback, useEffect, useRef, type RefObject } from "react"
 import { playEntrance, prefersReducedMotion } from "@/document/motion"
 
+/**
+ * The panel of the tab in front. A tab put behind is hidden by React's Activity (an inline display: none) at once,
+ * but its own update, which marks the panel hidden, waits until the ribbon is idle: until then it looks shown, and
+ * as the first panel the ribbon has, Home was taken for the tab in front on every switch.
+ */
+export function shownTabPanel(card: HTMLElement | null) {
+  const panels = card?.querySelectorAll<HTMLElement>('[data-slot="tabs-content"]:not([hidden])') ?? []
+  return [...panels].find((panel) => panel.style.display !== "none") ?? null
+}
+
 /** How long a tab's commands take to settle, in ms. */
 export const TAB_MOTION_MS = 250
 
@@ -25,7 +35,7 @@ export function useTabMotion(card: RefObject<HTMLElement | null>) {
     stop.current?.()
     // The new tab is shown once this event's render has committed, before the next frame is drawn.
     frame.current = requestAnimationFrame(() => {
-      const panel = card.current?.querySelector<HTMLElement>('[data-slot="tabs-content"]:not([hidden])')
+      const panel = shownTabPanel(card.current)
       if (panel) {
         stop.current = playEntrance(panel, { opacity: 0, x: 12 }, TAB_MOTION_MS)
       }
