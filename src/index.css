@@ -12953,3 +12953,16 @@ textarea.tp-input {
   margin-top: 10px;
   text-align: left;
 }
+
+/* A page gap between a table's rows (pages.ts): an empty row the table's borders and shading stay out of. */
+.page-editor table tr.page-gap-row,
+.page-editor table tr.page-gap-row > td {
+  border: none !important;
+  padding: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+
+.page-editor table tr.page-gap {
+  display: table-row;
+}

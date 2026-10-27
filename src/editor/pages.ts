@@ -4,7 +4,14 @@ import { useChromeExtent } from "@/document/chrome-extent"
 import { pageMetrics } from "@/document/page-setup"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
-import { floatPlace, floatSide, parseFloatValue, type FloatFrame } from "@/editor/table-float"
+import {
+  clearOfFloats,
+  floatPlace,
+  floatSide,
+  parseFloatValue,
+  type FloatFrame,
+  type FloatRect,
+} from "@/editor/table-float"
 import { PX_PER_CM } from "@/editor/table-props"
 import type { PageMetrics } from "@/document/page-setup"
 import {
@@ -62,6 +69,8 @@ type PageBreak = {
   height: number
   manual: boolean
   labelTop: number
+  /** A break between a table's rows that draws the table's header row again at the top of the next page. */
+  header?: boolean
 }
 
 type PaginationSnapshot = {
@@ -458,6 +467,32 @@ function decorationsFor(
   for (const item of breaks) {
     const height = item.height
     const manual = item.manual
+    const at = doc.resolve(item.pos)
+    if (at.parent.type.name === "table" && at.nodeAfter) {
+      // Between a table's rows the gap is a row of its own, and the header row can follow it on the new page.
+      const tablePos = at.before()
+      let columns = 0
+      at.nodeAfter.forEach((cell) => {
+        columns += Math.max(1, Number(cell.attrs.colspan) || 1)
+      })
+      decorations.push(
+        Decoration.widget(item.pos, () => createRowGap(height, columns), {
+          side: -2,
+          ignoreSelection: true,
+          key: `row-gap-${item.pos}-${height}-${columns}`,
+        }),
+      )
+      if (item.header) {
+        decorations.push(
+          Decoration.widget(item.pos, (view) => repeatedHeader(view, tablePos), {
+            side: -1,
+            ignoreSelection: true,
+            key: `row-header-${item.pos}-${tablePos}`,
+          }),
+        )
+      }
+      continue
+    }
     decorations.push(
       Decoration.widget(item.pos, () => createGap(height, manual), {
         side: -1,
@@ -633,6 +668,32 @@ function blockLineRects(dom: HTMLElement) {
   return unique
 }
 
+/** The page gap between two rows of a table: an empty row as tall as the gap, across every column. */
+function createRowGap(height: number, columns: number) {
+  const row = document.createElement("tr")
+  row.className = "page-gap page-gap-row"
+  row.contentEditable = "false"
+  const cell = document.createElement("td")
+  cell.colSpan = Math.max(1, columns)
+  cell.style.height = `${height}px`
+  row.append(cell)
+  return row
+}
+
+/** A copy of the table's first row, drawn at the top of each page the table continues on (Repeat as header row). */
+function repeatedHeader(view: EditorView, tablePos: number) {
+  const dom = view.nodeDOM(tablePos)
+  const first =
+    dom instanceof HTMLElement
+      ? [...dom.querySelectorAll<HTMLTableRowElement>("tr")].find((row) => !row.classList.contains("page-gap"))
+      : undefined
+  const copy = (first?.cloneNode(true) as HTMLTableRowElement | undefined) ?? document.createElement("tr")
+  copy.classList.add("page-gap", "page-gap-header")
+  copy.contentEditable = "false"
+  copy.querySelectorAll("[contenteditable]").forEach((element) => element.setAttribute("contenteditable", "false"))
+  return copy
+}
+
 function createGap(height: number, manual: boolean) {
   const gap = document.createElement("span")
   gap.className = manual ? "page-gap page-gap-manual" : "page-gap"
@@ -661,7 +722,14 @@ type Layout = {
   cacheHits: number
 }
 
-type TablePlacement = { pos: number; page: number; x: number; y: number }
+type TablePlacement = {
+  pos: number
+  page: number
+  x: number
+  y: number
+  /** Too tall for the rest of its page: laid out in the text at its place across, to break between rows. */
+  flow?: boolean
+}
 
 type FlowBand = {
   pos: number
@@ -703,6 +771,10 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   const tables: TablePlacement[] = []
   // Tables placed on the page or margin take their room before the text above their paragraph is laid out; the
   // page is the one the last layout found for them (a change lays the pages out again).
+  // The floating tables on each page so far, which one that may not overlap them moves down past.
+  const floats = new Map<number, FloatRect[]>()
+  const onPage = (page: number) => floats.get(page) ?? floats.set(page, []).get(page)!
+  const fixedPlaces = new Map<number, { x: number; y: number }>()
   view.state.doc.forEach((node, pos) => {
     const float = node.type.name === "table" ? parseFloatValue(node.attrs.float) : null
     if (!float || float.vFrom === "paragraph") {
@@ -710,9 +782,10 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     }
     const table = floatingTableElement(view, pos)
     const page = Number(table?.dataset.floatPage) || 1
-    const band = table ? tableBand(table, float, page, 0, metrics) : null
+    const band = table ? tableBand(table, float, page, 0, metrics, onPage(page)) : null
     if (band) {
       pending.push(band.band)
+      fixedPlaces.set(pos, { x: band.x, y: band.y })
     }
   })
   pending.sort((a, b) => a.page - b.page || a.y - b.y)
@@ -803,6 +876,10 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     used += size
   }
 
+  /** Whether a block would run past the end of the page from where the text has got to. */
+  const overruns = (height: number, top: number) =>
+    !web && (used > 0 ? used + height - Math.min(trailing, top) : height) > contentHeight + 1
+
   const placeBlock = (pos: number, height: number, top: number, bottom: number) => {
     place(pos, height, Math.min(trailing, top))
     trailing = bottom
@@ -838,6 +915,32 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       }
       place(index === 0 ? pos : line.pos, line.height, index === 0 ? Math.min(trailing, top) : 0)
       trailing = 0
+    })
+    trailing = bottom
+  }
+
+  /**
+   * A table taller than the room left on the page goes on row by row, as Word breaks it: a row that does not fit
+   * starts the next page (after the header row again, if the table repeats it). Rows a merged cell spans stay
+   * together, and a row taller than a page is not split.
+   */
+  const placeRows = (
+    rows: { pos: number; height: number }[],
+    pos: number,
+    top: number,
+    bottom: number,
+    header: number,
+  ) => {
+    rows.forEach((row, index) => {
+      const pages = breaks.length
+      const height = row.height + (index === 0 ? top : 0) + (index === rows.length - 1 ? bottom : 0)
+      place(index === 0 ? pos : row.pos, height, index === 0 ? Math.min(trailing, top) : 0)
+      trailing = 0
+      const turned = breaks[breaks.length - 1]
+      if (index > 0 && header > 0 && breaks.length > pages && turned?.pos === row.pos) {
+        turned.header = true
+        used += header
+      }
     })
     trailing = bottom
   }
@@ -976,9 +1079,22 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
         return
       }
       const page = breaks.length + 1
-      const laid = tableBand(table, float, page, used, metrics)
+      const fixed = fixedPlaces.get(pos)
+      const laid = fixed ? { ...fixed, band: null } : tableBand(table, float, page, used, metrics, onPage(page))
+      // One that moves with its paragraph but would run past the end of the page goes into the text there and
+      // breaks between its rows like any table (Word keeps text beside its first part; here it goes above and below).
+      const rows =
+        float.vFrom === "paragraph" && laid.y + outerHeight(table) > contentHeight + 1
+          ? tableRows(node, pos, table, outerHeight(table))
+          : null
+      if (rows) {
+        tables.push({ pos, page, x: laid.x, y: laid.y, flow: true })
+        measureCount += 1
+        placeRows(rows.units, pos, 0, 0, node.attrs.headerRow === true ? rows.header : 0)
+        return
+      }
       tables.push({ pos, page, x: laid.x, y: laid.y })
-      if (float.vFrom === "paragraph") {
+      if (laid.band) {
         pending.push(laid.band)
       }
       return
@@ -1018,7 +1134,8 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       placeLines(hit.lines, pos, hit.top, hit.bottom, node.attrs.widowControl !== false)
       return
     }
-    if (hit?.kind === "block") {
+    // A table that no longer fits where it now starts is measured again, row by row.
+    if (hit?.kind === "block" && !(node.type.name === "table" && overruns(hit.height, hit.top))) {
       placeBlock(pos, hit.height, hit.top, hit.bottom)
       return
     }
@@ -1088,6 +1205,14 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     const top = edgeMargin(dom, "top")
     const bottom = edgeMargin(dom, "bottom")
     remember(pos, { kind: "block", node, height, top, bottom })
+    if (node.type.name === "table" && overruns(height, top)) {
+      const rows = tableRows(node, pos, dom, height - top - bottom)
+      if (rows) {
+        measureCount += 1
+        placeRows(rows.units, pos, top, bottom, node.attrs.headerRow === true ? rows.header : 0)
+        return
+      }
+    }
     placeBlock(pos, height, top, bottom)
   }
 
@@ -1124,11 +1249,11 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     measureCount,
     cacheHits,
     signature: [
-      breaks.map((item) => `${item.pos}:${item.height}:${item.manual ? 1 : 0}`).join(","),
+      breaks.map((item) => `${item.pos}:${item.height}:${item.manual ? 1 : 0}:${item.header ? 1 : 0}`).join(","),
       bands.map((item) => `${item.pos}:${item.height}`).join(","),
       sideKey,
       placements.map((item) => `${item.pos}:${item.page}:${item.y}`).join(","),
-      tables.map((item) => `${item.pos}:${item.page}:${item.x}:${item.y}`).join(","),
+      tables.map((item) => `${item.pos}:${item.page}:${item.x}:${item.y}:${item.flow ? 1 : 0}`).join(","),
       mirrors.map((item) => `${item.pos}:${item.page % 2}`).join(","),
       columnCount,
       useDocumentStore.getState().pageSetup.columnGap,
@@ -1258,6 +1383,7 @@ function tableBand(
   page: number,
   used: number,
   metrics: PageMetrics,
+  others: FloatRect[],
 ) {
   const frame: FloatFrame = {
     ...metrics,
@@ -1268,7 +1394,10 @@ function tableBand(
   }
   const width = table.offsetWidth
   const height = table.offsetHeight
-  const { x, y } = floatPlace(float, width, height, frame)
+  const place = floatPlace(float, width, height, frame)
+  const { x } = place
+  const y = float.overlap ? place.y : clearOfFloats(others, { x, y: place.y, width, height })
+  others.push({ x, y, width, height })
   const contentWidth = metrics.width - metrics.marginLeft - metrics.marginRight
   const top = y - float.gaps.top * PX_PER_CM
   const from = Math.max(0, Math.min(metrics.contentHeight - 8, top))
@@ -1290,12 +1419,75 @@ function placeFloatingTables(view: EditorView, tables: TablePlacement[], metrics
     if (!table) {
       continue
     }
+    if (placed.flow) {
+      table.dataset.floatFlow = "1"
+      table.style.position = ""
+      table.style.left = ""
+      table.style.top = ""
+      table.style.marginLeft = `${Math.max(0, placed.x)}px`
+      continue
+    }
+    if (table.dataset.floatFlow) {
+      delete table.dataset.floatFlow
+      table.style.position = "absolute"
+      table.style.marginLeft = ""
+    }
     table.dataset.floatPage = String(placed.page)
     table.dataset.floatLeft = String(Math.round(objectLeft(placed.page, placed.x, metrics)))
     table.dataset.floatTop = String(Math.round(objectTop(placed.page, placed.y, metrics)))
     table.style.left = `${table.dataset.floatLeft}px`
     table.style.top = `${table.dataset.floatTop}px`
   }
+}
+
+/**
+ * A table's rows as the pieces a page may end between, with their heights in pixels (a row a merged cell spans
+ * into stays with the row above), and the height of the first row, which a table repeating its header draws again.
+ * Null when there is only one piece.
+ */
+function tableRows(node: ProseNode, pos: number, dom: HTMLElement, inner: number) {
+  const table = dom.matches("table") ? dom : dom.querySelector("table")
+  if (!table) {
+    return null
+  }
+  const shown = [...table.querySelectorAll<HTMLTableRowElement>("tr")].filter(
+    (row) => !row.classList.contains("page-gap") && row.closest("table") === table,
+  )
+  if (shown.length !== node.childCount) {
+    return null
+  }
+  // Each row's top inside the table, leaving out the page gaps a previous layout put between the rows.
+  let gaps = 0
+  const tops: number[] = []
+  for (const row of table.querySelectorAll<HTMLTableRowElement>("tr")) {
+    if (row.closest("table") !== table) {
+      continue
+    }
+    if (row.classList.contains("page-gap")) {
+      gaps += row.offsetHeight
+      continue
+    }
+    tops.push(row.offsetTop - gaps)
+  }
+  const ends = [...tops.slice(1), Math.max(tops[tops.length - 1]!, inner)]
+  const units: { pos: number; height: number }[] = []
+  let spanned = 0
+  node.forEach((row, offset, index) => {
+    const height = Math.max(0, ends[index]! - tops[index]!)
+    if (index > 0 && index <= spanned) {
+      units[units.length - 1]!.height += height
+    } else {
+      units.push({ pos: pos + 1 + offset, height })
+    }
+    row.forEach((cell) => {
+      spanned = Math.max(spanned, index + Math.max(1, Number(cell.attrs.rowspan) || 1) - 1)
+    })
+  })
+  // Anything in the table above its first row (a border, a caption) goes with the first piece.
+  if (units[0]) {
+    units[0].height += Math.max(0, inner - (ends[ends.length - 1]! - tops[0]!))
+  }
+  return units.length > 1 ? { units, header: Math.max(0, (ends[0] ?? 0) - (tops[0] ?? 0)) } : null
 }
 
 function containsPageBreak(node: ProseNode) {

@@ -7,6 +7,35 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Tables break across pages; floating tables split and keep apart
+
+- **Bug:** no table broke across pages. One taller than the room left moved to the next page whole and ran off
+  its bottom, over the gap between pages (seen with a 60-row table: rows drawn in the page gap). So a floating
+  table could not split either. Floating tables with Allow overlap off still covered each other.
+- **Changed (`src/editor/pages.ts`):**
+  - A table that overruns the page is measured row by row (`tableRows`; rows joined by a merged cell are one
+    piece). `placeRows` breaks before the first row that does not fit.
+  - The gap between the rows is a row of its own (`createRowGap`), kept clear of the table's borders and shading
+    (`index.css`). With Repeat as header row, a copy of the first row follows it (`repeatedHeader`), and the layout
+    counts its height.
+  - A cached table that no longer fits where it now starts is measured again.
+  - A floating table that moves with text but would run past its page goes into the text at its place across
+    (`flow` placement; `drawTableFloat` leaves it there) and breaks the same way.
+  - `clearOfFloats` (`table-float.ts`) moves a floating table with Allow overlap off down past the floating tables
+    already on its page.
+- **Backlog:** text on both sides of a floating table (next-todo, Future features): the browser's floats allow one
+  side only.
+- **Checked:** `table-float.test.ts` covers `clearOfFloats`. In Chrome:
+  - A 60-row table puts rows 1-40 on page 1 and 41 on page 2, with none cut by the page edge, and repeats its
+    header row.
+  - Typing four lines into row 38 moves row 39 to page 2, and the caret stays in the cell.
+  - A 60-row floating table splits the same way at its 1 cm offset.
+  - Of two floating tables at the same place, the one with overlap off sits below the other.
+  - Full suite 859 passing. A React "error during concurrent rendering" message logs while typing in a table, with
+    or without this change: it predates the change and is still open.
+- **Open:** a row taller than a page is not split; "Allow row to break across pages" is not honoured; text beside
+  a split floating table's first part; not checked in the desktop app or against Word.
+
 ### Word's own gradients and dashes on shapes open as they are
 
 - **Bug:** a shape the app filled with a gradient or dashed already saved and reopened correctly (22.11). A gradient

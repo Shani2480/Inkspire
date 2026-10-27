@@ -1746,6 +1746,14 @@ move handle to float a table where it is dropped; saved as `w:tblpPr` / `w:tblOv
 sides of a table in the middle of the page, splitting a floating table across pages, keeping overlapping floating
 tables apart.
 
+**Done (2026-10-27, tables across pages).** Tables did not break across pages at all: one taller than the room left
+jumped to the next page whole and ran off its bottom. Now every table breaks between rows (rows a merged cell spans
+stay together), with the first row drawn again at the top of each page when the table repeats its header row. A
+floating table that would run past the end of its page goes into the text there and breaks the same way. A floating
+table with Allow overlap off moves down past the floating tables it would cover. Text on both sides of a table is on
+the backlog (Future features). Not done: a row taller than a page is not split inside; "Allow row to break across
+pages" is not honoured (rows never split); the text beside a floating table's first part, as Word keeps it.
+
 - Present and matching: all groups. Missing: Properties button (Table Properties dialog), Cell Size dialog launcher and Rows & Columns launcher, Height and Width spin boxes shown beside AutoFit in cm with a live value, 3×3 alignment grid sized as Word's (three-by-three, 22 px), Select menu items (Cell, Column, Row, Table).
 - The floating table toolbar (081826 shows Word's own) should be Font, Size, Grow/Shrink, bullets, numbering, Bold, Italic, alignment, highlight, font color, shading, borders, format painter, Insert, Delete, New Comment, Insert Below, Delete Rows, Merge Cells (21.7 covers dark mode only).
 
@@ -1927,6 +1935,14 @@ hand-drawn approximations of Word's geometry, so they differ from Word in detail
 ## Future features
 
 Ideas kept for later; not in the current plan.
+
+### Text on both sides of a floating table
+
+Word puts text on both sides of a floating table with room on each side (a table in the middle of the column).
+The editor lays text out with the browser, whose floats let text pass on one side only, so text goes on the
+roomier side (`floatSide` in `src/editor/table-float.ts`). Doing it needs the lines beside the table split in two,
+a layout of the editor's own for those paragraphs, which also touches the caret, selection and typing. Kept for
+later at the owner's choice (2026-10-27).
 
 ### Mail merge (Mailings tab)
 
