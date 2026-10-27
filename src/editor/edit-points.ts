@@ -133,7 +133,19 @@ class PointsOverlay {
     window.addEventListener("keydown", this.onKey, true)
   }
 
+  /** The shape being edited is marked, so its resize and rotate handles step aside for the points, as in Word. */
+  private marked: HTMLElement | null = null
+
+  private mark(dom: HTMLElement | null) {
+    if (this.marked !== dom) {
+      this.marked?.removeAttribute("data-editing-points")
+      this.marked = dom
+    }
+    dom?.setAttribute("data-editing-points", "")
+  }
+
   update() {
+    this.mark(null)
     const pos = editingPointsAt(this.view)
     const node = pos == null ? null : this.view.state.doc.nodeAt(pos)
     if (pos == null || !node || node.type.name !== "figure" || !node.attrs.points) {
@@ -155,6 +167,8 @@ class PointsOverlay {
       return
     }
     this.pos = pos
+    const dom = this.view.nodeDOM(pos)
+    this.mark(dom instanceof HTMLElement ? dom : null)
     this.segments = parsePath(String(node.attrs.points))
     this.frame.rotate = Number(node.attrs.rotate) || 0
     this.frame.flipH = Boolean(node.attrs.flipH)
@@ -333,6 +347,7 @@ class PointsOverlay {
   }
 
   destroy() {
+    this.mark(null)
     window.removeEventListener("keydown", this.onKey, true)
     window.removeEventListener("scroll", this.place, true)
     window.removeEventListener("resize", this.place)

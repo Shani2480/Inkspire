@@ -7,6 +7,16 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Edit Points: the resize and rotate handles step aside
+
+- **Wrong:** while a shape's points were edited, its resize, rotate and move handles stayed on top of the point
+  handles. A corner point sat under a resize handle and was hard to grab.
+- **Changed:** the shape being edited is marked (`data-editing-points`, set by the Edit Points overlay in
+  `src/editor/edit-points.ts`), and CSS hides its handles until Edit Points ends, as Word does.
+- **Checked in Chrome:** none of the 9 handles show while editing a triangle's points, and all 9 are back after
+  Escape. Drag, add, delete and undo still work. Dark mode was checked for this session's new UI (the toolbar below
+  the ribbon, its right-click menu, Change Chart Type, Edit Points).
+
 ### Chart thumbnails read like Word's
 
 - **Wrong:** the small chart pictures crammed the chart's text into a few pixels and squeezed its plot. This hit
@@ -171,7 +181,6 @@ in Word, Chrome or the desktop app.
   - A point dragged outside the shape's box is drawn outside it. Word grows the box to fit.
   - Word's right-click menu on a point (Smooth, Straight and Corner Point, Open/Close Path) and its curve handles
     are not done.
-  - The resize handles stay visible while editing points (Word hides them).
   - Not opened in Word itself.
 
 ### Crop: Crop to Shape, Aspect Ratio, Fill and Fit; pictures stretch to their box as in Word

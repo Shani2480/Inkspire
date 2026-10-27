@@ -11597,6 +11597,11 @@ textarea.text-prompt-field {
 }
 
 /* Edit Points: the outline and a black handle on each point, laid over the shape. */
+/* While its points are edited, a shape's resize, rotate and move handles step aside, as in Word. */
+[data-editing-points] > :is([data-resize], .object-rotate, .object-handle) {
+  display: none;
+}
+
 .edit-points {
   position: fixed;
   z-index: 40;
