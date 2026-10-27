@@ -256,6 +256,13 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
   the left axis and the prices on the right. Open Word's own Volume stock chart here.
 - Chart thumbnails (Chart menu, Chart Styles, Quick Layout, Insert Chart tiles) in dark mode and in the desktop app.
 
+## 3-D Rotation for 3-D charts (2026-10-27)
+
+- Turn a 3-D Column and a 3-D Pie in Format Chart Area → 3-D Rotation, save, and open in Word: Word's Format
+  Chart Area shows the same X and Y and draws the chart turned the same way.
+- Open a Word chart turned to X 40° / Y 60° here: the pane shows 40 and 60. Compare the drawing with Word's.
+- Word's view from below (negative X) or from the left (Y over 180°): drawn straight on here, saved as it was.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

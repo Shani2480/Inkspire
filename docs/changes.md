@@ -7,6 +7,27 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### 3-D Rotation for 3-D charts
+
+- **Missing:** a 3-D chart was always drawn and saved at Word's default view (X 15°, Y 20°; a 3-D pie X 30°). A
+  turned chart from Word opened at the default view and was saved back at it.
+- **Changed:** `rotX` and `rotY` on the chart (`chartRotation` in `src/editor/chart-spec.ts` gives Word's view
+  when they are unset, and keeps them in Word's ranges).
+  - Drawing: a cartesian chart's depth follows the rotation, scaled from Word's view (Y sets how far the walls go
+    to the side, X how far up). A pie flattens and thickens towards X 0° and is a circle at 90°; Y turns it.
+  - Saving: `c:view3D` carries the chart's own `rotX`/`rotY`; reading keeps them only where they differ from
+    Word's view (`src/document/docx/chart-xml.ts`).
+  - Format Chart Area / Plot Area → Options has a 3-D Rotation section (X Rotation, Y Rotation, Reset) on 3-D
+    charts (`src/components/chart-format-pane.tsx`).
+  - Change Chart Type keeps the rotation for another 3-D chart of the same kind; a pie's view is not a column's.
+- **Tests:** `chart-spec.test.ts` (defaults, ranges, drawing straight on and from above, Change Chart Type),
+  `chart-docx.test.ts` (written into `view3D`, read back, Word's view left unset). All tests pass.
+- **Checked in Chrome:** 3-D Column, Clustered Column, Area and Pie drawn at several rotations; X 40 / Y 60 typed
+  in the pane turned the chart and was stored; Reset went back to 15 / 20.
+- **Still open:** a view from below (X under 0°) or from the left (Y past 180°) is drawn straight on, since the
+  walls are only drawn going back up to the right. No Perspective, Right Angle Axes, Depth or Height settings.
+  Not opened in Word or LibreOffice.
+
 ### Edit Points: the box fits the outline
 
 - **Wrong:** a point dragged outside a shape's box was drawn outside it, and a shape whose outline was pulled in

@@ -239,6 +239,18 @@ describe("3-D charts, Pie of Pie and Bar of Pie (22.6)", () => {
     expect(ofPie).not.toContain("view3D")
   })
 
+  it("saves a 3-D chart's rotation in its view and reads it back, leaving Word's own view unset", () => {
+    const spec = { ...withVariant(defaultChartSpec("column-3d"), "column-3d"), rotX: 40, rotY: 300 }
+    const xml = chartSpaceXml(spec)
+    expect(xml).toContain('<c:view3D><c:rotX val="40"/><c:rotY val="300"/>')
+    const read = readChartSpace(xml)!
+    expect([read.rotX, read.rotY]).toEqual([40, 300])
+    const plain = readChartSpace(chartSpaceXml(withVariant(defaultChartSpec("pie-3d"), "pie-3d")))!
+    expect([plain.rotX, plain.rotY]).toEqual([undefined, undefined])
+    const pie = readChartSpace(chartSpaceXml({ ...withVariant(defaultChartSpec("pie-3d"), "pie-3d"), rotY: 120 }))!
+    expect([pie.rotX, pie.rotY]).toEqual([undefined, 120])
+  })
+
   it("keeps the split Word gave an of-pie chart", () => {
     const spec = { ...withVariant(defaultChartSpec("pie-of-pie"), "pie-of-pie"), ofPieSplit: 1 }
     expect(readChartSpace(chartSpaceXml(spec))!.ofPieSplit).toBe(1)

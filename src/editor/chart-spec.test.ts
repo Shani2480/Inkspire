@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   CHART_VARIANTS,
   QUICK_LAYOUTS,
+  chartRotation,
   errorAmounts,
   chartSpecOf,
   defaultChartSpec,
@@ -83,6 +84,34 @@ describe("chart spec", () => {
     expect(count(svg, "<rect data-chart-part=\"point:")).toBe(2)
     expect(svg).toContain('data-chart-part="point:other"')
     expect(svg).toMatch(/data-chart-part="lines"[^>]*><line[^>]*\/><line/)
+  })
+
+  it("turns a 3-D chart by its 3-D Rotation, Word's own view when it has none", () => {
+    const column = withVariant(defaultChartSpec("column"), "column-3d")
+    expect(chartRotation(column)).toEqual({ x: 15, y: 20 })
+    expect(chartRotation(defaultChartSpec("pie-3d"))).toEqual({ x: 30, y: 0 })
+    expect(chartRotation({ ...column, rotX: -120, rotY: -30 })).toEqual({ x: -90, y: 330 })
+    expect(chartRotation({ type: "pie", rotX: -10 })).toEqual({ x: 0, y: 0 })
+    const backWall = (svg: string) => /data-chart-part="plotArea"[^>]*><polygon points="([^"]+)"/.exec(svg)?.[1]
+    const turned = renderChart({ ...column, rotX: 40, rotY: 45 }, 576, 336)
+    expect(backWall(turned)).not.toBe(backWall(renderChart(column, 576, 336)))
+    // Seen straight on, the walls have no depth, so the back wall starts at the plot's left; Word's view sets it back.
+    const left = (svg: string) => Number(backWall(svg)!.split(",")[0])
+    const ahead = renderChart({ ...column, rotX: 0, rotY: 0 }, 576, 336)
+    expect(left(ahead)).toBeLessThan(left(renderChart(column, 576, 336)) - 20)
+    expect(ahead).toMatch(/data-chart-part="plotArea"[^>]*><polygon points="[^"]+"[^>]*\/><polygon points="([\d.]+),[\d.]+ \1,/)
+    expect(turned).not.toContain("NaN")
+    // A pie seen from straight above is a circle; turning it moves its first slice.
+    const pie = defaultChartSpec("pie-3d")
+    const above = renderChart({ ...pie, rotX: 90 }, 576, 336)
+    const radii = /A([\d.]+) ([\d.]+) 0/.exec(above)!
+    expect(radii[1]).toBe(radii[2])
+    expect(renderChart({ ...pie, rotY: 90 }, 576, 336)).not.toBe(renderChart(pie, 576, 336))
+    // The rotation stays with another 3-D chart of the same kind, and goes when the chart is no longer one.
+    const turnedColumn = { ...column, rotX: 40, rotY: 45 }
+    expect(withVariant(turnedColumn, "column-3d-stacked").rotX).toBe(40)
+    expect(withVariant(turnedColumn, "column").rotX).toBeUndefined()
+    expect(withVariant(turnedColumn, "pie-3d").rotY).toBeUndefined()
   })
 
   it("applies Quick Layouts and leaves out hidden series and categories", () => {

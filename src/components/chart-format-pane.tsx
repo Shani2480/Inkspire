@@ -4,6 +4,7 @@ import { useDocumentEditor } from "@/editor/document-editor"
 import {
   NUMBER_FORMATS,
   chartParts,
+  chartRotation,
   isTextPart,
   partLabel,
   type ChartSpec,
@@ -597,6 +598,41 @@ function PartOptions({ spec, part, set }: { spec: ChartSpec; part: string; set: 
           checked={spec.gridlines.minor}
           onChange={(minor) => set((current) => ({ ...current, gridlines: { ...current.gridlines, minor } }))}
         />
+      </Section>
+    )
+  }
+  if ((part === "chartArea" || part === "plotArea") && spec.threeD && !spec.ofPie) {
+    const turn = chartRotation(spec)
+    const pie = spec.type === "pie"
+    const own = chartRotation({ type: spec.type })
+    return (
+      <Section title="3-D Rotation">
+        <NumberField
+          label="X Rotation"
+          value={turn.x}
+          unit="°"
+          step={5}
+          min={pie ? 0 : -90}
+          max={90}
+          onChange={(rotX) => set((current) => ({ ...current, rotX: Math.round(rotX) }))}
+        />
+        <NumberField
+          label="Y Rotation"
+          value={turn.y}
+          unit="°"
+          step={5}
+          min={0}
+          max={359}
+          onChange={(rotY) => set((current) => ({ ...current, rotY: Math.round(rotY) }))}
+        />
+        <button
+          type="button"
+          className="format-pane-button"
+          disabled={turn.x === own.x && turn.y === own.y}
+          onClick={() => set(({ rotX: _x, rotY: _y, ...current }) => current)}
+        >
+          Reset
+        </button>
       </Section>
     )
   }
