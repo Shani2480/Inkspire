@@ -7,6 +7,58 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Filled Map: US states, diverging colours, values as text, Best Fit labels
+
+- **What was wrong:**
+  - Filled Map drew countries only.
+  - The colour scale had two colours only.
+  - A value typed as text became 0.
+  - Map labels were None or Show all; Word also has Best Fit.
+- **What changed:**
+  - `chart-map.ts`:
+    - The US states (`us-atlas` states-10m, the 50 states and DC) load with the countries, in their own build chunk
+      (114 kB).
+    - `matchState` matches a state's name, its postal code ("TX") or "Washington DC".
+    - The map draws states when more categories name a state than a country, as Word picks the data's level
+      (Georgia is then the state).
+    - The new Albers projection (`geoAlbersUsa`, Alaska and Hawaii moved in) is Automatic for states, which show
+      the whole country unless Only regions with data is chosen.
+    - Each region's drawn size is returned for Best Fit.
+  - `chart-spec.ts`:
+    - `ChartSeries.texts` holds values typed as text.
+    - `mapDiverging`, `mapMidpoint`, and `mapColors.mid` (default `#ffeb84`); `mapColorOf`, `mapMidpoint` and
+      `mapTextValues`.
+    - The painter colours text values one colour per different text, from the chart's colours, with a legend of
+      swatches in place of the scale.
+    - The diverging scale goes through the Midpoint colour at the midpoint (halfway unless set), with a third
+      gradient stop in the legend.
+    - Best Fit writes a label only where it fits inside the region's bounds.
+  - `chart-sheet.ts`: `ChartSheet.texts`. `gridToSheet` keeps cells that are not numbers, `sheetToGrid` shows them
+    again, and `specToSheet`/`withSheet` carry them, so text typed in Edit Data stays.
+  - Format pane Series Options:
+    - Albers in Map projection; Best Fit only in Map labels;
+    - Series Color Sequential (2-color) or Diverging (3-color), with Midpoint colour and Midpoint value (Auto);
+    - a note in place of the colours when the values are text.
+  - `chartex-xml.ts` reads Word's map:
+    - `cx:valueColors` (min, mid, max) and `cx:valueColorPositions count="3"` with the midpoint as a number or a
+      percentage;
+    - `strDim type="colorStr"` text values;
+    - `regionLabelLayout bestFitOnly`.
+- **Tests:** 1096 in all.
+  - `chart-map.test.ts`: states and Albers, the diverging colours (and the gradient stop), text colours and
+    legend, the sheet round trip, Best Fit against Show all.
+  - `chartex.test.ts`: reading Word's diverging colours, midpoint, text values and Best Fit.
+- **How checked:**
+  - Headless Chrome: seven states on a diverging scale with Best Fit names, Alaska and Hawaii under the others;
+    the same as West/South/Northeast/Midwest text values with a bottom legend of swatches; the pane shows the
+    category note.
+  - Open XML SDK validator: 0 errors on a saved text-valued state map (saved as its picture).
+- **Open:**
+  - Word's percentage midpoint is read as 0–1 or 0–100, as the format's scale was not checked against a file
+    from Word.
+  - No counties, provinces or other countries' regions.
+  - The text values and diverging scale go to Word only inside the picture's own copy of the chart.
+
 ### Charts: what Word's 2016 kinds offer, Waterfall colours in the fallback, 3-D pie Height
 
 - **What was wrong:**

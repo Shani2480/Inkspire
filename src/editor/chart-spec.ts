@@ -1,5 +1,12 @@
 import { parseChartSheet, type ChartSheet } from "@/editor/chart-sheet"
-import { drawMap, loadMapCountries, mixColor, type MapArea, type MapLabels, type MapProjection } from "@/editor/chart-map"
+import {
+  drawMap,
+  loadMapCountries,
+  mixColor,
+  type MapArea,
+  type MapLabels,
+  type MapProjection,
+} from "@/editor/chart-map"
 import { boxGroups, chartTree, expandSpec, squarify, type TreeNode } from "@/editor/chart-expand"
 import { THEME_ACCENTS, shade } from "@/editor/shape-style"
 
@@ -52,6 +59,8 @@ export type ChartSeries = {
   trendline?: TrendlineKind
   /** Stock (High-Low-Close): the value is a short tick to the right of the high-low line, as Word marks Close. */
   tick?: boolean
+  /** The values typed as text, by category ("" where a number was): a Filled Map colours each different text. */
+  texts?: string[]
 }
 
 /**
@@ -165,12 +174,16 @@ export type ChartSpec = {
   box?: BoxOptions
   /**
    * Filled Map's Series Options: the projection and the area shown (Automatic unset), whether the countries' names
-   * are written on them, and the Series Color's Minimum and Maximum (unset: a pale and the full series colour).
+   * are written on them (Best Fit: only where they fit), and the Series Color: Sequential (2-color) from the
+   * Minimum to the Maximum (unset: a pale and the full series colour), or Diverging (3-color) through the Midpoint
+   * colour at `mapMidpoint` (unset: halfway between the lowest and highest values).
    */
   mapProjection?: MapProjection
   mapArea?: MapArea
   mapLabels?: MapLabels
-  mapColors?: { min?: string; max?: string }
+  mapColors?: { min?: string; mid?: string; max?: string }
+  mapDiverging?: boolean
+  mapMidpoint?: number
   /** Stock: the first series is the volume traded, drawn as columns on the left axis, the prices on a right one. */
   volume?: boolean
   categories: string[]
@@ -729,7 +742,18 @@ export function defaultChartSpec(variantId = "column"): ChartSpec {
         ...structuredClone(BASE),
         title: { show: true, text: "Sales by Country" },
         legend: "right",
-        categories: ["United States", "Canada", "Mexico", "Brazil", "United Kingdom", "France", "Germany", "China", "India", "Australia"],
+        categories: [
+          "United States",
+          "Canada",
+          "Mexico",
+          "Brazil",
+          "United Kingdom",
+          "France",
+          "Germany",
+          "China",
+          "India",
+          "Australia",
+        ],
         series: [{ name: "Sales", values: [120, 45, 30, 52, 60, 48, 70, 95, 66, 38] }],
       },
       variant.id,
@@ -838,6 +862,9 @@ export function specToSheet(spec: ChartSpec): ChartSheet {
     categories: [...spec.categories],
     rows: spec.categories.map((_, row) => spec.series.map((serie) => serie.values[row] ?? 0)),
     ...(isHierarchy(spec.type) ? { levels: (spec.levels ?? []).map((level) => [...level]) } : {}),
+    ...(spec.series.some((serie) => serie.texts?.some(Boolean))
+      ? { texts: spec.categories.map((_, row) => spec.series.map((serie) => serie.texts?.[row] ?? "")) }
+      : {}),
   }
 }
 
@@ -862,7 +889,14 @@ export function isStatisticChart(type: ChartType) {
 function sheetData(sheet: ChartSheet): Pick<ChartSpec, "categories" | "series"> {
   return {
     categories: [...sheet.categories],
-    series: sheet.series.map((name, column) => ({ name, values: sheet.rows.map((row) => row[column] ?? 0) })),
+    series: sheet.series.map((name, column) => {
+      const texts = sheet.texts?.map((row) => row[column] ?? "")
+      return {
+        name,
+        values: sheet.rows.map((row) => row[column] ?? 0),
+        texts: texts?.some(Boolean) ? texts : undefined,
+      }
+    }),
   }
 }
 
@@ -1705,7 +1739,8 @@ function cartesian(painter: Painter, box: Box, series: Serie[], entries: { name:
           // A Waterfall's bars are its points: each can be picked, and coloured on its own.
           const owner = length > 0 && serie.index > 0 ? spec.pointColumns?.[point.column] : undefined
           const own = owner !== undefined && owner >= 0 ? `point:${owner}` : null
-          const paint = own && spec.format[own]?.fill ? seriesPaint(painter, spec.format[own]!.fill!, own) : seriesPaintOf
+          const paint =
+            own && spec.format[own]?.fill ? seriesPaint(painter, spec.format[own]!.fill!, own) : seriesPaintOf
           const tag = own ? ` data-chart-part="${own}"` : ""
           shapes.push(
             threeD
@@ -2370,7 +2405,9 @@ function ofPie(painter: Painter, box: Box, second: "pie" | "bar") {
     const place = mainPlaces[offset]!
     const index = shown[place]!
     const sweep = (value / total) * Math.PI * 2
-    slices.push(wedge(cx1, r1, angle, angle + sweep, paintOf(pointColor(painter, index), `point:${index}`), `point:${index}`))
+    slices.push(
+      wedge(cx1, r1, angle, angle + sweep, paintOf(pointColor(painter, index), `point:${index}`), `point:${index}`),
+    )
     const middle = angle + sweep / 2
     label(value, place, cx1 + Math.cos(middle) * r1 * 0.62, cy + Math.sin(middle) * r1 * 0.62)
     angle += sweep
@@ -2388,7 +2425,9 @@ function ofPie(painter: Painter, box: Box, second: "pie" | "bar") {
       const place = restPlaces[offset]!
       const index = shown[place]!
       const sweep = (value / (other || 1)) * Math.PI * 2
-      slices.push(wedge(cx2, r2, from, from + sweep, paintOf(pointColor(painter, index), `point:${index}`), `point:${index}`))
+      slices.push(
+        wedge(cx2, r2, from, from + sweep, paintOf(pointColor(painter, index), `point:${index}`), `point:${index}`),
+      )
       const middle = from + sweep / 2
       label(value, place, cx2 + Math.cos(middle) * r2 * 0.6, cy + Math.sin(middle) * r2 * 0.6)
       from += sweep
@@ -2435,7 +2474,39 @@ function wholePie(painter: Painter, box: Box) {
 /** A Filled Map's Minimum and Maximum colours: as set, or a pale and the full series colour. */
 export function mapColors(spec: ChartSpec) {
   const color = spec.format["series:0"]?.fill || paletteColor(spec, 0)
-  return { min: spec.mapColors?.min || mixColor(color, "#ffffff", 0.85), max: spec.mapColors?.max || color }
+  return {
+    min: spec.mapColors?.min || mixColor(color, "#ffffff", 0.85),
+    // Word's diverging default runs from red through yellow to the maximum.
+    mid: spec.mapColors?.mid || "#ffeb84",
+    max: spec.mapColors?.max || color,
+  }
+}
+
+/** A Filled Map's colour for a value between the lowest and highest, on its sequential or diverging scale. */
+export function mapColorOf(spec: ChartSpec, value: number, low: number, high: number) {
+  const colors = mapColors(spec)
+  if (!spec.mapDiverging) {
+    return mixColor(colors.min, colors.max, high > low ? (value - low) / (high - low) : 1)
+  }
+  const mid = mapMidpoint(spec, low, high)
+  return value <= mid
+    ? mixColor(colors.min, colors.mid, mid > low ? (value - low) / (mid - low) : 1)
+    : mixColor(colors.mid, colors.max, high > mid ? (value - mid) / (high - mid) : 1)
+}
+
+/** The value a diverging scale has its Midpoint colour at: as set, kept within the values, or halfway. */
+export function mapMidpoint(spec: Pick<ChartSpec, "mapMidpoint">, low: number, high: number) {
+  const mid = spec.mapMidpoint
+  return Number.isFinite(mid) ? Math.max(low, Math.min(high, mid!)) : (low + high) / 2
+}
+
+/** The different texts a Filled Map's values were typed as, in order: each its own colour. Empty for numbers. */
+export function mapTextValues(spec: ChartSpec) {
+  const serie = spec.series.find((item) => !item.hidden)
+  const texts = spec.categories
+    .map((_, index) => (spec.hiddenCategories.includes(index) ? "" : (serie?.texts?.[index] ?? "")))
+    .filter(Boolean)
+  return [...new Set(texts)]
 }
 
 /**
@@ -2446,13 +2517,23 @@ function filledMap(painter: Painter, box: Box) {
   const { spec, look } = painter
   const serie = spec.series.findIndex((item) => !item.hidden)
   const values = serie < 0 ? [] : spec.series[serie]!.values
+  // Values typed as text: a colour per different text, and a legend of them, instead of a scale.
+  const kinds = mapTextValues(spec)
+  const texts = serie < 0 ? [] : (spec.series[serie]!.texts ?? [])
   const points = spec.categories
     .map((name, index) => ({ index, name, value: values[index] ?? Number.NaN }))
-    .filter((point) => !spec.hiddenCategories.includes(point.index) && Number.isFinite(point.value))
+    .filter(
+      (point) =>
+        !spec.hiddenCategories.includes(point.index) &&
+        (kinds.length ? Boolean(texts[point.index]) : Number.isFinite(point.value)),
+    )
   const low = Math.min(...points.map((point) => point.value))
   const high = Math.max(...points.map((point) => point.value))
   const colors = mapColors(spec)
+  const kindColor = (text: string) => paletteColor(spec, Math.max(0, kinds.indexOf(text)))
   const format = spec.valueAxis.numberFormat ?? "General"
+  const shown = (point: { index: number; value: number }) =>
+    kinds.length ? texts[point.index]! : formatNumber(point.value, format)
   // The scale: a bar beside the map, or under or over it, with the highest and lowest values.
   const key = spec.legend !== "none" && points.length > 0
   const across = spec.legend === "top" || spec.legend === "bottom"
@@ -2464,7 +2545,10 @@ function filledMap(painter: Painter, box: Box) {
         plot.y += 34
       }
     } else {
-      const wide = Math.max(formatNumber(high, format).length, formatNumber(low, format).length) * CHAR + 26
+      const longest = kinds.length
+        ? Math.max(...kinds.map((text) => text.length)) + 2
+        : Math.max(formatNumber(high, format).length, formatNumber(low, format).length)
+      const wide = longest * CHAR + 26
       plot.w -= wide
       if (spec.legend === "left") {
         plot.x += wide
@@ -2479,21 +2563,25 @@ function filledMap(painter: Painter, box: Box) {
     )
     return
   }
-  const share = (value: number) => (high > low ? (value - low) / (high - low) : 1)
   const parts: string[] = [
     `<path d="${drawn.rest}" fill="${shade(look.grid, 0.4)}" stroke="${look.background}" stroke-width="0.5"/>`,
   ]
   const labels: string[] = []
   for (const shape of drawn.shapes) {
     const part = `point:${shape.point.index}`
-    const fill = spec.format[part]?.fill || mixColor(colors.min, colors.max, share(shape.point.value))
+    const fill =
+      spec.format[part]?.fill ||
+      (kinds.length ? kindColor(texts[shape.point.index]!) : mapColorOf(spec, shape.point.value, low, high))
     const line = spec.format[part]?.line || look.background
     parts.push(`<path data-chart-part="${part}" d="${shape.d}" fill="${fill}" stroke="${line}" stroke-width="0.75"/>`)
     const text = [
-      spec.mapLabels === "show" ? shape.point.name : "",
-      spec.dataLabels !== "none" ? formatNumber(shape.point.value, format) : "",
+      spec.mapLabels && spec.mapLabels !== "none" ? shape.point.name : "",
+      spec.dataLabels !== "none" ? shown(shape.point) : "",
     ].filter(Boolean)
-    if (text.length) {
+    // Best Fit: a label only on a region it fits inside.
+    const fits =
+      spec.mapLabels !== "bestFit" || (text.join(" ").length * CHAR * 0.85 <= shape.size[0] && shape.size[1] >= 12)
+    if (text.length && fits) {
       labels.push(
         `<text x="${n(shape.at[0])}" y="${n(shape.at[1] + 3)}" text-anchor="middle" ${textAttrs(painter, "dataLabels", 10)}>${escapeXml(text.join(" "))}</text>`,
       )
@@ -2503,9 +2591,41 @@ function filledMap(painter: Painter, box: Box) {
   if (labels.length) {
     painter.out.push(`<g data-chart-part="dataLabels">${labels.join("")}</g>`)
   }
-  if (key) {
+  if (key && kinds.length) {
+    // A swatch and the text for each different value, as a pie's legend lists its slices.
+    const text = textAttrs(painter, "legend")
+    const items = kinds.map((kind) => ({ kind, w: kind.length * CHAR + 22 }))
+    const rows: string[] = []
+    if (across) {
+      const total = items.reduce((sum, item) => sum + item.w, 0)
+      let x = box.x + Math.max(0, (box.w - total) / 2)
+      const y = spec.legend === "top" ? box.y + 6 : box.y + box.h - 20
+      for (const item of items) {
+        rows.push(
+          `<rect x="${n(x)}" y="${n(y)}" width="9" height="9" fill="${kindColor(item.kind)}"/>` +
+            `<text x="${n(x + 13)}" y="${n(y + 8)}" ${text}>${escapeXml(item.kind)}</text>`,
+        )
+        x += item.w
+      }
+    } else {
+      const x = spec.legend === "left" ? box.x + 2 : box.x + box.w - (box.w - plot.w) + 8
+      let y = box.y + (box.h - items.length * 16) / 2
+      for (const item of items) {
+        rows.push(
+          `<rect x="${n(x)}" y="${n(y)}" width="9" height="9" fill="${kindColor(item.kind)}"/>` +
+            `<text x="${n(x + 13)}" y="${n(y + 8)}" ${text}>${escapeXml(item.kind)}</text>`,
+        )
+        y += 16
+      }
+    }
+    painter.out.push(`<g data-chart-part="legend">${rows.join("")}</g>`)
+  } else if (key) {
     const id = `map-scale-${painter.defs.length}`
     const text = textAttrs(painter, "legend")
+    // On a diverging scale the Midpoint colour sits where the midpoint is between the lowest and highest values.
+    const middle = spec.mapDiverging
+      ? `<stop offset="${n(high > low ? (mapMidpoint(spec, low, high) - low) / (high - low) : 0.5)}" stop-color="${colors.mid}"/>`
+      : ""
     const top = formatNumber(high, format)
     const bottom = formatNumber(low, format)
     if (across) {
@@ -2513,7 +2633,7 @@ function filledMap(painter: Painter, box: Box) {
       const x = box.x + (box.w - w) / 2
       const y = spec.legend === "top" ? box.y + 4 : box.y + box.h - 22
       painter.defs.push(
-        `<linearGradient id="${id}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${colors.min}"/><stop offset="1" stop-color="${colors.max}"/></linearGradient>`,
+        `<linearGradient id="${id}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${colors.min}"/>${middle}<stop offset="1" stop-color="${colors.max}"/></linearGradient>`,
       )
       painter.out.push(
         `<g data-chart-part="legend"><rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="8" fill="url(#${id})"/>` +
@@ -2525,7 +2645,7 @@ function filledMap(painter: Painter, box: Box) {
       const x = spec.legend === "left" ? box.x + 2 : box.x + box.w - (box.w - plot.w) + 8
       const y = box.y + (box.h - h) / 2
       painter.defs.push(
-        `<linearGradient id="${id}" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="${colors.min}"/><stop offset="1" stop-color="${colors.max}"/></linearGradient>`,
+        `<linearGradient id="${id}" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="${colors.min}"/>${middle}<stop offset="1" stop-color="${colors.max}"/></linearGradient>`,
       )
       painter.out.push(
         `<g data-chart-part="legend"><rect x="${n(x)}" y="${n(y)}" width="10" height="${n(h)}" fill="url(#${id})"/>` +

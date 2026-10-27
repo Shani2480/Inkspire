@@ -337,6 +337,14 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - LibreOffice or an older Word (the fallback chart): a Waterfall with one bar given its own colour shows that colour.
 - Compare Add Chart Element for each 2016 kind with Word's.
 
+## Filled Map round 2 (2026-10-27)
+
+- Desktop app (WebKitGTK): a map of US states draws on Albers with Alaska and Hawaii below the others.
+- Type text values (for example West, South) in Edit Data: each text gets a colour and the legend lists them;
+  reopen the saved file and the texts are still there.
+- Open a Word file with a diverging (3-color) map and a midpoint set as a percentage: the midpoint lands where
+  Word puts it.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

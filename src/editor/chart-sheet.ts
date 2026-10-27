@@ -4,6 +4,8 @@ export type ChartSheet = {
   rows: number[][]
   /** Treemap and Sunburst: label columns before the category column, outermost first, a label per row. */
   levels?: string[][]
+  /** Values typed as text, by row and series ("" where a number was): a Filled Map colours by them. */
+  texts?: string[][]
 }
 
 export const DEFAULT_CHART_SHEET = ["|Sales|Expenses", "Q1|12|8", "Q2|18|11", "Q3|15|9", "Q4|22|14"].join("\n")
@@ -134,7 +136,7 @@ export function sheetToGrid(sheet: ChartSheet, columns = 6, rowCount = 10) {
     grid[row + 1][outer] = name
     sheet.rows[row]?.forEach((value, column) => {
       if (column + first < columns) {
-        grid[row + 1][column + first] = String(value)
+        grid[row + 1][column + first] = sheet.texts?.[row]?.[column] || String(value)
       }
     })
   })
@@ -163,19 +165,23 @@ export function gridToSheet(grid: string[][], labelColumns = 1): ChartSheet {
   }
   const categories: string[] = []
   const rows: number[][] = []
+  const texts: string[][] = []
   const levels: string[][] = Array.from({ length: outer }, () => [])
   for (let row = 1; row <= lastRow; row += 1) {
     const label = grid[row]?.[outer]?.trim() ?? ""
     categories.push(outer ? label : label || `Cat ${row}`)
     levels.forEach((level, column) => level.push(grid[row]?.[column]?.trim() ?? ""))
+    const cells = series.map((_, index) => grid[row]?.[index + outer + 1]?.trim() ?? "")
     rows.push(
-      series.map((_, index) => {
-        const value = Number(grid[row]?.[index + outer + 1])
+      cells.map((cell) => {
+        const value = Number(cell)
         return Number.isFinite(value) ? value : 0
       }),
     )
+    texts.push(cells.map((cell) => (cell && !Number.isFinite(Number(cell)) ? cell : "")))
   }
-  return outer ? { series, categories, rows, levels } : { series, categories, rows }
+  const typed = texts.some((row) => row.some(Boolean)) ? { texts } : {}
+  return outer ? { series, categories, rows, levels, ...typed } : { series, categories, rows, ...typed }
 }
 
 export function transposeChartSheet(sheet: ChartSheet): ChartSheet {
