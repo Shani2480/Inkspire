@@ -6,6 +6,7 @@ import {
   expandSpec,
   histogramBins,
   scottWidth,
+  setWaterfallTotal,
   squarify,
   waterfallPieces,
 } from "@/editor/chart-expand"
@@ -67,7 +68,10 @@ describe("Histogram, Waterfall and Funnel (22.6)", () => {
     const spec = defaultChartSpec("waterfall")
     spec.categories = ["A", "B", "C"]
     spec.series = [{ name: "Change", values: [10, Number.NaN, -4] }]
+    // A chart from before Set as total, with the total the app adds after the last point.
+    spec.waterfallTotals = undefined
     expect(expandSpec(spec).categories).toEqual(["A", "C", "Total"])
+    expect(expandSpec(spec).pointColumns).toEqual([0, 2, -1])
     const histogram = { ...defaultChartSpec("histogram"), bins: { by: "category" as const } }
     histogram.categories = ["x", "y", "x"]
     histogram.series = [{ name: "Values", values: [Number.NaN, 2, 5] }]
@@ -80,6 +84,49 @@ describe("Histogram, Waterfall and Funnel (22.6)", () => {
     expect(pieces.map((piece) => piece.up)).toEqual([100, 0, 20])
     expect(pieces.map((piece) => piece.down)).toEqual([0, 30, 0])
     expect(pieces[2]!.total).toBe(90)
+  })
+
+  it("draws a point set as total from zero to its value, and runs on from there", () => {
+    const pieces = waterfallPieces([100, -30, 80, 20], [false, false, true, false])
+    expect(pieces[2]).toMatchObject({ base: 0, up: 0, down: 0, sum: 80, total: 80 })
+    expect(pieces[3]).toMatchObject({ base: 80, up: 20, total: 100 })
+    // Below zero a bar hangs from a base over it; across zero it is a piece each side.
+    const low = waterfallPieces([-10, -5, 20])
+    expect(low[0]).toMatchObject({ base: 0, downBelow: -10 })
+    expect(low[1]).toMatchObject({ base: -10, downBelow: -5, down: 0 })
+    expect(low[2]).toMatchObject({ base: 0, up: 5, upBelow: -15 })
+    const expanded = expandSpec({ ...defaultChartSpec("waterfall"), categories: ["A", "B", "C"], series: [{ name: "x", values: [-10, -5, 20] }], waterfallTotals: [] })
+    expect(expanded.series.map((serie) => serie.name)).toEqual(["Base", "Increase", "Decrease", "Total", "Increase", "Decrease"])
+    expect(expanded.format["series:5"]).toEqual({ fill: "#c62828" })
+    const spec = defaultChartSpec("waterfall")
+    expect(spec.waterfallTotals).toEqual([5])
+    const drawn = expandSpec(spec)
+    // The total is a point of the chart, not one added after it.
+    expect(drawn.categories).toEqual(spec.categories)
+    expect(drawn.series[3]!.values).toEqual([0, 0, 0, 0, 0, 120])
+    expect(drawn.pointColumns).toEqual([0, 1, 2, 3, 4, 5])
+  })
+
+  it("sets a point as total, turning a chart from before Set as total into one with its total as a row", () => {
+    const old = { ...defaultChartSpec("waterfall"), waterfallTotals: undefined }
+    old.categories = ["A", "B", "C"]
+    old.series = [{ name: "Change", values: [10, 5, -4] }]
+    const set = setWaterfallTotal(old, 1, true)
+    expect(set.categories).toEqual(["A", "B", "C", "Total"])
+    expect(set.series[0]!.values).toEqual([10, 5, -4, 11])
+    expect(set.waterfallTotals).toEqual([1, 3])
+    // It looks as it did: the end total is where the app drew it.
+    expect(expandSpec(setWaterfallTotal(old, 1, false)).series[3]!.values).toEqual([0, 0, 0, 11])
+    expect(setWaterfallTotal(set, 3, false).waterfallTotals).toEqual([1])
+  })
+
+  it("lets a Waterfall's bars be picked and coloured as points", () => {
+    const spec = defaultChartSpec("waterfall")
+    expect(chartParts(spec).map((part) => part.id)).toContain("point:2")
+    spec.format = { ...spec.format, "point:2": { fill: "#123456" } }
+    const svg = renderChart(spec, 400, 300)
+    expect(svg).toMatch(/<rect data-chart-part="point:2" [^>]*fill="#123456"/)
+    expect(svg).toContain('data-chart-part="point:5"')
   })
 
   it("expands each to an ordinary chart and leaves other charts alone", () => {
@@ -194,7 +241,28 @@ describe("Box & Whisker (22.6)", () => {
     const far = boxStats([10, 11, 12, 13, 14, 15, 60])!
     expect(far.outliers).toEqual([60])
     expect(far.max).toBe(15)
+    expect(far.inner).toEqual([10, 11, 12, 13, 14, 15])
     expect(boxStats([])).toBeNull()
+  })
+
+  it("takes inclusive quartiles too: the median of an odd count is in both halves", () => {
+    expect(boxStats([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "inclusive")).toMatchObject({ q1: 3.5, median: 6, q3: 8.5 })
+    expect(boxStats([1, 2, 3, 4, 5, 6, 7, 8], "inclusive")).toMatchObject({ q1: 2.5, q3: 6.5 })
+  })
+
+  it("draws the Series Options: inner points, outliers, mean markers and the mean line", () => {
+    const spec = defaultChartSpec("box-whisker")
+    const circles = (svg: string) => (svg.match(/<circle /g) ?? []).length
+    const plain = renderChart(spec, 400, 300)
+    const inner = renderChart({ ...spec, box: { innerPoints: true } }, 400, 300)
+    expect(circles(inner)).toBeGreaterThan(circles(plain))
+    expect(circles(renderChart({ ...spec, box: { outliers: false } }, 400, 300))).toBeLessThanOrEqual(circles(plain))
+    const marks = (svg: string) => (svg.match(/l6 6m0 -6l-6 6/g) ?? []).length
+    expect(marks(plain)).toBeGreaterThan(0)
+    expect(marks(renderChart({ ...spec, box: { meanMarkers: false } }, 400, 300))).toBe(0)
+    expect(renderChart({ ...spec, box: { meanLine: true } }, 400, 300)).toMatch(/<path data-chart-part="series:0" d="M[\d.]+ [\d.]+L/)
+    const quartiles = boxGroups({ ...spec, box: { quartiles: "inclusive" } })
+    expect(quartiles).toHaveLength(boxGroups(spec).length)
   })
 
   it("groups rows by their category label, one box per series", () => {

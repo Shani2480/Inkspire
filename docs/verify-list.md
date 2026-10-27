@@ -291,6 +291,13 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Save a 3-D Column with Depth 250%, Perspective 40° and a Pie of Pie with Gap Width 250%: Word's Format pane
   shows the same values.
 
+## Waterfall totals, Box & Whisker options, chartex colours (2026-10-27)
+
+- Save a Waterfall with a middle point set as total and one bar recoloured; open in Word: the same points are
+  totals (Format Data Point → Set as total), rises green, falls red, the recoloured bar its colour.
+- Set totals in Word and open here: the same points come back as totals.
+- Save a Box & Whisker with inner points, mean line and inclusive median: Word's Format Data Series shows them.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

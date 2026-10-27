@@ -1,4 +1,4 @@
-import type { ChartSeries, ChartSpec, HistogramBins } from "@/editor/chart-spec"
+import { boxOptions, type ChartSeries, type ChartSpec, type HistogramBins } from "@/editor/chart-spec"
 
 /**
  * Histogram, Waterfall and Funnel (22.6) are kept as the data the person typed and drawn, and saved to .docx, as the
@@ -40,6 +40,10 @@ function numbers(spec: ChartSpec) {
     /** The category of each value: a blank value leaves its category out too, so the two stay in step. */
     categories: (first?.values ?? []).flatMap((value, index) =>
       Number.isFinite(value) && !spec.hiddenCategories.includes(index) ? [spec.categories[index] ?? ""] : [],
+    ),
+    /** The row of each value. */
+    rows: (first?.values ?? []).flatMap((value, index) =>
+      Number.isFinite(value) && !spec.hiddenCategories.includes(index) ? [index] : [],
     ),
   }
 }
@@ -164,31 +168,87 @@ function histogram(spec: ChartSpec): ChartSpec {
   }
 }
 
-/** The running total after each change, with the stacked pieces that float each bar at its start. */
-export function waterfallPieces(deltas: number[]) {
+/**
+ * The running total after each change, with the stacked pieces that float each bar at its start. A point set as a
+ * total stands from zero to its own value, and the running total is that value from there on.
+ */
+export function waterfallPieces(deltas: number[], totals: boolean[] = []) {
   let total = 0
-  return deltas.map((delta) => {
+  return deltas.map((delta, index) => {
+    if (totals[index]) {
+      total = delta
+      return { base: 0, up: 0, down: 0, upBelow: 0, downBelow: 0, total, sum: delta }
+    }
     const start = total
     total += delta
     const low = Math.min(start, total)
-    // A bar that crosses zero is drawn from zero, as a stacked chart cannot float a bar over it.
-    const base = low > 0 ? low : 0
-    return { base, up: delta > 0 ? Math.abs(delta) : 0, down: delta < 0 ? Math.abs(delta) : 0, total }
+    const high = Math.max(start, total)
+    // Positive and negative values stack apart, from zero out: a bar above zero floats on a hidden base under it, one
+    // below zero hangs from a hidden base over it, and one across zero is a piece each side of it.
+    const base = low > 0 ? low : high < 0 ? high : 0
+    const above = low > 0 ? high - low : high < 0 ? 0 : high
+    const below = high < 0 ? low - high : low > 0 ? 0 : low
+    const rising = delta > 0
+    return {
+      base,
+      up: rising ? above : 0,
+      down: rising ? 0 : above,
+      upBelow: rising ? below : 0,
+      downBelow: rising ? 0 : below,
+      total,
+      sum: 0,
+    }
   })
 }
 
+/**
+ * Set as total on a Waterfall's point, or off. A chart from before Set as total gets the total it drew after its
+ * last point as a row of its own first, so it looks the same.
+ */
+export function setWaterfallTotal(spec: ChartSpec, index: number, on: boolean): ChartSpec {
+  let next = spec
+  if (!next.waterfallTotals) {
+    const first = next.series.find((serie) => !serie.hidden) ?? next.series[0]
+    const sum = numbers(next).values.reduce((total, value) => total + value, 0)
+    next = {
+      ...next,
+      categories: [...next.categories, "Total"],
+      series: next.series.map((item) => ({
+        ...item,
+        values: [...item.values, ...Array(next.categories.length - item.values.length).fill(Number.NaN), item === first ? sum : Number.NaN],
+      })),
+      waterfallTotals: [next.categories.length],
+    }
+  }
+  const others = next.waterfallTotals!.filter((item) => item !== index)
+  return { ...next, waterfallTotals: on ? [...others, index].sort((a, b) => a - b) : others }
+}
+
 function waterfall(spec: ChartSpec): ChartSpec {
-  const { name, values, categories } = numbers(spec)
-  const pieces = waterfallPieces(values)
+  const { values, categories, rows } = numbers(spec)
+  const own = Boolean(spec.waterfallTotals)
+  const pieces = waterfallPieces(
+    values,
+    rows.map((row) => Boolean(spec.waterfallTotals?.includes(row))),
+  )
   const end = pieces.length ? pieces[pieces.length - 1]!.total : 0
-  const columns = [...categories.slice(0, values.length), "Total"]
+  // Totals set on points are drawn where they are; a chart with none set gets one after its last point.
+  const after = (value: number) => (own ? [] : [value])
+  const columns = [...categories.slice(0, values.length), ...(own ? [] : ["Total"])]
   const series: ChartSeries[] = [
-    { name: "Base", values: [...pieces.map((piece) => piece.base), 0] },
-    { name: `Increase`, values: [...pieces.map((piece) => piece.up), 0] },
-    { name: "Decrease", values: [...pieces.map((piece) => piece.down), 0] },
-    { name: "Total", values: [...pieces.map(() => 0), end] },
+    { name: "Base", values: [...pieces.map((piece) => piece.base), ...after(0)] },
+    { name: `Increase`, values: [...pieces.map((piece) => piece.up), ...after(0)] },
+    { name: "Decrease", values: [...pieces.map((piece) => piece.down), ...after(0)] },
+    { name: "Total", values: [...pieces.map((piece) => piece.sum), ...after(end)] },
   ]
-  void name
+  // Bars below zero, only when there are any, in the same colours.
+  const below = pieces.some((piece) => piece.upBelow || piece.downBelow)
+  if (below) {
+    series.push(
+      { name: "Increase", values: [...pieces.map((piece) => piece.upBelow), ...after(0)] },
+      { name: "Decrease", values: [...pieces.map((piece) => piece.downBelow), ...after(0)] },
+    )
+  }
   return {
     ...spec,
     type: "column",
@@ -202,10 +262,12 @@ function waterfall(spec: ChartSpec): ChartSpec {
       "series:1": { fill: "#2e7d32" },
       "series:2": { fill: "#c62828" },
       "series:3": { fill: "#5f6b7a" },
+      ...(below ? { "series:4": { fill: "#2e7d32" }, "series:5": { fill: "#c62828" } } : {}),
     },
     legend: "none",
     gapWidth: 50,
     overlap: 100,
+    pointColumns: [...rows, ...after(-1)],
   }
 }
 
@@ -279,6 +341,8 @@ export type BoxStats = {
   mean: number
   /** Values beyond 1.5 × the interquartile range from the box: drawn as points, the whiskers stop short of them. */
   outliers: number[]
+  /** The values within the whiskers, for Show inner points. */
+  inner: number[]
 }
 
 function medianOf(sorted: number[]) {
@@ -286,15 +350,18 @@ function medianOf(sorted: number[]) {
   return sorted.length % 2 ? sorted[middle]! : (sorted[middle - 1]! + sorted[middle]!) / 2
 }
 
-/** Word's Box & Whisker with its default "exclusive median" quartiles: the median is left out of both halves. */
-export function boxStats(values: number[]): BoxStats | null {
+/** Word's Box & Whisker statistics, by its exclusive median quartiles (the default) or the inclusive ones. */
+export function boxStats(values: number[], quartiles: "exclusive" | "inclusive" = "exclusive"): BoxStats | null {
   const sorted = values.filter(Number.isFinite).sort((a, b) => a - b)
   if (sorted.length === 0) {
     return null
   }
+  // With an odd count, the exclusive median leaves the middle value out of both halves; the inclusive one keeps
+  // it in both.
   const half = Math.floor(sorted.length / 2)
-  const lower = sorted.length > 1 ? sorted.slice(0, half) : sorted
-  const upper = sorted.length > 1 ? sorted.slice(sorted.length % 2 ? half + 1 : half) : sorted
+  const odd = sorted.length % 2 === 1
+  const lower = sorted.length > 1 ? sorted.slice(0, odd && quartiles === "inclusive" ? half + 1 : half) : sorted
+  const upper = sorted.length > 1 ? sorted.slice(odd && quartiles === "exclusive" ? half + 1 : half) : sorted
   const q1 = medianOf(lower)
   const q3 = medianOf(upper)
   const reach = 1.5 * (q3 - q1)
@@ -307,6 +374,7 @@ export function boxStats(values: number[]): BoxStats | null {
     max: inside[inside.length - 1] ?? sorted[sorted.length - 1]!,
     mean: sorted.reduce((sum, value) => sum + value, 0) / sorted.length,
     outliers: sorted.filter((value) => value < q1 - reach || value > q3 + reach),
+    inner: inside,
   }
 }
 
@@ -330,7 +398,12 @@ export function boxGroups(spec: ChartSpec) {
   return names.map((name) => ({
     name,
     boxes: spec.series.map((serie) =>
-      serie.hidden ? null : boxStats(rows.get(name)!.map((row) => serie.values[row] ?? Number.NaN)),
+      serie.hidden
+        ? null
+        : boxStats(
+            rows.get(name)!.map((row) => serie.values[row] ?? Number.NaN),
+            boxOptions(spec).quartiles,
+          ),
     ),
   }))
 }

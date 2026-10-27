@@ -3,6 +3,7 @@ import { ColorField, Field, NumberField, PaneIcon, Radio, Section, Select } from
 import { useDocumentEditor } from "@/editor/document-editor"
 import {
   NUMBER_FORMATS,
+  boxOptions,
   chartParts,
   chartRotation,
   chartView3d,
@@ -19,8 +20,9 @@ import {
   type PartFormat,
   type TrendlineKind,
   type HistogramBins,
+  type BoxOptions,
 } from "@/editor/chart-spec"
-import { histogramBins, histogramValues } from "@/editor/chart-expand"
+import { histogramBins, histogramValues, setWaterfallTotal } from "@/editor/chart-expand"
 import { useEditorState } from "@tiptap/react"
 import { X } from "lucide-react"
 import { useState } from "react"
@@ -469,6 +471,35 @@ function HistogramBinOptions({ spec, set }: { spec: ChartSpec; set: Setter }) {
   )
 }
 
+/**
+ * Box & Whisker's Series Options, as Word has them: Show inner points, outlier points, mean markers and the mean
+ * line, and the Quartile Calculation (inclusive or exclusive median). They apply to the whole chart, as in Word.
+ */
+function BoxWhiskerOptions({ spec, set }: { spec: ChartSpec; set: Setter }) {
+  const box = boxOptions(spec)
+  const setBox = (change: BoxOptions) => set((current) => ({ ...current, box: { ...current.box, ...change } }))
+  return (
+    <>
+      <Check label="Show inner points" checked={box.innerPoints} onChange={(innerPoints) => setBox({ innerPoints })} />
+      <Check label="Show outlier points" checked={box.outliers} onChange={(outliers) => setBox({ outliers })} />
+      <Check label="Show mean markers" checked={box.meanMarkers} onChange={(meanMarkers) => setBox({ meanMarkers })} />
+      <Check label="Show mean line" checked={box.meanLine} onChange={(meanLine) => setBox({ meanLine })} />
+      <Radio
+        name="chart-quartiles"
+        checked={box.quartiles === "inclusive"}
+        label="Inclusive median"
+        onChange={() => setBox({ quartiles: "inclusive" })}
+      />
+      <Radio
+        name="chart-quartiles"
+        checked={box.quartiles === "exclusive"}
+        label="Exclusive median"
+        onChange={() => setBox({ quartiles: "exclusive" })}
+      />
+    </>
+  )
+}
+
 function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) {
   return (
     <label className="format-pane-check">
@@ -722,6 +753,14 @@ function PartOptions({ spec, part, set }: { spec: ChartSpec; part: string; set: 
             </>
           ) : null}
           {spec.ofPie ? <OfPieOptions spec={spec} part={part} set={set} /> : null}
+          {spec.type === "waterfall" && part.startsWith("point:") ? (
+            <Check
+              label="Set as total"
+              checked={Boolean(spec.waterfallTotals?.includes(index))}
+              onChange={(on) => set((current) => setWaterfallTotal(current, index, on))}
+            />
+          ) : null}
+          {spec.type === "boxWhisker" ? <BoxWhiskerOptions spec={spec} set={set} /> : null}
           {round ? (
             <>
               {spec.ofPie ? null : (
