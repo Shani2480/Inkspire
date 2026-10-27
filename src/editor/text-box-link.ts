@@ -1,6 +1,8 @@
 import { Extension } from "@tiptap/core"
-import { DOMSerializer, Fragment, type Node as ProseNode } from "@tiptap/pm/model"
+import { isHistoryTransaction } from "@tiptap/pm/history"
+import { DOMSerializer, Fragment, Slice, type Node as ProseNode } from "@tiptap/pm/model"
 import { NodeSelection, Plugin, PluginKey, TextSelection, type EditorState, type Transaction } from "@tiptap/pm/state"
+import { ReplaceStep } from "@tiptap/pm/transform"
 import type { EditorView } from "@tiptap/pm/view"
 import { create } from "zustand"
 import { paintTextBoxBody } from "@/editor/objects"
@@ -54,11 +56,11 @@ export function canLinkTo(doc: ProseNode, source: number, target: number) {
   const to = doc.nodeAt(target)
   return Boolean(
     from?.type.name === "textBox" &&
-      to?.type.name === "textBox" &&
-      source !== target &&
-      !hasNextBox(doc, source) &&
-      !to.attrs.linkId &&
-      to.content.size === 0,
+    to?.type.name === "textBox" &&
+    source !== target &&
+    !hasNextBox(doc, source) &&
+    !to.attrs.linkId &&
+    to.content.size === 0,
   )
 }
 
@@ -254,7 +256,124 @@ class Probe {
   }
 }
 
-const flowKey = new PluginKey<{ last: Transaction | null }>("textBoxFlow")
+type FlowState = {
+  /** The last change made to the document, which a flow following it joins in the undo history. */
+  last: Transaction | null
+  /** When the text of a chain was last typed or flowed (as recorded for undo); 0 after any other change. */
+  typed: number
+}
+
+const flowKey = new PluginKey<FlowState>("textBoxFlow")
+
+/** The typing that crosses from box to box undoes as one, as history groups typing that stays in one place. */
+const GROUP_DELAY = 500
+
+/**
+ * Marks `tr` as a chain's flow: undone with the change that caused it (the last one made), or kept out of the undo
+ * history when there is none, as after an undo, whose redo brings it back.
+ */
+export function asFlow(tr: Transaction, state: EditorState) {
+  const last = flowKey.getState(state)?.last
+  tr.setMeta(flowKey, true)
+  return last ? tr.setMeta("appendedTransaction", last) : tr.setMeta("addToHistory", false)
+}
+
+/** Whether every change `tr` makes is to the text of a linked box. */
+function inChain(tr: Transaction) {
+  return tr.steps.every((step, index) => {
+    const doc = tr.docs[index]!
+    const ranges: [number, number][] = []
+    step.getMap().forEach((from, to) => ranges.push([from, to]))
+    if (!ranges.length && "from" in step && "to" in step) {
+      ranges.push([Number(step.from), Number(step.to)])
+    }
+    return ranges.every(([from, to]) => {
+      const $from = doc.resolve(from)
+      return $from.parent.type.name === "textBox" && Boolean($from.parent.attrs.linkId) && to <= $from.end()
+    })
+  })
+}
+
+/** Whether `tr` deletes a whole linked box (or moves one, which deletes it and puts it back). */
+function deletesLinkedBox(tr: Transaction) {
+  return tr.steps.some((step, index) => {
+    if (!(step instanceof ReplaceStep) || step.from === step.to) {
+      return false
+    }
+    let found = false
+    tr.docs[index]!.nodesBetween(step.from, step.to, (node, pos) => {
+      if (node.type.name === "textBox") {
+        found ||= Boolean(node.attrs.linkId) && pos >= step.from && pos + node.nodeSize <= step.to
+        return false
+      }
+      return !found
+    })
+    return found
+  })
+}
+
+/**
+ * After linked boxes are deleted, their text goes to the box before them in what is left of the chain (or the one
+ * after, when none is before), so none of it is lost; a chain left with one box is no chain.
+ */
+export function keepDeletedText(before: ProseNode, state: EditorState): Transaction | null {
+  const now = textBoxChains(state.doc)
+  const tr = state.tr
+  for (const [id, boxes] of textBoxChains(before)) {
+    const left = now.get(id) ?? []
+    const kept = new Set(left.map((box) => Number(box.node.attrs.linkSeq)))
+    const gone = boxes.filter((box) => !kept.has(Number(box.node.attrs.linkSeq)))
+    if (!gone.length || !left.length) {
+      continue
+    }
+    // Text for the start of the first box left, and for the end of each box left.
+    let start = Fragment.empty
+    const ends = new Map<ChainBox, Fragment>()
+    for (const box of gone) {
+      const seq = Number(box.node.attrs.linkSeq)
+      const target = left.filter((item) => Number(item.node.attrs.linkSeq) < seq).pop()
+      if (target) {
+        ends.set(target, (ends.get(target) ?? Fragment.empty).append(box.node.content))
+      } else {
+        start = start.append(box.node.content)
+      }
+    }
+    for (const [box, text] of ends) {
+      if (text.size) {
+        tr.insert(tr.mapping.map(box.pos + box.node.nodeSize - 1, -1), text)
+      }
+    }
+    if (start.size) {
+      tr.insert(tr.mapping.map(left[0]!.pos + 1), start)
+    }
+    if (left.length === 1) {
+      const pos = tr.mapping.map(left[0]!.pos)
+      tr.setNodeMarkup(pos, undefined, { ...tr.doc.nodeAt(pos)!.attrs, linkId: "", linkSeq: 0 })
+    }
+  }
+  return tr.docChanged ? tr : null
+}
+
+function unlinkFragment(fragment: Fragment): Fragment {
+  const nodes: ProseNode[] = []
+  fragment.forEach((node) => {
+    if (node.type.name === "textBox") {
+      nodes.push(
+        node.attrs.linkId
+          ? node.type.create({ ...node.attrs, linkId: "", linkSeq: 0 }, node.content, node.marks)
+          : node,
+      )
+    } else {
+      nodes.push(node.isLeaf ? node : node.copy(unlinkFragment(node.content)))
+    }
+  })
+  return Fragment.from(nodes)
+}
+
+/** A pasted or copied box stands alone, out of the chain it was copied from, as in Word. */
+export function unlinkSlice(slice: Slice) {
+  return new Slice(unlinkFragment(slice.content), slice.openStart, slice.openEnd)
+}
 
 /** The flow of every chain, after each change to the document and once it is first shown. */
 class Flow {
@@ -285,14 +404,7 @@ class Flow {
       const tr = flowChain(this.view.state, boxes, breaks)
       if (tr) {
         // Part of the change that caused it, for undo: with the typing it follows, or an undo's own redo.
-        const last = flowKey.getState(this.view.state)?.last
-        tr.setMeta(flowKey, true)
-        if (last) {
-          tr.setMeta("appendedTransaction", last)
-        } else {
-          tr.setMeta("addToHistory", false)
-        }
-        this.view.dispatch(tr)
+        this.view.dispatch(asFlow(tr, this.view.state))
         // The rest are flowed against the document as it is now.
         this.schedule()
         return
@@ -363,12 +475,48 @@ export const TextBoxFlow = Extension.create({
 
   addProseMirrorPlugins() {
     return [
-      new Plugin<{ last: Transaction | null }>({
+      new Plugin<FlowState>({
         key: flowKey,
         state: {
-          init: () => ({ last: null }),
-          // The last change made to the document, which a flow following it joins in the undo history.
-          apply: (tr, value) => (tr.docChanged && !tr.getMeta(flowKey) ? { last: tr } : value),
+          init: () => ({ last: null, typed: 0 }),
+          apply: (tr, value) => {
+            if (!tr.docChanged) {
+              return value
+            }
+            if (tr.getMeta(flowKey)) {
+              return tr.getMeta("addToHistory") === false ? value : { ...value, typed: tr.time }
+            }
+            const typed = !isHistoryTransaction(tr) && tr.getMeta("addToHistory") !== false && inChain(tr)
+            return { last: tr, typed: typed ? tr.time : 0 }
+          },
+        },
+        // Typing that goes on in a chain soon after the last joins its undo step, though a flow has moved it to
+        // another box (history only joins typing next to the last).
+        filterTransaction: (tr, state) => {
+          const { last, typed } = flowKey.getState(state)!
+          if (
+            typed &&
+            last &&
+            tr.docChanged &&
+            tr.time - typed < GROUP_DELAY &&
+            !tr.getMeta(flowKey) &&
+            !tr.getMeta("appendedTransaction") &&
+            tr.getMeta("addToHistory") !== false &&
+            !isHistoryTransaction(tr) &&
+            inChain(tr)
+          ) {
+            tr.setMeta("appendedTransaction", last)
+          }
+          return true
+        },
+        appendTransaction: (transactions, before, state) =>
+          transactions.some((tr) => isHistoryTransaction(tr) || tr.getMeta(flowKey)) ||
+          !transactions.some(deletesLinkedBox)
+            ? null
+            : keepDeletedText(before.doc, state),
+        props: {
+          // A box moved by dragging keeps its place in its chain; a copy does not.
+          transformPasted: (slice, view) => (view.dragging?.move ? slice : unlinkSlice(slice)),
         },
         view: (view) => {
           const flow = new Flow(view)

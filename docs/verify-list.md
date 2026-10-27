@@ -313,6 +313,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Desktop app: link two text boxes, type past the first, save as .docx and reopen. The boxes are still linked and
   the text flows. In Word each box shows its share of the text (as a picture).
 - With bold or larger text, and at 150% zoom: the break between the boxes is where the line ends.
+- Desktop app: delete the middle box of three; its text stays in the chain. Ctrl+Z brings the box back.
+- Desktop app: type quickly past the end of the first box, then Ctrl+Z once: all the typing goes.
+- Copy a linked box and paste it: the copy is not linked. Right-click a box: Create Text Box Link, or Break
+  Forward Link when it is linked to the next one.
 
 ## Customization Import/Export (2026-10-27)
 

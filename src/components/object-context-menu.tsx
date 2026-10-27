@@ -2,6 +2,7 @@ import { openTableProperties } from "@/components/table-properties-dialog"
 import { openBordersAndShading } from "@/components/borders-shading-dialog"
 import { useCropMode } from "@/editor/picture-crop"
 import { startEditPoints } from "@/editor/edit-points"
+import { breakTextBoxLink, hasNextBox, startLinking } from "@/editor/text-box-link"
 import { useLayoutDialog } from "@/document/object-layout"
 import { useViewStore } from "@/document/view"
 import { MenuLabel } from "@/components/menu-icons"
@@ -251,6 +252,20 @@ function itemsFor(
       <>
         {shared}
         {leaf("Format Shape...", () => openDialog("textbox"))}
+        {/* Word's names for Create Link and Break Link on the text box's own menu. */}
+        {hasNextBox(editor.state.doc, target.pos)
+          ? leaf("Break Forward Link", () =>
+              run(() => {
+                const tr = breakTextBoxLink(editor.state, target.pos)
+                if (tr) {
+                  editor.view.dispatch(tr)
+                }
+              }),
+            )
+          : leaf("Create Text Box Link", () => {
+              close()
+              startLinking(editor.view, target.pos)
+            })}
         {submenu("Wrap Text", openSub, setOpenSub, wrapItems(editor, target, close, attrs))}
         {leaf("Bring to Front", () => run(() => editor.chain().focus().setObjectLayer("front").run()))}
         {leaf("Send to Back", () => run(() => editor.chain().focus().setObjectLayer("back").run()))}
