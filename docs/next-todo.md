@@ -291,7 +291,10 @@ Table of Authorities:
 
 ## Phase 8 — Mailings tab
 
-**Done.** Create (Envelopes / Labels); Start Mail Merge (Letters / E-mail / Envelopes / Labels / Directory); Select Recipients (CSV + sample) + Edit Recipient List; Write & Insert Fields (Highlight, Address Block, Greeting Line, Insert Merge Field, Rules, Match Fields, Update Labels); Preview (toggle, record nav + number field, Find Recipient, Check for Errors); Finish & Merge (Edit / Print / E-mail).
+**Taken out of the app (2026-10-27), on the backlog.** The tab and mail merge were removed until they can be
+finished (see "Mail merge (Mailings tab)" under Future features). The description below is kept for when it returns.
+
+**Was done.** Create (Envelopes / Labels); Start Mail Merge (Letters / E-mail / Envelopes / Labels / Directory); Select Recipients (CSV + sample) + Edit Recipient List; Write & Insert Fields (Highlight, Address Block, Greeting Line, Insert Merge Field, Rules, Match Fields, Update Labels); Preview (toggle, record nav + number field, Find Recipient, Check for Errors); Finish & Merge (Edit / Print / E-mail).
 
 A new ribbon tab labeled Mailings, between References and Review. Start Mail Merge, Select Recipients (CSV / sample), Preview Results, and Finish & Merge are in place; deepen remaining Word controls below as needed. Groups left to right:
 
@@ -1924,6 +1927,22 @@ hand-drawn approximations of Word's geometry, so they differ from Word in detail
 ## Future features
 
 Ideas kept for later; not in the current plan.
+
+### Mail merge (Mailings tab)
+
+Removed from the app on 2026-10-27 at the owner's request, to come back when it can be done properly. The whole tab
+went: Envelopes, Labels, Start Mail Merge, Select Recipients (CSV and sample), Edit Recipient List, the Write &
+Insert Fields commands, Preview Results with record navigation, Find Recipient, Check for Errors and Finish & Merge,
+in both ribbon layouts, plus the `mergeField` mark and the Highlight Merge Fields view switch. The last version is in
+git just before the removal commit: `src/components/ribbon/mailings-tab.tsx`, `src/document/mail-merge.ts`,
+`src/editor/merge-field.ts`, the Mailings line icons and tooltips.
+
+What it lacked, to do when it returns:
+
+- Preview Results only moved between records; it never put the recipient's values into the page.
+- Merge fields were not written to .docx as Word's `MERGEFIELD` fields, nor read from them; the recipient list and
+  `w:mailMerge` settings were not saved.
+- Finish & Merge needs a check against Word (one document per record, print, e-mail).
 
 ### Cloud accounts (was 21.16–21.18)
 

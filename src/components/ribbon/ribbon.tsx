@@ -14,7 +14,6 @@ import { ViewTab } from "@/components/ribbon/view-tab"
 import { ReferencesTab } from "@/components/ribbon/references-tab"
 import { SmartArtDesignTab } from "@/components/ribbon/smartart-tab"
 import { EquationTab } from "@/components/ribbon/equation-tab"
-import { MailingsTab } from "@/components/ribbon/mailings-tab"
 import {
   HeaderFooterTab,
   ModelTab,
@@ -50,7 +49,6 @@ const MAIN_TABS: [string, ComponentType][] = (
     ["design", DesignTab],
     ["layout", LayoutTab],
     ["references", ReferencesTab],
-    ["mailings", MailingsTab],
     ["review", ReviewTab],
     ["view", ViewTab],
     ["help", HelpTab],

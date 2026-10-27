@@ -7,6 +7,19 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Mail merge taken out of the app, kept on the backlog
+
+- **Why:** Preview Results never filled the recipient's values into the page and the fields were not saved as
+  Word's, so the owner chose to take the feature out until it can be finished.
+- **Changed:** the Mailings tab is gone from both ribbon layouts and from Customize Ribbon's tab list. Removed:
+  `src/components/ribbon/mailings-tab.tsx`, `src/document/mail-merge.ts`, `src/editor/merge-field.ts` (the
+  `mergeField` mark; text that had one keeps its words), the Mailings line icons, their tooltips, the merge-field
+  CSS and the `highlightMerge` view state. A saved Customize setting that hid Mailings is ignored, as for any
+  unknown tab.
+- **Backlog:** next-todo.md, Future features, "Mail merge (Mailings tab)", with where the last version is in git
+  and what it lacked.
+- **Checked:** types, lint, full suite (849 passing).
+
 ### Every ribbon tab slides in, not just Home
 
 - **Bug:** the tab slide only showed when switching to or from Home (and the File view); every other switch had no

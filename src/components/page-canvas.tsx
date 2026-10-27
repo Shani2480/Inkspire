@@ -50,7 +50,6 @@ export function PageCanvas() {
   const cropMarks = useEditingOptions((state) => state.cropMarks)
   const movement = useViewStore((state) => state.movement)
   const pageView = useViewStore((state) => state.pageView)
-  const highlightMerge = useViewStore((state) => state.highlightMerge)
   const hideInk = useViewStore((state) => state.hideInk)
   const layoutMode = useViewStore((state) => state.layoutMode)
   // Subscribed so the metrics below follow the window in Web Layout.
@@ -297,9 +296,8 @@ export function PageCanvas() {
       delete dom.dataset.effects
     }
     dom.classList.toggle("hyphenate", pageSetup.hyphenation)
-    dom.classList.toggle("highlight-merge", highlightMerge)
     dom.classList.toggle("hide-ink", hideInk)
-  }, [editor, pageSetup.language, pageSetup.spacing, pageSetup.effects, pageSetup.hyphenation, highlightMerge, hideInk])
+  }, [editor, pageSetup.language, pageSetup.spacing, pageSetup.effects, pageSetup.hyphenation, hideInk])
 
   // Word: double-click a page's top or bottom margin to edit its header or footer, double-click the body (or press
   // Esc) to go back to the document.
