@@ -7,6 +7,42 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Edit Points: curve handles and Word's point and segment menus
+
+- **Missing:** Edit Points could only move, add and delete points. There were no curve handles, no Smooth,
+  Straight or Corner points, and no way to open or close a path or change a segment.
+- **Changed:**
+  - Clicking a point picks it and shows its curve handles, on lines out from the point. Dragging one bends the
+    curve. A Smooth point's other handle turns to stay opposite at the same length, a Straight point's turns and
+    keeps its own length, and a Corner point's stays put.
+  - Right-clicking a point gives Delete Point, Open Path, Close Path, Smooth Point, Straight Point, Corner Point
+    and Exit Edit Points. Smooth and Straight make the lines either side into curves, with the handles set along
+    the way from the point before to the point after.
+  - Right-clicking the outline gives Add Point, Delete Segment, Open Path (cut where clicked), Close Path,
+    Straight Segment, Curved Segment and Exit Edit Points.
+  - A point's kind is read from how its handles lie; one set from the menu is remembered while editing, so a
+    Corner point whose handles happen to be in line still moves them apart.
+  - Escape with the menu open closes only the menu.
+  - Model: `src/editor/shape-points.ts` (`nearestSegment`, `startOf`, `figureOf`, `handlesAt`, `pointKind`,
+    `moveHandle`, `setSegmentKind`, `setPointKind`, `openPath`, `closePath`, `deleteSegment`). Overlay:
+    `src/editor/edit-points.ts`.
+  - The ribbon's right-click menu moved into `src/components/command-menu.tsx` (`openCommandMenu`), so Edit
+    Points can open it too.
+- **Tests:** `shape-points.test.ts`: kinds read from handles; dragging handles for each kind; making a corner
+  Smooth, including a closed figure's first point; straight and curved segments, including the close's line;
+  opening and closing paths; deleting segments from closed and open paths.
+- **Checked in Chrome:**
+  - A rectangle's corner made Smooth. Dragging its handle moved the other one opposite, and Corner Point let one
+    move alone.
+  - On the outline: Curved Segment, Delete Segment (the path opened there) and Close Path.
+  - Escape on the menu left Edit Points on, and Exit Edit Points ended it.
+  - The Quick Access Toolbar's right-click menu still works.
+  - All tests pass.
+- **Still open:**
+  - A segment cannot be dragged to bend it; only its handles can.
+  - Point kinds are not saved: Word's file has no place for them, so they are read from the handles on opening.
+  - Open paths are still filled, as Word fills them.
+
 ### 3-D Rotation for 3-D charts
 
 - **Missing:** a 3-D chart was always drawn and saved at Word's default view (X 15°, Y 20°; a 3-D pie X 30°). A

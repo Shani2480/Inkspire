@@ -470,10 +470,10 @@ function bezierAt(p0: Point, c1: Point, c2: Point, p3: Point, t: number): Point 
 }
 
 /**
- * Adds a point on the outline nearest (x, y) when it is within `reach`, splitting that line or curve there; the
- * shape is drawn as before. Returns null when no part of the outline is that near.
+ * The line or curve of the outline nearest (x, y): its index (a close for the line back to the figure's start), where
+ * along it (0 to 1) and how far away.
  */
-export function addPoint(segments: Segment[], x: number, y: number, reach: number): Segment[] | null {
+export function nearestSegment(segments: Segment[], x: number, y: number) {
   let best: { index: number; t: number; distance: number } | null = null
   let current: Point = [0, 0]
   let start: Point = [0, 0]
@@ -504,7 +504,15 @@ export function addPoint(segments: Segment[], x: number, y: number, reach: numbe
       current = start
     }
   })
-  const found = best as { index: number; t: number; distance: number } | null
+  return best as { index: number; t: number; distance: number } | null
+}
+
+/**
+ * Adds a point on the outline nearest (x, y) when it is within `reach`, splitting that line or curve there; the
+ * shape is drawn as before. Returns null when no part of the outline is that near.
+ */
+export function addPoint(segments: Segment[], x: number, y: number, reach: number): Segment[] | null {
+  const found = nearestSegment(segments, x, y)
   if (!found || found.distance > reach) {
     return null
   }
@@ -547,6 +555,302 @@ export function addPoint(segments: Segment[], x: number, y: number, reach: numbe
     return next
   }
   return null
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Point and segment kinds, curve handles, open and closed paths
+
+/** Word's kinds of point: a Smooth point's handles are in line and as long; a Straight one's in line; a Corner's free. */
+export type PointKind = "smooth" | "straight" | "corner"
+
+/** Where segment `index` starts: the end of the one before it (a close starts where the figure was). */
+export function startOf(segments: Segment[], index: number): Point {
+  let at: Point = [0, 0]
+  let figure: Point = [0, 0]
+  for (let place = 0; place < index; place += 1) {
+    const segment = segments[place]!
+    if (segment.kind === "M") {
+      at = figure = segment.to
+    } else if (segment.kind === "Z") {
+      at = figure
+    } else {
+      at = segment.to
+    }
+  }
+  return at
+}
+
+/** The figure (from its move to just before the next move) that segment `index` is in, and whether it closes. */
+export function figureOf(segments: Segment[], index: number) {
+  let start = index
+  while (start > 0 && segments[start]!.kind !== "M") {
+    start -= 1
+  }
+  let end = index + 1
+  while (end < segments.length && segments[end]!.kind !== "M") {
+    end += 1
+  }
+  return { start, end, closed: segments[end - 1]?.kind === "Z" }
+}
+
+/** The figure's point that the line or curve coming into `index` starts from, and the one the next goes to. */
+function neighbours(segments: Segment[], index: number) {
+  const { start, end, closed } = figureOf(segments, index)
+  const twin = twinOf(segments, index)
+  // Into a figure's first point comes the last line back to it, or the close's own line.
+  const into = segments[index]!.kind === "M" ? (twin >= 0 ? twin : closed ? end - 1 : -1) : index
+  const last = closed ? end - 2 : end - 1
+  // The point after the figure's last one is its first again when it closes.
+  const out = index === last && index !== start ? (closed ? start : -1) : index + 1
+  const prev = into >= 0 ? startOf(segments, into) : null
+  const next = out >= 0 && out < end ? (segments[out] as { to?: Point }).to ?? null : null
+  return { into, out: out >= 0 && out < end ? out : -1, prev, next }
+}
+
+/** The curve handles at the point ending segment `index`: the one coming in and the one going out, where curves meet it. */
+export function handlesAt(segments: Segment[], index: number) {
+  const point = (segments[index] as { to: Point }).to
+  const { into, out } = neighbours(segments, index)
+  const incoming = segments[into]
+  const outgoing = segments[out]
+  return {
+    at: point,
+    in: incoming?.kind === "C" ? { segment: into, at: incoming.c2 } : null,
+    // The line back from the figure's last point to its first is drawn by the close, never a curve.
+    out: outgoing?.kind === "C" && out !== index ? { segment: out, at: outgoing.c1 } : null,
+  }
+}
+
+const length = (a: Point, b: Point) => Math.hypot(b[0] - a[0], b[1] - a[1])
+
+/** A point's kind as it is drawn: its two handles in line and as long, in line, or neither. */
+export function pointKind(segments: Segment[], index: number): PointKind {
+  const { at, in: incoming, out } = handlesAt(segments, index)
+  if (!incoming || !out) {
+    return "corner"
+  }
+  const a = length(at, incoming.at)
+  const b = length(at, out.at)
+  if (a < 0.01 || b < 0.01) {
+    return "corner"
+  }
+  const cross = (incoming.at[0] - at[0]) * (out.at[1] - at[1]) - (incoming.at[1] - at[1]) * (out.at[0] - at[0])
+  const dot = (incoming.at[0] - at[0]) * (out.at[0] - at[0]) + (incoming.at[1] - at[1]) * (out.at[1] - at[1])
+  if (dot >= 0 || Math.abs(cross) / (a * b) > 0.035) {
+    return "corner"
+  }
+  return Math.abs(a - b) / Math.max(a, b) < 0.03 ? "smooth" : "straight"
+}
+
+/**
+ * Drags the incoming or outgoing handle of the point ending segment `index` by (dx, dy). A Smooth point's other
+ * handle turns with it and keeps the same length, a Straight point's turns and keeps its own; a Corner's stays.
+ */
+export function moveHandle(
+  segments: Segment[],
+  index: number,
+  side: "in" | "out",
+  dx: number,
+  dy: number,
+  kind: PointKind,
+): Segment[] {
+  const handles = handlesAt(segments, index)
+  const moving = handles[side]
+  if (!moving) {
+    return segments
+  }
+  const next = segments.map((segment) => ({ ...segment })) as Segment[]
+  const placed = moved(moving.at, dx, dy)
+  const set = (handle: { segment: number }, which: "in" | "out", point: Point) => {
+    const segment = next[handle.segment] as Extract<Segment, { kind: "C" }>
+    if (which === "in") {
+      segment.c2 = point
+    } else {
+      segment.c1 = point
+    }
+  }
+  set(moving, side, placed)
+  const other = side === "in" ? handles.out : handles.in
+  const reach = length(handles.at, placed)
+  if (other && kind !== "corner" && reach > 0.01) {
+    const keep = kind === "smooth" ? reach : length(handles.at, other.at)
+    const unit: Point = [(handles.at[0] - placed[0]) / reach, (handles.at[1] - placed[1]) / reach]
+    set(other, side === "in" ? "out" : "in", [
+      round(handles.at[0] + unit[0] * keep),
+      round(handles.at[1] + unit[1] * keep),
+    ])
+  }
+  return next
+}
+
+/** A line as a curve that draws the same, its handles a third of the way along. */
+function curveOf(from: Point, to: Point): Segment {
+  const third = (share: number): Point => [round(from[0] + (to[0] - from[0]) * share), round(from[1] + (to[1] - from[1]) * share)]
+  return { kind: "C", c1: third(1 / 3), c2: third(2 / 3), to }
+}
+
+/**
+ * Straight Segment and Curved Segment: the line or curve `index` (a close for the line back to the figure's start)
+ * made a line, or a curve that draws the same line until its handles are dragged.
+ */
+export function setSegmentKind(segments: Segment[], index: number, kind: "straight" | "curved"): Segment[] {
+  const segment = segments[index]
+  if (!segment || segment.kind === "M") {
+    return segments
+  }
+  const next = segments.map((item) => ({ ...item })) as Segment[]
+  const from = startOf(segments, index)
+  if (segment.kind === "Z") {
+    const { start } = figureOf(segments, index)
+    const back = (segments[start] as { to: Point }).to
+    if (kind === "curved" && length(from, back) > 0.01) {
+      next.splice(index, 0, curveOf(from, back))
+    }
+    return next
+  }
+  if (kind === "straight" && segment.kind === "C") {
+    next[index] = { kind: "L", to: segment.to }
+  } else if (kind === "curved" && segment.kind === "L") {
+    next[index] = curveOf(from, segment.to)
+  }
+  return next
+}
+
+/**
+ * Smooth Point, Straight Point and Corner Point. Smooth and Straight make the lines either side of the point curves
+ * and set its handles in line along the way from the point before to the point after, as long as each other
+ * (Smooth) or each keeping its length (Straight). A Corner point is drawn as it was; only its handles come apart.
+ */
+export function setPointKind(segments: Segment[], index: number, kind: PointKind): Segment[] {
+  if (kind === "corner" || !segments[index] || segments[index]!.kind === "Z") {
+    return segments
+  }
+  // The lines either side become curves. Only a close's line gets a new segment, always after the point, so the
+  // point keeps its index.
+  let next = segments
+  const out = neighbours(next, index).out
+  if (out >= 0 && next[out]!.kind === "L") {
+    next = setSegmentKind(next, out, "curved")
+  } else if (out >= 0 && next[out]!.kind === "M") {
+    next = setSegmentKind(next, figureOf(next, index).end - 1, "curved")
+  }
+  const into = neighbours(next, index).into
+  if (into >= 0 && (next[into]!.kind === "L" || next[into]!.kind === "Z")) {
+    next = setSegmentKind(next, into, "curved")
+  }
+  const handles = handlesAt(next, index)
+  const { prev, next: following } = neighbours(next, index)
+  if (!handles.in && !handles.out) {
+    return next
+  }
+  const point = handles.at
+  let way: Point = prev && following ? [following[0] - prev[0], following[1] - prev[1]] : [0, 0]
+  if (Math.hypot(way[0], way[1]) < 0.01) {
+    way = handles.out
+      ? [handles.out.at[0] - point[0], handles.out.at[1] - point[1]]
+      : [point[0] - handles.in!.at[0], point[1] - handles.in!.at[1]]
+  }
+  const size = Math.hypot(way[0], way[1]) || 1
+  const unit: Point = [way[0] / size, way[1] / size]
+  const reachIn = handles.in ? length(point, handles.in.at) || (prev ? length(prev, point) / 3 : 0) : 0
+  const reachOut = handles.out ? length(point, handles.out.at) || (following ? length(point, following) / 3 : 0) : 0
+  const both = handles.in && handles.out ? (reachIn + reachOut) / 2 : Math.max(reachIn, reachOut)
+  const result = next.map((segment) => ({ ...segment })) as Segment[]
+  if (handles.in) {
+    const reach = kind === "smooth" ? both : reachIn
+    ;(result[handles.in.segment] as Extract<Segment, { kind: "C" }>).c2 = [
+      round(point[0] - unit[0] * reach),
+      round(point[1] - unit[1] * reach),
+    ]
+  }
+  if (handles.out) {
+    const reach = kind === "smooth" ? both : reachOut
+    ;(result[handles.out.segment] as Extract<Segment, { kind: "C" }>).c1 = [
+      round(point[0] + unit[0] * reach),
+      round(point[1] + unit[1] * reach),
+    ]
+  }
+  return result
+}
+
+/** The figure's lines and curves in order, the line back to its start written out where the close drew it. */
+function loopOf(segments: Segment[], start: number, end: number): Exclude<Segment, { kind: "M" } | { kind: "Z" }>[] {
+  const first = (segments[start] as { to: Point }).to
+  const drawn = segments.slice(start + 1, end).filter((segment) => segment.kind === "L" || segment.kind === "C") as Exclude<
+    Segment,
+    { kind: "M" } | { kind: "Z" }
+  >[]
+  const last = drawn[drawn.length - 1]
+  if (!last || length(last.to, first) > 0.01) {
+    drawn.push({ kind: "L", to: first })
+  }
+  return drawn
+}
+
+/**
+ * Open Path at a point: a closed figure is cut there, its two ends at that point free to be dragged apart. The
+ * figure is written from that point round to itself, so it draws the same until then.
+ */
+export function openPath(segments: Segment[], index: number): Segment[] {
+  const { start, end, closed } = figureOf(segments, index)
+  if (!closed || segments[index]?.kind === "Z") {
+    return segments
+  }
+  const loop = loopOf(segments, start, end)
+  const twin = twinOf(segments, index)
+  // Which of the loop's points the cut is at: the figure's first point is where the loop's last one ends.
+  const cut = segments[index]!.kind === "M" || twin >= 0 ? loop.length - 1 : index - start - 1
+  const at = loop[cut]!.to
+  const figure: Segment[] = [{ kind: "M", to: at }, ...loop.slice(cut + 1), ...loop.slice(0, cut + 1)]
+  return [...segments.slice(0, start), ...figure, ...segments.slice(end)]
+}
+
+/** Close Path: an open figure is closed by a line from its last point back to its first. */
+export function closePath(segments: Segment[], index: number): Segment[] {
+  const { end, closed } = figureOf(segments, index)
+  if (closed) {
+    return segments
+  }
+  return [...segments.slice(0, end), { kind: "Z" }, ...segments.slice(end)]
+}
+
+/**
+ * Delete Segment: the line or curve `index` (a close for the line back to the start) taken out. A closed figure
+ * opens there; an open one splits in two, a part with no line left dropped. A figure's only line stays.
+ */
+export function deleteSegment(segments: Segment[], index: number): Segment[] {
+  const segment = segments[index]
+  if (!segment || segment.kind === "M") {
+    return segments
+  }
+  const { start, end, closed } = figureOf(segments, index)
+  if (closed) {
+    if (segment.kind === "Z") {
+      // The close draws a line only when the last line stops short of the start; otherwise that last line is the
+      // one coming back, and it is the one taken out.
+      const last = segments[end - 2]!
+      const first = (segments[start] as { to: Point }).to
+      return last.kind !== "M" && last.kind !== "Z" && length(last.to, first) < 0.01
+        ? deleteSegment(segments, end - 2)
+        : [...segments.slice(0, index), ...segments.slice(index + 1)]
+    }
+    // Opened at the end of this segment, it is the figure's last, and comes off.
+    const opened = openPath(segments, index)
+    const figure = figureOf(opened, start)
+    return [...opened.slice(0, figure.end - 1), ...opened.slice(figure.end)]
+  }
+  const drawn = segments.slice(start + 1, end).length
+  if (drawn <= 1 || segment.kind === "Z") {
+    return segments
+  }
+  const before = segments.slice(start, index)
+  const after: Segment[] = [{ kind: "M", to: segment.to }, ...segments.slice(index + 1, end)]
+  return [
+    ...segments.slice(0, start),
+    ...(before.length > 1 ? before : []),
+    ...(after.length > 1 ? after : []),
+    ...segments.slice(end),
+  ]
 }
 
 // ---------------------------------------------------------------------------------------------------------------
