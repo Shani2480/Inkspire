@@ -1,3 +1,4 @@
+import { useTabLineGroups } from "@/components/ribbon/custom-groups"
 import { fitLine } from "@/components/ribbon/line-fit"
 import { RibbonButton, RibbonPopover, RibbonSplit } from "@/components/ribbon/ribbon-button"
 import { cn } from "@/lib/utils"
@@ -43,13 +44,15 @@ const GAP = 2
  */
 export function SingleLineBar({
   label,
-  groups,
+  groups: own,
   more = [],
 }: {
   label: string
   groups: LineGroup[]
   more?: LineGroup[]
 }) {
+  // As the user arranged the tab in Customize Ribbon: the groups removed left out, the user's own added.
+  const groups = useTabLineGroups(own)
   const barRef = useRef<HTMLDivElement>(null)
   const widths = useRef(new Map<string, number>())
   const commands = groups.flatMap((group, index) => group.commands.map((command) => ({ command, group: index })))

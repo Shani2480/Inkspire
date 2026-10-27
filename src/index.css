@@ -12750,6 +12750,17 @@ textarea.tp-input {
   height: 20px;
 }
 
+/* A command from the user's group on the single line ribbon, at the line's 16 px. */
+.line-custom-icon,
+.line-custom-icon .ribbon-custom-icon {
+  display: inline-flex;
+}
+
+.line-custom-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
 .ribbon-custom-empty {
   display: block;
   width: 48px;
