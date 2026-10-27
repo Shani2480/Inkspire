@@ -1390,6 +1390,30 @@ button.line-menu-row:focus-visible {
   cursor: copy;
 }
 
+/* Table Layout → Draw: the pencil and eraser stay on until clicked again or Escape. */
+.page-editor.table-draw-pen,
+.page-editor.table-draw-pen * {
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'><path d='M1 19l1.5-5L14 2.5l3.5 3.5L6 17.5z' fill='white' stroke='black' stroke-width='1.2' stroke-linejoin='round'/><path d='M2.5 14l3.5 3.5' stroke='black' stroke-width='1.2'/></svg>") 1 19, crosshair;
+}
+
+.page-editor.table-draw-eraser,
+.page-editor.table-draw-eraser * {
+  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'><path d='M2 13l8-8 7 7-5 5H6z' fill='white' stroke='black' stroke-width='1.2' stroke-linejoin='round'/><path d='M5.5 9.5l7 7' stroke='black' stroke-width='1.2'/><path d='M2 19h16' stroke='black' stroke-width='1.2'/></svg>") 3 17, cell;
+}
+
+.table-draw-preview {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  border: 1px dashed #404040;
+}
+
+.table-draw-preview.table-draw-line {
+  border-width: 0;
+  border-left-width: 1px;
+  border-top-width: 1px;
+}
+
 .page-editor {
   position: relative;
   z-index: 1;

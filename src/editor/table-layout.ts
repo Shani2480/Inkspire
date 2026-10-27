@@ -325,14 +325,6 @@ export function insertColumnSum(editor: Editor) {
   editor.view.dispatch(editor.state.tr.replaceWith(from, to, paragraph.create(null, editor.schema.text(text))))
 }
 
-export function clearCellBorders(editor: Editor) {
-  const cell = currentCell(editor)
-  if (!cell) {
-    return
-  }
-  editor.view.dispatch(editor.state.tr.setNodeMarkup(cell.pos, undefined, { ...cell.node.attrs, borders: "none" }))
-}
-
 function currentRow(editor: Editor) {
   const $from = editor.state.selection.$from
   for (let depth = $from.depth; depth > 0; depth -= 1) {
