@@ -251,6 +251,19 @@ describe("3-D charts, Pie of Pie and Bar of Pie (22.6)", () => {
     expect([pie.rotX, pie.rotY]).toEqual([undefined, 120])
   })
 
+  it("saves minor gridlines across the categories, and a combo's secondary axis hidden", () => {
+    const spec = withVariant(defaultChartSpec("column"), "column")
+    spec.gridlines = { ...spec.gridlines, minorVertical: true }
+    spec.series = spec.series.map((serie, index) => (index === 1 ? { ...serie, type: "line", secondary: true } : serie))
+    spec.axes = { ...spec.axes, secondary: false }
+    const xml = chartSpaceXml(spec)
+    expect(xml).toMatch(/<c:catAx><c:axId val="1"\/>[^]*?<c:minorGridlines>[^]*?<\/c:catAx>/)
+    expect(xml).toMatch(/<c:valAx><c:axId val="4"\/>[^]*?<c:delete val="1"\/>/)
+    const read = readChartSpace(xml)!
+    expect(read.gridlines.minorVertical).toBe(true)
+    expect(read.axes.secondary).toBe(false)
+  })
+
   it("saves an of-pie chart split by value, percentage or custom points, and its second plot size", () => {
     const spec = withVariant(defaultChartSpec("bar-of-pie"), "bar-of-pie")
     const byValue = chartSpaceXml({ ...spec, ofPieSplitBy: "val", ofPieSplitValue: 12, ofPieSize: 120 })

@@ -252,7 +252,11 @@ function axisXml(spec: ChartSpec, kind: "cat" | "val", ids: [number, number], op
   const look = CHART_STYLES[spec.style - 1] ?? CHART_STYLES[0]!
   const horizontal = spec.type === "bar"
   const isCategory = kind === "cat"
-  const shown = options.secondary ? !isCategory : isCategory ? spec.axes.category : spec.axes.value
+  const shown = options.secondary
+    ? !isCategory && spec.axes.secondary !== false
+    : isCategory
+      ? spec.axes.category
+      : spec.axes.value
   const position = options.secondary
     ? isCategory
       ? "b"
@@ -282,7 +286,7 @@ function axisXml(spec: ChartSpec, kind: "cat" | "val", ids: [number, number], op
       ? `<c:majorGridlines><c:spPr><a:ln w="9525">${solid(gridColor)}</a:ln></c:spPr></c:majorGridlines>`
       : ""
   const minor =
-    !options.secondary && !isCategory && spec.gridlines.minor
+    !options.secondary && (isCategory ? spec.gridlines.minorVertical : spec.gridlines.minor)
       ? `<c:minorGridlines><c:spPr><a:ln w="9525">${solid(gridColor)}</a:ln></c:spPr></c:minorGridlines>`
       : ""
   const titleOf = isCategory ? spec.axisTitles.category : spec.axisTitles.value
@@ -1028,9 +1032,14 @@ export function readChartSpace(xml: string): ChartSpec | null {
   if (categoryAxis) {
     spec.axes.category = !flag(categoryAxis, "delete")
     spec.gridlines.vertical = Boolean(child(categoryAxis, "majorGridlines"))
+    spec.gridlines.minorVertical = Boolean(child(categoryAxis, "minorGridlines"))
     const axisTitle = child(categoryAxis, "title")
     spec.axisTitles.category = { show: Boolean(axisTitle), text: texts(axisTitle) || "Axis Title" }
     spec.categoryReverse = value(child(categoryAxis, "scaling"), "orientation") === "maxMin"
+  }
+  // A second value axis (a combo's, a Pareto's) Word was told not to show.
+  if (spec.type !== "scatter" && valueAxes[1] && flag(valueAxes[1], "delete")) {
+    spec.axes.secondary = false
   }
   if (valueAxis) {
     spec.axes.value = !flag(valueAxis, "delete")

@@ -369,6 +369,15 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Reset ▾ > Reset only selected Ribbon tab with Home selected: Home is as it came; a renamed Insert keeps its name.
 - Single line ribbon: a group added to Home shows its commands on the row; a tab you made shows as a single line.
 
+## Charts against Word's menus (2026-10-27)
+
+- Insert a Funnel, open Add Chart Element: Axes offers only Primary Vertical; Axis Titles and Gridlines are off,
+  as in Word.
+- Insert a Pareto, Axes > Secondary Vertical off, save, open in Word: the right axis (percentages) is gone and the
+  Axes menu shows Secondary Vertical unticked.
+- Column chart, Gridlines > Primary Minor Vertical, save, open in Word: the minor vertical gridlines are there.
+- Histogram with axis titles and gridlines, save, open in Word: the titles and gridlines show; reopen here, same.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and
