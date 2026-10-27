@@ -73,6 +73,15 @@ export type ChartSpec = {
   filled: boolean
   /** Surface: seen from above as a contour map rather than in 3-D. */
   contour?: boolean
+  /**
+   * Word's 3-D charts (22.6): "front" draws the chart as it is, with depth (3-D Clustered, Stacked and 100% Stacked
+   * Column and Bar, 3-D Stacked Area, 3-D Pie); "deep" puts each series in a row of its own, one behind another (3-D
+   * Column, 3-D Line, 3-D Area).
+   */
+  threeD?: "front" | "deep"
+  /** Pie of Pie and Bar of Pie: the last points (`ofPieSplit` of them) drawn again as a second pie or a bar. */
+  ofPie?: "pie" | "bar"
+  ofPieSplit?: number
   categories: string[]
   /**
    * Treemap and Sunburst: the label columns before the category, outermost first (Branch, Stem), each a label per
@@ -158,6 +167,8 @@ export type ChartVariant = {
   lines?: boolean
   filled?: boolean
   contour?: boolean
+  threeD?: "front" | "deep"
+  ofPie?: "pie" | "bar"
   /** Combo charts: the type of each series after the first, and whether the last goes on a secondary axis. */
   combo?: { first: "column" | "area"; rest: "line" | "column"; secondary?: boolean; firstGrouping?: ChartGrouping }
 }
@@ -170,6 +181,16 @@ export const CHART_FAMILIES: { id: string; label: string; items: ChartVariant[] 
       { id: "column", label: "Clustered Column", type: "column" },
       { id: "column-stacked", label: "Stacked Column", type: "column", grouping: "stacked" },
       { id: "column-percent", label: "100% Stacked Column", type: "column", grouping: "percent" },
+      { id: "column-3d-clustered", label: "3-D Clustered Column", type: "column", threeD: "front" },
+      { id: "column-3d-stacked", label: "3-D Stacked Column", type: "column", grouping: "stacked", threeD: "front" },
+      {
+        id: "column-3d-percent",
+        label: "3-D 100% Stacked Column",
+        type: "column",
+        grouping: "percent",
+        threeD: "front",
+      },
+      { id: "column-3d", label: "3-D Column", type: "column", threeD: "deep" },
     ],
   },
   {
@@ -194,6 +215,7 @@ export const CHART_FAMILIES: { id: string; label: string; items: ChartVariant[] 
         grouping: "percent",
         markers: true,
       },
+      { id: "line-3d", label: "3-D Line", type: "line", threeD: "deep" },
     ],
   },
   {
@@ -201,6 +223,9 @@ export const CHART_FAMILIES: { id: string; label: string; items: ChartVariant[] 
     label: "Pie",
     items: [
       { id: "pie", label: "Pie", type: "pie" },
+      { id: "pie-3d", label: "3-D Pie", type: "pie", threeD: "front" },
+      { id: "pie-of-pie", label: "Pie of Pie", type: "pie", ofPie: "pie" },
+      { id: "bar-of-pie", label: "Bar of Pie", type: "pie", ofPie: "bar" },
       { id: "doughnut", label: "Doughnut", type: "doughnut" },
     ],
   },
@@ -211,6 +236,9 @@ export const CHART_FAMILIES: { id: string; label: string; items: ChartVariant[] 
       { id: "hbar", label: "Clustered Bar", type: "bar" },
       { id: "hbar-stacked", label: "Stacked Bar", type: "bar", grouping: "stacked" },
       { id: "hbar-percent", label: "100% Stacked Bar", type: "bar", grouping: "percent" },
+      { id: "hbar-3d-clustered", label: "3-D Clustered Bar", type: "bar", threeD: "front" },
+      { id: "hbar-3d-stacked", label: "3-D Stacked Bar", type: "bar", grouping: "stacked", threeD: "front" },
+      { id: "hbar-3d-percent", label: "3-D 100% Stacked Bar", type: "bar", grouping: "percent", threeD: "front" },
     ],
   },
   {
@@ -220,6 +248,9 @@ export const CHART_FAMILIES: { id: string; label: string; items: ChartVariant[] 
       { id: "area", label: "Area", type: "area" },
       { id: "area-stacked", label: "Stacked Area", type: "area", grouping: "stacked" },
       { id: "area-percent", label: "100% Stacked Area", type: "area", grouping: "percent" },
+      { id: "area-3d", label: "3-D Area", type: "area", threeD: "deep" },
+      { id: "area-3d-stacked", label: "3-D Stacked Area", type: "area", grouping: "stacked", threeD: "front" },
+      { id: "area-3d-percent", label: "3-D 100% Stacked Area", type: "area", grouping: "percent", threeD: "front" },
     ],
   },
   {
@@ -358,7 +389,9 @@ export function variantOf(spec: ChartSpec): string {
         : true) &&
       (spec.type === "scatter" ? Boolean(item.lines) === spec.lines && Boolean(item.smooth) === spec.smooth : true) &&
       (spec.type === "radar" || spec.type === "surface" ? Boolean(item.filled) === spec.filled : true) &&
-      (spec.type === "surface" ? Boolean(item.contour) === Boolean(spec.contour) : true),
+      (spec.type === "surface" ? Boolean(item.contour) === Boolean(spec.contour) : true) &&
+      item.threeD === spec.threeD &&
+      item.ofPie === spec.ofPie,
   )
   return match?.id ?? spec.type
 }
@@ -383,6 +416,8 @@ export function withVariant(spec: ChartSpec, id: string): ChartSpec {
     lines: Boolean(variant.lines),
     filled: Boolean(variant.filled),
     contour: variant.contour || undefined,
+    threeD: variant.threeD,
+    ofPie: variant.ofPie,
     series: spec.series.map((serie, index) => {
       const { type: _type, secondary: _secondary, ...rest } = serie
       if (!variant.combo || index === 0) {
@@ -989,6 +1024,22 @@ function seriesPaint(painter: Painter, color: string, part: string) {
   return `fill="${fill}" stroke="${stroke}" stroke-width="${width}"${shadow}`
 }
 
+/** A side of a 3-D bar or area: its paint in a lighter (top) or darker (side) shade, with no shadow of its own. */
+function facePaint(paint: string, color: string, amount: number) {
+  return paint.replace(/fill="[^"]*"/, `fill="${shade(color, amount)}"`).replace(/ filter="[^"]*"/, "")
+}
+
+/** A 3-D bar: its right side, its top and its front, seen from above and to the right as Word's default view. */
+function box3d(x: number, y: number, w: number, h: number, dx: number, dy: number, paint: string, color: string) {
+  const side = `${n(x + w)},${n(y)} ${n(x + w + dx)},${n(y - dy)} ${n(x + w + dx)},${n(y + h - dy)} ${n(x + w)},${n(y + h)}`
+  const top = `${n(x)},${n(y)} ${n(x + dx)},${n(y - dy)} ${n(x + w + dx)},${n(y - dy)} ${n(x + w)},${n(y)}`
+  return (
+    `<polygon points="${side}" ${facePaint(paint, color, -0.25)}/>` +
+    `<polygon points="${top}" ${facePaint(paint, color, 0.25)}/>` +
+    `<rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="${n(h)}" ${paint}/>`
+  )
+}
+
 /** The chart, as the markup inside an `<svg viewBox="0 0 width height">`. */
 export function renderChart(source: ChartSpec, width: number, height: number) {
   // Box & Whisker, Treemap and Sunburst have their own painters; the other derived types are drawn as the chart they
@@ -1255,10 +1306,37 @@ function cartesian(painter: Painter, box: Box, series: Serie[], entries: { name:
   }
   plot.w = Math.max(10, plot.w)
   plot.h = Math.max(10, plot.h)
+  // A 3-D chart: the plot area is its front, and the walls and floor go back up to the right by `depth`. A "deep"
+  // chart puts each series in a row of its own, the first at the front.
+  const threeD = scatter ? undefined : spec.threeD
+  const rows = threeD === "deep" ? Math.max(1, series.length) : 1
+  const depth = { x: 0, y: 0 }
+  if (threeD) {
+    depth.x = Math.min(plot.w * (threeD === "deep" ? 0.3 : 0.08), threeD === "deep" ? 26 * rows : 18)
+    depth.y = Math.min(depth.x * 0.55, plot.h * 0.3)
+    plot.w = Math.max(10, plot.w - depth.x)
+    plot.y += depth.y
+    plot.h = Math.max(10, plot.h - depth.y)
+  }
+  const row = { x: depth.x / rows, y: depth.y / rows }
   const plotLine = partLine(painter, "plotArea", "none", 0.75)
-  painter.out.push(
-    `<rect data-chart-part="plotArea" x="${n(plot.x)}" y="${n(plot.y)}" width="${n(plot.w)}" height="${n(plot.h)}" fill="${partFill(painter, "plotArea", look.plot)}" stroke="${plotLine.stroke}" stroke-width="${plotLine.width}" pointer-events="all"/>`,
-  )
+  if (threeD) {
+    const wall = partFill(painter, "plotArea", look.plot)
+    const edge = plotLine.stroke === "none" ? look.grid : plotLine.stroke
+    const right = plot.x + plot.w
+    const bottom = plot.y + plot.h
+    const back = `${n(plot.x + depth.x)},${n(plot.y - depth.y)} ${n(right + depth.x)},${n(plot.y - depth.y)} ${n(right + depth.x)},${n(bottom - depth.y)} ${n(plot.x + depth.x)},${n(bottom - depth.y)}`
+    const side = `${n(plot.x)},${n(plot.y)} ${n(plot.x + depth.x)},${n(plot.y - depth.y)} ${n(plot.x + depth.x)},${n(bottom - depth.y)} ${n(plot.x)},${n(bottom)}`
+    const floor = `${n(plot.x)},${n(bottom)} ${n(plot.x + depth.x)},${n(bottom - depth.y)} ${n(right + depth.x)},${n(bottom - depth.y)} ${n(right)},${n(bottom)}`
+    painter.out.push(
+      `<g data-chart-part="plotArea" fill="${wall === "none" ? "transparent" : wall}" stroke="${edge}" stroke-width="${plotLine.width}" pointer-events="all">` +
+        `<polygon points="${back}"/><polygon points="${side}"/><polygon points="${floor}"/></g>`,
+    )
+  } else {
+    painter.out.push(
+      `<rect data-chart-part="plotArea" x="${n(plot.x)}" y="${n(plot.y)}" width="${n(plot.w)}" height="${n(plot.h)}" fill="${partFill(painter, "plotArea", look.plot)}" stroke="${plotLine.stroke}" stroke-width="${plotLine.width}" pointer-events="all"/>`,
+    )
+  }
 
   const valueSpan = horizontal ? plot.w : plot.h
   const toValue = (value: number, current = scale) => {
@@ -1291,6 +1369,16 @@ function cartesian(painter: Painter, box: Box, series: Serie[], entries: { name:
   const gridAt = (value: number, minor = false) => {
     const at = toValue(value)
     const stroke = minor ? shade(gridLine.stroke, 0.5) : gridLine.stroke
+    if (threeD) {
+      // Across the floor (or up the side wall) and along the back wall.
+      const bottom = plot.y + plot.h
+      grid.push(
+        horizontal
+          ? `<path d="M${n(at)} ${n(bottom)}L${n(at + depth.x)} ${n(bottom - depth.y)}V${n(plot.y - depth.y)}" fill="none" stroke="${stroke}" stroke-width="${gridLine.width}"${dash}/>`
+          : `<path d="M${n(plot.x)} ${n(at)}L${n(plot.x + depth.x)} ${n(at - depth.y)}H${n(plot.x + plot.w + depth.x)}" fill="none" stroke="${stroke}" stroke-width="${gridLine.width}"${dash}/>`,
+      )
+      return
+    }
     grid.push(
       horizontal
         ? `<line x1="${n(at)}" y1="${n(plot.y)}" x2="${n(at)}" y2="${n(plot.y + plot.h)}" stroke="${stroke}" stroke-width="${gridLine.width}"${dash}/>`
@@ -1314,10 +1402,12 @@ function cartesian(painter: Painter, box: Box, series: Serie[], entries: { name:
     } else {
       for (let column = 0; column <= count; column += 1) {
         const at = (horizontal ? plot.y : plot.x) + column * band
+        // On the back wall of a 3-D chart.
+        const [sx, sy] = [depth.x, -depth.y]
         grid.push(
           horizontal
-            ? `<line x1="${n(plot.x)}" y1="${n(at)}" x2="${n(plot.x + plot.w)}" y2="${n(at)}" stroke="${gridLine.stroke}" stroke-width="${gridLine.width}"/>`
-            : `<line x1="${n(at)}" y1="${n(plot.y)}" x2="${n(at)}" y2="${n(plot.y + plot.h)}" stroke="${gridLine.stroke}" stroke-width="${gridLine.width}"/>`,
+            ? `<line x1="${n(plot.x + sx)}" y1="${n(at + sy)}" x2="${n(plot.x + plot.w + sx)}" y2="${n(at + sy)}" stroke="${gridLine.stroke}" stroke-width="${gridLine.width}"/>`
+            : `<line x1="${n(at + sx)}" y1="${n(plot.y + sy)}" x2="${n(at + sx)}" y2="${n(plot.y + plot.h + sy)}" stroke="${gridLine.stroke}" stroke-width="${gridLine.width}"/>`,
         )
       }
     }
@@ -1381,29 +1471,38 @@ function cartesian(painter: Painter, box: Box, series: Serie[], entries: { name:
   const labels: string[] = []
   const overlap = stacking ? 1 : spec.overlap / 100
   const gap = spec.gapWidth / 100
-  const barCount = stacking ? 1 : Math.max(1, bars.length)
+  const barCount = stacking || threeD === "deep" ? 1 : Math.max(1, bars.length)
   const barWidth = band / (1 + (barCount - 1) * (1 - overlap) + gap)
   const labelPosition = spec.dataLabels
+  // How far back a 3-D bar or area goes: most of its row, or of the whole depth.
+  const thick = threeD === "deep" ? { x: row.x * 0.7, y: row.y * 0.7 } : { x: depth.x * 0.85, y: depth.y * 0.85 }
   for (const kind of order) {
-    for (const serie of series.filter((item) => kindOf(item) === kind)) {
+    let members = series.filter((item) => kindOf(item) === kind)
+    // Farther rows first, so nearer ones cover them; a 3-D bar chart's series go down its band, so the lower first.
+    if (threeD === "deep" || (threeD && horizontal && !stacking)) {
+      members = [...members].reverse()
+    }
+    for (const serie of members) {
       const own = values.get(serie.index)!
       const stack = stacked.get(serie.index)
       const color = seriesColor(painter, serie.index)
       const current = serie.secondary && scale2 ? scale2 : scale
       const shapes: string[] = []
+      const back = threeD === "deep" ? series.indexOf(serie) : 0
+      const shift = { x: back * row.x, y: -back * row.y }
       const points = own.map((value, column) => {
         const top = stack ? stack.to[column]! : value
         const base = stack ? stack.from[column]! : Math.max(current.min, Math.min(current.max, 0))
         return {
           value,
           column,
-          at: scatter ? toX(xNumbers[column]!) : slot(column),
-          top: toValue(top, current),
-          base: toValue(base, current),
+          at: (scatter ? toX(xNumbers[column]!) : slot(column)) + shift.x,
+          top: toValue(top, current) + shift.y,
+          base: toValue(base, current) + shift.y,
         }
       })
       if (kind === "column") {
-        const place = stacking ? 0 : bars.indexOf(serie)
+        const place = stacking || threeD === "deep" ? 0 : bars.indexOf(serie)
         const offset = -((barCount - 1) * (1 - overlap) * barWidth + barWidth) / 2 + place * (1 - overlap) * barWidth
         const paint = seriesPaint(painter, color, `series:${serie.index}`)
         for (const point of points) {
@@ -1411,9 +1510,13 @@ function cartesian(painter: Painter, box: Box, series: Serie[], entries: { name:
           const from = Math.min(point.top, point.base)
           const length = Math.abs(point.top - point.base)
           shapes.push(
-            horizontal
-              ? `<rect x="${n(from)}" y="${n(start)}" width="${n(length)}" height="${n(barWidth)}" ${paint}/>`
-              : `<rect x="${n(start)}" y="${n(from)}" width="${n(barWidth)}" height="${n(length)}" ${paint}/>`,
+            threeD
+              ? horizontal
+                ? box3d(from, start, length, barWidth, thick.x, thick.y, paint, color)
+                : box3d(start, from, barWidth, length, thick.x, thick.y, paint, color)
+              : horizontal
+                ? `<rect x="${n(from)}" y="${n(start)}" width="${n(length)}" height="${n(barWidth)}" ${paint}/>`
+                : `<rect x="${n(start)}" y="${n(from)}" width="${n(barWidth)}" height="${n(length)}" ${paint}/>`,
           )
           if (labelPosition !== "none") {
             labels.push(barLabel(painter, serie, point, start + barWidth / 2, horizontal, labelPosition))
@@ -1422,9 +1525,21 @@ function cartesian(painter: Painter, box: Box, series: Serie[], entries: { name:
       } else if (kind === "area") {
         const top = points.map((point) => `${n(point.at)},${n(point.top)}`)
         const base = [...points].reverse().map((point) => `${n(point.at)},${n(point.base)}`)
-        shapes.push(
-          `<polygon points="${[...top, ...base].join(" ")}" ${seriesPaint(painter, color, `series:${serie.index}`)}/>`,
-        )
+        const paint = seriesPaint(painter, color, `series:${serie.index}`)
+        if (threeD && points.length) {
+          // Its top going back, its far end, then its front over them.
+          points.slice(1).forEach((point, place) => {
+            const before = points[place]!
+            shapes.push(
+              `<polygon points="${n(before.at)},${n(before.top)} ${n(before.at + thick.x)},${n(before.top - thick.y)} ${n(point.at + thick.x)},${n(point.top - thick.y)} ${n(point.at)},${n(point.top)}" ${facePaint(paint, color, 0.25)}/>`,
+            )
+          })
+          const end = points[points.length - 1]!
+          shapes.push(
+            `<polygon points="${n(end.at)},${n(end.top)} ${n(end.at + thick.x)},${n(end.top - thick.y)} ${n(end.at + thick.x)},${n(end.base - thick.y)} ${n(end.at)},${n(end.base)}" ${facePaint(paint, color, -0.25)}/>`,
+          )
+        }
+        shapes.push(`<polygon points="${[...top, ...base].join(" ")}" ${paint}/>`)
         if (labelPosition !== "none") {
           points.forEach((point) =>
             labels.push(textLabel(painter, serie, point, point.at, (point.top + point.base) / 2 + 4)),
@@ -1433,14 +1548,30 @@ function cartesian(painter: Painter, box: Box, series: Serie[], entries: { name:
       } else {
         const line = partLine(painter, `series:${serie.index}`, color, 2.25)
         const joined = !scatter || spec.lines
-        if (joined && points.length > 1) {
+        if (threeD) {
+          // 3-D Line: a ribbon going back from the line, lighter where it faces up.
+          const paint = seriesPaint(painter, color, `series:${serie.index}`)
+          points.slice(1).forEach((point, place) => {
+            const before = points[place]!
+            shapes.push(
+              `<polygon points="${n(before.at)},${n(before.top)} ${n(before.at + thick.x)},${n(before.top - thick.y)} ${n(point.at + thick.x)},${n(point.top - thick.y)} ${n(point.at)},${n(point.top)}" ${point.top <= before.top ? paint : facePaint(paint, color, -0.2)}/>`,
+            )
+          })
+          // Its front edge, a few pixels deep, so the ribbon reads as a tape standing on its side.
+          const edge = 3
+          if (points.length > 1) {
+            const front = points.map((point) => `${n(point.at)},${n(point.top)}`)
+            const under = [...points].reverse().map((point) => `${n(point.at)},${n(point.top + edge)}`)
+            shapes.push(`<polygon points="${[...front, ...under].join(" ")}" ${facePaint(paint, color, -0.3)}/>`)
+          }
+        } else if (joined && points.length > 1) {
           const coords = points.map((point) => [point.at, point.top] as [number, number])
           const path = spec.smooth ? smoothPath(coords) : `M${coords.map(([x, y]) => `${n(x)} ${n(y)}`).join(" L")}`
           shapes.push(
             `<path d="${path}" fill="none" stroke="${line.stroke}" stroke-width="${line.width}" stroke-linejoin="round" stroke-linecap="round"/>`,
           )
         }
-        if (spec.markers || (scatter && !spec.lines)) {
+        if (!threeD && (spec.markers || (scatter && !spec.lines))) {
           for (const point of points) {
             shapes.push(`<circle cx="${n(point.at)}" cy="${n(point.top)}" r="3.4" fill="${color}" stroke="${color}"/>`)
           }
@@ -1760,6 +1891,14 @@ export function trendline(kind: TrendlineKind, points: [number, number][]): [num
 
 function pie(painter: Painter, box: Box) {
   const { spec } = painter
+  if (spec.type === "pie" && spec.ofPie) {
+    ofPie(painter, box, spec.ofPie)
+    return
+  }
+  if (spec.type === "pie" && spec.threeD) {
+    pie3d(painter, box)
+    return
+  }
   const serie = spec.series.map((item, index) => ({ ...item, index })).find((item) => !item.hidden)
   if (!serie) {
     return
@@ -1811,6 +1950,203 @@ function pie(painter: Painter, box: Box) {
   if (texts.length) {
     painter.out.push(`<g data-chart-part="dataLabels">${texts.join("")}</g>`)
   }
+}
+
+/** The pie's series and its shown points, for the painters below. */
+function pieData(spec: ChartSpec) {
+  const serie = spec.series.map((item, index) => ({ ...item, index })).find((item) => !item.hidden)
+  const shown = spec.categories.map((_, index) => index).filter((index) => !spec.hiddenCategories.includes(index))
+  const values = serie ? shown.map((index) => Math.max(0, serie.values[index] ?? 0)) : []
+  return { serie, shown, values, total: values.reduce((sum, value) => sum + value, 0) || 1 }
+}
+
+/** The angle ranges of [from, to] that face the viewer on a tilted pie: its lower half on screen. */
+function frontArcs(from: number, to: number) {
+  const arcs: [number, number][] = []
+  for (let turn = -2; turn <= 2; turn += 1) {
+    const low = Math.max(from, turn * Math.PI * 2)
+    const high = Math.min(to, turn * Math.PI * 2 + Math.PI)
+    if (high > low + 1e-6) {
+      arcs.push([low, high])
+    }
+  }
+  return arcs
+}
+
+/** 3-D Pie: the pie tilted back, as Word's default view (30°), with its rim showing at the front. */
+function pie3d(painter: Painter, box: Box) {
+  const { spec } = painter
+  const { serie, shown, values, total } = pieData(spec)
+  if (!serie) {
+    return
+  }
+  const labels = spec.dataLabels !== "none"
+  const outside = labels && spec.dataLabels === "outsideEnd" ? 18 : 4
+  const rx = Math.max(4, Math.min(box.w / 2 - outside, (box.h - 2 * outside) / 1.16))
+  const ry = rx * 0.5
+  const thick = rx * 0.16
+  const cx = box.x + box.w / 2
+  const cy = box.y + box.h / 2 - thick / 2
+  const explode = (rx * spec.explosion) / 100
+  const line = spec.style === 1 ? "#ffffff" : undefined
+  const sides: string[] = []
+  const tops: string[] = []
+  const texts: string[] = []
+  let angle = ((spec.firstSliceAngle - 90) * Math.PI) / 180
+  values.forEach((value, place) => {
+    const index = shown[place]!
+    const sweep = (value / total) * Math.PI * 2
+    const start = angle
+    angle += sweep
+    const middle = start + sweep / 2
+    const dx = Math.cos(middle) * explode
+    const dy = Math.sin(middle) * explode * 0.5
+    const at = (a: number, lift = 0) => `${n(cx + dx + Math.cos(a) * rx)} ${n(cy + dy + Math.sin(a) * ry + lift)}`
+    const color = pointColor(painter, index)
+    let paint = seriesPaint(painter, color, `point:${index}`)
+    if (line && !spec.format[`point:${index}`]?.line) {
+      paint = paint.replace(/stroke="[^"]*" stroke-width="[^"]*"/, `stroke="${line}" stroke-width="1"`)
+    }
+    for (const [from, to] of frontArcs(start, angle)) {
+      sides.push(
+        `<path data-chart-part="point:${index}" d="M${at(from)} A${n(rx)} ${n(ry)} 0 0 1 ${at(to)} L${at(to, thick)} A${n(rx)} ${n(ry)} 0 0 0 ${at(from, thick)}Z" ${facePaint(paint, color, -0.3)}/>`,
+      )
+    }
+    const full = sweep >= Math.PI * 2 - 1e-6
+    const path = full
+      ? `M${at(0)} A${n(rx)} ${n(ry)} 0 1 1 ${at(Math.PI)} A${n(rx)} ${n(ry)} 0 1 1 ${at(0)}Z`
+      : `M${n(cx + dx)} ${n(cy + dy)} L${at(start)} A${n(rx)} ${n(ry)} 0 ${sweep > Math.PI ? 1 : 0} 1 ${at(angle)}Z`
+    tops.push(`<path data-chart-part="point:${index}" d="${path}" ${paint}/>`)
+    if (labels) {
+      const reach = spec.dataLabels === "outsideEnd" ? 1.18 : 0.62
+      const text = labelText(spec, serie, value, place, value / total)
+      texts.push(
+        `<text x="${n(cx + dx + Math.cos(middle) * rx * reach)}" y="${n(cy + dy + Math.sin(middle) * ry * reach + 4)}" text-anchor="middle" ${textAttrs(painter, "dataLabels")}>${escapeXml(text)}</text>`,
+      )
+    }
+  })
+  painter.out.push(`<g data-chart-part="series:${serie.index}">${sides.join("")}${tops.join("")}</g>`)
+  if (texts.length) {
+    painter.out.push(`<g data-chart-part="dataLabels">${texts.join("")}</g>`)
+  }
+}
+
+/** How many of the last points Pie of Pie and Bar of Pie draw again on their own: Word's split by position. */
+export function ofPieSplit(spec: ChartSpec, count: number) {
+  const asked = spec.ofPieSplit ?? Math.max(1, Math.min(3, Math.floor(count / 2)))
+  return Math.max(1, Math.min(count - 1, Math.round(asked)))
+}
+
+/**
+ * Pie of Pie and Bar of Pie: the first points as a pie whose last slice, Other, gathers the rest, and the rest again
+ * to its right as a smaller pie or a stacked bar, joined to Other by two lines.
+ */
+function ofPie(painter: Painter, box: Box, second: "pie" | "bar") {
+  const { spec, look } = painter
+  const { serie, shown, values } = pieData(spec)
+  if (!serie || values.length < 2) {
+    wholePie(painter, box)
+    return
+  }
+  const split = ofPieSplit(spec, values.length)
+  const main = values.slice(0, values.length - split)
+  const rest = values.slice(values.length - split)
+  const other = rest.reduce((sum, value) => sum + value, 0)
+  const total = main.reduce((sum, value) => sum + value, 0) + other || 1
+  const labels = spec.dataLabels !== "none"
+  const r1 = Math.max(4, Math.min(box.h / 2 - 6, box.w * 0.24))
+  const cy = box.y + box.h / 2
+  const cx1 = box.x + box.w * 0.32
+  const cx2 = box.x + box.w * 0.76
+  const line = spec.style === 1 ? "#ffffff" : undefined
+  const paintOf = (color: string, part: string) => {
+    const paint = seriesPaint(painter, color, part)
+    return line && !spec.format[part]?.line
+      ? paint.replace(/stroke="[^"]*" stroke-width="[^"]*"/, `stroke="${line}" stroke-width="1.5"`)
+      : paint
+  }
+  const slices: string[] = []
+  const texts: string[] = []
+  const label = (value: number, place: number, x: number, y: number) => {
+    if (labels) {
+      const text = labelText(spec, serie, value, place, value / total)
+      texts.push(
+        `<text x="${n(x)}" y="${n(y + 4)}" text-anchor="middle" ${textAttrs(painter, "dataLabels")}>${escapeXml(text)}</text>`,
+      )
+    }
+  }
+  const wedge = (cx: number, r: number, from: number, to: number, paint: string, part: string) => {
+    const at = (a: number) => `${n(cx + Math.cos(a) * r)} ${n(cy + Math.sin(a) * r)}`
+    return to - from >= Math.PI * 2 - 1e-6
+      ? `<circle data-chart-part="${part}" cx="${n(cx)}" cy="${n(cy)}" r="${n(r)}" ${paint}/>`
+      : `<path data-chart-part="${part}" d="M${n(cx)} ${n(cy)} L${at(from)} A${n(r)} ${n(r)} 0 ${to - from > Math.PI ? 1 : 0} 1 ${at(to)}Z" ${paint}/>`
+  }
+  // Other faces the second plot: centred on the right.
+  const otherSweep = (other / total) * Math.PI * 2
+  let angle = otherSweep / 2
+  main.forEach((value, place) => {
+    const index = shown[place]!
+    const sweep = (value / total) * Math.PI * 2
+    slices.push(wedge(cx1, r1, angle, angle + sweep, paintOf(pointColor(painter, index), `point:${index}`), `point:${index}`))
+    const middle = angle + sweep / 2
+    label(value, place, cx1 + Math.cos(middle) * r1 * 0.62, cy + Math.sin(middle) * r1 * 0.62)
+    angle += sweep
+  })
+  const otherColor = paletteColor(spec, shown.length)
+  slices.push(wedge(cx1, r1, -otherSweep / 2, otherSweep / 2, paintOf(otherColor, "point:other"), "point:other"))
+  label(other, main.length, cx1 + r1 * 0.62, cy)
+  const top = [cx1 + Math.cos(-otherSweep / 2) * r1, cy + Math.sin(-otherSweep / 2) * r1]
+  const bottom = [cx1 + Math.cos(otherSweep / 2) * r1, cy + Math.sin(otherSweep / 2) * r1]
+  let joins: [number, number][]
+  if (second === "pie") {
+    const r2 = r1 * 0.75
+    let from = Math.PI - ((rest[0]! / (other || 1)) * Math.PI * 2) / 2
+    rest.forEach((value, offset) => {
+      const place = main.length + offset
+      const index = shown[place]!
+      const sweep = (value / (other || 1)) * Math.PI * 2
+      slices.push(wedge(cx2, r2, from, from + sweep, paintOf(pointColor(painter, index), `point:${index}`), `point:${index}`))
+      const middle = from + sweep / 2
+      label(value, place, cx2 + Math.cos(middle) * r2 * 0.6, cy + Math.sin(middle) * r2 * 0.6)
+      from += sweep
+    })
+    joins = [
+      [cx2, cy - r2],
+      [cx2, cy + r2],
+    ]
+  } else {
+    const height = r1 * 1.6
+    const width = Math.max(10, r1 * 0.45)
+    let y = cy - height / 2
+    rest.forEach((value, offset) => {
+      const place = main.length + offset
+      const index = shown[place]!
+      const tall = (value / (other || 1)) * height
+      slices.push(
+        `<rect data-chart-part="point:${index}" x="${n(cx2 - width / 2)}" y="${n(y)}" width="${n(width)}" height="${n(tall)}" ${paintOf(pointColor(painter, index), `point:${index}`)}/>`,
+      )
+      label(value, place, cx2, y + tall / 2)
+      y += tall
+    })
+    joins = [
+      [cx2 - width / 2, cy - height / 2],
+      [cx2 - width / 2, cy + height / 2],
+    ]
+  }
+  painter.out.push(`<g data-chart-part="series:${serie.index}">${slices.join("")}</g>`)
+  painter.out.push(
+    `<g data-chart-part="lines" stroke="${look.axis}" stroke-width="1">` +
+      `<line x1="${n(top[0]!)}" y1="${n(top[1]!)}" x2="${n(joins[0]![0])}" y2="${n(joins[0]![1])}"/>` +
+      `<line x1="${n(bottom[0]!)}" y1="${n(bottom[1]!)}" x2="${n(joins[1]![0])}" y2="${n(joins[1]![1])}"/></g>`,
+  )
+  if (texts.length) {
+    painter.out.push(`<g data-chart-part="dataLabels">${texts.join("")}</g>`)
+  }
+}
+
+/** A pie too small to split: drawn whole. */
+function wholePie(painter: Painter, box: Box) {
+  pie({ ...painter, spec: { ...painter.spec, ofPie: undefined } }, box)
 }
 
 /**

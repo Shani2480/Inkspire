@@ -6,6 +6,7 @@ import {
   chartSpecOf,
   defaultChartSpec,
   niceScale,
+  ofPieSplit,
   renderChart,
   serializeChartSpec,
   switchRowColumn,
@@ -62,6 +63,26 @@ describe("chart spec", () => {
       }
       expect(svg, variant.id).not.toContain("NaN")
     }
+  })
+
+  it("draws 3-D charts with walls and sides, and an of-pie chart's second plot from its last points", () => {
+    const count = (svg: string, text: string) => svg.split(text).length - 1
+    const flat = renderChart(defaultChartSpec("column"), 576, 336)
+    const deep = renderChart(withVariant(defaultChartSpec("column"), "column-3d"), 576, 336)
+    // Each bar gains a side and a top; the plot area becomes back wall, side wall and floor.
+    expect(count(deep, "<polygon")).toBe(count(flat, "<polygon") + 12 * 2 + 3)
+    expect(deep).toMatch(/data-chart-part="plotArea"[^>]*><polygon/)
+    const tilted = renderChart(defaultChartSpec("pie-3d"), 576, 336)
+    expect(tilted).toMatch(/A[\d.]+ [\d.]+ 0 0 1/)
+    const spec = defaultChartSpec("bar-of-pie")
+    expect(ofPieSplit(spec, 4)).toBe(2)
+    expect(ofPieSplit({ ...spec, ofPieSplit: 9 }, 4)).toBe(3)
+    const svg = renderChart(spec, 576, 336)
+    // The first two quarters and Other in the pie, the last two as the bar, and the two lines between them.
+    expect(count(svg, "<path data-chart-part=\"point:")).toBe(3)
+    expect(count(svg, "<rect data-chart-part=\"point:")).toBe(2)
+    expect(svg).toContain('data-chart-part="point:other"')
+    expect(svg).toMatch(/data-chart-part="lines"[^>]*><line[^>]*\/><line/)
   })
 
   it("applies Quick Layouts and leaves out hidden series and categories", () => {

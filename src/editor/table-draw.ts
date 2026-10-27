@@ -279,7 +279,7 @@ function drawLine(view: EditorView, hit: CellHit, x1: number, y1: number, x2: nu
   const rect = map.findCell(hit.cellPos - hit.tablePos - 1)
   const zoom = useViewStore.getState().zoom || 1
   const tr = view.state.tr
-  let done = false
+  let done: boolean
   if (Math.abs(y2 - y1) >= Math.abs(x2 - x1)) {
     const edges = columnEdges(view, table, hit.tablePos)
     const widths = edges.slice(1).map((edge, index) => (edge - edges[index]!) / zoom)
