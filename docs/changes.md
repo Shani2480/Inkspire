@@ -7,6 +7,23 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Word's remaining formatting keys
+
+- **Missing:** Ctrl+Shift+D (double underline), Ctrl+Shift+K (small caps), Ctrl+Shift+H (hidden), Ctrl+T and
+  Ctrl+Shift+T (hanging indent), Ctrl+Q (reset paragraph formatting) and Ctrl+Shift+V (paste formatting). The
+  formats themselves were already in the Font and Paragraph dialogs.
+- **Changed:**
+  - `src/editor/shortcuts.ts` adds the seven keys:
+    - The character ones toggle the same settings the Font dialog sets.
+    - Ctrl+T steps the hanging indent 1.27 cm, from the first paragraph chosen.
+    - Ctrl+Q puts the paragraph's own formatting back to its defaults and keeps character formatting.
+  - Ctrl+Shift+C is now Word's Copy Formatting, which Ctrl+Shift+V pastes. It used to arm the format painter; the
+    button still does.
+  - `captureFormat` and `applyFormat` (`home-actions.ts`) are shared by the painter and the new pair.
+- **Checked:** `shortcuts.test.ts` covers each key. While writing those tests, Ctrl+T with everything selected
+  never got past one step; that is fixed. In Chrome every key was pressed on real text.
+- **Open:** in a browser tab, Ctrl+T and Ctrl+Q may be taken by the browser; the desktop app gets them.
+
 ### Tables break across pages; floating tables split and keep apart
 
 - **Bug:** no table broke across pages. One taller than the room left moved to the next page whole and ran off

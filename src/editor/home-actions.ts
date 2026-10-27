@@ -73,11 +73,8 @@ export function clearFormatPainter() {
   emitPainter()
 }
 
-export function armFormatPainter(editor: Editor, locked: boolean) {
-  if (painter && (!locked || painter.locked)) {
-    clearFormatPainter()
-    return
-  }
+/** The formatting at the selection: its character formatting, and its paragraph's when whole paragraphs are chosen. */
+function captureFormat(editor: Editor): Omit<Painter, "locked"> {
   restoreSelection(editor)
   const { state } = editor
   const marks = (state.storedMarks ?? state.selection.$from.marks()).filter((mark) => FORMAT_MARKS.has(mark.type.name))
@@ -89,24 +86,61 @@ export function armFormatPainter(editor: Editor, locked: boolean) {
       state.selection.$from.sameParent(state.selection.$to)) ||
       !state.selection.$from.sameParent(state.selection.$to))
   const block = coversBlock ? Object.fromEntries(BLOCK_KEYS.map((key) => [key, parent.attrs[key]])) : null
-  painter = { marks, block, locked }
+  return { marks, block }
+}
+
+export function armFormatPainter(editor: Editor, locked: boolean) {
+  if (painter && (!locked || painter.locked)) {
+    clearFormatPainter()
+    return
+  }
+  painter = { ...captureFormat(editor), locked }
   emitPainter()
+}
+
+/** Word's Copy Formatting (Ctrl+Shift+C): kept until Paste Formatting (Ctrl+Shift+V) puts it on another selection. */
+let copiedFormat: Omit<Painter, "locked"> | null = null
+
+export function copyFormatting(editor: Editor) {
+  copiedFormat = captureFormat(editor)
+  return true
+}
+
+export function pasteFormatting(editor: Editor) {
+  if (!copiedFormat) {
+    return false
+  }
+  restoreSelection(editor)
+  applyFormat(editor.view, copiedFormat)
+  editor.commands.focus()
+  return true
 }
 
 function applyPainter(view: EditorView) {
   if (!painter) {
     return
   }
-  const { from, to, empty } = view.state.selection
-  if (empty || from === to) {
+  if (!applyFormat(view, painter)) {
     return
   }
+  if (!painter.locked) {
+    painter = null
+    emitPainter()
+  }
+}
+
+/** Puts copied formatting on the selection: its character formatting, and its paragraph's when it was copied. */
+function applyFormat(view: EditorView, format: Omit<Painter, "locked">) {
+  const { from, to, empty } = view.state.selection
+  if (empty || from === to) {
+    return false
+  }
   let transaction = view.state.tr.removeMark(from, to)
-  for (const mark of painter.marks) {
+  for (const mark of format.marks) {
     transaction = transaction.addMark(from, to, mark)
   }
-  if (painter.block) {
-    const block = painter.block
+  if (format.block) {
+    const block = format.block
     view.state.doc.nodesBetween(from, to, (node, pos) => {
       if (node.type.name !== "paragraph" && node.type.name !== "heading") {
         return
@@ -121,12 +155,8 @@ function applyPainter(view: EditorView) {
       })
     })
   }
-  const locked = painter.locked
   view.dispatch(transaction)
-  if (!locked) {
-    painter = null
-    emitPainter()
-  }
+  return true
 }
 
 export const FormatPainter = Extension.create({

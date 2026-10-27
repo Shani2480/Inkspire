@@ -8,11 +8,13 @@ import { addComment } from "@/editor/comments"
 import {
   applyBullet,
   applyParagraphStyle,
-  armFormatPainter,
   clearFormatting,
   clearList,
+  copyFormatting,
   currentBulletMarker,
+  pasteFormatting,
 } from "@/editor/home-actions"
+import { updateBlocks } from "@/editor/block-format"
 import type { Editor } from "@tiptap/core"
 import { create } from "zustand"
 
@@ -41,6 +43,80 @@ function toggleBullets(editor: Editor) {
   } else {
     applyBullet(editor, currentBulletMarker())
   }
+  return true
+}
+
+/** Word's Ctrl+Shift+D: double underline on, or off again where it already is. */
+function toggleDoubleUnderline(editor: Editor) {
+  const chain = editor.chain().focus()
+  return editor.getAttributes("underline").style === "double"
+    ? chain.unsetUnderline().run()
+    : chain.setMark("underline", { style: "double" }).run()
+}
+
+/** A character format kept on the text style (small caps, hidden), on or off as Word's Ctrl+Shift+K and H. */
+const toggleTextStyle = (name: string, on: string) => (editor: Editor) => {
+  const next = editor.getAttributes("textStyle")[name] === on ? null : on
+  return editor
+    .chain()
+    .focus()
+    .setMark("textStyle", { [name]: next })
+    .removeEmptyTextStyle()
+    .run()
+}
+
+/** Word moves a hanging indent a default tab stop (1.27 cm) at a time. */
+const HANGING_STEP = 1.27
+
+/** Ctrl+T makes the hanging indent a step deeper, Ctrl+Shift+T a step shallower, down to none. */
+const stepHanging = (direction: 1 | -1) => (editor: Editor) => {
+  const { $from, from, to } = editor.state.selection
+  // The first paragraph chosen (with the whole document selected, the selection starts outside any).
+  let first = $from.parent.isTextblock ? $from.parent : null
+  editor.state.doc.nodesBetween(from, to, (node) => {
+    first ??= node.isTextblock ? node : null
+    return !first
+  })
+  const [kind, raw] = String(first?.attrs.specialIndent || "").split(":")
+  const current = kind === "hanging" ? Number(raw) || 0 : 0
+  const next = Math.round((current + direction * HANGING_STEP) * 100) / 100
+  updateBlocks(editor, { specialIndent: next > 0 ? `hanging:${next}` : "" })
+  editor.commands.focus()
+  return true
+}
+
+/** The paragraph formatting Ctrl+Q takes off, back to what the paragraph's style gives it. */
+const PARAGRAPH_FORMAT = [
+  "textAlign",
+  "lineHeight",
+  "lineRule",
+  "spaceBefore",
+  "spaceAfter",
+  "indent",
+  "indentRight",
+  "specialIndent",
+  "mirrorIndents",
+  "contextualSpacing",
+  "shading",
+  "shadingPattern",
+  "border",
+  "borderPen",
+  "borderSpace",
+  "borderShadow",
+  "borderFrame",
+  "keepNext",
+  "keepLines",
+  "pageBreakBefore",
+  "widowControl",
+]
+
+function resetParagraph(editor: Editor) {
+  const attrs = editor.schema.nodes.paragraph?.spec.attrs ?? {}
+  const defaults = Object.fromEntries(
+    PARAGRAPH_FORMAT.filter((key) => key in attrs).map((key) => [key, attrs[key]?.default ?? null]),
+  )
+  updateBlocks(editor, defaults)
+  editor.commands.focus()
   return true
 }
 
@@ -152,11 +228,27 @@ export const SHORTCUTS: ShortcutDef[] = [
   },
   {
     id: "format-painter",
-    label: "Copy Formatting (Format Painter)",
+    label: "Copy Formatting",
     group: "Text",
     keys: ["Mod+Shift+C"],
-    run: (e) => (armFormatPainter(e, false), true),
+    run: copyFormatting,
   },
+  { id: "paste-formatting", label: "Paste Formatting", group: "Text", keys: ["Mod+Shift+V"], run: pasteFormatting },
+  {
+    id: "double-underline",
+    label: "Double Underline",
+    group: "Text",
+    keys: ["Mod+Shift+D"],
+    run: toggleDoubleUnderline,
+  },
+  {
+    id: "small-caps",
+    label: "Small Caps",
+    group: "Text",
+    keys: ["Mod+Shift+K"],
+    run: toggleTextStyle("fontVariant", "small-caps"),
+  },
+  { id: "hidden-text", label: "Hidden", group: "Text", keys: ["Mod+Shift+H"], run: toggleTextStyle("hidden", "1") },
   { id: "font-dialog", label: "Font…", group: "Text", keys: ["Mod+D"], run: () => (requestFormatDialog("font"), true) },
   { id: "align-left", label: "Align Left", group: "Paragraph", keys: ["Mod+L"], run: align("left") },
   { id: "align-center", label: "Center", group: "Paragraph", keys: ["Mod+E"], run: align("center") },
@@ -170,6 +262,21 @@ export const SHORTCUTS: ShortcutDef[] = [
     group: "Paragraph",
     keys: ["Mod+Shift+M"],
     run: (e) => (changeIndent(e, -1), true),
+  },
+  { id: "hanging-indent", label: "Hanging Indent", group: "Paragraph", keys: ["Mod+T"], run: stepHanging(1) },
+  {
+    id: "reduce-hanging-indent",
+    label: "Reduce Hanging Indent",
+    group: "Paragraph",
+    keys: ["Mod+Shift+T"],
+    run: stepHanging(-1),
+  },
+  {
+    id: "reset-paragraph",
+    label: "Reset Paragraph Formatting",
+    group: "Paragraph",
+    keys: ["Mod+Q"],
+    run: resetParagraph,
   },
   { id: "single-spacing", label: "Single Line Spacing", group: "Paragraph", keys: ["Mod+1"], run: spacing("1") },
   { id: "double-spacing", label: "Double Line Spacing", group: "Paragraph", keys: ["Mod+2"], run: spacing("2") },
