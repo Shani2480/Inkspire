@@ -178,6 +178,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       branches untested.
 - [ ] **First-run setup wizard (21.42)** — `system_defaults` returns the real author and locale live.
 
+- [ ] **Narrow / Wide cell margins in Word (2026-10-27)** — set Wide on a table, save, open in Word: Table
+      Properties → Options shows 0.26 cm top/bottom and 0.37 cm left/right; reopened in the app, Cell Margins is Wide.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: the reader does not yet read a dash or gradient back (file keeps it until the shape is

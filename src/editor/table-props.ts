@@ -154,3 +154,21 @@ export function presetMargins(pad: unknown): Margins {
   }
   return WORD_MARGINS
 }
+
+/**
+ * A table's attributes for the Narrow / Normal / Wide preset: its default cell margins are set to the preset's, so
+ * they are saved in .docx (w:tblCellMar) and win over margins the table came with. Normal is Word's default, which
+ * Word leaves out.
+ */
+export function presetAttrs(pad: "narrow" | "normal" | "wide") {
+  return { cellPad: pad, margins: pad === "normal" ? null : marginsValue(presetMargins(pad)) }
+}
+
+/** The preset a table's margins match, so a table saved as Wide opens as Wide; any other margins count as Normal. */
+export function presetOf(attrs: { cellPad?: unknown; margins?: unknown }): "narrow" | "normal" | "wide" {
+  if (typeof attrs.margins === "string") {
+    const margins = marginsValue(parseMargins(attrs.margins))
+    return (["narrow", "wide"] as const).find((pad) => marginsValue(presetMargins(pad)) === margins) ?? "normal"
+  }
+  return attrs.cellPad === "narrow" || attrs.cellPad === "wide" ? attrs.cellPad : "normal"
+}

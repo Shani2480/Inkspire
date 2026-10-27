@@ -1,6 +1,7 @@
 import type { Editor } from "@tiptap/core"
 import type { Node as ProseNode } from "@tiptap/pm/model"
 import { TableMap, cellAround, findTable } from "@tiptap/pm/tables"
+import { presetAttrs, presetOf } from "@/editor/table-props"
 import { currentTable, toggleTableStyleOption } from "@/editor/table-tools"
 
 const PX_PER_CM = 96 / 2.54
@@ -25,9 +26,7 @@ export function tableLayoutState(editor: Editor) {
     gridlines: table.node.attrs.gridlines !== false,
     headerRow: Boolean(table.node.attrs.headerRow),
     vertical: cell.node.attrs.textDir === "vertical",
-    cellPad: (table.node.attrs.cellPad === "narrow" || table.node.attrs.cellPad === "wide"
-      ? table.node.attrs.cellPad
-      : "normal") as CellPad,
+    cellPad: presetOf(table.node.attrs) as CellPad,
     valign: (cell.node.attrs.valign === "middle" || cell.node.attrs.valign === "bottom"
       ? cell.node.attrs.valign
       : "top") as "top" | "middle" | "bottom",
@@ -64,7 +63,7 @@ export function applyTableProperties(editor: Editor, next: TableProperties): boo
   }
   if (next.cellPad !== before.cellPad) {
     editor.view.dispatch(
-      editor.state.tr.setNodeMarkup(table.pos, undefined, { ...table.node.attrs, cellPad: next.cellPad }),
+      editor.state.tr.setNodeMarkup(table.pos, undefined, { ...table.node.attrs, ...presetAttrs(next.cellPad) }),
     )
   }
   if (next.align !== before.align || next.altTitle !== before.altTitle || next.altDesc !== before.altDesc) {
@@ -213,10 +212,11 @@ export function cycleCellMargins(editor: Editor) {
   if (!table) {
     return
   }
-  const current =
-    table.node.attrs.cellPad === "narrow" || table.node.attrs.cellPad === "wide" ? table.node.attrs.cellPad : "normal"
+  const current = presetOf(table.node.attrs)
   const next = current === "normal" ? "narrow" : current === "narrow" ? "wide" : "normal"
-  editor.view.dispatch(editor.state.tr.setNodeMarkup(table.pos, undefined, { ...table.node.attrs, cellPad: next }))
+  editor.view.dispatch(
+    editor.state.tr.setNodeMarkup(table.pos, undefined, { ...table.node.attrs, ...presetAttrs(next) }),
+  )
 }
 
 export function alignTableCell(
