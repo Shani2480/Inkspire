@@ -7,6 +7,64 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Map charts: Filled Map
+
+- **Missing:** Insert Chart had no Map. A Word document's map chart (`cx:regionMap`) opened only as its fallback
+  picture.
+- **Changed:**
+  - **Map → Filled Map** in Insert Chart and Change Chart Type, in Word's place (after X Y). The sample is sales by
+    country.
+  - **Drawing.** Each category names a country, matched by its own name or a common other one (USA, UK, Czech
+    Republic, DR Congo, Ivory Coast, with or without a leading "the", case, accents or punctuation).
+    - Countries are coloured by value from the Minimum colour to the Maximum: unset, a pale and the full series
+      colour.
+    - The countries around them are drawn in grey, and the legend is the colour scale with the lowest and highest
+      values (vertical at the side, horizontal above or below).
+    - Data labels put the value on each country, and Map labels the name.
+    - Each country is a point: it can be picked and filled on its own.
+    - Names that match no country are left out.
+  - **Options** (Format Data Series → Series Options):
+    - Map projection: Automatic, which is Miller for the whole world and Mercator for a part; Mercator; Miller;
+      Robinson.
+    - Map area: Automatic or Only regions with data (fitted to the countries with data), or World (without
+      Antarctica unless it has data).
+    - Map labels: None or Show all.
+    - Series Color: Minimum and Maximum.
+    - The pane shows no trendline and no secondary axis for a map, and Chart Elements shows no axes.
+  - **Outlines:** Natural Earth's countries at 1:110m, from the `world-atlas` package (177 countries), turned into
+    shapes with `topojson-client` and projected with `d3-geo` (all ISC; the data is public domain).
+    - The outlines are a separate 108 KB file (40 KB gzipped), loaded the first time a map is drawn. Until then the
+      chart shows "Loading map…", and every map on the page and in the gallery is drawn again once they arrive
+      (`onMapCountries`).
+  - **.docx:**
+    - A map is saved as its picture, carrying the chart, and opens as the map again. Word's own map chart needs
+      Bing's geography data in the file.
+    - Word's map charts are read: data, projection, area (`viewedRegionType`) and labels. An unchanged one goes
+      back to Word as it came.
+  - Files: `src/editor/chart-map.ts` (outlines, name matching, projections, `drawMap`), `filledMap` and
+    `mapColors` in `src/editor/chart-spec.ts`, `src/document/docx/chartex-xml.ts`, `src/document/docx/inlines.ts`,
+    `MapOptions` in `src/components/chart-format-pane.tsx`.
+- **Tests:**
+  - `chart-map.test.ts`: "Loading map…" then the drawing; a point per country; the scale; colours along it; a
+    point's own fill; name matching; unmatched names; area; each projection.
+  - `chartex.test.ts`: Word's `regionMap` read with its options; a map saved as a picture and reopened as the
+    same chart.
+  - `chart-spec.test.ts`: every variant now includes the map. All 1088 tests pass.
+- **Checked:**
+  - In Chrome, Insert Chart → Map showed the Filled Map preview, and OK inserted it.
+  - Format Data Series set Robinson, World and Show all, and the names appeared on the countries. The part list
+    named each country.
+  - The production build puts the outlines in their own chunk. The Open XML validator reports 0 errors on a
+    saved map.
+- **Open:**
+  - No states, provinces or postal codes: countries only.
+  - No Albers projection.
+  - No category (text) values: values are numbers.
+  - No Diverging (3-color) scale.
+  - No Best Fit labels.
+  - Small countries are missing at 1:110m.
+  - Word sees a picture, not its own map chart.
+
 ### Customize the Ribbon and Quick Access Toolbar: Import/Export
 
 - **Missing:** Word's Import/Export was not in the dialog. The desktop app could not write a settings file:

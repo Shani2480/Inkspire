@@ -137,8 +137,30 @@ describe("Word's chartex charts (Histogram, Pareto, Waterfall, Funnel, Box & Whi
     expect(spec.categories).toEqual(["1", "2", "3", "4"])
     expect(spec.bins).toEqual({ by: "auto", overflow: 12 })
     expect(spec.legend).toBe("none")
-    // A Map is not a chart the app draws.
-    expect(readChartEx(xml.replace("clusteredColumn", "regionMap"))).toBeNull()
+    // Word's Map: the same data as a Filled Map, with its projection, area and labels.
+    const map = readChartEx(
+      xml
+        .replace("clusteredColumn", "regionMap")
+        .replace(
+          /<cx:layoutPr>[^]*?<\/cx:layoutPr>/,
+          `<cx:layoutPr><cx:regionLabelLayout val="showAll"/><cx:geography projectionType="robinson" viewedRegionType="world" cultureLanguage="en-US" cultureRegion="US" attribution="Powered by Bing"/></cx:layoutPr>`,
+        ),
+    )!
+    expect(map).toMatchObject({ type: "map", mapProjection: "robinson", mapArea: "world", mapLabels: "show" })
+    expect(map.series[0]!.values).toEqual([1, 4, 9, 16])
+  })
+
+  it("saves a Filled Map as its picture, which opens as the map again", async () => {
+    const spec = { ...defaultChartSpec("filled-map"), mapProjection: "miller" as const }
+    const bytes = await save(spec)
+    const pkg = await openPackage(bytes, "c.docx")
+    const document = decodeXml(findPart(pkg, pkg.mainPartName)!.data)
+    expect(document).not.toContain("<c:chart ")
+    expect(document).not.toContain("<cx:chart ")
+    expect(document).toContain("<pic:pic")
+    const { view } = await openDocxBytes(bytes, "c.docx")
+    const figure = decode(/data-inkspire-object="([^"]+)"/.exec(view.html)![1]!)
+    expect(JSON.parse(figure.attrs.chart)).toEqual(spec)
   })
 
   it("saves the chart in an mc:AlternateContent: Word's chartex chart, and the ordinary chart as the fallback", async () => {

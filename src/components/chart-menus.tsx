@@ -1,3 +1,4 @@
+import { mapCountries, onMapCountries } from "@/editor/chart-map"
 import { useObjectPreview } from "@/components/object-preview-hook"
 import { TEMPLATE_PREFIX, applyChartTemplate, deleteChartTemplate, loadChartTemplates, saveChartTemplate } from "@/editor/chart-templates"
 import { askText } from "@/components/text-prompt"
@@ -24,7 +25,7 @@ import {
 import type { ObjectRun } from "@/editor/object-preview"
 import type { Editor } from "@tiptap/core"
 import { NodeSelection } from "@tiptap/pm/state"
-import { useState, type ReactNode } from "react"
+import { useState, useSyncExternalStore, type ReactNode } from "react"
 import { create } from "zustand"
 
 /**
@@ -101,6 +102,8 @@ export function formatChartPart(editor: Editor | null, part: string) {
 
 /** The chart drawn small: a gallery tile or a variant's picture. */
 export function ChartThumb({ spec, width = 96, height = 60 }: { spec: ChartSpec; width?: number; height?: number }) {
+  // A map tile is drawn again once the country outlines have loaded.
+  useSyncExternalStore(onMapCountries, mapCountries)
   // Drawn as a chart at least 320 wide and shrunk, so text and plot keep the share they have on the page.
   const scale = Math.max(2.6, 320 / width)
   const w = Math.round(width * scale)
@@ -181,8 +184,9 @@ const ERROR_BAR_CHOICES: [ChartSpec["errorBars"]["kind"], string, number?][] = [
   ["fixed", "Fixed Value", 1],
 ]
 
+/** A chart with no axes: pie and doughnut, and a map. */
 function isRound(spec: ChartSpec) {
-  return spec.type === "pie" || spec.type === "doughnut"
+  return spec.type === "pie" || spec.type === "doughnut" || spec.type === "map"
 }
 
 /** Word's chart elements, each with its placements and the Format pane part its More Options opens. */

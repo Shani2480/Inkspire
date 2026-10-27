@@ -320,6 +320,13 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
   The toolbar and tabs come back after OK.
 - Desktop app: choosing a non-.json file is refused with a message.
 
+## Filled Map (2026-10-27)
+
+- Desktop app (WebKitGTK): insert a Filled Map. The outlines load, and the map, legend and labels draw as in
+  Chrome.
+- Save and open the file in Word: a picture of the map. Reopen it here: an editable map with the same options.
+- Open a Word file with a map chart: the same countries and values, drawn here.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

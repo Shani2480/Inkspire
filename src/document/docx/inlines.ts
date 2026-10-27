@@ -1516,7 +1516,11 @@ export function imageRun(node: JsonNode, build: InlineBuild): Run | null {
   const object = typeof node.attrs?.objectNode === "string" ? node.attrs.objectNode : ""
   const figure = object ? decodeObjectJson(object) : null
   if (figure?.type === "figure" && figure.attrs?.kind === "chart") {
-    return chartRun(node, figure, object, build)
+    // A Map is written as its picture, carrying the chart to open again: Word's own needs Bing's map data.
+    const run = chartRun(node, figure, object, build)
+    if (run) {
+      return run
+    }
   }
   const diagram = diagramRun(node, build)
   if (diagram) {
@@ -1797,6 +1801,9 @@ function chartRun(node: JsonNode, figure: JsonNode, object: string, build: Inlin
     }
   }
   const spec = chartSpecOf(attrs)
+  if (spec.type === "map") {
+    return null
+  }
   const relId = `rId${20 + build.media.length}`
   const id = build.picture
   build.picture += 1

@@ -242,6 +242,13 @@ const KIND_OF: Record<string, string> = {
   boxWhisker: "boxWhisker",
   treemap: "treemap",
   sunburst: "sunburst",
+  regionMap: "map",
+}
+
+const PROJECTIONS: Record<string, ChartSpec["mapProjection"]> = {
+  mercator: "mercator",
+  miller: "miller",
+  robinson: "robinson",
 }
 
 function points(level: Element | undefined) {
@@ -287,7 +294,9 @@ export function readChartEx(xml: string): ChartSpec | null {
     return null
   }
   const pareto = kind === "histogram" && all.some((item) => item.attrs.layoutId === "paretoLine")
-  const spec = defaultChartSpec(pareto ? "pareto" : kind === "boxWhisker" ? "box-whisker" : kind)
+  const spec = defaultChartSpec(
+    pareto ? "pareto" : kind === "boxWhisker" ? "box-whisker" : kind === "map" ? "filled-map" : kind,
+  )
   const datas = children(child(root, "chartData"), "data")
   const dataFor = (item: Element) => datas.find((data) => data.attrs.id === child(item, "dataId")?.attrs.val) ?? datas[0]
   const firstData = dataFor(series[0]!)
@@ -325,6 +334,14 @@ export function readChartEx(xml: string): ChartSpec | null {
     spec.waterfallTotals = children(child(layout, "subtotals"), "idx")
       .map((item) => Number(item.attrs.val))
       .filter((row) => Number.isInteger(row) && row >= 0 && row < rows)
+  }
+  if (kind === "map") {
+    // Word's Map: the projection, the area shown and the labels; the outlines are drawn from the app's own.
+    const geography = child(layout, "geography")
+    spec.mapProjection = PROJECTIONS[geography?.attrs.projectionType ?? ""]
+    const area = geography?.attrs.viewedRegionType
+    spec.mapArea = area === "world" ? "world" : area === "dataOnly" ? "data" : undefined
+    spec.mapLabels = child(layout, "regionLabelLayout")?.attrs.val === "showAll" ? "show" : undefined
   }
   if (kind === "boxWhisker") {
     const shown = child(layout, "visibility")
