@@ -9,6 +9,7 @@ import { parseRibbonCommandId, ribbonCommandId, type RibbonCommandLook } from "@
 
 const PANEL = "[data-ribbon-tab]"
 const BUTTON = "button[aria-label], [role='button'][aria-label]"
+const CUSTOM = "[data-group^='custom:']"
 
 let showTab: ((id: string) => void) | null = null
 
@@ -26,6 +27,10 @@ export function ribbonCommandAt(target: EventTarget | null): { id: string; label
     return null
   }
   const button = target.closest<HTMLElement>(BUTTON)
+  // A button in a group the user made is a copy of a ribbon command, not one of its own.
+  if (button?.closest(CUSTOM)) {
+    return null
+  }
   const panel = button?.closest<HTMLElement>(PANEL)
   const label = button?.getAttribute("aria-label")?.trim()
   const tab = panel?.dataset.ribbonTab
@@ -54,7 +59,9 @@ function buttonFor(id: string) {
     return null
   }
   const panel = document.querySelector(`${PANEL}[data-ribbon-tab="${CSS.escape(parsed.tab)}"]`)
-  return panel?.querySelector<HTMLElement>(`[aria-label="${CSS.escape(parsed.label)}"]`) ?? null
+  const found = panel?.querySelectorAll<HTMLElement>(`[aria-label="${CSS.escape(parsed.label)}"]`) ?? []
+  // The ribbon's own button, not a copy in a group the user made (which would press itself).
+  return [...found].find((button) => !button.closest(CUSTOM)) ?? null
 }
 
 /** Whether a ribbon command can be used now: its tab is built (a tool tab only while its object is selected). */

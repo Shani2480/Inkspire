@@ -37,13 +37,40 @@ describe("Customize the Ribbon and Quick Access Toolbar (22.5)", () => {
   it("hides a tab on the Ribbon page, and Cancel keeps things as they were", () => {
     render(<CustomizeDialogHost />)
     act(() => openCustomize("ribbon"))
-    fireEvent.click(screen.getByLabelText("Review"))
+    fireEvent.click(screen.getByLabelText("Show Review"))
     fireEvent.click(screen.getByText("Cancel"))
     expect(useCustomize.getState().hiddenTabs).toEqual([])
     act(() => openCustomize("ribbon"))
-    fireEvent.click(screen.getByLabelText("Review"))
+    fireEvent.click(screen.getByLabelText("Show Review"))
     fireEvent.click(screen.getByText("OK"))
     expect(useCustomize.getState().hiddenTabs).toEqual(["review"])
+  })
+
+  it("makes a tab with a group, adds a command to it and renames it, kept on OK", () => {
+    render(<CustomizeDialogHost />)
+    act(() => openCustomize("ribbon"))
+    // With the toolbar's commands that are on no tab to choose from.
+    const from = screen.getByLabelText("Choose commands from")
+    fireEvent.change(from, { target: { value: "not-in-ribbon" } })
+    fireEvent.click(screen.getByText("New Tab"))
+    // The new tab's group is selected: Add puts the command in it.
+    fireEvent.change(screen.getByLabelText("Commands"), { target: { value: "save" } })
+    fireEvent.click(screen.getByText("Add >>"))
+    fireEvent.click(screen.getByText("New Tab (Custom)"))
+    fireEvent.click(screen.getByText("Rename…"))
+    const name = screen.getByLabelText("Display name")
+    // Esc gives up the new name and leaves the dialog open.
+    fireEvent.keyDown(name, { key: "Escape" })
+    expect(screen.queryByLabelText("Display name")).toBeNull()
+    expect(screen.getByText("New Tab (Custom)")).toBeTruthy()
+    fireEvent.click(screen.getByText("Rename…"))
+    fireEvent.change(screen.getByLabelText("Display name"), { target: { value: "Mine" } })
+    fireEvent.keyDown(screen.getByLabelText("Display name"), { key: "Enter" })
+    expect(screen.getByText("Mine (Custom)")).toBeTruthy()
+    fireEvent.click(screen.getByText("OK"))
+    const [tab] = useCustomize.getState().customTabs
+    expect(tab).toMatchObject({ label: "Mine", after: "home" })
+    expect(tab!.groups[0]!.commands).toEqual(["save"])
   })
 
   it("Reset puts back the standard toolbar and shows every tab", () => {
