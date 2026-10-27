@@ -7,6 +7,19 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Chart thumbnails read like Word's
+
+- **Wrong:** the small chart pictures crammed the chart's text into a few pixels and squeezed its plot. This hit
+  the Insert tab's Chart menu, the Chart Styles and Quick Layout galleries, and the Insert Chart and Change Chart
+  Type tiles. They looked like smudges.
+- **Changed** (`ChartThumb` in `chart-menus.tsx`):
+  - A thumbnail is drawn as a chart at least 320 wide and shrunk to fit, so text and plot keep their share.
+  - Under 140 pixels, each piece of text is drawn as a faint bar where it sits, as Word's gallery thumbnails do
+    (`textAsBars`). The title, legend and labels still show where a layout puts them.
+- **Tests:** `chart-thumb.test.ts` (bars placed by anchor, part, colour and turn kept; no text left in a drawn chart).
+- **Checked in Chrome** (at 2× zoom): the Chart menu, the Insert Chart tiles, Chart Styles and Quick Layout. All 1035
+  tests pass.
+
 ### Chart templates: Save as Template… and Templates in Insert Chart
 
 - **Missing:** Word's chart templates. You could not keep a chart's type and look to use again.

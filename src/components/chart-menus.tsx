@@ -101,9 +101,11 @@ export function formatChartPart(editor: Editor | null, part: string) {
 
 /** The chart drawn small: a gallery tile or a variant's picture. */
 export function ChartThumb({ spec, width = 96, height = 60 }: { spec: ChartSpec; width?: number; height?: number }) {
-  const scale = 2.6
+  // Drawn as a chart at least 320 wide and shrunk, so text and plot keep the share they have on the page.
+  const scale = Math.max(2.6, 320 / width)
   const w = Math.round(width * scale)
   const h = Math.round(height * scale)
+  const svg = renderChart(spec, w, h)
   return (
     <svg
       width={width}
@@ -111,9 +113,36 @@ export function ChartThumb({ spec, width = 96, height = 60 }: { spec: ChartSpec;
       viewBox={`0 0 ${w} ${h}`}
       aria-hidden
       className="chart-thumb"
-      dangerouslySetInnerHTML={{ __html: renderChart(spec, w, h) }}
+      dangerouslySetInnerHTML={{ __html: width < 140 ? textAsBars(svg) : svg }}
     />
   )
+}
+
+const attr = (attrs: string, name: string) => new RegExp(`\\b${name}="([^"]*)"`).exec(attrs)?.[1]
+
+/**
+ * A small thumbnail's text as short bars, as Word draws its gallery thumbnails: words a few pixels high are only a
+ * smudge, but a bar still shows where the title, legend and labels are.
+ */
+export function textAsBars(svg: string) {
+  return svg.replace(/<text([^>]*)>([^<]*)<\/text>/g, (_match, attrs: string, content: string) => {
+    const size = Number(attr(attrs, "font-size")) || 12
+    const length = content.replace(/&[a-z#0-9]+;/gi, "x").trim().length
+    if (!length) {
+      return ""
+    }
+    const width = Math.max(size * 0.8, length * size * 0.5)
+    const x = Number(attr(attrs, "x") ?? 0)
+    const y = Number(attr(attrs, "y") ?? 0)
+    const anchor = attr(attrs, "text-anchor")
+    const left = anchor === "middle" ? x - width / 2 : anchor === "end" ? x - width : x
+    const transform = attr(attrs, "transform")
+    const part = attr(attrs, "data-chart-part")
+    return (
+      `<rect${part ? ` data-chart-part="${part}"` : ""} x="${left.toFixed(1)}" y="${(y - size * 0.68).toFixed(1)}" width="${width.toFixed(1)}" height="${(size * 0.55).toFixed(1)}" rx="${(size * 0.15).toFixed(1)}"` +
+      ` fill="${attr(attrs, "fill") ?? "#595959"}" fill-opacity="0.55"${transform ? ` transform="${transform}"` : ""}/>`
+    )
+  })
 }
 
 // --- Add Chart Element ------------------------------------------------------------------------------------------
