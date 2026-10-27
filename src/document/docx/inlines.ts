@@ -12,6 +12,18 @@ import {
   chartWorkbook,
   readChartSpace,
 } from "@/document/docx/chart-xml"
+import {
+  CHARTEX_CONTENT_TYPE,
+  CHARTEX_NS,
+  CHARTEX_RELATIONSHIP,
+  CHARTEX_REQUIRES,
+  chartExData,
+  chartExRequires,
+  chartExXml,
+  isChartEx,
+  readChartEx,
+} from "@/document/docx/chartex-xml"
+import { MC_NS } from "@/document/docx/mce"
 import { decodeXml } from "@/document/docx/xml"
 import { readWordShape, shapeLook, wordShapeMark } from "@/document/docx/shape-import"
 import { wordShapeGraphic } from "@/document/docx/shape-write"
@@ -414,7 +426,8 @@ function chartPictureHtml(run: Run, ctx: Projection) {
   if (xml === null) {
     return null
   }
-  const read = readChartSpace(xml)
+  // Histogram, Waterfall, Funnel, Box & Whisker, Treemap and Sunburst are Word's chartex charts.
+  const read = readChartSpace(xml) ?? readChartEx(xml)
   const saved = decodeObjectJson(drawing.object)
   const savedChart = saved?.type === "figure" && saved.attrs?.kind === "chart" ? saved : null
   const own = savedChart ? chartSpecOf(savedChart.attrs ?? {}) : null
@@ -1808,23 +1821,58 @@ function chartRun(node: JsonNode, figure: JsonNode, object: string, build: Inlin
     `<a:graphicData uri="${CHART_NS}"><c:chart xmlns:c="${CHART_NS}" ` +
     `xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="${relId}"/></a:graphicData>`
   const name = typeof attrs.alt === "string" && attrs.alt ? attrs.alt : `Chart ${id}`
+  const drawingOf = (graphicData: string) =>
+    drawingXml(
+      id,
+      relId,
+      cx,
+      cy,
+      editorLayout(node),
+      rotationRot(numberAttr(node.attrs?.rotate) ?? 0),
+      build.section,
+      object,
+      { graphic: graphicData, name },
+    )
+  let xml = drawingOf(graphic)
+  if (isChartEx(spec)) {
+    // Word's own chart of this kind, with the ordinary chart drawn the same as the fallback for programs that do
+    // not know it (and for Word before 2016).
+    const exRelId = `rId${20 + build.media.length}`
+    const exName = freePartName(build, (index) => `/word/charts/chartEx${index}.xml`)
+    const exWorkbook = freePartName(build, (index) => `/word/embeddings/Microsoft_Excel_Worksheet${index}.xlsx`)
+    build.media.push({
+      relId: exRelId,
+      type: CHARTEX_RELATIONSHIP,
+      target: exName.slice("/word/".length),
+      name: exName,
+      contentType: CHARTEX_CONTENT_TYPE,
+      data: new TextEncoder().encode(chartExXml(spec, "rId1")),
+      related: [
+        {
+          relId: "rId1",
+          type: PACKAGE_RELATIONSHIP,
+          target: `../embeddings/${exWorkbook.split("/").pop()}`,
+          name: exWorkbook,
+          contentType: WORKBOOK_CONTENT_TYPE,
+          data: chartWorkbook(chartExData(spec), { raw: true }),
+        },
+      ],
+    })
+    const requires = chartExRequires(spec)
+    const exGraphic =
+      `<a:graphicData uri="${CHARTEX_NS}"><cx:chart xmlns:cx="${CHARTEX_NS}" ` +
+      `xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="${exRelId}"/></a:graphicData>`
+    xml =
+      `<mc:AlternateContent xmlns:mc="${MC_NS}"><mc:Choice xmlns:${requires}="${CHARTEX_REQUIRES[requires]}" Requires="${requires}">` +
+      `${drawingOf(exGraphic)}</mc:Choice><mc:Fallback>${xml}</mc:Fallback></mc:AlternateContent>`
+  }
   return {
     kind: "run",
     rPr: { noProof: true },
     content: [
       {
         kind: "drawing",
-        xml: drawingXml(
-          id,
-          relId,
-          cx,
-          cy,
-          editorLayout(node),
-          rotationRot(numberAttr(node.attrs?.rotate) ?? 0),
-          build.section,
-          object,
-          { graphic, name },
-        ),
+        xml,
         text: "",
         floating: editorLayout(node) !== null,
         name,

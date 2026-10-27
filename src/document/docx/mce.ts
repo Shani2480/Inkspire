@@ -51,6 +51,9 @@ export const UNDERSTOOD_NAMESPACES = new Set([
   "http://schemas.openxmlformats.org/drawingml/2006/diagram",
   "http://schemas.openxmlformats.org/drawingml/2006/lockedCanvas",
   "http://schemas.microsoft.com/office/drawing/2014/chartex",
+  // Word's mc:Choice for a chartex chart (Requires="cx1", or "cx2" for Funnel): the drawing in it is read.
+  "http://schemas.microsoft.com/office/drawing/2015/9/8/chartex",
+  "http://schemas.microsoft.com/office/drawing/2015/10/21/chartex",
   // a16:creationId and friends sit in a drawing's extension list.
   "http://schemas.microsoft.com/office/drawing/2014/main",
   // a14:useLocalDpi sits inside pictures and is not listed in mc:Ignorable.

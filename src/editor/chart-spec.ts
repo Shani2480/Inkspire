@@ -112,6 +112,8 @@ export type ChartSpec = {
   ofPieSize?: number
   /** Histogram: how the values go into bins (Format Axis → Bins); unset is Automatic. */
   bins?: HistogramBins
+  /** Pareto: a histogram with its bins sorted from the largest down and a line of the running percentage. */
+  pareto?: boolean
   /** Stock: the first series is the volume traded, drawn as columns on the left axis, the prices on a right one. */
   volume?: boolean
   categories: string[]
@@ -202,6 +204,7 @@ export type ChartVariant = {
   threeD?: "front" | "deep"
   ofPie?: "pie" | "bar"
   volume?: boolean
+  pareto?: boolean
   /** Combo charts: the type of each series after the first, and whether the last goes on a secondary axis. */
   combo?: { first: "column" | "area"; rest: "line" | "column"; secondary?: boolean; firstGrouping?: ChartGrouping }
 }
@@ -352,7 +355,10 @@ export const CHART_FAMILIES: { id: string; label: string; items: ChartVariant[] 
   {
     id: "histogram",
     label: "Histogram",
-    items: [{ id: "histogram", label: "Histogram", type: "histogram" }],
+    items: [
+      { id: "histogram", label: "Histogram", type: "histogram" },
+      { id: "pareto", label: "Pareto", type: "histogram", pareto: true },
+    ],
   },
   {
     id: "box-whisker",
@@ -427,7 +433,8 @@ export function variantOf(spec: ChartSpec): string {
       (spec.type === "radar" || spec.type === "surface" ? Boolean(item.filled) === spec.filled : true) &&
       (spec.type === "surface" ? Boolean(item.contour) === Boolean(spec.contour) : true) &&
       item.threeD === spec.threeD &&
-      item.ofPie === spec.ofPie,
+      item.ofPie === spec.ofPie &&
+      Boolean(item.pareto) === Boolean(spec.pareto),
   )
   return match?.id ?? spec.type
 }
@@ -458,6 +465,7 @@ export function withVariant(spec: ChartSpec, id: string): ChartSpec {
     rotY: variant.threeD && (variant.type === "pie") === (spec.type === "pie") ? spec.rotY : undefined,
     ofPie: variant.ofPie,
     volume: variant.volume,
+    pareto: variant.pareto,
     series: spec.series.map((serie, index) => {
       const { type: _type, secondary: _secondary, ...rest } = serie
       if (!variant.combo || index === 0) {
@@ -530,6 +538,20 @@ export function defaultChartSpec(variantId = "column"): ChartSpec {
           ...(variant.id.endsWith("ohlc") ? [{ name: "Open", values: [44, 25, 38, 50, 34] }] : []),
           ...prices,
         ],
+      },
+      variant.id,
+    )
+  }
+  if (variant.pareto) {
+    // Word's sample: how often each complaint came up, binned by category, the most frequent first.
+    return withVariant(
+      {
+        ...structuredClone(BASE),
+        title: { show: true, text: "Chart Title" },
+        legend: "none",
+        bins: { by: "category" },
+        categories: ["Late delivery", "Wrong item", "Damaged", "Billing", "Rude staff", "Other"],
+        series: [{ name: "Complaints", values: [42, 25, 15, 8, 6, 4] }],
       },
       variant.id,
     )
@@ -1296,7 +1318,12 @@ function cartesian(painter: Painter, box: Box, series: Serie[], entries: { name:
     valueCount,
   )
   const [low2, high2] = rangeOf(secondary)
-  const scale2 = secondary.length ? niceScale(low2!, high2!) : null
+  // A Pareto's line is a running share: its axis goes from 0 to 100%.
+  const scale2 = !secondary.length
+    ? null
+    : spec.pareto
+      ? niceScale(0, 1, { min: 0, max: 1, major: 0.2 })
+      : niceScale(low2!, high2!)
   const xNumbers = scatter
     ? categories.map((item, index) => (Number.isFinite(Number(item)) ? Number(item) : index + 1))
     : []
@@ -1484,7 +1511,7 @@ function cartesian(painter: Painter, box: Box, series: Serie[], entries: { name:
   if (scale2) {
     const labels = scale2.ticks.map((tick) => {
       const at = toValue(tick, scale2)
-      return `<text x="${n(plot.x + plot.w + 6)}" y="${n(at + 4)}" ${valueText}>${escapeXml(formatNumber(tick))}</text>`
+      return `<text x="${n(plot.x + plot.w + 6)}" y="${n(at + 4)}" ${valueText}>${escapeXml(formatNumber(tick, spec.pareto ? "0%" : "General"))}</text>`
     })
     painter.out.push(`<g data-chart-part="axis:secondary">${labels.join("")}</g>`)
   }
