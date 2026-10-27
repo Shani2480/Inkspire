@@ -1692,8 +1692,10 @@ Source: the 48 top-level files in `screenshots/` taken on 2026-10-19 (`screensho
   mean ×, a label per statistic); Word gets the medians as columns; reopens as itself. No inclusive-median option, no
   inner points. **Stock (2026-10-26).** High-Low-Close and Open-High-Low-Close, drawn as Word's (high-low lines, up/down
   bars, Close tick), saved and read as `c:stockChart`; the dialog preview now uses each type's own sample. Not done:
-  the Volume stock variants (a column group on a second axis), Map, Combo
-  beyond the three that exist, Templates. **3-D and of-pie (2026-10-27):** the 3-D variants of Column (4), Bar (3),
+  Map, Combo
+  beyond the three that exist, Templates. **Volume stock charts (2026-10-27):** Volume-High-Low-Close and
+  Volume-Open-High-Low-Close, the volume as columns on the left axis and the prices on a right one, saved as Word's
+  bar group plus stock group. **3-D and of-pie (2026-10-27):** the 3-D variants of Column (4), Bar (3),
   Line, Pie and Area (3), Pie of Pie and Bar of Pie, drawn and saved as Word's own 3-D and of-pie charts (see
   changes.md); no 3-D Rotation settings, no of-pie split by value; no `chartex` is written, so Word shows these as plain stacked or clustered charts (since 2026-10-26 they come back
   into the app as Histogram/Waterfall/Funnel while Word has not edited their data); a Waterfall that goes below zero is drawn from zero for that bar; no "set as total" for a point; Histogram has fixed automatic bins (no bin width, count, overflow or underflow); Histogram was not looked at in Chrome.

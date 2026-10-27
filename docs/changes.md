@@ -7,6 +7,24 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Stock charts with Volume
+
+- **Missing:** Word's Volume-High-Low-Close and Volume-Open-High-Low-Close stock charts.
+- **Changed:**
+  - **New variants:** both are in Insert Chart and Change Chart Type, with Word's sample data (a Volume column
+    before the prices). The spec gets a `volume` flag.
+  - **Drawing:** the first series is the volume, drawn as columns on the left value axis. The prices go on a second
+    axis on the right, with high-low lines and the Close tick, or up/down bars with Open (`stock` in
+    `src/editor/chart-expand.ts`).
+  - **.docx:** written as Word writes it, a `c:barChart` of the volume on the first axes, then the `c:stockChart` on
+    the second axes. A Word stock chart with a bar group before it opens as the Volume variant.
+- **Tests:** `chart-expand.test.ts` (sample series; volume as columns and prices on the second axis; drawn with both
+  axes and up/down bars; saved and read back as the same variant).
+- **Checked:** all four stock variants drawn in Chrome. Both Volume charts saved to a .docx and opened in
+  LibreOffice, which drew the volume columns on the left axis and the prices on the right. All 1031 tests pass.
+- **Still open:** the volume columns use the app's default gap width, so they are a little narrower than Word's.
+  Not opened in Word itself.
+
 ### Charts: the 3-D variants, Pie of Pie and Bar of Pie
 
 - **Missing:** Insert Chart had none of Word's 3-D charts, and no Pie of Pie or Bar of Pie.

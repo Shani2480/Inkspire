@@ -857,6 +857,12 @@ export function readChartSpace(xml: string): ChartSpec | null {
       }
     }
   }
+  // Word's Volume stock charts: the volume as a bar group before the stock group, on the first axes.
+  if (groups.some((group) => group.name === "stockChart")) {
+    spec.type = "stock"
+    spec.volume = groups[0]!.name === "barChart" || undefined
+    spec.series = spec.series.map(({ type: _type, secondary: _secondary, ...rest }) => rest)
+  }
   const longest = Math.max(categories.length, ...spec.series.map((serie) => serie.values.length))
   spec.categories = Array.from({ length: longest }, (_, index) => categories[index] || String(index + 1))
   spec.series.forEach((serie) => {

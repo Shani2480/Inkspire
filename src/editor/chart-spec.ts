@@ -82,6 +82,8 @@ export type ChartSpec = {
   /** Pie of Pie and Bar of Pie: the last points (`ofPieSplit` of them) drawn again as a second pie or a bar. */
   ofPie?: "pie" | "bar"
   ofPieSplit?: number
+  /** Stock: the first series is the volume traded, drawn as columns on the left axis, the prices on a right one. */
+  volume?: boolean
   categories: string[]
   /**
    * Treemap and Sunburst: the label columns before the category, outermost first (Branch, Stem), each a label per
@@ -169,6 +171,7 @@ export type ChartVariant = {
   contour?: boolean
   threeD?: "front" | "deep"
   ofPie?: "pie" | "bar"
+  volume?: boolean
   /** Combo charts: the type of each series after the first, and whether the last goes on a secondary axis. */
   combo?: { first: "column" | "area"; rest: "line" | "column"; secondary?: boolean; firstGrouping?: ChartGrouping }
 }
@@ -283,6 +286,8 @@ export const CHART_FAMILIES: { id: string; label: string; items: ChartVariant[] 
     items: [
       { id: "stock-hlc", label: "High-Low-Close", type: "stock" },
       { id: "stock-ohlc", label: "Open-High-Low-Close", type: "stock" },
+      { id: "stock-vhlc", label: "Volume-High-Low-Close", type: "stock", volume: true },
+      { id: "stock-vohlc", label: "Volume-Open-High-Low-Close", type: "stock", volume: true },
     ],
   },
   {
@@ -377,7 +382,8 @@ export function variantOf(spec: ChartSpec): string {
     return secondary ? "combo-column-line-secondary" : "combo-column-line"
   }
   if (spec.type === "stock") {
-    return spec.series.filter((serie) => !serie.hidden).length >= 4 ? "stock-ohlc" : "stock-hlc"
+    const prices = spec.series.filter((serie) => !serie.hidden).length - (spec.volume ? 1 : 0)
+    return `stock-${spec.volume ? "v" : ""}${prices >= 4 ? "ohlc" : "hlc"}`
   }
   const match = CHART_VARIANTS.find(
     (item) =>
@@ -418,6 +424,7 @@ export function withVariant(spec: ChartSpec, id: string): ChartSpec {
     contour: variant.contour || undefined,
     threeD: variant.threeD,
     ofPie: variant.ofPie,
+    volume: variant.volume,
     series: spec.series.map((serie, index) => {
       const { type: _type, secondary: _secondary, ...rest } = serie
       if (!variant.combo || index === 0) {
@@ -472,7 +479,8 @@ export function defaultChartSpec(variantId = "column"): ChartSpec {
     )
   }
   if (variant.type === "stock") {
-    // Word's sample: five trading days; Open-High-Low-Close adds the Open column first.
+    // Word's sample: five trading days; Open-High-Low-Close adds the Open column first, and the Volume charts the
+    // Volume column before that.
     const days = ["1/5/2002", "1/6/2002", "1/7/2002", "1/8/2002", "1/9/2002"]
     const prices = [
       { name: "High", values: [55, 57, 57, 58, 58] },
@@ -484,7 +492,11 @@ export function defaultChartSpec(variantId = "column"): ChartSpec {
         ...structuredClone(BASE),
         title: { show: true, text: "Chart Title" },
         categories: days,
-        series: variant.id === "stock-ohlc" ? [{ name: "Open", values: [44, 25, 38, 50, 34] }, ...prices] : prices,
+        series: [
+          ...(variant.volume ? [{ name: "Volume", values: [70, 120, 150, 135, 148] }] : []),
+          ...(variant.id.endsWith("ohlc") ? [{ name: "Open", values: [44, 25, 38, 50, 34] }] : []),
+          ...prices,
+        ],
       },
       variant.id,
     )

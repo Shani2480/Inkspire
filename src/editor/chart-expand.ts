@@ -149,15 +149,20 @@ function funnel(spec: ChartSpec): ChartSpec {
 /**
  * Stock: the series are the prices in Word's order (Open, High, Low, Close; or High, Low, Close), drawn as a line
  * chart with no lines, a high-low line at each category, and with Open the up/down bars from Open to Close (white
- * when the price rose, dark when it fell). With three series Close is a tick on the line. Saved as `c:stockChart`.
+ * when the price rose, dark when it fell). With three series Close is a tick on the line. Saved as `c:stockChart`;
+ * with Volume, a `c:barChart` of the volume and the `c:stockChart` on the second axes, as Word has them.
  */
 function stock(spec: ChartSpec): ChartSpec {
   const shown = spec.series.map((serie, index) => ({ serie, index })).filter((item) => !item.serie.hidden)
-  const withOpen = shown.length >= 4
+  // With Volume, the first series is the volume: columns on the left axis, the prices on a right one.
+  const volume = spec.volume && shown.length > 1 ? shown[0]!.index : undefined
+  const withOpen = shown.length - (volume === undefined ? 0 : 1) >= 4
   const close = shown[shown.length - 1]?.index
   const format = { ...spec.format }
   spec.series.forEach((_, index) => {
-    format[`series:${index}`] = { ...format[`series:${index}`], line: "none" }
+    if (index !== volume) {
+      format[`series:${index}`] = { ...format[`series:${index}`], line: "none" }
+    }
   })
   return {
     ...spec,
@@ -169,6 +174,11 @@ function stock(spec: ChartSpec): ChartSpec {
     upDownBars: withOpen,
     series: spec.series.map((serie, index) => {
       const { type: _type, secondary: _secondary, ...rest } = serie
+      if (volume !== undefined) {
+        return index === volume
+          ? { ...rest, type: "column" as const }
+          : { ...rest, secondary: true, ...(!withOpen && index === close ? { tick: true } : {}) }
+      }
       return !withOpen && index === close ? { ...rest, tick: true } : rest
     }),
     format,
