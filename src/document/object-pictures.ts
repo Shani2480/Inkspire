@@ -1,6 +1,8 @@
 import { floatingAttributes } from "@/editor/objects"
+import { textBoxChains } from "@/editor/text-box-link"
+import { textBoxMark } from "@/document/docx/word-text-box"
 import type { Editor, JSONContent } from "@tiptap/core"
-import type { Node as ProseNode, Schema } from "@tiptap/pm/model"
+import { DOMParser as ProseDOMParser, Fragment, type Node as ProseNode, type Schema } from "@tiptap/pm/model"
 
 /** The objects Word has no part for: each is saved as its picture, with itself kept inside to open again. */
 const OBJECT_TYPES = new Set(["figure", "threeDModel", "smartArt", "drawingCanvas", "textBox"])
@@ -46,7 +48,14 @@ function encodeObject(node: ProseNode, shown: [number, number]) {
   return btoa(binary)
 }
 
-function decodeObject(data: string): (JSONContent & { shown?: [number, number] }) | null {
+type SavedObject = JSONContent & {
+  shown?: [number, number]
+  /** A text box opened from Word: its text as HTML, read into the box here. */
+  html?: string
+  fromWord?: boolean
+}
+
+function decodeObject(data: string): SavedObject | null {
   try {
     const binary = atob(data)
     const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
@@ -245,6 +254,22 @@ function layoutOf(node: ProseNode, schema: Schema, into: string) {
 }
 
 /**
+ * Linked text boxes as Word keeps them: the chain's whole text in its first box, the others empty, each numbered
+ * by its place from 0. Opened again, the text flows on from the first box as it did.
+ */
+export function chainsAsWord(doc: ProseNode) {
+  const saved = new Map<number, ProseNode>()
+  for (const boxes of textBoxChains(doc).values()) {
+    const text = boxes.reduce((all, box) => all.append(box.node.content), Fragment.empty)
+    boxes.forEach((box, index) => {
+      const attrs = { ...box.node.attrs, linkSeq: index }
+      saved.set(box.pos, box.node.type.create(attrs, index === 0 ? text : Fragment.empty, box.node.marks))
+    })
+  }
+  return saved
+}
+
+/**
  * The document as it goes into a .docx: each shape, chart, 3D model, SmartArt, drawing canvas and text box becomes
  * the picture it shows, at its size and with its wrap and place, carrying the object to open as itself again.
  */
@@ -266,6 +291,7 @@ export async function documentWithObjectPictures(editor: Editor): Promise<JSONCo
     return editor.getJSON()
   }
   const pictures = await Promise.all(found.map(({ dom }) => objectPicture(dom)))
+  const saved = chainsAsWord(state.doc)
   const tr = state.tr
   for (let index = found.length - 1; index >= 0; index -= 1) {
     const { pos, node } = found[index]!
@@ -284,11 +310,22 @@ export async function documentWithObjectPictures(editor: Editor): Promise<JSONCo
       height,
       // A text box always floats, as its picture does.
       ...(node.type.name === "textBox" && attrs.wrap === "inline" ? { wrap: "front" } : {}),
-      objectNode: encodeObject(node, [width, height]),
+      objectNode: encodeObject(saved.get(pos) ?? node, [width, height]),
     })
     tr.replaceWith(pos, pos + node.nodeSize, picturedNode)
   }
   return tr.doc.toJSON() as JSONContent
+}
+
+/** The object a picture carries; a Word text box's text comes as HTML, read as the editor reads pasted text. */
+function objectOf(schema: Schema, json: SavedObject) {
+  const object = schema.nodeFromJSON(json)
+  if (json.html === undefined || typeof document === "undefined") {
+    return object
+  }
+  const holder = document.createElement("div")
+  holder.innerHTML = json.html
+  return ProseDOMParser.fromSchema(schema).parse(holder, { topNode: object.type.create(object.attrs) })
 }
 
 /** Pictures saved for the app's own objects open as those objects again, at the size and place the file gives. */
@@ -309,7 +346,7 @@ export function restoreObjects(editor: Editor) {
       continue
     }
     try {
-      const object = state.schema.nodeFromJSON(json)
+      const object = objectOf(state.schema, json)
       const layout = layoutOf(node, state.schema, object.type.name)
       const [width, height] = json.shown ?? [0, 0]
       if (Math.abs(Number(node.attrs.width) - width) <= 1 && Math.abs(Number(node.attrs.height) - height) <= 1) {
@@ -318,11 +355,18 @@ export function restoreObjects(editor: Editor) {
         delete layout.height
       }
       // The layout as the file has it, in case Word moved, sized or wrapped the picture.
-      const restored = object.type.create(
+      let restored = object.type.create(
         { ...object.attrs, ...Object.fromEntries(Object.entries(layout).filter(([key]) => key in object.attrs)) },
         object.content,
         object.marks,
       )
+      if (json.fromWord && "wordBox" in restored.attrs) {
+        // Marked as Word wrote it, so saving it unchanged keeps Word's own drawing.
+        restored = restored.type.create(
+          { ...restored.attrs, wordBox: textBoxMark(restored.toJSON()) },
+          restored.content,
+        )
+      }
       tr.replaceWith(pos, pos + node.nodeSize, restored)
     } catch {
       // An object this version cannot read stays a picture.

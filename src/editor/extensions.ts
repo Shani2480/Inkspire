@@ -99,7 +99,7 @@ export function createExtensions() {
       types: ["paragraph", "heading"],
     }),
     TextAlign.configure({
-      types: ["heading", "paragraph"],
+      types: ["heading", "paragraph", "textBox"],
       // No alignment of its own: the paragraph follows its style (which is left unless the style says otherwise).
       defaultAlignment: null,
     }),

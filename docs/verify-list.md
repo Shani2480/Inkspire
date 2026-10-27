@@ -352,6 +352,16 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Single line ribbon: a group added to Home shows and its buttons work.
 - Export all customizations, Reset, Import: the tabs and groups come back.
 
+## Word's text boxes (2026-10-27)
+
+- Open a Word file with a text box anchored in a paragraph of text: it opens as a text box with Word's fill,
+  outline, margins and text; save without touching it and open it in Word: unchanged, still in its paragraph.
+- Edit the box's text and centre it, save, open in Word: a Word text box (not a picture), centred, with the
+  new text; Word's Shape Format tab works on it.
+- Link two boxes here, fill them, save, open in Word: Word shows them linked (Break Link offered) with the text
+  flowing from the first into the second.
+- Make linked boxes in Word, open here: the chain flows the same way; type in the first and the overflow moves on.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

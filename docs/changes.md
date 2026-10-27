@@ -7,6 +7,51 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Word's text boxes open as text boxes; linked boxes saved as Word's chains
+
+- **What was wrong:** a Word text box (`wps:wsp` with `txBox="1"`) opened as a grey atom showing its text in the
+  line, which could not be edited. The app's own text boxes were saved as pictures, so Word could not edit them,
+  and linked boxes reached Word as unlinked pictures.
+- **What changed:**
+  - Reading (`wml-read.ts`): a drawing whose text box holds only paragraphs of text keeps them (`boxParagraphs`);
+    a box later in a chain (`wps:linkedTxbx`) gets none. A box holding a table, a picture or a content control
+    stays whole, as before.
+  - `src/document/docx/word-text-box.ts` (new):
+    - `readWordTextBox`: fill, outline (colour, weight, double line, dash), gradient and effects through the
+      shape reader (`readShapeLook`, split out of `readWordShape`), margins, Align Text (`anchor`), Text Direction
+      (`vert`), Do not wrap, Resize shape to fit text, and the chain (`wps:txbx id`, `wps:linkedTxbx id seq`).
+    - `wordTextBoxGraphic`: the app's box as Word's own (`txBox="1"` rectangle, `wps:txbx` or `wps:linkedTxbx`,
+      `wps:bodyPr`), when Word draws it the same way; picture or texture fills, text fill/outline/effects, bevel
+      and 3-D rotation still go as the picture.
+    - `textBoxMark`: the formatting and text a box opened with, to tell on save whether it was changed.
+  - Projection (`inlines.ts`): the box opens as a picture carrying the text box, its text as HTML read into it
+    on restore (`object-pictures.ts`), at Word's size and place. The first box of a chain gets the whole text and
+    flows it on into the others, as in Word.
+  - Saving: an unchanged box (same mark, size, place and turn) goes back as Word wrote it, VML fallback and all.
+    A changed or new box is written as Word's text box: each line a paragraph, in the box's alignment. Links and
+    comment ranges inside are kept as plain text. A chain's text is put in its first box (`chainsAsWord`); the
+    others are written as `wps:linkedTxbx`, numbered from 1000 for the app's chains.
+  - A floating object goes back to its place among its paragraph's text while the text before it is unchanged
+    (`placeFloats` in `project.ts`); before, it moved to the paragraph's start.
+  - Text boxes:
+    - Align Left, Center, Right and Justify now work on the box's text (TextAlign covers `textBox`);
+    - they keep their source run (`docxKey`);
+    - DrawingML preset colours (`a:prstClr`, such as Word's black text box outline) are read.
+- **Tests:** `word-text-box.test.ts` (4): the attribute reading; Word's f14 box opened, then saved untouched in
+  place; an edited box saved as Word's own with its new text and centring, opened again; a chain saved as Word's
+  and opened linked.
+- **How checked:**
+  - Full suite: 1106 passing.
+  - Chrome:
+    - f14's box opens as a 200 × 80 text box;
+    - an app chain saved and reopened flows the same words into each box;
+    - the Open XML validator reports 0 errors on the saved file.
+- **Open:**
+  - A text box holds one paragraph in the app, so Word's paragraphs come in as lines. Only the first paragraph's
+    alignment is kept, and paragraph spacing and styles inside are lost once the box is edited.
+  - VML-only text boxes (`w:pict`, from Word 2007 and earlier) stay whole.
+  - Not opened in Word yet.
+
 ### Customize Ribbon: New Tab, New Group, Rename, moving commands, Commands Not in the Ribbon
 
 - **What was wrong:** the Customize Ribbon page only had a check box per main tab. There was no New Tab, New

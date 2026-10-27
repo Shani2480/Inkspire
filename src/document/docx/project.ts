@@ -42,6 +42,7 @@ import {
   type InlineBuild,
   type JsonNode,
   type Projection,
+  visibleText,
 } from "@/document/docx/inlines"
 import { readLooseTocAt, readTocAt, tocBlocks } from "@/document/docx/toc"
 import { headingBookmark, readTocEntries, tocLevelOf, tocOptions, type TocStyleLike } from "@/document/toc"
@@ -1138,9 +1139,44 @@ function plainRun(text: string): Run {
   return { kind: "run", rPr: {}, content: text ? [{ kind: "text", text }] : [] }
 }
 
+type Float = { run: Inline; key?: string }
+
+/**
+ * Floating pictures into the paragraph they are anchored to: each back where it was among the paragraph's text
+ * while the text before it is as it was, else at the paragraph's start.
+ */
+function placeFloats(block: Paragraph, floats: Float[], build: Build) {
+  const places = floats.map((float) => floatIndex(block, float.key, build))
+  for (let index = floats.length - 1; index >= 0; index -= 1) {
+    block.inlines.splice(places[index]!, 0, floats[index]!.run)
+  }
+}
+
+function floatIndex(block: Paragraph, key: string | undefined, build: Build) {
+  const origin = key ? build.origins.runParagraphs.get(key) : undefined
+  if (!origin || origin.key === undefined || origin.key !== block.key) {
+    return 0
+  }
+  const at = origin.inlines.findIndex((inline) => inline.kind === "run" && inline.key === key)
+  const before = at > 0 ? visibleText(origin.inlines.slice(0, at)) : ""
+  if (!before) {
+    return 0
+  }
+  for (let index = 1; index <= block.inlines.length; index += 1) {
+    const text = visibleText(block.inlines.slice(0, index))
+    if (text === before) {
+      return index
+    }
+    if (!before.startsWith(text)) {
+      return 0
+    }
+  }
+  return 0
+}
+
 function blocksFromNodes(nodes: JsonNode[], build: Build, level: number): Block[] {
   const blocks: Block[] = []
-  let floats: Inline[] = []
+  let floats: Float[] = []
   for (const node of nodes) {
     if (node.type === "bulletList" || node.type === "orderedList") {
       blocks.push(...blocksFromList(node, build, level))
@@ -1154,13 +1190,13 @@ function blocksFromNodes(nodes: JsonNode[], build: Build, level: number): Block[
       // A floating picture goes into the paragraph it is anchored to, the next one, as Word keeps it.
       const drawing = imageRun(node, build)
       if (drawing) {
-        floats.push(drawing)
+        floats.push({ run: drawing, key: typeof node.attrs.docxKey === "string" ? node.attrs.docxKey : undefined })
       }
       continue
     }
     const block = blockFromNode(node, build)
     if (floats.length > 0 && block?.kind === "paragraph") {
-      block.inlines.unshift(...floats)
+      placeFloats(block, floats, build)
       floats = []
     }
     const previous = blocks[blocks.length - 1]
@@ -1183,7 +1219,7 @@ function blocksFromNodes(nodes: JsonNode[], build: Build, level: number): Block[
     }
   }
   if (floats.length > 0) {
-    blocks.push({ kind: "paragraph", pPr: {}, markRPr: {}, inlines: floats })
+    blocks.push({ kind: "paragraph", pPr: {}, markRPr: {}, inlines: floats.map((float) => float.run) })
   }
   return blocks
 }
