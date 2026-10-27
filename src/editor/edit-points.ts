@@ -1,10 +1,12 @@
 import { useViewStore } from "@/document/view"
 import { shapeMarkup, shapeViewBox } from "@/editor/insert-blocks"
+import { isFloating } from "@/editor/objects"
 import {
   POINTS_BOX,
   addPoint,
   anchorsOf,
   deletePoint,
+  fitPoints,
   movePoint,
   parsePath,
   pathString,
@@ -270,10 +272,39 @@ class PointsOverlay {
     if (pos == null || !node) {
       return
     }
-    const points = pathString(segments)
     const tr = this.view.state.tr
-    if (points !== node.attrs.points) {
-      tr.setNodeMarkup(pos, undefined, { ...node.attrs, points })
+    const attrs: Record<string, unknown> = { ...node.attrs, points: pathString(segments) }
+    // The box fits the outline again, as Word's does: a point dragged out grows it, one pulled in shrinks it.
+    const zoom = useViewStore.getState().zoom || 1
+    const fit = fitPoints(segments, {
+      width: Number(node.attrs.width) || this.frame.width / zoom,
+      height: Number(node.attrs.height) || this.frame.height / zoom,
+      rotate: this.frame.rotate,
+      flipH: this.frame.flipH,
+      flipV: this.frame.flipV,
+    })
+    if (fit) {
+      Object.assign(attrs, {
+        points: pathString(fit.segments),
+        width: Math.round(fit.width * 100) / 100,
+        height: Math.round(fit.height * 100) / 100,
+      })
+      // A floating shape's corner moves so the outline stays where it was drawn; an inline one flows with the text.
+      if (isFloating(node)) {
+        if (!node.attrs.alignH) {
+          attrs.x = Number(node.attrs.x) + fit.dx
+        }
+        if (!node.attrs.alignV) {
+          if (node.attrs.anchoring === "fixed") {
+            attrs.y = Number(node.attrs.y) + fit.dy
+          } else {
+            attrs.dy = Number(node.attrs.dy) + fit.dy
+          }
+        }
+      }
+    }
+    if (Object.keys(attrs).some((name) => attrs[name] !== node.attrs[name])) {
+      tr.setNodeMarkup(pos, undefined, attrs)
     }
     tr.setSelection(NodeSelection.create(tr.doc, pos))
     // Each change is its own undo step, however quickly they follow one another.

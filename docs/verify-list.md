@@ -233,7 +233,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
   same points.
 - Open a Word document with a freeform drawn in Word (Insert → Shapes → Freeform). It shows the same outline here,
   and Edit Points shows its points.
-- Edit Points on a rotated and a flipped shape: the handles sit on the shape and drag the right way.
+- Edit Points on a rotated and a flipped shape: the handles sit on the shape and drag the right way. Drag a point
+  out of a floating, rotated shape: the box grows and the other points stay where they were.
 - Desktop app: the handles show, drag, and Ctrl+click adds and deletes in WebKitGTK.
 
 ## Quick Access Toolbar with ribbon commands (2026-10-27)

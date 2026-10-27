@@ -550,6 +550,101 @@ export function addPoint(segments: Segment[], x: number, y: number, reach: numbe
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// Fitting the box to the outline
+
+/** The outline's true extent in the points' box: its points, and the furthest reach of each curve. */
+export function pathBounds(segments: Segment[]) {
+  let [minX, minY, maxX, maxY] = [Infinity, Infinity, -Infinity, -Infinity]
+  const take = ([x, y]: Point) => {
+    minX = Math.min(minX, x)
+    minY = Math.min(minY, y)
+    maxX = Math.max(maxX, x)
+    maxY = Math.max(maxY, y)
+  }
+  let at: Point = [0, 0]
+  for (const segment of segments) {
+    if (segment.kind === "Z") {
+      continue
+    }
+    if (segment.kind === "C") {
+      // A curve stays inside its control points but need not reach them: sample it.
+      for (let step = 1; step < 16; step += 1) {
+        const t = step / 16
+        const u = 1 - t
+        const along = (a: number, b: number, c: number, d: number) =>
+          u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * c + t * t * t * d
+        take([
+          along(at[0], segment.c1[0], segment.c2[0], segment.to[0]),
+          along(at[1], segment.c1[1], segment.c2[1], segment.to[1]),
+        ])
+      }
+    }
+    take(segment.to)
+    at = segment.to
+  }
+  return Number.isFinite(minX) ? { minX, minY, maxX, maxY } : null
+}
+
+/** The shape's frame as Edit Points needs it: its size, turn and flips. */
+export type PointsFrame = { width: number; height: number; rotate: number; flipH: boolean; flipV: boolean }
+
+/**
+ * Word fits a shape's box to its outline as its points are edited: dragged out, the box grows; pulled in, it shrinks.
+ * Gives the points spread over the whole box again, the new size, and how far the box's top-left corner moves on
+ * the page (its turn and flips taken into account, so the outline stays where it was drawn). Null when it fits.
+ */
+export function fitPoints(segments: Segment[], frame: PointsFrame) {
+  const bounds = pathBounds(segments)
+  if (!bounds) {
+    return null
+  }
+  // A flat outline (a straight line) keeps its box across, rather than becoming nothing wide.
+  const spanX = bounds.maxX - bounds.minX >= 0.5 ? bounds.maxX - bounds.minX : POINTS_BOX
+  const spanY = bounds.maxY - bounds.minY >= 0.5 ? bounds.maxY - bounds.minY : POINTS_BOX
+  const fromX = spanX === POINTS_BOX && bounds.maxX - bounds.minX < 0.5 ? 0 : bounds.minX
+  const fromY = spanY === POINTS_BOX && bounds.maxY - bounds.minY < 0.5 ? 0 : bounds.minY
+  const close = (a: number, b: number) => Math.abs(a - b) < 0.01
+  if (close(fromX, 0) && close(fromY, 0) && close(spanX, POINTS_BOX) && close(spanY, POINTS_BOX)) {
+    return null
+  }
+  const map = ([x, y]: Point): Point => [
+    round(((x - fromX) / spanX) * POINTS_BOX),
+    round(((y - fromY) / spanY) * POINTS_BOX),
+  ]
+  const fitted = segments.map((segment): Segment => {
+    if (segment.kind === "Z") {
+      return segment
+    }
+    if (segment.kind === "C") {
+      return { kind: "C", c1: map(segment.c1), c2: map(segment.c2), to: map(segment.to) }
+    }
+    return { kind: segment.kind, to: map(segment.to) }
+  })
+  const width = (frame.width * spanX) / POINTS_BOX
+  const height = (frame.height * spanY) / POINTS_BOX
+  // The box's centre moves in the shape's own frame, then turns and flips with it onto the page.
+  let cx = ((fromX + spanX / 2 - POINTS_BOX / 2) / POINTS_BOX) * frame.width
+  let cy = ((fromY + spanY / 2 - POINTS_BOX / 2) / POINTS_BOX) * frame.height
+  if (frame.flipH) {
+    cx = -cx
+  }
+  if (frame.flipV) {
+    cy = -cy
+  }
+  const turn = (frame.rotate * Math.PI) / 180
+  const px = cx * Math.cos(turn) - cy * Math.sin(turn)
+  const py = cx * Math.sin(turn) + cy * Math.cos(turn)
+  return {
+    segments: fitted,
+    width,
+    height,
+    // The corner of the unturned box, which turns about its centre.
+    dx: px - (width - frame.width) / 2,
+    dy: py - (height - frame.height) / 2,
+  }
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 // Word's custom geometry
 
 /** The path size written in `a:path`: Word's own unit box, so points keep two decimals. */

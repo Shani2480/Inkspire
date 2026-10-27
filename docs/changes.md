@@ -7,6 +7,24 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Edit Points: the box fits the outline
+
+- **Wrong:** a point dragged outside a shape's box was drawn outside it, and a shape whose outline was pulled in
+  kept its old box.
+- **Changed:** after each change in Edit Points, the box is fitted to the outline as Word fits it
+  (`fitPoints` and `pathBounds` in `src/editor/shape-points.ts`, used by the overlay's commit).
+  - Curves are measured by how far they reach, not by their control points.
+  - The points are spread over the new box, and the shape takes the new width and height.
+  - A floating shape's corner (`x`, and `y` or `dy` by how it is anchored) moves so the points that were not
+    dragged stay where they were on the page, whatever the shape's turn and flips. A position set by an
+    alignment is left alone. An inline shape grows where it sits in the text.
+  - A straight line keeps its box across it.
+- **Tests:** `shape-points.test.ts`: no change when it fits; growing; shrinking; points that were not dragged stay
+  put under three turns and flips; curve reach; a straight line.
+- **Checked in Chrome:** dragging a triangle's top point up out of the box grew the shape from 72 to 92 pixels
+  tall, with the outline filling it. Add, delete and undo still work. All tests pass.
+- **Still open:** while dragging, the preview still draws outside the old box until the drag ends.
+
 ### Edit Points: the resize and rotate handles step aside
 
 - **Wrong:** while a shape's points were edited, its resize, rotate and move handles stayed on top of the point
