@@ -7,6 +7,28 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Line numbering: Start at, Count by and From text; numbers show at once
+
+- **Missing:** the app numbered every line from 1 at a fixed distance. Word's Start at, Count by and From text
+  were kept in the file but not drawn or editable. The ribbon menu had no Line Numbering Options….
+- **Bug:** turning line numbers on (or any Page Setup change that leaves the page size alone) drew nothing until
+  the next edit. The page layout skipped its run when the page grid looked unchanged.
+- **Changed:**
+  - `PageSetup` has `lineNumberStart`, `lineNumberCountBy` and `lineNumberDistance` (`page-setup.ts`). They are
+    read from `w:lnNumType` (Word's `start` counts from 0) and written back (`docx/project.ts`), keeping Word's
+    element while unchanged.
+  - The Line Numbers dialog has Start at, From text (cm, 0 for Auto) and Count by (`design-dialogs.tsx`).
+  - Layout → Line Numbers → Line Numbering Options… opens Page Setup on its Layout tab
+    (`requestPageSetup("layout")`).
+  - `collectLineNumbers` counts from Start at and shows every Count-by-th line. `--line-number-gap` sets the
+    distance.
+  - A Page Setup change now always lays the pages out again (`pages.ts`).
+- **Checked:** `line-numbers.test.ts` writes 5, 5 and 1.27 cm as `w:start="4"`, `w:countBy="5"` and
+  `w:distance="720"`, and reads them back. In Chrome, through the menu and dialogs, count by 5 shows 5 and 10, the
+  1 cm distance moves the numbers out, and Continuous shows numbers at once (before: none until an edit). Full
+  suite passing.
+- **Open:** Restart each section (the app has one section's setup); not opened in Word.
+
 ### Column breaks are saved; two stale notes corrected
 
 - **Bug:** a column break (Layout → Breaks → Column, Ctrl+Shift+Enter) was dropped when saving to .docx, so it was

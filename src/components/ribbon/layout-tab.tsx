@@ -261,6 +261,14 @@ export function LayoutTab() {
       >
         Restart Each Page
       </MenuButton>
+      <MenuButton
+        onClick={() => {
+          requestPageSetup("layout")
+          close()
+        }}
+      >
+        Line Numbering Options…
+      </MenuButton>
     </div>
   )
   const hyphenationMenu = (close: () => void) => (

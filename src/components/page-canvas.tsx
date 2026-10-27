@@ -297,7 +297,21 @@ export function PageCanvas() {
     }
     dom.classList.toggle("hyphenate", pageSetup.hyphenation)
     dom.classList.toggle("hide-ink", hideInk)
-  }, [editor, pageSetup.language, pageSetup.spacing, pageSetup.effects, pageSetup.hyphenation, hideInk])
+    // Line Numbers dialog's From text; Auto leaves the stylesheet's gap.
+    if (pageSetup.lineNumberDistance > 0) {
+      dom.style.setProperty("--line-number-gap", `${pageSetup.lineNumberDistance}mm`)
+    } else {
+      dom.style.removeProperty("--line-number-gap")
+    }
+  }, [
+    editor,
+    pageSetup.language,
+    pageSetup.spacing,
+    pageSetup.effects,
+    pageSetup.hyphenation,
+    pageSetup.lineNumberDistance,
+    hideInk,
+  ])
 
   // Word: double-click a page's top or bottom margin to edit its header or footer, double-click the body (or press
   // Esc) to go back to the document.

@@ -43,4 +43,32 @@ describe("line numbering (21.37)", () => {
     expect(await saved({ lineNumberRestart: "page" })).toContain('<w:lnNumType w:countBy="1" w:restart="newPage"/>')
     expect(await saved({ lineNumbers: false })).not.toContain("lnNumType")
   })
+
+  it("writes Start at, Count by and From text as Word does, and reads them back", async () => {
+    const xml = await saved({ lineNumberStart: 5, lineNumberCountBy: 5, lineNumberDistance: 12.7 })
+    const element = /<w:lnNumType[^>]*\/>/.exec(xml)?.[0] ?? ""
+    expect(element).toContain('w:countBy="5"')
+    // Word counts start from 0: the first line numbered 5 is start="4".
+    expect(element).toContain('w:start="4"')
+    expect(element).toContain('w:distance="720"')
+    const opened = await open()
+    const bytes = await saveDocxBytes({
+      json: { type: "doc", content: [{ type: "paragraph" }] },
+      chrome: {
+        ...opened.view.chrome,
+        pageSetup: {
+          ...opened.view.chrome.pageSetup,
+          lineNumberStart: 5,
+          lineNumberCountBy: 5,
+          lineNumberDistance: 12.7,
+        },
+      },
+      props: opened.view.props,
+      word: opened.word,
+      unchanged: false,
+      fileName: "edited.docx",
+    })
+    const setup = (await openDocxBytes(bytes.bytes, "edited.docx")).view.chrome.pageSetup
+    expect(setup).toMatchObject({ lineNumberStart: 5, lineNumberCountBy: 5, lineNumberDistance: 12.7 })
+  })
 })

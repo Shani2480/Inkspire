@@ -687,6 +687,10 @@ function pageSetupFromSection(section: SectionProps): PageSetup {
     marginLeft: twipsToMm(section.marginLeft ?? 1440),
     lineNumbers: section.lineNumbers !== undefined,
     lineNumberRestart: section.lineNumbers?.restart === "newPage" ? "page" : "continuous",
+    // Word counts w:start from 0: start="4" numbers the first line 5.
+    lineNumberStart: (section.lineNumbers?.start ?? 0) + 1,
+    lineNumberCountBy: section.lineNumbers?.countBy ?? 1,
+    lineNumberDistance: section.lineNumbers?.distance ? twipsToMm(section.lineNumbers.distance) : 0,
     gutter: twipsToMm(section.gutter ?? 0),
     headerFromEdge: twipsToMm(section.header ?? 708),
     footerFromEdge: twipsToMm(section.footer ?? 708),
@@ -900,10 +904,23 @@ function lineNumberingFrom(setup: PageSetup, base: LineNumbering | undefined): L
     return undefined
   }
   const restart = setup.lineNumberRestart === "page" ? "newPage" : "continuous"
-  if (base && (base.restart === "newPage" ? "newPage" : "continuous") === restart) {
+  const start = setup.lineNumberStart > 1 ? setup.lineNumberStart - 1 : undefined
+  const distance = setup.lineNumberDistance > 0 ? mmToTwips(setup.lineNumberDistance) : undefined
+  const same =
+    base &&
+    (base.restart === "newPage" ? "newPage" : "continuous") === restart &&
+    (base.start ?? 0) + 1 === setup.lineNumberStart &&
+    (base.countBy ?? 1) === setup.lineNumberCountBy &&
+    (base.distance ? twipsToMm(base.distance) : 0) === setup.lineNumberDistance
+  if (same) {
     return base
   }
-  return { countBy: 1, restart }
+  return {
+    countBy: setup.lineNumberCountBy,
+    ...(start !== undefined ? { start } : {}),
+    ...(distance !== undefined ? { distance } : {}),
+    restart,
+  }
 }
 
 function sectionTypeFrom(start: SectionStart): SectionProps["type"] {
