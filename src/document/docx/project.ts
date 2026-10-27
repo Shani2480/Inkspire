@@ -410,6 +410,9 @@ function blockHtml(block: Block, ctx: Projection) {
     const key = block.key ? ` data-docx="${block.key}"` : ""
     return `<div data-page-break=""${key} class="page-break"></div>`
   }
+  if (breakOnly(block, "column")) {
+    return `<div data-column-break="" class="column-break"></div>`
+  }
   return paragraphHtml(block, ctx)
 }
 
@@ -617,6 +620,11 @@ function cellAt(row: Table["rows"][number] | undefined, column: number) {
 const MARKERS = new Set(["bookmarkStart", "bookmarkEnd", "commentRangeStart", "commentRangeEnd"])
 
 function isPageBreak(paragraph: Paragraph) {
+  return breakOnly(paragraph, "page")
+}
+
+/** A paragraph holding nothing but one break of this kind (Word's own form for a page or column break). */
+function breakOnly(paragraph: Paragraph, type: "page" | "column") {
   const content = paragraph.inlines.filter((inline) => !MARKERS.has(inline.kind))
   if (content.length !== 1) {
     return false
@@ -626,7 +634,7 @@ function isPageBreak(paragraph: Paragraph) {
     inline?.kind === "run" &&
     inline.content.length === 1 &&
     inline.content[0]?.kind === "break" &&
-    inline.content[0].breakType === "page"
+    inline.content[0].breakType === type
   )
 }
 
@@ -1215,6 +1223,14 @@ function isBlankParagraph(node: JsonNode) {
 }
 
 function blockFromNode(node: JsonNode, build: Build): Block | null {
+  if (node.type === "columnBreak") {
+    return {
+      kind: "paragraph",
+      pPr: {},
+      markRPr: {},
+      inlines: [{ kind: "run", rPr: {}, content: [{ kind: "break", breakType: "column" }] }],
+    }
+  }
   if (node.type === "pageBreak") {
     const key = typeof node.attrs?.docxKey === "string" ? node.attrs.docxKey : undefined
     const origin = key ? build.origins.paragraphs.get(key) : undefined
