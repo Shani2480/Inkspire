@@ -331,6 +331,12 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Save and open the file in Word: a picture of the map. Reopen it here: an editable map with the same options.
 - Open a Word file with a map chart: the same countries and values, drawn here.
 
+## Chart cleanup (2026-10-27)
+
+- Word: a 3-D pie saved with Height 250% looks as thick there, and the Format pane shows 250%.
+- LibreOffice or an older Word (the fallback chart): a Waterfall with one bar given its own colour shows that colour.
+- Compare Add Chart Element for each 2016 kind with Word's.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

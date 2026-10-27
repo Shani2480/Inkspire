@@ -846,6 +846,19 @@ export function isHierarchy(type: ChartType) {
   return type === "treemap" || type === "sunburst"
 }
 
+/** Whether the chart has axes: pie, doughnut, treemap, sunburst and map have none. */
+export function chartHasAxes(type: ChartType) {
+  return !(type === "pie" || type === "doughnut" || type === "map" || isHierarchy(type))
+}
+
+/**
+ * Word's 2016 chart kinds and the map, drawn from their data by rules of their own: Word gives them no trendline,
+ * error bars, data table or secondary axis.
+ */
+export function isStatisticChart(type: ChartType) {
+  return ["histogram", "waterfall", "funnel", "boxWhisker", "treemap", "sunburst", "map"].includes(type)
+}
+
 function sheetData(sheet: ChartSheet): Pick<ChartSpec, "categories" | "series"> {
   return {
     categories: [...sheet.categories],
@@ -2171,7 +2184,8 @@ function pie3d(painter: Painter, box: Box) {
   // X Rotation tips the pie: flatter and thicker towards 0°, a full circle seen from above at 90°.
   const turn = chartRotation(spec)
   const tilt = Math.max(0.04, Math.sin((turn.x * Math.PI) / 180))
-  const side = 0.185 * Math.cos((turn.x * Math.PI) / 180)
+  // Height (% of base) makes it thicker or thinner, 100% unless set.
+  const side = 0.185 * ((chartView3d(spec).height ?? 100) / 100) * Math.cos((turn.x * Math.PI) / 180)
   const rx = Math.max(4, Math.min(box.w / 2 - outside, (box.h - 2 * outside) / (2 * tilt + side)))
   const ry = rx * tilt
   const thick = rx * side
@@ -3129,7 +3143,7 @@ function radar(painter: Painter, box: Box, series: Serie[]) {
 /** The chart's parts as the Format tab's Current Selection lists them. */
 export function chartParts(spec: ChartSpec): { id: string; label: string }[] {
   // Treemap and Sunburst have no axes, as pie charts have none.
-  const round = spec.type === "pie" || spec.type === "doughnut" || isHierarchy(spec.type) || spec.type === "map"
+  const round = !chartHasAxes(spec.type)
   const parts = [{ id: "chartArea", label: "Chart Area" }]
   if (!round) {
     parts.push({ id: "plotArea", label: "Plot Area" })

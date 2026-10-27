@@ -230,7 +230,7 @@ describe("3-D charts, Pie of Pie and Bar of Pie (22.6)", () => {
       '<c:line3DChart><c:grouping val="standard"/>',
     )
     const pie3d = chartSpaceXml(withVariant(defaultChartSpec("pie-3d"), "pie-3d"))
-    expect(pie3d).toContain("<c:pie3DChart><c:varyColors val=\"1\"/>")
+    expect(pie3d).toContain('<c:pie3DChart><c:varyColors val="1"/>')
     expect(pie3d).toContain('<c:rotX val="30"/>')
     const ofPie = chartSpaceXml(withVariant(defaultChartSpec("bar-of-pie"), "bar-of-pie"))
     expect(ofPie).toMatch(
@@ -260,7 +260,9 @@ describe("3-D charts, Pie of Pie and Bar of Pie (22.6)", () => {
     expect(byPercent).toMatchObject({ ofPieSplitBy: "percent", ofPieSplitValue: 20 })
     expect(byPercent.ofPieSize).toBeUndefined()
     const custom = chartSpaceXml({ ...spec, ofPieSplitBy: "cust", ofPieCustom: [0, 2] })
-    expect(custom).toContain('<c:splitType val="cust"/><c:custSplit><c:secondPiePt val="0"/><c:secondPiePt val="2"/></c:custSplit>')
+    expect(custom).toContain(
+      '<c:splitType val="cust"/><c:custSplit><c:secondPiePt val="0"/><c:secondPiePt val="2"/></c:custSplit>',
+    )
     expect(readChartSpace(custom)).toMatchObject({ ofPieSplitBy: "cust", ofPieCustom: [0, 2] })
   })
 
@@ -288,6 +290,10 @@ describe("3-D charts, Pie of Pie and Bar of Pie (22.6)", () => {
     expect(high).toContain('<c:rotX val="15"/><c:hPercent val="150"/><c:rotY val="20"/>')
     expect(readChartSpace(high)!.heightPercent).toBe(150)
     expect(chartSpaceXml(deep)).not.toContain("hPercent")
+    // A 3-D pie's Height is its thickness.
+    const thick = chartSpaceXml({ ...withVariant(defaultChartSpec("pie-3d"), "pie-3d"), heightPercent: 200 })
+    expect(thick).toContain('<c:rotX val="30"/><c:hPercent val="200"/><c:rotY val="0"/>')
+    expect(readChartSpace(thick)!.heightPercent).toBe(200)
     const ofPie = { ...withVariant(defaultChartSpec("pie-of-pie"), "pie-of-pie"), ofPieGap: 250 }
     expect(chartSpaceXml(ofPie)).toContain('<c:gapWidth val="250"/>')
     expect(readChartSpace(chartSpaceXml(ofPie))!.ofPieGap).toBe(250)

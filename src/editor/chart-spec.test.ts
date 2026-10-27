@@ -80,13 +80,20 @@ describe("chart spec", () => {
     expect(deep).toMatch(/data-chart-part="plotArea"[^>]*><polygon/)
     const tilted = renderChart(defaultChartSpec("pie-3d"), 576, 336)
     expect(tilted).toMatch(/A[\d.]+ [\d.]+ 0 0 1/)
+    // Height (% of base) thickens the rim, against the pie's size.
+    const rim = (svg: string) => {
+      const side = /A([\d.]+) [\d.]+ 0 0 1 [\d.]+ ([\d.]+) L[\d.]+ ([\d.]+)/.exec(svg)!
+      return (Number(side[3]) - Number(side[2])) / Number(side[1])
+    }
+    const thick = rim(renderChart({ ...defaultChartSpec("pie-3d"), heightPercent: 300 }, 576, 336))
+    expect(thick / rim(tilted)).toBeCloseTo(3, 1)
     const spec = defaultChartSpec("bar-of-pie")
     expect(ofPieSplit(spec, 4)).toBe(2)
     expect(ofPieSplit({ ...spec, ofPieSplit: 9 }, 4)).toBe(3)
     const svg = renderChart(spec, 576, 336)
     // The first two quarters and Other in the pie, the last two as the bar, and the two lines between them.
-    expect(count(svg, "<path data-chart-part=\"point:")).toBe(3)
-    expect(count(svg, "<rect data-chart-part=\"point:")).toBe(2)
+    expect(count(svg, '<path data-chart-part="point:')).toBe(3)
+    expect(count(svg, '<rect data-chart-part="point:')).toBe(2)
     expect(svg).toContain('data-chart-part="point:other"')
     expect(svg).toMatch(/data-chart-part="lines"[^>]*><line[^>]*\/><line/)
   })
@@ -104,7 +111,9 @@ describe("chart spec", () => {
     const left = (svg: string) => Number(backWall(svg)!.split(",")[0])
     const ahead = renderChart({ ...column, rotX: 0, rotY: 0 }, 576, 336)
     expect(left(ahead)).toBeLessThan(left(renderChart(column, 576, 336)) - 20)
-    expect(ahead).toMatch(/data-chart-part="plotArea"[^>]*><polygon points="[^"]+"[^>]*\/><polygon points="([\d.]+),[\d.]+ \1,/)
+    expect(ahead).toMatch(
+      /data-chart-part="plotArea"[^>]*><polygon points="[^"]+"[^>]*\/><polygon points="([\d.]+),[\d.]+ \1,/,
+    )
     expect(turned).not.toContain("NaN")
     // A pie seen from straight above is a circle; turning it moves its first slice.
     const pie = defaultChartSpec("pie-3d")
@@ -125,11 +134,29 @@ describe("chart spec", () => {
     spec.series = [{ name: "Sales", values: [40, 3, 30, 5, 22] }]
     expect(ofPieSecond(spec)).toEqual([false, false, false, true, true])
     // The small ones wherever they are, kept in their order.
-    expect(ofPieSecond({ ...spec, ofPieSplitBy: "val", ofPieSplitValue: 10 })).toEqual([false, true, false, true, false])
-    expect(ofPieSecond({ ...spec, ofPieSplitBy: "percent", ofPieSplitValue: 25 })).toEqual([false, true, false, true, true])
+    expect(ofPieSecond({ ...spec, ofPieSplitBy: "val", ofPieSplitValue: 10 })).toEqual([
+      false,
+      true,
+      false,
+      true,
+      false,
+    ])
+    expect(ofPieSecond({ ...spec, ofPieSplitBy: "percent", ofPieSplitValue: 25 })).toEqual([
+      false,
+      true,
+      false,
+      true,
+      true,
+    ])
     // Unset, a tenth of the whole.
     expect(ofPieSecond({ ...spec, ofPieSplitBy: "val" })).toEqual([false, true, false, true, false])
-    expect(ofPieSecond({ ...spec, ofPieSplitBy: "cust", ofPieCustom: [0, 2] })).toEqual([true, false, true, false, false])
+    expect(ofPieSecond({ ...spec, ofPieSplitBy: "cust", ofPieCustom: [0, 2] })).toEqual([
+      true,
+      false,
+      true,
+      false,
+      false,
+    ])
     const count = (svg: string, text: string) => svg.split(text).length - 1
     const bar = renderChart({ ...spec, ofPie: "bar", ofPieSplitBy: "val", ofPieSplitValue: 10 }, 576, 336)
     expect(bar).toContain('<rect data-chart-part="point:1"')
@@ -140,7 +167,10 @@ describe("chart spec", () => {
     // Second Plot Size: the second pie grows with it.
     const radius = (svg: string) => {
       // A slice of the second pie: from its centre to the rim.
-      const [cx, cy, x, y] = /data-chart-part="point:4" d="M([\d.]+) ([\d.]+) L([\d.]+) ([\d.]+)/.exec(svg)!.slice(1).map(Number)
+      const [cx, cy, x, y] = /data-chart-part="point:4" d="M([\d.]+) ([\d.]+) L([\d.]+) ([\d.]+)/
+        .exec(svg)!
+        .slice(1)
+        .map(Number)
       return Math.hypot(x! - cx!, y! - cy!)
     }
     const small = renderChart({ ...spec, ofPieSize: 50 }, 576, 336)
@@ -154,16 +184,23 @@ describe("chart spec", () => {
     expect(renderChart(spec, 576, 336)).toContain(">Other</text>")
     const centre = (svg: string) => Number(/<line x1="[\d.]+" y1="[\d.]+" x2="([\d.]+)"/.exec(svg)![1])
     // The join lines end at the second plot: further right with a wider gap.
-    expect(centre(renderChart({ ...spec, ofPieGap: 300 }, 576, 336))).toBeGreaterThan(centre(renderChart({ ...spec, ofPieGap: 0 }, 576, 336)))
+    expect(centre(renderChart({ ...spec, ofPieGap: 300 }, 576, 336))).toBeGreaterThan(
+      centre(renderChart({ ...spec, ofPieGap: 0 }, 576, 336)),
+    )
   })
 
   it("keeps a 3-D chart's view as Word has it, and draws deeper with Depth", () => {
     const column = withVariant(defaultChartSpec("column"), "column-3d")
     expect(chartView3d(column)).toEqual({ rightAngle: false, perspective: 15, depth: 100, height: undefined })
     expect(chartView3d(withVariant(defaultChartSpec("column"), "column-3d-clustered")).rightAngle).toBe(true)
-    expect(chartView3d({ ...column, depthPercent: 5000, perspective: -3 })).toMatchObject({ depth: 2000, perspective: 0 })
+    expect(chartView3d({ ...column, depthPercent: 5000, perspective: -3 })).toMatchObject({
+      depth: 2000,
+      perspective: 0,
+    })
     const backWall = (svg: string) => Number(/data-chart-part="plotArea"[^>]*><polygon points="([\d.]+)/.exec(svg)![1])
-    expect(backWall(renderChart({ ...column, depthPercent: 200 }, 576, 336))).toBeGreaterThan(backWall(renderChart(column, 576, 336)))
+    expect(backWall(renderChart({ ...column, depthPercent: 200 }, 576, 336))).toBeGreaterThan(
+      backWall(renderChart(column, 576, 336)),
+    )
   })
 
   it("draws Height (% of base): the front that share of its width tall, Autoscale filling the room", () => {
@@ -171,12 +208,16 @@ describe("chart spec", () => {
     expect(chartView3d({ ...column, heightPercent: 900 }).height).toBe(500)
     // The floor's front edge: its left and right ends, and the front's bottom.
     const front = (svg: string) => {
-      const floor = /data-chart-part="plotArea"[^>]*><polygon points="[^"]+"\/><polygon points="[^"]+"\/><polygon points="([^"]+)"/.exec(svg)![1]!
+      const floor =
+        /data-chart-part="plotArea"[^>]*><polygon points="[^"]+"\/><polygon points="[^"]+"\/><polygon points="([^"]+)"/.exec(
+          svg,
+        )![1]!
       const corners = floor.split(" ").map((point) => point.split(",").map(Number))
       const [left, right] = [corners[0], corners[3]]
       return { width: right![0]! - left![0]!, bottom: left![1]! }
     }
-    const back = (svg: string) => Number(/data-chart-part="plotArea"[^>]*><polygon points="[\d.]+,([\d.]+)/.exec(svg)![1])
+    const back = (svg: string) =>
+      Number(/data-chart-part="plotArea"[^>]*><polygon points="[\d.]+,([\d.]+)/.exec(svg)![1])
     const tall = (svg: string) => front(svg).bottom - back(svg)
     const auto = renderChart(column, 576, 336)
     const flat = renderChart({ ...column, heightPercent: 20 }, 576, 336)

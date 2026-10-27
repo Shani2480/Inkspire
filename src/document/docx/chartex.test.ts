@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { chartExXml, readChartEx } from "@/document/docx/chartex-xml"
+import { chartSpaceXml } from "@/document/docx/chart-xml"
 import { emptyChrome } from "@/document/header"
 import { openDocxBytes, saveDocxBytes } from "@/document/docx/io"
 import { findPart, openPackage, relationshipsFor } from "@/document/docx/opc"
@@ -38,7 +39,11 @@ async function save(spec: ChartSpec) {
   return saved.bytes
 }
 
-const data = (spec: ChartSpec) => ({ categories: spec.categories, series: spec.series.map((serie) => [serie.name, serie.values]), levels: spec.levels })
+const data = (spec: ChartSpec) => ({
+  categories: spec.categories,
+  series: spec.series.map((serie) => [serie.name, serie.values]),
+  levels: spec.levels,
+})
 
 describe("Word's chartex charts (Histogram, Pareto, Waterfall, Funnel, Box & Whisker, Treemap, Sunburst)", () => {
   const ids = ["histogram", "pareto", "waterfall", "funnel", "box-whisker", "treemap", "sunburst"]
@@ -53,9 +58,11 @@ describe("Word's chartex charts (Histogram, Pareto, Waterfall, Funnel, Box & Whi
   it("writes each kind's own layout: bins, the Pareto line on a percentage axis, a Waterfall's total, quartiles", () => {
     const histogram = chartExXml({ ...defaultChartSpec("histogram"), bins: { by: "count", count: 5, overflow: 20 } })
     expect(histogram).toContain('<cx:series layoutId="clusteredColumn">')
-    expect(histogram).toContain('<cx:binning intervalClosed="r" overflow="20"><cx:binCount>5</cx:binCount></cx:binning>')
+    expect(histogram).toContain(
+      '<cx:binning intervalClosed="r" overflow="20"><cx:binCount>5</cx:binCount></cx:binning>',
+    )
     expect(chartExXml({ ...defaultChartSpec("histogram"), bins: { by: "width", width: 2.5 } })).toContain(
-      '<cx:binSize>2.5</cx:binSize>',
+      "<cx:binSize>2.5</cx:binSize>",
     )
     const pareto = chartExXml(defaultChartSpec("pareto"))
     expect(pareto).toContain("<cx:aggregation/>")
@@ -73,7 +80,9 @@ describe("Word's chartex charts (Histogram, Pareto, Waterfall, Funnel, Box & Whi
     )
     // Treemap levels: innermost first, the formula over the label columns by row.
     const treemap = chartExXml(defaultChartSpec("treemap"))
-    expect(treemap).toMatch(/<cx:strDim type="cat"><cx:f dir="row">Sheet1!\$A\$2:\$C\$\d+<\/cx:f><cx:lvl ptCount="\d+"><cx:pt idx="0">Leaf 1</)
+    expect(treemap).toMatch(
+      /<cx:strDim type="cat"><cx:f dir="row">Sheet1!\$A\$2:\$C\$\d+<\/cx:f><cx:lvl ptCount="\d+"><cx:pt idx="0">Leaf 1</,
+    )
     expect(treemap).toContain('<cx:numDim type="size">')
   })
 
@@ -92,6 +101,12 @@ describe("Word's chartex charts (Histogram, Pareto, Waterfall, Funnel, Box & Whi
     // Only the colour that is not the app's own comes back.
     expect(Object.keys(read.format).filter((key) => key.startsWith("point:"))).toEqual(["point:1"])
     expect(read.format["point:1"]).toEqual({ fill: "#123456" })
+    // The ordinary chart other programs show has the point's colour on its bar too.
+    const fallback = chartSpaceXml(waterfall)
+    expect(fallback.match(/<c:dPt>/g)).toHaveLength(1)
+    expect(fallback).toMatch(
+      /<c:dPt><c:idx val="1"\/><c:invertIfNegative val="0"\/><c:bubble3D val="0"\/><c:spPr><a:solidFill><a:srgbClr val="123456"\/>/,
+    )
 
     const box = {
       ...defaultChartSpec("box-whisker"),
@@ -170,7 +185,9 @@ describe("Word's chartex charts (Histogram, Pareto, Waterfall, Funnel, Box & Whi
     expect(document).toMatch(
       /<mc:AlternateContent xmlns:mc="[^"]+"><mc:Choice xmlns:cx1="http:\/\/schemas.microsoft.com\/office\/drawing\/2015\/9\/8\/chartex" Requires="cx1"><w:drawing/,
     )
-    expect(document).toMatch(/<\/mc:Choice><mc:Fallback><w:drawing[^]*<c:chart [^]*<\/mc:Fallback><\/mc:AlternateContent>/)
+    expect(document).toMatch(
+      /<\/mc:Choice><mc:Fallback><w:drawing[^]*<c:chart [^]*<\/mc:Fallback><\/mc:AlternateContent>/,
+    )
     const relId = /<cx:chart [^>]*r:id="(rId\d+)"/.exec(document)![1]
     const rel = relationshipsFor(pkg, pkg.mainPartName).find((item) => item.id === relId)!
     expect(rel.type).toBe("http://schemas.microsoft.com/office/2014/relationships/chartEx")
@@ -184,7 +201,13 @@ describe("Word's chartex charts (Histogram, Pareto, Waterfall, Funnel, Box & Whi
     const sheet = decodeXml(entries.find((entry) => entry.name === "xl/worksheets/sheet1.xml")!.data)
     expect(sheet).toContain("<t>Item 12</t>")
     expect(sheet).toContain('<c r="B13"><v>30</v></c>')
-    expect(decodeXml((await openPackage(await save(defaultChartSpec("funnel")), "c.docx")).parts.find((item) => item.name === pkg.mainPartName)!.data)).toContain('Requires="cx2"')
+    expect(
+      decodeXml(
+        (await openPackage(await save(defaultChartSpec("funnel")), "c.docx")).parts.find(
+          (item) => item.name === pkg.mainPartName,
+        )!.data,
+      ),
+    ).toContain('Requires="cx2"')
   })
 
   it("opens its own chartex charts as they were, and Word's own (with no app copy) from the chartex part", async () => {
