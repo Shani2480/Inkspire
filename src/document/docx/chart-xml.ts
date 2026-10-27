@@ -47,7 +47,7 @@ function solid(color: string | undefined) {
   return value ? `<a:solidFill><a:srgbClr val="${value}"/></a:solidFill>` : "<a:noFill/>"
 }
 
-function column(index: number) {
+export function column(index: number) {
   let name = ""
   let value = index + 1
   while (value > 0) {
@@ -260,6 +260,8 @@ function axisXml(spec: ChartSpec, kind: "cat" | "val", ids: [number, number], op
     (!isCategory && !options.secondary && spec.valueAxis.min !== undefined
       ? `<c:min val="${spec.valueAxis.min}"/>`
       : "") +
+    // A Pareto's line is a running share, on an axis from 0 to 100%.
+    (!isCategory && options.secondary && spec.pareto ? `<c:max val="1"/><c:min val="0"/>` : "") +
     `</c:scaling>`
   const gridColor = spec.format.gridlines?.line || look.grid
   const grid =
@@ -281,7 +283,9 @@ function axisXml(spec: ChartSpec, kind: "cat" | "val", ids: [number, number], op
         )
       : ""
   const text = spec.format[`axis:${isCategory ? "category" : "value"}`]?.color || look.text
-  const format = !isCategory
+  const format = !isCategory && options.secondary && spec.pareto
+    ? `<c:numFmt formatCode="0%" sourceLinked="0"/>`
+    : !isCategory
     ? `<c:numFmt formatCode="${escapeXml(spec.valueAxis.numberFormat ?? (spec.grouping === "percent" ? "0%" : "General"))}" sourceLinked="${spec.valueAxis.numberFormat ? 0 : 1}"/>`
     : `<c:numFmt formatCode="General" sourceLinked="1"/>`
   const line = isCategory
@@ -557,18 +561,23 @@ export function chartSpaceXml(source: ChartSpec, workbookRelId?: string) {
 }
 
 /** The chart's data as a workbook Word opens for Edit Data: series across row 1, categories down column A. */
-export function chartWorkbook(source: ChartSpec) {
-  const spec = expandSpec(source)
+export function chartWorkbook(source: ChartSpec, { raw = false }: { raw?: boolean } = {}) {
+  // A chart Word draws itself from the data (chartex) gets the data as typed, its label columns first (a Treemap's
+  // outer levels, then the category); any other gets the chart it is drawn as.
+  const spec = raw ? source : expandSpec(source)
+  const levels = raw ? (spec.levels ?? []) : []
+  const first = levels.length + 1
   const encoder = new TextEncoder()
   const cell = (ref: string, value: string | number) =>
     typeof value === "number"
       ? `<c r="${ref}"><v>${value}</v></c>`
       : `<c r="${ref}" t="inlineStr"><is><t>${escapeXmlText(value)}</t></is></c>`
-  const header = `<row r="1">${spec.series.map((serie, index) => cell(`${column(index + 1)}1`, serie.name)).join("")}</row>`
+  const header = `<row r="1">${spec.series.map((serie, index) => cell(`${column(first + index)}1`, serie.name)).join("")}</row>`
   const rows = spec.categories.map((name, row) => {
     const cells = [
-      cell(`A${row + 2}`, name),
-      ...spec.series.map((serie, index) => cell(`${column(index + 1)}${row + 2}`, serie.values[row] ?? 0)),
+      ...levels.map((level, index) => (level[row] ? cell(`${column(index)}${row + 2}`, level[row]!) : "")),
+      cell(`${column(levels.length)}${row + 2}`, name),
+      ...spec.series.map((serie, index) => cell(`${column(first + index)}${row + 2}`, serie.values[row] ?? 0)),
     ]
     return `<row r="${row + 2}">${cells.join("")}</row>`
   })
@@ -628,9 +637,9 @@ export function chartWorkbook(source: ChartSpec) {
 // Reading
 // ---------------------------------------------------------------------------------------------------------------
 
-type Element = { name: string; attrs: Record<string, string>; children: Element[]; text: string }
+export type Element = { name: string; attrs: Record<string, string>; children: Element[]; text: string }
 
-function tree(xml: string): Element | null {
+export function tree(xml: string): Element | null {
   const parser = new SaxesParser({ xmlns: false })
   const root: Element = { name: "#root", attrs: {}, children: [], text: "" }
   const stack = [root]
@@ -666,15 +675,15 @@ function tree(xml: string): Element | null {
   return failed ? null : (root.children[0] ?? null)
 }
 
-function child(element: Element | undefined, name: string) {
+export function child(element: Element | undefined, name: string) {
   return element?.children.find((item) => item.name === name)
 }
 
-function children(element: Element | undefined, name: string) {
+export function children(element: Element | undefined, name: string) {
   return element?.children.filter((item) => item.name === name) ?? []
 }
 
-function find(element: Element | undefined, name: string): Element | undefined {
+export function find(element: Element | undefined, name: string): Element | undefined {
   if (!element) {
     return undefined
   }

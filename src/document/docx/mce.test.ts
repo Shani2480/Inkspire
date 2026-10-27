@@ -136,7 +136,7 @@ describe("markup compatibility", () => {
     expect(events.some((event) => event.type === "start" && event.local === "new")).toBe(true)
   })
 
-  it("reads the chart shapes Word writes: floating, chartex with a fallback, and inside a drawing canvas", () => {
+  it("reads the chart shapes Word writes: floating, chartex (its Choice, not the fallback), and inside a drawing canvas", () => {
     const a = "http://schemas.openxmlformats.org/drawingml/2006/main"
     const c = "http://schemas.openxmlformats.org/drawingml/2006/chart"
     const r = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
@@ -162,8 +162,8 @@ describe("markup compatibility", () => {
         </w:r></w:p></w:body>
       </w:document>`
     const events = read(xml)
-    expect(events.filter((event) => event.type === "start" && event.local === "chart")).toHaveLength(2)
-    expect(textOf(events)).toContain("FALLBACK")
+    expect(events.filter((event) => event.type === "start" && event.local === "chart")).toHaveLength(3)
+    expect(textOf(events)).not.toContain("FALLBACK")
   })
 
   it("still rejects an unknown namespace outside a drawing's open content", () => {

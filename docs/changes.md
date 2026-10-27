@@ -7,6 +7,52 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Word's own chartex charts for Histogram, Pareto, Waterfall, Funnel, Box & Whisker, Treemap and Sunburst; Pareto
+
+- **Wrong:**
+  - These were saved only as the ordinary chart they look like (columns, stacked bars), so Word showed a plain
+    column or bar chart, without its bins, quartiles or levels.
+  - Word's own charts of these kinds did not open as charts: the reader skipped the `mc:Choice` that holds them.
+  - There was no Pareto chart.
+- **Changed:**
+  - **Saving:** a chart of these kinds is saved as Word's chartex chart (`/word/charts/chartExN.xml`, its own
+    relationship and content type, and a workbook with the data as typed). It sits in an `mc:AlternateContent`
+    (`Requires="cx1"`, or `"cx2"` for Funnel) whose Fallback is the ordinary chart we wrote before, so LibreOffice
+    and older Word still show it.
+  - **What the chartex part holds:**
+    - Histogram bins: aggregation for By Category; binning with `binSize` or `binCount` and the underflow and
+      overflow limits.
+    - Pareto: a `paretoLine` series on a percentage axis.
+    - Waterfall: the total the app draws, as a last point marked as a subtotal.
+    - Box & Whisker: exclusive quartiles. Treemap and Sunburst: their levels, innermost first.
+    - Title, legend and data labels.
+  - **Opening:** `cx1` and `cx2` are understood, so Word's chart is read from the chartex part (`readChartEx`). The
+    app's own copy still wins while the data is unchanged. A Map is not read.
+  - **Pareto:** a new variant under Histogram (Insert Chart, Change Chart Type). Bars run from the largest down,
+    with a line of the running share on a 0–100% axis; Word's sample is binned by category.
+  - Files: `src/document/docx/chartex-xml.ts` (new); `inlines.ts` (save and open); `mce.ts`; `chart-xml.ts`
+    (the workbook can hold the raw data with level columns, and the fallback Pareto has a 0–100% second axis);
+    `chart-spec.ts` and `chart-expand.ts` (Pareto).
+- **Tests:**
+  - `chartex.test.ts` (new): each kind written and read back as the same variant with the same data; each kind's
+    layout; every bin setting; a chart as Word writes it (rich title, `auto` limits, no workbook; a Map read as
+    nothing); the AlternateContent, relationship, content type and raw workbook in a saved document.
+  - Opening its own charts as they were, and a file with the app's copy taken out, read from the chartex part.
+  - `mce.test.ts` now expects the chartex Choice to be read rather than its fallback.
+  - All tests pass.
+- **Checked:**
+  - Open XML SDK validator (Microsoft 365 schema): 0 errors on a document with every kind and bin setting. The
+    first run found `binCount` and `axisId` written with a `val` attribute where the schema wants element text;
+    fixed.
+  - LibreOffice opens all of them from the fallback.
+  - Chrome: Pareto in Insert Chart and drawn in the document.
+- **Still open:**
+  - Not opened in Word yet.
+  - Fill colours and fonts are left to Word's chartex style (a Waterfall's green and red are not written).
+  - A Waterfall's other "set as total" points are not read. Box & Whisker's mean line, inner points and
+    quartile method are not options in the app.
+  - Region Map is not read.
+
 ### Histogram bins, and Pie of Pie / Bar of Pie split by value, percentage or custom points
 
 - **Missing:**

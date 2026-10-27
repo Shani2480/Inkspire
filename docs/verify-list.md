@@ -277,6 +277,14 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Save a Pie of Pie split by value, by percentage and custom, and a Bar of Pie at Second Plot Size 120%: Word
   shows the same split and size in Format Data Series. Open Word's own of-pie chart split by value here.
 
+## chartex charts and Pareto (2026-10-27)
+
+- Save a Histogram (each bin setting), a Pareto, Waterfall, Funnel, Box & Whisker, Treemap and Sunburst; open
+  in Word: each is Word's own chart of that kind (Change Chart Type shows it), with the same bins, totals and
+  levels; Edit Data opens the typed data.
+- Make each in Word and open it here: same kind, data, bins and title.
+- Word 2013 or LibreOffice: the fallback chart shows.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

@@ -125,6 +125,32 @@ export function histogramValues(spec: ChartSpec) {
 function histogram(spec: ChartSpec): ChartSpec {
   const { name, values, categories } = numbers(spec)
   const { labels, counts } = histogramBins(values, spec.bins, categories)
+  if (spec.pareto) {
+    // The bins from the largest down, and a line on a second axis of the share counted so far.
+    const order = counts.map((_, index) => index).sort((a, b) => counts[b]! - counts[a]! || a - b)
+    const total = counts.reduce((sum, count) => sum + count, 0) || 1
+    let running = 0
+    return {
+      ...spec,
+      type: "column",
+      grouping: "clustered",
+      categories: order.map((index) => labels[index]!),
+      hiddenCategories: [],
+      series: [
+        { name, values: order.map((index) => counts[index]!) },
+        {
+          name: "Cumulative %",
+          type: "line",
+          secondary: true,
+          values: order.map((index) => (running += counts[index]!) / total),
+        },
+      ],
+      markers: false,
+      legend: "none",
+      gapWidth: 0,
+      overlap: 0,
+    }
+  }
   return {
     ...spec,
     type: "column",
