@@ -12619,6 +12619,33 @@ textarea.tp-input {
   gap: 6px;
 }
 
+/* The Quick Access Toolbar under the ribbon (Toolbar Position), and ribbon icons on it. */
+.quick-access-strip {
+  margin: -2px 12px 6px;
+  border: 1px solid var(--app-ribbon-border);
+  border-radius: 6px;
+  background: var(--app-ribbon-card);
+}
+
+.quick-ribbon-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.cz-from {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cz-from select {
+  flex: 1;
+  border: 1px solid var(--dlg-control-border);
+  background: var(--dlg-surface);
+  color: inherit;
+  font-size: 12px;
+}
+
 /* Options pages (22.9) */
 .options-layout {
   display: flex;

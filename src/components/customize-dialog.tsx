@@ -1,7 +1,18 @@
 import { QUICK_COMMANDS } from "@/components/quick-commands"
 import { DialogButtons, DialogFrame } from "@/components/word-dialog"
-import { HIDEABLE_TABS, SEPARATOR, addCommand, moveCommand, removeCommand, useCustomize } from "@/document/customize"
-import { useState } from "react"
+import { ribbonCommandsOn } from "@/components/ribbon/ribbon-commands"
+import {
+  HIDEABLE_TABS,
+  SEPARATOR,
+  addCommand,
+  defaults,
+  moveCommand,
+  parseRibbonCommandId,
+  removeCommand,
+  useCustomize,
+  type RibbonCommandLook,
+} from "@/document/customize"
+import { useMemo, useState } from "react"
 import { create } from "zustand"
 
 type Page = "quick-access" | "ribbon"
@@ -21,7 +32,37 @@ export function CustomizeDialogHost() {
 }
 
 const LABELS = new Map(QUICK_COMMANDS.map((command) => [command.id, command.label]))
-const labelOf = (id: string) => (id === SEPARATOR ? "<Separator>" : (LABELS.get(id) ?? id))
+
+type Choice = { id: string; label: string; look?: RibbonCommandLook }
+
+/**
+ * Word's "Choose commands from": Popular Commands (the toolbar's own), each built tab's commands, and All Commands
+ * (every one of those, by name).
+ */
+function commandSources(): { id: string; label: string; choices: () => Choice[] }[] {
+  const popular = () => QUICK_COMMANDS.map((command) => ({ id: command.id, label: command.label }))
+  const tabs = [...document.querySelectorAll<HTMLElement>("[data-ribbon-tab]")].map((panel) => ({
+    id: panel.dataset.ribbonTab!,
+    label: `${panel.dataset.ribbonTabLabel || panel.dataset.ribbonTab} Tab`,
+    choices: (): Choice[] => ribbonCommandsOn(panel.dataset.ribbonTab!),
+  }))
+  return [
+    { id: "popular", label: "Popular Commands", choices: popular },
+    {
+      id: "all",
+      label: "All Commands",
+      choices: () => {
+        const all = [...popular(), ...tabs.flatMap((tab) => tab.choices())]
+        // One of each name: a command on two tabs is the first one found.
+        const seen = new Set<string>()
+        return all
+          .filter((choice) => !seen.has(choice.label) && seen.add(choice.label))
+          .sort((a, b) => a.label.localeCompare(b.label))
+      },
+    },
+    ...tabs,
+  ]
+}
 
 function CustomizeDialog({ initial, onClose }: { initial: Page; onClose: () => void }) {
   const stored = useCustomize()
@@ -30,14 +71,45 @@ function CustomizeDialog({ initial, onClose }: { initial: Page; onClose: () => v
   const [shown, setShown] = useState(stored.qatShown)
   const [qat, setQat] = useState(stored.qat)
   const [hidden, setHidden] = useState(stored.hiddenTabs)
+  const [below, setBelow] = useState(stored.qatBelow)
+  const [labels, setLabels] = useState(stored.qatLabels)
+  const [looks, setLooks] = useState(stored.ribbon)
+  const [sources] = useState(commandSources)
+  const [from, setFrom] = useState("popular")
+  const choices = useMemo(
+    () => [...(sources.find((source) => source.id === from)?.choices() ?? []), { id: SEPARATOR, label: "<Separator>" }],
+    [sources, from],
+  )
   const [left, setLeft] = useState<string>(QUICK_COMMANDS[0]!.id)
   const [right, setRight] = useState(-1)
-  const choices = [...QUICK_COMMANDS.map((command) => command.id), SEPARATOR]
+
+  const labelOf = (id: string) => {
+    if (id === SEPARATOR) {
+      return "<Separator>"
+    }
+    const ribbon = parseRibbonCommandId(id)
+    return ribbon ? `${ribbon.label} (${looks[id]?.tab ?? ribbon.tab})` : (LABELS.get(id) ?? id)
+  }
+
+  const add = () => {
+    const choice = choices.find((item) => item.id === left)
+    if (!choice) {
+      return
+    }
+    setQat(addCommand(qat, choice.id))
+    if (choice.look) {
+      setLooks({ ...looks, [choice.id]: choice.look })
+    }
+  }
 
   const reset = () => {
-    setShown(true)
-    setQat(["save", "undo", "redo", "open", "save-as", "print", "ai"])
-    setHidden([])
+    const base = defaults()
+    setShown(base.qatShown)
+    setQat(base.qat)
+    setHidden(base.hiddenTabs)
+    setBelow(base.qatBelow)
+    setLabels(base.qatLabels)
+    setLooks(base.ribbon)
     setRight(-1)
   }
 
@@ -47,7 +119,9 @@ function CustomizeDialog({ initial, onClose }: { initial: Page; onClose: () => v
       width={560}
       onClose={onClose}
       onSubmit={() => {
-        stored.set({ qatShown: shown, qat, hiddenTabs: hidden })
+        // Only the looks of ribbon commands still on the toolbar are kept.
+        const ribbon = Object.fromEntries(Object.entries(looks).filter(([id]) => qat.includes(id)))
+        stored.set({ qatShown: shown, qat, hiddenTabs: hidden, qatBelow: below, qatLabels: labels, ribbon })
         onClose()
       }}
       tabs={[
@@ -56,7 +130,7 @@ function CustomizeDialog({ initial, onClose }: { initial: Page; onClose: () => v
       ]}
       tab={page}
       onTab={(id) => setPage(id as Page)}
-      bodyHeight={330}
+      bodyHeight={400}
     >
       {page === "quick-access" ? (
         <div className="cz-panel">
@@ -64,19 +138,35 @@ function CustomizeDialog({ initial, onClose }: { initial: Page; onClose: () => v
             <input type="checkbox" checked={shown} onChange={(event) => setShown(event.target.checked)} />
             Show Quick Access Toolbar
           </label>
+          <label className="cz-from">
+            Choose commands from:
+            <select
+              aria-label="Choose commands from"
+              value={from}
+              onChange={(event) => {
+                setFrom(event.target.value)
+                setLeft("")
+              }}
+            >
+              {sources.map((source) => (
+                <option key={source.id} value={source.id}>
+                  {source.label}
+                </option>
+              ))}
+            </select>
+          </label>
           <div className="cz-lists">
             <div className="cz-column">
-              <span>Choose commands from: All Commands</span>
               <select size={9} aria-label="Commands" value={left} onChange={(event) => setLeft(event.target.value)}>
-                {choices.map((id) => (
-                  <option key={id} value={id}>
-                    {labelOf(id)}
+                {choices.map((choice) => (
+                  <option key={choice.id} value={choice.id}>
+                    {choice.label}
                   </option>
                 ))}
               </select>
             </div>
             <div className="cz-buttons">
-              <button type="button" className="dialog-btn" onClick={() => setQat(addCommand(qat, left))}>
+              <button type="button" className="dialog-btn" disabled={!left} onClick={add}>
                 Add &gt;&gt;
               </button>
               <button
@@ -92,7 +182,6 @@ function CustomizeDialog({ initial, onClose }: { initial: Page; onClose: () => v
               </button>
             </div>
             <div className="cz-column">
-              <span>Customize Quick Access Toolbar: For all documents</span>
               <select
                 size={9}
                 aria-label="Quick Access Toolbar commands"
@@ -133,6 +222,14 @@ function CustomizeDialog({ initial, onClose }: { initial: Page; onClose: () => v
               </button>
             </div>
           </div>
+          <label className="cz-check">
+            <input type="checkbox" checked={below} onChange={(event) => setBelow(event.target.checked)} />
+            Show Quick Access Toolbar below the Ribbon
+          </label>
+          <label className="cz-check">
+            <input type="checkbox" checked={labels} onChange={(event) => setLabels(event.target.checked)} />
+            Always show command labels
+          </label>
         </div>
       ) : (
         <div className="cz-panel">
