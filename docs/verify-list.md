@@ -314,6 +314,12 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
   the text flows. In Word each box shows its share of the text (as a picture).
 - With bold or larger text, and at 150% zoom: the break between the boxes is where the line ends.
 
+## Customization Import/Export (2026-10-27)
+
+- Desktop app: Export all customizations to a folder with a non-ASCII name, then Reset, then Import the file.
+  The toolbar and tabs come back after OK.
+- Desktop app: choosing a non-.json file is refused with a message.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

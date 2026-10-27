@@ -7,6 +7,34 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Customize the Ribbon and Quick Access Toolbar: Import/Export
+
+- **Missing:** Word's Import/Export was not in the dialog. The desktop app could not write a settings file:
+  `write_document` takes document types only.
+- **Changed:**
+  - The dialog has an **Import/Export ▾** button beside Reset, with Word's two items.
+  - **Export all customizations** saves the toolbar, the tab choices, the toolbar position and labels, and the
+    ribbon buttons on the toolbar to `Inkspire Customizations.json`, marked as one (`exportCustomization`).
+  - **Import customization file** reads such a file through the same checks as a saved arrangement. Unknown
+    commands are dropped (`importCustomization`), and another JSON file is refused with a note. What is imported
+    fills the dialog; OK keeps it and Cancel does not, so nothing changes behind the user's back.
+  - Desktop app: two new Rust commands, `read_settings_file` and `write_settings_file`. Their path check
+    (`assert_settings_path`) allows only an absolute `.json` path without `..`. Reads stop at 4 MB, and writes go
+    beside the file first, then rename, as documents do. The document commands are unchanged.
+  - Browser: export downloads the file, and import uses the file picker (`saveSettingsFile`, `openSettingsFile`
+    in `src/lib/file-io.ts`).
+  - Escape on a menu opened from a dialog now closes the menu, not the dialog (`word-dialog.tsx`).
+- **Tests:**
+  - `customize.test.ts`: round trip, other JSON refused, unknown commands dropped.
+  - `customize-dialog.test.tsx`: export, import kept only on OK, a wrong file noted.
+  - Rust: `settings_files_are_json_only`.
+- **Checked in Chrome:** Export downloaded the file with the toolbar's commands. Importing an edited copy showed
+  Undo, Redo, a separator and Print in the dialog, and OK hid the Review tab as the file said. All 1084 tests
+  pass, and the Rust test passes.
+- **Open:**
+  - Not tried in the desktop app (the native file dialogs and the new commands).
+  - The file is the app's own JSON, not Word's `.exportedUI`.
+
 ### Text boxes: Create Link and Break Link
 
 - **Missing:** Shape Format → Text → Create Link was always greyed out. Text could not flow from one text box to

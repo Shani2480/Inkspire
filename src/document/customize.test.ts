@@ -4,6 +4,8 @@ import {
   SEPARATOR,
   addCommand,
   defaults,
+  exportCustomization,
+  importCustomization,
   moveCommand,
   parseRibbonCommandId,
   readCustomization,
@@ -62,5 +64,20 @@ describe("customization (22.5)", () => {
     expect(parseRibbonCommandId(page)).toEqual({ tab: "insert", label: "Page Break" })
     // A name may hold a colon.
     expect(parseRibbonCommandId(ribbonCommandId("home", "Font: size"))).toEqual({ tab: "home", label: "Font: size" })
+  })
+
+  it("exports all customizations and imports them back, and refuses a file that is not one", () => {
+    const look = { icon: "<svg/>", tab: "Home" }
+    const id = ribbonCommandId("home", "Bold")
+    const value = { ...defaults(), qat: ["save", SEPARATOR, id], hiddenTabs: ["review"], qatBelow: true, ribbon: { [id]: look } }
+    const text = exportCustomization(value)
+    expect(JSON.parse(text)).toMatchObject({ format: "inkspire-customizations", version: 1 })
+    expect(importCustomization(text, known)).toEqual(value)
+    // Any other JSON, or no JSON at all.
+    expect(importCustomization(JSON.stringify(value), known)).toBeNull()
+    expect(importCustomization("not json", known)).toBeNull()
+    // A command this app does not have is dropped, as on load.
+    const other = exportCustomization({ ...value, qat: ["save", "teleport"] })
+    expect(importCustomization(other, known)!.qat).toEqual(["save"])
   })
 })

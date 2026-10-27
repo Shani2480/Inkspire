@@ -1,3 +1,4 @@
+import { openCommandMenu } from "@/components/command-menu"
 import { QUICK_COMMANDS } from "@/components/quick-commands"
 import { DialogButtons, DialogFrame } from "@/components/word-dialog"
 import { ribbonCommandsOn } from "@/components/ribbon/ribbon-commands"
@@ -6,12 +7,16 @@ import {
   SEPARATOR,
   addCommand,
   defaults,
+  exportCustomization,
+  importCustomization,
   moveCommand,
   parseRibbonCommandId,
   removeCommand,
   useCustomize,
   type RibbonCommandLook,
 } from "@/document/customize"
+import { errorMessage } from "@/document/commands"
+import { openSettingsFile, saveSettingsFile } from "@/lib/file-io"
 import { useMemo, useState } from "react"
 import { create } from "zustand"
 
@@ -102,6 +107,55 @@ function CustomizeDialog({ initial, onClose }: { initial: Page; onClose: () => v
     }
   }
 
+  // What Import/Export did, shown above the buttons.
+  const [notice, setNotice] = useState("")
+
+  /** The customizations as the dialog has them now, to export or to keep on OK. */
+  const current = () => ({
+    qatShown: shown,
+    qat,
+    hiddenTabs: hidden,
+    qatBelow: below,
+    qatLabels: labels,
+    // Only the looks of ribbon commands still on the toolbar are kept.
+    ribbon: Object.fromEntries(Object.entries(looks).filter(([id]) => qat.includes(id))),
+  })
+
+  // Word's Import/Export: an imported file replaces what the dialog shows, and OK keeps it, as with any change here.
+  const importFile = async () => {
+    try {
+      const raw = await openSettingsFile("Import Customization File")
+      if (raw === null) {
+        return
+      }
+      const read = importCustomization(raw)
+      if (!read) {
+        setNotice("That file is not an Inkspire customization file.")
+        return
+      }
+      setShown(read.qatShown)
+      setQat(read.qat)
+      setHidden(read.hiddenTabs)
+      setBelow(read.qatBelow)
+      setLabels(read.qatLabels)
+      setLooks(read.ribbon)
+      setRight(-1)
+      setNotice("Customizations imported. Click OK to use them.")
+    } catch (error) {
+      setNotice(errorMessage(error))
+    }
+  }
+
+  const exportFile = async () => {
+    try {
+      if (await saveSettingsFile("Inkspire Customizations.json", exportCustomization(current()), "Export Customizations")) {
+        setNotice("Customizations exported.")
+      }
+    } catch (error) {
+      setNotice(errorMessage(error))
+    }
+  }
+
   const reset = () => {
     const base = defaults()
     setShown(base.qatShown)
@@ -119,9 +173,7 @@ function CustomizeDialog({ initial, onClose }: { initial: Page; onClose: () => v
       width={560}
       onClose={onClose}
       onSubmit={() => {
-        // Only the looks of ribbon commands still on the toolbar are kept.
-        const ribbon = Object.fromEntries(Object.entries(looks).filter(([id]) => qat.includes(id)))
-        stored.set({ qatShown: shown, qat, hiddenTabs: hidden, qatBelow: below, qatLabels: labels, ribbon })
+        stored.set(current())
         onClose()
       }}
       tabs={[
@@ -252,9 +304,33 @@ function CustomizeDialog({ initial, onClose }: { initial: Page; onClose: () => v
           </ul>
         </div>
       )}
+      {notice ? (
+        <p className="cz-notice" role="status">
+          {notice}
+        </p>
+      ) : null}
       <DialogButtons submit onCancel={onClose}>
         <button type="button" className="dialog-btn" onClick={reset}>
           Reset
+        </button>
+        <button
+          type="button"
+          className="dialog-btn"
+          aria-haspopup="menu"
+          onClick={(event) => {
+            const box = event.currentTarget.getBoundingClientRect()
+            openCommandMenu(
+              [
+                { label: "Import customization file", run: () => void importFile() },
+                { label: "Export all customizations", run: () => void exportFile() },
+              ],
+              box.left,
+              box.bottom,
+              "Import/Export",
+            )
+          }}
+        >
+          Import/Export ▾
         </button>
       </DialogButtons>
     </DialogFrame>
