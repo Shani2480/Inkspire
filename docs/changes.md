@@ -7,6 +7,49 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Text boxes: Create Link and Break Link
+
+- **Missing:** Shape Format → Text → Create Link was always greyed out. Text could not flow from one text box to
+  another.
+- **Changed:**
+  - **Create Link** (enabled on a text box) gives the pointer a link cursor. The next click on an empty text box
+    in no chain links it; Escape or a click elsewhere gives up. As in Word, the target must be empty and unlinked,
+    and a box whose height followed its text keeps the height it had.
+  - On a box that passes its text on, the button is **Break Link** (with its own icon). That box keeps the text
+    from the boxes after it, clipped. Those boxes are emptied and stay linked to each other if two or more are left.
+  - **Flow:** each box holds the share of the chain's text that fits in it, so text is typed and selected where
+    it is seen. After every change, and when fonts load or the window resizes, the chain is flowed again: text
+    that no longer fits moves on, and text that fits again comes back.
+    - The break falls at the start of a word, found by halving with an off-screen probe drawn like the box.
+    - The cursor goes with the text it was in.
+    - The last box clips the rest (`overflow: clip`, so it does not scroll to the caret).
+    - Each reflow joins the change that caused it in the undo history (`appendedTransaction`), so undo and redo
+      never show a half-flowed chain.
+  - Files: `src/editor/text-box-link.ts` (chains, `canLinkTo`, `linkTextBoxes`, `breakTextBoxLink`,
+    `flowBreaks`, `flowChain`, the `TextBoxFlow` extension and `startLinking`); `linkId`/`linkSeq` on the text box
+    in `src/editor/objects.ts`; the ribbon in `src/components/ribbon/shape-format-tab.tsx`.
+- **Tests:** `text-box-link.test.ts`:
+  - which boxes can be linked, and the attributes and heights set;
+  - breaks at word starts, a box that grows, a word longer than a box;
+  - text and cursor moved, nothing to do when already flowed, text coming back;
+  - undo of typing together with its flow;
+  - Break Link.
+- **Checked in Chrome:**
+  - Two 180×90 boxes: Create Link, then a click on the second, linked them, and the button became Break Link.
+  - Typing past the first box carried the text and the cursor into the second. The second clipped the end and
+    showed its start.
+  - Deleting text from the first box pulled text back.
+  - Undo stepped back through the typing, the link and the first typing; redo replayed them.
+  - Break Link put all the text in the first box.
+  - All 1082 tests pass.
+- **Open:**
+  - Undo takes typing back in two steps when the cursor crossed into the next box.
+  - Deleting a box in the middle of a chain loses its share of the text.
+  - A copied box keeps its chain.
+  - Word's own linked text boxes (`wps:linkedTxbx`) are not read. The app's text boxes go to Word as pictures,
+    each with its share of the text, and reopen linked from the app's copy (not checked in a saved file).
+  - Create Link is not on the right-click menu.
+
 ### 3-D charts: Height (% of base) and Autoscale
 
 - **Missing:** a 3-D chart's Height could not be set, and Word's `c:hPercent` was lost on opening.
