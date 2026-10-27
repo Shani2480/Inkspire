@@ -12,6 +12,7 @@ import {
   useCropMode,
   wholeSize,
 } from "@/editor/picture-crop"
+import { shapeMask, shapeOutlineSvg } from "@/editor/picture-shape"
 import { bindObjectResize, type Box, type ResizeEdge } from "@/editor/object-resize"
 import { bindRotate, ensureRotateHandle, rotatedBounds } from "@/editor/object-rotate"
 import { PAGE_GAP } from "@/editor/pages"
@@ -1155,9 +1156,28 @@ function paintImage(dom: HTMLElement, node: ProseNode) {
   const border = String(node.attrs.border || "")
   const borderPx = Number(node.attrs.borderWidth) > 0 ? (Number(node.attrs.borderWidth) * 96) / 72 : 2
   const dash = BORDER_DASHES.find((item) => item.id === String(node.attrs.borderDash || ""))?.css ?? "solid"
-  shape.style.outline = border ? `${borderPx}px ${dash} ${border}` : ""
-  shape.style.outlineOffset = border ? "1px" : ""
   const frame = String(node.attrs.frame || "")
+  // Along a Crop to Shape outline the border is drawn over the picture; elsewhere it is the box's own outline.
+  const traced = Boolean(border) && shapeMask(frame) !== null
+  shape.style.outline = border && !traced ? `${borderPx}px ${dash} ${border}` : ""
+  shape.style.outlineOffset = border && !traced ? "1px" : ""
+  let trace = dom.querySelector<SVGSVGElement>(":scope > .image-shape-outline")
+  if (traced) {
+    if (!trace) {
+      trace = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+      trace.classList.add("image-shape-outline")
+      trace.setAttribute("aria-hidden", "true")
+      trace.setAttribute("preserveAspectRatio", "none")
+      dom.insertBefore(trace, shape.nextSibling)
+    }
+    const outline = shapeOutlineSvg(frame, border, borderPx, String(node.attrs.borderDash || ""))
+    trace.setAttribute("viewBox", outline.viewBox)
+    trace.innerHTML = outline.body
+    trace.style.width = width > 0 ? `${width}px` : "100%"
+    trace.style.height = height > 0 ? `${height}px` : "100%"
+  } else {
+    trace?.remove()
+  }
   shape.style.borderRadius = frame === "oval" ? "50%" : frame === "rounded" ? "12%" : ""
   image.style.filter = pictureFilter(node.attrs)
   const transparency = Math.max(0, Math.min(100, Number(node.attrs.transparency) || 0))
@@ -1165,13 +1185,21 @@ function paintImage(dom: HTMLElement, node: ProseNode) {
   // Soft edges fade the picture's border into the page.
   const soft = Number(node.attrs.softEdge) || 0
   const fade = soft ? `${Math.round(soft * 1.4)}px` : ""
-  const mask = soft
-    ? `linear-gradient(to right, transparent, #000 ${fade}, #000 calc(100% - ${fade}), transparent), ` +
-      `linear-gradient(to bottom, transparent, #000 ${fade}, #000 calc(100% - ${fade}), transparent)`
-    : ""
-  shape.style.setProperty("mask-image", mask)
-  shape.style.setProperty("mask-composite", soft ? "intersect" : "")
-  shape.style.setProperty("-webkit-mask-composite", soft ? "source-in" : "")
+  // Crop to Shape shows the picture through the shape's outline; soft edges fade inside it.
+  const layers = [
+    shapeMask(frame),
+    ...(soft
+      ? [
+          `linear-gradient(to right, transparent, #000 ${fade}, #000 calc(100% - ${fade}), transparent)`,
+          `linear-gradient(to bottom, transparent, #000 ${fade}, #000 calc(100% - ${fade}), transparent)`,
+        ]
+      : []),
+  ].filter((layer): layer is string => Boolean(layer))
+  shape.style.setProperty("mask-image", layers.join(", "))
+  shape.style.setProperty("mask-size", layers.length ? layers.map(() => "100% 100%").join(", ") : "")
+  shape.style.setProperty("mask-repeat", layers.length ? "no-repeat" : "")
+  shape.style.setProperty("mask-composite", layers.length > 1 ? "intersect" : "")
+  shape.style.setProperty("-webkit-mask-composite", layers.length > 1 ? "source-in" : "")
   const effects = effectStyle(node.attrs)
   dom.style.filter = effects.filter
   dom.style.setProperty("-webkit-box-reflect", effects.webkitBoxReflect)

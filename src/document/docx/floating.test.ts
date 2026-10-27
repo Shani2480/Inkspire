@@ -188,6 +188,23 @@ describe("picture formatting in .docx", () => {
     expect(img).not.toContain("data-crop-t")
   })
 
+  it("keeps Crop to Shape as the picture's preset geometry and reads it back", async () => {
+    const { bytes, xml } = await save([picture({ frame: "star" }), picture({ frame: "oval" })])
+    expect(xml).toContain('<a:prstGeom prst="star5">')
+    expect(xml).toContain('<a:prstGeom prst="ellipse">')
+    const { view } = await openDocxBytes(bytes, "f.docx")
+    const images = view.html.match(/<img [^>]*>/g) ?? []
+    expect(images[0]).toContain('data-frame="star"')
+    expect(images[1]).toContain('data-frame="oval"')
+  })
+
+  it("writes Fit's empty room as a negative a:srcRect and reads it back", async () => {
+    const { bytes, xml } = await save([picture({ cropT: -25, cropB: -25 })])
+    expect(xml).toContain('<a:srcRect t="-25000" b="-25000"/>')
+    const img = /<img [^>]*>/.exec((await openDocxBytes(bytes, "f.docx")).view.html)?.[0] ?? ""
+    expect(img).toContain('data-crop-t="-25"')
+  })
+
   it("leaves an uncropped picture without a crop", async () => {
     const { xml } = await save([picture({})])
     expect(xml).not.toContain("a:srcRect")

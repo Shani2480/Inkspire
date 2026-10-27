@@ -1,3 +1,4 @@
+import { frameOfPreset, presetOfFrame } from "@/editor/picture-shape"
 import { equationOmml, isOmml, ommlToTex } from "@/document/docx/omml"
 import { equationToText } from "@/editor/equation-gallery"
 import {
@@ -311,6 +312,7 @@ function runContentHtml(content: RunContent, run: Run, ctx: Projection) {
         content.rot,
         content.object,
         content.crop,
+        content.geometry,
       )
     }
     case "text":
@@ -880,6 +882,7 @@ function imageHtml(
   rot?: number,
   object?: string,
   crop?: { l: number; t: number; r: number; b: number },
+  geometry?: string,
 ) {
   const mime = media.contentType || "image/png"
   const kept = object && /^[A-Za-z0-9+/=]+$/.test(object) ? ` data-inkspire-object="${object}"` : ""
@@ -897,7 +900,9 @@ function imageHtml(
         .map((side) => ` data-crop-${side}="${percent(crop[side])}"`)
         .join("")
     : ""
-  return `<img src="data:${mime};base64,${encodeBase64(media.data)}"${width}${height}${alt}${anchor}${floating}${rotate}${cropped}${kept}>`
+  const frame = frameOfPreset(geometry)
+  const shaped = frame ? ` data-frame="${escapeHtml(frame)}"` : ""
+  return `<img src="data:${mime};base64,${encodeBase64(media.data)}"${width}${height}${alt}${anchor}${floating}${rotate}${cropped}${shaped}${kept}>`
 }
 
 /** The data attributes the editor reads a floating object's layout from. */
@@ -1530,7 +1535,10 @@ export function imageRun(node: JsonNode, build: InlineBuild): Run | null {
   const origin = key ? build.runs.get(key) : undefined
   const drawing = origin?.content.find((item) => item.kind === "drawing")
   // Picture formatting made in the app (corrections, a frame, effects) is not in the source drawing: write it anew.
-  if (origin && drawing?.kind === "drawing" && !hasPictureFormat(node.attrs ?? {})) {
+  // The shape Word gave the picture is in the source drawing; only a different one is the app's formatting.
+  const ownFrame = drawing?.kind === "drawing" ? frameOfPreset(drawing.geometry) : ""
+  const formatted = { ...node.attrs, frame: node.attrs?.frame === ownFrame ? "" : node.attrs?.frame }
+  if (origin && drawing?.kind === "drawing" && !hasPictureFormat(formatted)) {
     const media = build.media.find((item) => item.relId === drawing.relId)
     const sameSize =
       Math.round((drawing.cx ?? 0) / EMU_PER_PX) === width && Math.round((drawing.cy ?? 0) / EMU_PER_PX) === height
@@ -1962,9 +1970,9 @@ function anchorOpen(layout: FloatingLayout, cx: number, cy: number, section?: Se
 
 export type PictureDrawingFormat = { blip: string; srcRect: string; geometry: string; line: string; effects: string }
 
-/** The crop as `a:srcRect` writes it: each side in 1000ths of a percent. */
+/** The crop as `a:srcRect` writes it: each side in 1000ths of a percent, negative for Fit's empty room. */
 function cropRect(attrs: Record<string, unknown>) {
-  const side = (key: string) => Math.round(Math.max(0, Math.min(95, Number(attrs[key]) || 0)) * 1000)
+  const side = (key: string) => Math.round(Math.max(-100, Math.min(95, Number(attrs[key]) || 0)) * 1000)
   return { l: side("cropL"), t: side("cropT"), r: side("cropR"), b: side("cropB") }
 }
 
@@ -2002,7 +2010,7 @@ export function pictureDrawingFormat(attrs: Record<string, unknown>): PictureDra
     blip.push(`<a:alphaModFix amt="${Math.round((100 - transparency) * 1000)}"/>`)
   }
   const frame = String(attrs.frame || "")
-  const geometry = frame === "oval" ? "ellipse" : frame === "rounded" ? "roundRect" : "rect"
+  const geometry = presetOfFrame(frame)
   const border = /^#[0-9a-f]{6}$/i.test(String(attrs.border || "")) ? String(attrs.border).slice(1) : ""
   const dash = String(attrs.borderDash || "")
   const width = Number(attrs.borderWidth) > 0 ? Number(attrs.borderWidth) : 1.5

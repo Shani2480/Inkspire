@@ -336,6 +336,8 @@ export type RunContent =
       rot?: number
       /** a:srcRect: how much of each side of the picture is cropped away, in 1000ths of a percent. */
       crop?: { l: number; t: number; r: number; b: number }
+      /** A picture's own a:prstGeom when it is not a rectangle (Crop to Shape). */
+      geometry?: string
       /** An object the app saved as its picture (a shape, chart, 3D model…): its editor node, base64 JSON. */
       object?: string
     }

@@ -7,7 +7,10 @@ import { create } from "zustand"
 type Attrs = Record<string, unknown>
 export type CropEdge = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w"
 
-/** How much of the picture each side hides, as a share (0 to 1) of the whole picture. */
+/**
+ * How much of the picture each side hides, as a share of the whole picture (0 to 1). A negative share is empty room
+ * beside the picture inside its frame, as Word's Fit leaves (a negative `a:srcRect`).
+ */
 export type Crop = { l: number; t: number; r: number; b: number }
 
 /** The least of the picture that stays visible along either side. */
@@ -37,13 +40,13 @@ export function pictureCropAttributes() {
 export const NO_CROP = { cropL: 0, cropT: 0, cropR: 0, cropB: 0 }
 
 export function cropOf(attrs: Attrs): Crop {
-  const side = (key: string) => Math.max(0, Math.min(95, Number(attrs[key]) || 0)) / 100
+  const side = (key: string) => Math.max(-100, Math.min(95, Number(attrs[key]) || 0)) / 100
   return { l: side("cropL"), t: side("cropT"), r: side("cropR"), b: side("cropB") }
 }
 
 export function isCropped(attrs: Attrs) {
   const crop = cropOf(attrs)
-  return crop.l + crop.t + crop.r + crop.b > 0
+  return crop.l !== 0 || crop.t !== 0 || crop.r !== 0 || crop.b !== 0
 }
 
 /** The size of the whole picture, at the scale it is shown, given the part that shows. */
@@ -56,7 +59,8 @@ export function wholeSize(width: number, height: number, crop: Crop) {
 
 /**
  * The crop and the visible size after `edge` has moved by (dx, dy) pixels. The picture keeps its scale, so only
- * the visible part changes; a side cannot go back past the picture's own edge or leave less than a sliver.
+ * the visible part changes; a side cannot go back past the picture's own edge (or past the empty room Fit left)
+ * or leave less than a sliver.
  */
 export function croppedBy(
   edge: CropEdge,
@@ -67,22 +71,85 @@ export function croppedBy(
   const whole = wholeSize(start.width, start.height, start.crop)
   const crop = { ...start.crop }
   if (edge.includes("w")) {
-    crop.l = Math.max(0, Math.min(1 - crop.r - MIN_SHARE, crop.l + dx / whole.width))
+    crop.l = Math.max(Math.min(0, start.crop.l), Math.min(1 - crop.r - MIN_SHARE, crop.l + dx / whole.width))
   }
   if (edge.includes("e")) {
-    crop.r = Math.max(0, Math.min(1 - crop.l - MIN_SHARE, crop.r - dx / whole.width))
+    crop.r = Math.max(Math.min(0, start.crop.r), Math.min(1 - crop.l - MIN_SHARE, crop.r - dx / whole.width))
   }
   if (edge.includes("n")) {
-    crop.t = Math.max(0, Math.min(1 - crop.b - MIN_SHARE, crop.t + dy / whole.height))
+    crop.t = Math.max(Math.min(0, start.crop.t), Math.min(1 - crop.b - MIN_SHARE, crop.t + dy / whole.height))
   }
   if (edge.includes("s")) {
-    crop.b = Math.max(0, Math.min(1 - crop.t - MIN_SHARE, crop.b - dy / whole.height))
+    crop.b = Math.max(Math.min(0, start.crop.b), Math.min(1 - crop.t - MIN_SHARE, crop.b - dy / whole.height))
   }
   return {
     crop,
     width: Math.round(whole.width * (1 - crop.l - crop.r)),
     height: Math.round(whole.height * (1 - crop.t - crop.b)),
   }
+}
+
+/** Word's Crop → Aspect Ratio choices, width to height. */
+export const ASPECT_RATIOS: { group: string; items: { label: string; ratio: number }[] }[] = [
+  { group: "Square", items: [{ label: "1:1", ratio: 1 }] },
+  {
+    group: "Portrait",
+    items: [
+      { label: "2:3", ratio: 2 / 3 },
+      { label: "3:4", ratio: 3 / 4 },
+      { label: "3:5", ratio: 3 / 5 },
+      { label: "4:5", ratio: 4 / 5 },
+    ],
+  },
+  {
+    group: "Landscape",
+    items: [
+      { label: "3:2", ratio: 3 / 2 },
+      { label: "4:3", ratio: 4 / 3 },
+      { label: "5:3", ratio: 5 / 3 },
+      { label: "5:4", ratio: 5 / 4 },
+      { label: "16:9", ratio: 16 / 9 },
+      { label: "16:10", ratio: 16 / 10 },
+    ],
+  },
+]
+
+type Cropped = { crop: Crop; width: number; height: number }
+
+/**
+ * Aspect Ratio: the largest part of the whole picture with that width-to-height ratio, centred, at the picture's
+ * scale, as Word crops to it.
+ */
+export function aspectRatioCrop(width: number, height: number, crop: Crop, ratio: number): Cropped {
+  const whole = wholeSize(width, height, crop)
+  if (whole.width / whole.height > ratio) {
+    const side = (1 - (whole.height * ratio) / whole.width) / 2
+    return { crop: { l: side, t: 0, r: side, b: 0 }, width: Math.round(whole.height * ratio), height: Math.round(whole.height) }
+  }
+  const side = (1 - whole.width / ratio / whole.height) / 2
+  return { crop: { l: 0, t: side, r: 0, b: side }, width: Math.round(whole.width), height: Math.round(whole.width / ratio) }
+}
+
+/**
+ * Fill and Fit keep the frame (the visible size) and scale the picture in it, centred: Fill so the picture covers
+ * the frame, cropping what overhangs; Fit so all of the picture shows, leaving empty room beside it.
+ */
+export function fillCrop(width: number, height: number, crop: Crop): Cropped {
+  return scaledInto(width, height, crop, Math.max)
+}
+
+export function fitCrop(width: number, height: number, crop: Crop): Cropped {
+  return scaledInto(width, height, crop, Math.min)
+}
+
+function scaledInto(width: number, height: number, crop: Crop, pick: (a: number, b: number) => number): Cropped {
+  const whole = wholeSize(width, height, crop)
+  const scale = pick(width / whole.width, height / whole.height)
+  const shownWidth = whole.width * scale
+  const shownHeight = whole.height * scale
+  const x = (1 - width / shownWidth) / 2
+  const y = (1 - height / shownHeight) / 2
+  return { crop: { l: x, t: y, r: x, b: y }, width: Math.round(width), height: Math.round(height) }
 }
 
 export function cropAttrs(crop: Crop) {
@@ -154,6 +221,30 @@ export function cancelCrop() {
     writeAttrs(session.view, session.pos, session.original, false)
   }
   useCropMode.getState().set(false)
+}
+
+/**
+ * Aspect Ratio, Fill and Fit on the selected picture: the new crop is shown in crop mode, to be adjusted, applied or
+ * cancelled like a dragged one.
+ */
+export function cropPicture(view: EditorView, pos: number, change: (width: number, height: number, crop: Crop) => Cropped) {
+  const node = view.state.doc.nodeAt(pos)
+  if (node?.type.name !== "image") {
+    return false
+  }
+  const dom = view.nodeDOM(pos)
+  const zoom = useViewStore.getState().zoom || 1
+  const box = dom instanceof HTMLElement ? dom.getBoundingClientRect() : null
+  const width = Number(node.attrs.width) || Math.round((box?.width ?? 0) / zoom)
+  const height = Number(node.attrs.height) || Math.round((box?.height ?? 0) / zoom)
+  if (!width || !height) {
+    return false
+  }
+  beginCrop(view, pos, node.attrs)
+  const next = change(width, height, cropOf(node.attrs))
+  writeAttrs(view, pos, { ...node.attrs, width: next.width, height: next.height, ...cropAttrs(next.crop) }, false)
+  useCropMode.getState().set(true)
+  return true
 }
 
 /** Reset: the whole picture shows again, still pending until applied. */

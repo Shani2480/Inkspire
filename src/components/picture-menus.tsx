@@ -8,6 +8,8 @@ import {
   Palette,
   PreviewRow,
   PreviewTile,
+  ShapeThumb,
+  ShapesList,
   update,
 } from "@/components/shape-menus"
 import { DialogButtons, DialogFrame } from "@/components/word-dialog"
@@ -26,7 +28,19 @@ import {
 } from "@/editor/picture-format"
 import { effectStyle } from "@/editor/shape-style"
 import { selectedObject } from "@/editor/objects"
-import { cropOf, wholeSize } from "@/editor/picture-crop"
+import {
+  ASPECT_RATIOS,
+  applyCrop,
+  aspectRatioCrop,
+  cropOf,
+  cropPicture,
+  fillCrop,
+  fitCrop,
+  useCropMode,
+  wholeSize,
+} from "@/editor/picture-crop"
+import { croppableShape, frameForVariant, frameVariant, shapeMask } from "@/editor/picture-shape"
+import { NodeSelection } from "@tiptap/pm/state"
 import { flattenCropped, loadImage } from "@/editor/picture-flatten"
 import type { Editor } from "@tiptap/core"
 import { useState, type CSSProperties } from "react"
@@ -58,6 +72,8 @@ function Thumb({ editor, attrs, width = 56 }: { editor: Editor | null; attrs: At
     height: Math.round(width * 0.72),
     objectFit: "cover",
     filter: [pictureFilter(merged), effects.filter].filter(Boolean).join(" "),
+    maskImage: shapeMask(frame) ?? undefined,
+    maskSize: "100% 100%",
     opacity: Number(merged.transparency) ? 1 - Number(merged.transparency) / 100 : undefined,
     borderRadius: frame === "oval" ? "50%" : frame === "rounded" ? "12%" : undefined,
     outline: border ? `${Math.max(1, Math.min(4, Number(merged.borderWidth) || 2))}px solid ${border}` : undefined,
@@ -420,5 +436,73 @@ export function CompressDialog({ editor }: { editor: Editor | null }) {
       ) : null}
       <DialogButtons submit onCancel={hide} />
     </DialogFrame>
+  )
+}
+
+/**
+ * Word's Crop menu (Picture Format → Size): Crop, Crop to Shape, Aspect Ratio, Fill and Fit. Crop to Shape changes
+ * the picture's outline at once; the others show their crop in crop mode, to be adjusted and applied.
+ */
+export function CropMenu({ editor, close }: MenuProps) {
+  const picture = selectedObject(editor)
+  const ready = picture?.name === "image"
+  const frame = ready ? String(picture.attrs.frame || "") : ""
+  const cropWith = (change: Parameters<typeof cropPicture>[2]) => {
+    const selection = editor?.state.selection
+    if (editor && selection instanceof NodeSelection) {
+      cropPicture(editor.view, selection.from, change)
+    }
+    close()
+  }
+  return (
+    <div className="flex w-56 flex-col">
+      <MenuRow
+        disabled={!ready}
+        onClick={() => {
+          if (useCropMode.getState().active) {
+            applyCrop()
+          } else {
+            useCropMode.getState().set(true)
+          }
+          close()
+        }}
+      >
+        Crop
+      </MenuRow>
+      <MenuFlyout label="Crop to Shape" icon={<ShapeThumb name={frameVariant(frame)} size={16} />} disabled={!ready}>
+        <ShapesList
+          current={frameVariant(frame)}
+          only={croppableShape}
+          onPick={(name) => {
+            editor?.chain().focus().updateAttributes("image", { frame: frameForVariant(name) }).run()
+            close()
+          }}
+        />
+      </MenuFlyout>
+      <MenuFlyout label="Aspect Ratio" disabled={!ready}>
+        <div className="flex w-36 flex-col">
+          {ASPECT_RATIOS.map((group) => (
+            <div key={group.group} className="flex flex-col">
+              <MenuHeading>{group.group}</MenuHeading>
+              {group.items.map((item) => (
+                <MenuRow
+                  key={item.label}
+                  onClick={() => cropWith((width, height, crop) => aspectRatioCrop(width, height, crop, item.ratio))}
+                >
+                  {item.label}
+                </MenuRow>
+              ))}
+            </div>
+          ))}
+        </div>
+      </MenuFlyout>
+      <MenuSeparator />
+      <MenuRow disabled={!ready} title="Fill the frame with the picture, cropping what overhangs" onClick={() => cropWith(fillCrop)}>
+        Fill
+      </MenuRow>
+      <MenuRow disabled={!ready} title="Show all of the picture inside its frame" onClick={() => cropWith(fitCrop)}>
+        Fit
+      </MenuRow>
+    </div>
   )
 }

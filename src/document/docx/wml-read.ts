@@ -849,6 +849,11 @@ function drawingContent(node: MarkupNode, raw: RawCursor): RunContent {
       content.crop = crop
     }
   }
+  // A picture's shape (Crop to Shape) is the preset on the picture itself, not on a shape drawn around it.
+  const geometry = anyAttr(descendant(descendant(node, "pic") ?? node, "prstGeom"), "prst")
+  if (geometry && geometry !== "rect" && descendant(node, "pic")) {
+    content.geometry = geometry
+  }
   const object = inkspireObject(node)
   if (object) {
     content.object = object
