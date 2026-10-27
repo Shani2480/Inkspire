@@ -3,6 +3,7 @@ import {
   CHART_VARIANTS,
   QUICK_LAYOUTS,
   chartRotation,
+  chartView3d,
   errorAmounts,
   chartSpecOf,
   defaultChartSpec,
@@ -142,6 +143,24 @@ describe("chart spec", () => {
     const small = renderChart({ ...spec, ofPieSize: 50 }, 576, 336)
     const large = renderChart({ ...spec, ofPieSize: 100 }, 576, 336)
     expect(radius(large)).toBeGreaterThan(radius(small))
+  })
+
+  it("names Other's label, and moves the second plot out by the Gap Width", () => {
+    const spec = { ...defaultChartSpec("pie-of-pie"), dataLabels: "center" as const }
+    spec.labelContent = { value: false, category: true, series: false, percent: false }
+    expect(renderChart(spec, 576, 336)).toContain(">Other</text>")
+    const centre = (svg: string) => Number(/<line x1="[\d.]+" y1="[\d.]+" x2="([\d.]+)"/.exec(svg)![1])
+    // The join lines end at the second plot: further right with a wider gap.
+    expect(centre(renderChart({ ...spec, ofPieGap: 300 }, 576, 336))).toBeGreaterThan(centre(renderChart({ ...spec, ofPieGap: 0 }, 576, 336)))
+  })
+
+  it("keeps a 3-D chart's view as Word has it, and draws deeper with Depth", () => {
+    const column = withVariant(defaultChartSpec("column"), "column-3d")
+    expect(chartView3d(column)).toEqual({ rightAngle: false, perspective: 15, depth: 100 })
+    expect(chartView3d(withVariant(defaultChartSpec("column"), "column-3d-clustered")).rightAngle).toBe(true)
+    expect(chartView3d({ ...column, depthPercent: 5000, perspective: -3 })).toMatchObject({ depth: 2000, perspective: 0 })
+    const backWall = (svg: string) => Number(/data-chart-part="plotArea"[^>]*><polygon points="([\d.]+)/.exec(svg)![1])
+    expect(backWall(renderChart({ ...column, depthPercent: 200 }, 576, 336))).toBeGreaterThan(backWall(renderChart(column, 576, 336)))
   })
 
   it("applies Quick Layouts and leaves out hidden series and categories", () => {

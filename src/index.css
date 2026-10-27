@@ -11627,7 +11627,7 @@ textarea.text-prompt-field {
   fill: none;
   stroke: transparent;
   pointer-events: stroke;
-  cursor: crosshair;
+  cursor: move;
 }
 
 .edit-points-handle {

@@ -3,6 +3,7 @@ import { SHAPE_NAMES, shapeMarkup, shapeViewBox } from "@/editor/insert-blocks"
 import {
   addPoint,
   anchorsOf,
+  bendSegment,
   closePath,
   custGeomXml,
   deletePoint,
@@ -172,6 +173,27 @@ describe("point kinds, curve handles and paths", () => {
     expect(text(openPath(SQUARE, 0))).toBe("M0 0 L100 0 L100 100 L0 100 L0 0")
     expect(text(closePath(open, 1))).toBe("M100 100 L0 100 L0 0 L100 0 L100 100 Z")
     expect(closePath(SQUARE, 1)).toBe(SQUARE)
+  })
+
+  it("bends a line or curve so the point grabbed follows the pointer", () => {
+    const at = (segments: Segment[], index: number, t: number) => {
+      const curve = segments[index] as Extract<Segment, { kind: "C" }>
+      const from = (segments[index - 1] as { to: [number, number] }).to
+      const u = 1 - t
+      return [0, 1].map(
+        (axis) => u * u * u * from[axis]! + 3 * u * u * t * curve.c1[axis]! + 3 * u * t * t * curve.c2[axis]! + t * t * t * curve.to[axis]!,
+      )
+    }
+    // A line becomes a curve through the dragged point, its ends where they were.
+    const bent = bendSegment(path("M0 0 L100 0"), 1, 0.5, 0, 30)
+    expect(at(bent, 1, 0.5).map((value) => Math.round(value))).toEqual([50, 30])
+    expect((bent[1] as { to: number[] }).to).toEqual([100, 0])
+    const third = bendSegment(path("M0 0 C30 0 70 0 100 0"), 1, 0.25, 10, -20)
+    expect(at(third, 1, 0.25).map((value) => Math.round(value))).toEqual([34, -20])
+    // The close's line becomes a curve of its own, coming back to the start.
+    const closed = bendSegment(SQUARE, 4, 0.5, -20, 0)
+    expect(text(closed)).toMatch(/L0 100 C[^Z]* 0 0 Z$/)
+    expect(at(closed, 4, 0.5).map((value) => Math.round(value))).toEqual([-20, 50])
   })
 
   it("deletes a segment: a closed path opens there, an open one splits", () => {

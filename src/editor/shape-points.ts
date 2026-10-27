@@ -683,6 +683,30 @@ export function moveHandle(
   return next
 }
 
+/**
+ * Dragging a line or curve to bend it, as in Word: the point grabbed `t` of the way along follows the pointer by
+ * (dx, dy), and both handles move to make it so, the nearer one more. A line (or a close's line) becomes a curve
+ * first, in the same place.
+ */
+export function bendSegment(segments: Segment[], index: number, t: number, dx: number, dy: number) {
+  // A close's line becomes a curve at the close's place, so the index stays the bent curve's.
+  const next = segments[index]?.kind === "L" || segments[index]?.kind === "Z" ? setSegmentKind(segments, index, "curved") : segments
+  const curve = next[index]
+  if (curve?.kind !== "C") {
+    return segments
+  }
+  // A curve point moves by 3(1-t)²t of its first handle's move and 3(1-t)t² of its second's. Moving each handle
+  // in proportion to how near it is gives the scale that moves the point exactly by (dx, dy).
+  const along = Math.max(0.1, Math.min(0.9, t))
+  const rest = 1 - along
+  const scale = 1 / (3 * rest * along * (rest * rest + along * along))
+  const result = next.map((segment) => ({ ...segment })) as Segment[]
+  const bent = result[index] as Extract<Segment, { kind: "C" }>
+  bent.c1 = moved(curve.c1, dx * rest * scale, dy * rest * scale)
+  bent.c2 = moved(curve.c2, dx * along * scale, dy * along * scale)
+  return result
+}
+
 /** A line as a curve that draws the same, its handles a third of the way along. */
 function curveOf(from: Point, to: Point): Segment {
   const third = (share: number): Point => [round(from[0] + (to[0] - from[0]) * share), round(from[1] + (to[1] - from[1]) * share)]

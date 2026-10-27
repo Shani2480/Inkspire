@@ -99,6 +99,13 @@ export type ChartSpec = {
   rotX?: number
   rotY?: number
   /**
+   * The rest of a 3-D chart's 3-D Rotation, unset as Word has it (see `chartView3d`): Right Angle Axes, the
+   * Perspective in degrees when they are off, and the Depth as a percentage of the base.
+   */
+  rightAngleAxes?: boolean
+  perspective?: number
+  depthPercent?: number
+  /**
    * Pie of Pie and Bar of Pie: some points drawn again as a second pie or a bar, chosen as Word's Split Series By
    * says (`ofPieSplitBy`, unset is Position): the last `ofPieSplit` points; those below `ofPieSplitValue`, or below
    * that percentage of the whole; or the categories in `ofPieCustom`. `ofPieSize` is the Second Plot Size, a
@@ -110,6 +117,8 @@ export type ChartSpec = {
   ofPieSplitValue?: number
   ofPieCustom?: number[]
   ofPieSize?: number
+  /** Pie of Pie and Bar of Pie: the Gap Width between the two plots, 0 to 500% (100 unset). */
+  ofPieGap?: number
   /** Histogram: how the values go into bins (Format Axis → Bins); unset is Automatic. */
   bins?: HistogramBins
   /** Pareto: a histogram with its bins sorted from the largest down and a line of the running percentage. */
@@ -461,8 +470,16 @@ export function withVariant(spec: ChartSpec, id: string): ChartSpec {
     contour: variant.contour || undefined,
     threeD: variant.threeD,
     // The rotation goes with a 3-D chart of the same kind: a pie's view is not a column's.
-    rotX: variant.threeD && (variant.type === "pie") === (spec.type === "pie") ? spec.rotX : undefined,
-    rotY: variant.threeD && (variant.type === "pie") === (spec.type === "pie") ? spec.rotY : undefined,
+    ...(() => {
+      const keep = variant.threeD && (variant.type === "pie") === (spec.type === "pie")
+      return {
+        rotX: keep ? spec.rotX : undefined,
+        rotY: keep ? spec.rotY : undefined,
+        rightAngleAxes: keep ? spec.rightAngleAxes : undefined,
+        perspective: keep ? spec.perspective : undefined,
+        depthPercent: keep ? spec.depthPercent : undefined,
+      }
+    })(),
     ofPie: variant.ofPie,
     volume: variant.volume,
     pareto: variant.pareto,
@@ -1387,7 +1404,8 @@ function cartesian(painter: Painter, box: Box, series: Serie[], entries: { name:
     // The depth drawn follows the 3-D Rotation, scaled from Word's own view (X 15°, Y 20°). The walls only go back
     // up to the right, so a view from below or from the left is drawn as seen straight on.
     const turn = chartRotation(spec)
-    const base = Math.min(plot.w * (threeD === "deep" ? 0.3 : 0.08), threeD === "deep" ? 26 * rows : 18)
+    const deeper = Math.max(0.2, Math.min(3, chartView3d(spec).depth / 100))
+    const base = Math.min(plot.w * (threeD === "deep" ? 0.3 : 0.08), threeD === "deep" ? 26 * rows : 18) * deeper
     const across = Math.max(0, Math.min(2, Math.sin((turn.y * Math.PI) / 180) / Math.sin((20 * Math.PI) / 180)))
     const up = Math.max(0, Math.min(2.5, Math.sin((turn.x * Math.PI) / 180) / Math.sin((15 * Math.PI) / 180)))
     depth.x = Math.min(base * across, plot.w * 0.45)
@@ -1808,7 +1826,8 @@ function labelText(spec: ChartSpec, serie: Serie, value: number, column: number,
     parts.push(serie.name)
   }
   if (content.category) {
-    parts.push(visible[column] ?? "")
+    // Column -1 is Pie of Pie's Other, which Word names so.
+    parts.push(column < 0 ? "Other" : (visible[column] ?? ""))
   }
   if (content.value || parts.length === 0) {
     parts.push(formatNumber(value, spec.valueAxis.numberFormat))
@@ -2130,6 +2149,22 @@ export function ofPieSplit(spec: ChartSpec, count: number) {
   return Math.max(1, Math.min(count - 1, Math.round(asked)))
 }
 
+/**
+ * A 3-D chart's view beyond its rotation, Word's own where the chart has none: Right Angle Axes on, except for a
+ * chart whose series sit one behind another (and a 3-D Line), which Word draws in perspective; Perspective 15°;
+ * Depth 100% of the base. The app draws without perspective either way.
+ */
+export function chartView3d(spec: Pick<ChartSpec, "type" | "threeD" | "rightAngleAxes" | "perspective" | "depthPercent">) {
+  const deep = spec.threeD === "deep" || spec.type === "line"
+  const clamp = (value: number | undefined, low: number, high: number, fallback: number) =>
+    Math.round(Math.max(low, Math.min(high, Number.isFinite(value) ? value! : fallback)) * 10) / 10
+  return {
+    rightAngle: spec.rightAngleAxes ?? !deep,
+    perspective: clamp(spec.perspective, 0, 120, 15),
+    depth: Math.round(clamp(spec.depthPercent, 20, 2000, 100)),
+  }
+}
+
 /** The threshold Split by Value or Percentage value uses until one is typed: a tenth of the whole. */
 export function ofPieThreshold(spec: ChartSpec) {
   if (Number.isFinite(spec.ofPieSplitValue)) {
@@ -2153,6 +2188,11 @@ export function ofPieSecond(spec: ChartSpec): boolean[] {
       return values.map((_, place) => place >= values.length - split)
     }
   }
+}
+
+/** The Gap Width between the two plots of Pie of Pie and Bar of Pie, as a share: Word's 0 to 500%, 100 unset. */
+export function ofPieGap(spec: ChartSpec) {
+  return Math.max(0, Math.min(500, Number.isFinite(spec.ofPieGap) ? spec.ofPieGap! : 100)) / 100
 }
 
 /** The Second Plot Size, as a share of the first plot: Word's 5 to 200%, 75 unset. */
@@ -2184,10 +2224,15 @@ function ofPie(painter: Painter, box: Box, second: "pie" | "bar") {
   const other = rest.reduce((sum, value) => sum + value, 0)
   const total = main.reduce((sum, value) => sum + value, 0) + other || 1
   const labels = spec.dataLabels !== "none"
-  const r1 = Math.max(4, Math.min(box.h / 2 - 6, box.w * 0.24))
+  // The two plots side by side and centred: the first pie, the Gap Width (100% is half its radius), the second.
+  const gap = ofPieGap(spec) / 2
+  const across = second === "pie" ? 2 * size : 0.45
+  const r1 = Math.max(4, Math.min(box.h / 2 - 6, (box.w - 8) / (2 + gap + across)))
+  const r2 = Math.min(r1 * size, box.h / 2 - 4)
+  const barWidth = Math.max(10, r1 * 0.45)
   const cy = box.y + box.h / 2
-  const cx1 = box.x + box.w * 0.32
-  const cx2 = box.x + box.w * 0.76
+  const cx1 = box.x + (box.w - r1 * (2 + gap + across)) / 2 + r1
+  const cx2 = cx1 + r1 + r1 * gap + (second === "pie" ? r2 : barWidth / 2)
   const line = spec.style === 1 ? "#ffffff" : undefined
   const paintOf = (color: string, part: string) => {
     const paint = seriesPaint(painter, color, part)
@@ -2231,7 +2276,6 @@ function ofPie(painter: Painter, box: Box, second: "pie" | "bar") {
   const bottom = [cx1 + Math.cos(otherSweep / 2) * r1, cy + Math.sin(otherSweep / 2) * r1]
   let joins: [number, number][]
   if (second === "pie") {
-    const r2 = Math.min(r1 * size, box.x + box.w - cx2 - 4, box.h / 2 - 4)
     let from = Math.PI - ((rest[0]! / (other || 1)) * Math.PI * 2) / 2
     rest.forEach((value, offset) => {
       const place = restPlaces[offset]!
@@ -2248,7 +2292,7 @@ function ofPie(painter: Painter, box: Box, second: "pie" | "bar") {
     ]
   } else {
     const height = Math.min(r1 * 1.6 * (size / 0.75), box.h - 8)
-    const width = Math.max(10, r1 * 0.45)
+    const width = barWidth
     let y = cy - height / 2
     rest.forEach((value, offset) => {
       const place = restPlaces[offset]!

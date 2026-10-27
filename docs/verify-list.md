@@ -285,6 +285,12 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Make each in Word and open it here: same kind, data, bins and title.
 - Word 2013 or LibreOffice: the fallback chart shows.
 
+## Bending segments, of-pie gap, 3-D view (2026-10-27)
+
+- Edit Points in Word and here on the same shape: drag a straight edge and a curve; the bend should match.
+- Save a 3-D Column with Depth 250%, Perspective 40° and a Pie of Pie with Gap Width 250%: Word's Format pane
+  shows the same values.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

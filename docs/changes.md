@@ -7,6 +7,48 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Edit Points: drag the outline to bend it
+
+- **Missing:** only a segment's curve handles could bend it; Word also lets the line or curve itself be dragged.
+  A plain press on the outline did nothing in Edit Points.
+- **Changed:** dragging the outline bends that line or curve. The point grabbed follows the pointer, and both
+  handles move to make it so, the nearer one more. A straight line, or a close's line, becomes a curve first.
+  Ctrl+click still adds a point, and the outline's cursor is now the move cursor (`bendSegment` in
+  `src/editor/shape-points.ts`; `onOutlineDown` in `src/editor/edit-points.ts`).
+- **Tests:** `shape-points.test.ts`: a line bent through the dragged point with its ends in place; a curve
+  grabbed a quarter of the way along; a close's line made a curve of its own.
+- **Checked in Chrome:** dragging a rectangle's bottom edge 40 pixels down bent it into a curve, the box grew to
+  fit, and Edit Points stayed on. All tests pass.
+
+### Pie of Pie "Other" label and Gap Width; 3-D Depth, Right Angle Axes and Perspective
+
+- **Missing:**
+  - Pie of Pie's Other slice had no category name in its label.
+  - The gap between the two plots was fixed.
+  - A 3-D chart's Depth, Right Angle Axes and Perspective could not be set, and Word's values were lost on
+    opening.
+- **Changed:**
+  - Other's label reads "Other", as in Word.
+  - Gap Width (0–500%, 100 unset) in Format Data Series moves the second plot out. The two plots are now laid out
+    together and centred (`ofPieGap`). It is saved as `c:gapWidth` and read back.
+  - Format Chart Area / Plot Area → 3-D Rotation adds Right Angle Axes, Perspective (shown when the axes are not
+    at right angles, with a note that it is drawn here without perspective) and Depth (% of base), which is
+    drawn. Reset clears them too.
+  - Word's own view is the default (`chartView3d`): right-angle axes except for "deep" charts and 3-D Line,
+    perspective 15°, depth 100%. Saved in `c:view3D` (`depthPercent`, `rAngAx`, `perspective` in half degrees)
+    and read back only where they differ.
+- **Tests:**
+  - `chart-spec.test.ts`: the Other label; the gap moves the second plot; view defaults and limits; Depth draws
+    deeper.
+  - `chart-docx.test.ts`: the view written and read back, defaults left unset, the gap round trip.
+  - All tests pass.
+- **Checked:**
+  - Chrome: Depth 200 and Right Angle Axes from the pane (Perspective hides), and Gap Width 300 on a Bar of Pie.
+  - Open XML SDK validator: 0 errors on a document with the new view settings, of-pie splits and gaps.
+- **Still open:**
+  - Perspective is not drawn.
+  - Height (% of base) and Autoscale are not offered.
+
 ### Word's own chartex charts for Histogram, Pareto, Waterfall, Funnel, Box & Whisker, Treemap and Sunburst; Pareto
 
 - **Wrong:**

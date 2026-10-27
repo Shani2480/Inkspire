@@ -5,11 +5,13 @@ import {
   CHART_STYLES,
   defaultChartSpec,
   normalizeChartSpec,
+  ofPieGap,
   ofPieSecond,
   ofPieSize,
   ofPieSplit,
   ofPieThreshold,
   chartRotation,
+  chartView3d,
   paletteColor,
   type ChartSpec,
   type LabelPosition,
@@ -365,7 +367,7 @@ export function chartSpaceXml(source: ChartSpec, workbookRelId?: string) {
               .join("")}</c:custSplit>`
           : `<c:splitPos val="${by === "pos" ? ofPieSplit(spec, rows) : ofPieThreshold(spec)}"/>`
       groups.push(
-        `<c:ofPieChart><c:ofPieType val="${spec.ofPie}"/>${series}<c:gapWidth val="100"/><c:splitType val="${by}"/>` +
+        `<c:ofPieChart><c:ofPieType val="${spec.ofPie}"/>${series}<c:gapWidth val="${Math.round(ofPieGap(spec) * 100)}"/><c:splitType val="${by}"/>` +
           `${split}<c:secondPieSize val="${Math.round(ofPieSize(spec) * 100)}"/><c:serLines/></c:ofPieChart>`,
       )
     } else {
@@ -534,14 +536,17 @@ export function chartSpaceXml(source: ChartSpec, workbookRelId?: string) {
   const walls = `<c:floor><c:thickness val="0"/></c:floor><c:sideWall><c:thickness val="0"/></c:sideWall><c:backWall><c:thickness val="0"/></c:backWall>`
   const turn = chartRotation(spec)
   const rotation = `<c:rotX val="${turn.x}"/><c:rotY val="${turn.y}"/>`
+  // Perspective is written in Word's half degrees, and only while the axes are not at right angles.
+  const view = chartView3d(spec)
+  const sight =
+    `${view.depth !== 100 ? `<c:depthPercent val="${view.depth}"/>` : ""}<c:rAngAx val="${view.rightAngle ? 1 : 0}"/>` +
+    `${view.rightAngle ? "" : `<c:perspective val="${Math.round(view.perspective * 2)}"/>`}`
   const view3d =
     spec.type !== "surface"
       ? spec.type === "pie" && spec.threeD && !spec.ofPie
         ? `<c:view3D>${rotation}<c:rAngAx val="0"/></c:view3D>`
         : spec.threeD && !round && spec.type !== "scatter"
-          ? spec.threeD === "deep" || spec.type === "line"
-            ? `<c:view3D>${rotation}<c:rAngAx val="0"/><c:perspective val="30"/></c:view3D>${walls}`
-            : `<c:view3D>${rotation}<c:rAngAx val="1"/></c:view3D>${walls}`
+          ? `<c:view3D>${rotation}${sight}</c:view3D>${walls}`
           : ""
       : spec.contour
         ? `<c:view3D><c:rotX val="90"/><c:rotY val="0"/><c:rAngAx val="0"/><c:perspective val="0"/></c:view3D>${walls}`
@@ -955,6 +960,10 @@ export function readChartSpace(xml: string): ChartSpec | null {
     if (Number.isFinite(size) && size !== 75) {
       spec.ofPieSize = size
     }
+    const gap = Number(value(first, "gapWidth"))
+    if (Number.isFinite(gap) && gap !== 100) {
+      spec.ofPieGap = gap
+    }
   }
   // A 3-D chart's rotation, kept only where it is not Word's own view.
   if (spec.threeD) {
@@ -967,6 +976,21 @@ export function readChartSpace(xml: string): ChartSpec | null {
     }
     if (Number.isFinite(rotY) && rotY !== own.y) {
       spec.rotY = rotY
+    }
+    if (spec.type !== "pie" && view) {
+      const word = chartView3d({ type: spec.type, threeD: spec.threeD })
+      const rightAngle = value(view, "rAngAx")
+      if (rightAngle !== undefined && (rightAngle === "1" || rightAngle === "true") !== word.rightAngle) {
+        spec.rightAngleAxes = !word.rightAngle
+      }
+      const perspective = Number(value(view, "perspective")) / 2
+      if (Number.isFinite(perspective) && perspective !== word.perspective) {
+        spec.perspective = perspective
+      }
+      const depth = Number(value(view, "depthPercent"))
+      if (Number.isFinite(depth) && depth !== word.depth) {
+        spec.depthPercent = depth
+      }
     }
   }
   // Title.
