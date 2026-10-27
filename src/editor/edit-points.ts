@@ -6,6 +6,7 @@ import {
   POINTS_BOX,
   addPoint,
   anchorsOf,
+  bendSegment,
   closePath,
   deletePoint,
   deleteSegment,
@@ -33,7 +34,7 @@ import type { EditorView } from "@tiptap/pm/view"
 /**
  * Word's Edit Points (Shape Format → Edit Shape, or the shape's right-click menu): black handles on each point of the
  * shape's outline. Drag one to move it (one undo step a drag), Ctrl+click a point to delete it, Ctrl+click the
- * outline to add one. A point clicked shows its curve handles, to drag; right-click a point or the outline for
+ * outline to add one, drag the outline to bend it. A point clicked shows its curve handles, to drag; right-click a point or the outline for
  * Word's menu (Smooth, Straight and Corner Point; Straight and Curved Segment; Open and Close Path; Delete Segment).
  * Escape, or a click away from the shape, ends it. A gallery shape becomes points when it begins.
  */
@@ -398,18 +399,52 @@ class PointsOverlay {
     window.addEventListener("pointerup", up)
   }
 
+  /** Ctrl+click on the outline adds a point; a drag bends the line or curve under the pointer, as in Word. */
   private onOutlineDown = (event: PointerEvent) => {
-    if (event.button !== 0 || !(event.ctrlKey || event.metaKey)) {
+    if (event.button !== 0) {
       return
     }
     event.preventDefault()
     event.stopPropagation()
     const [x, y] = this.boxPoint(event.clientX, event.clientY)
     const reach = (REACH / Math.min(this.frame.width, this.frame.height)) * POINTS_BOX
-    const added = addPoint(this.segments, x, y, reach)
-    if (added) {
-      this.reshape(added)
+    if (event.ctrlKey || event.metaKey) {
+      const added = addPoint(this.segments, x, y, reach)
+      if (added) {
+        this.reshape(added)
+      }
+      return
     }
+    const found = nearestSegment(this.segments, x, y)
+    if (!found || found.distance > reach) {
+      return
+    }
+    this.pressing = true
+    const start = this.segments
+    const startX = event.clientX
+    const startY = event.clientY
+    let latest = start
+    const move = (moved: PointerEvent) => {
+      const [dx, dy] = this.toBox(moved.clientX - startX, moved.clientY - startY)
+      latest = bendSegment(start, found.index, found.t, dx, dy)
+      this.preview(latest)
+    }
+    const up = () => {
+      window.removeEventListener("pointermove", move)
+      window.removeEventListener("pointerup", up)
+      this.pressing = false
+      if (latest === start) {
+        return
+      }
+      // A close's line bent becomes a curve of its own: the points after it move along.
+      if (latest.length !== start.length) {
+        this.reshape(latest)
+      } else {
+        this.commit(latest)
+      }
+    }
+    window.addEventListener("pointermove", move)
+    window.addEventListener("pointerup", up)
   }
 
   /** A change that adds or takes away points: the picked point and the kinds set by index no longer apply. */

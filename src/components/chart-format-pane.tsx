@@ -5,6 +5,8 @@ import {
   NUMBER_FORMATS,
   chartParts,
   chartRotation,
+  chartView3d,
+  ofPieGap,
   ofPieSecond,
   ofPieSize,
   ofPieSplit,
@@ -355,6 +357,15 @@ function OfPieOptions({ spec, part, set }: { spec: ChartSpec; part: string; set:
       ) : (
         <p className="format-pane-note">Click a slice on the chart, then choose the plot it belongs to.</p>
       )}
+      <NumberField
+        label="Gap Width"
+        value={Math.round(ofPieGap(spec) * 100)}
+        unit="%"
+        step={10}
+        min={0}
+        max={500}
+        onChange={(gap) => set((current) => ({ ...current, ofPieGap: gap }))}
+      />
       <NumberField
         label="Second Plot Size"
         value={Math.round(ofPieSize(spec) * 100)}
@@ -794,6 +805,7 @@ function PartOptions({ spec, part, set }: { spec: ChartSpec; part: string; set: 
     const turn = chartRotation(spec)
     const pie = spec.type === "pie"
     const own = chartRotation({ type: spec.type })
+    const view = chartView3d(spec)
     return (
       <Section title="3-D Rotation">
         <NumberField
@@ -814,11 +826,51 @@ function PartOptions({ spec, part, set }: { spec: ChartSpec; part: string; set: 
           max={359}
           onChange={(rotY) => set((current) => ({ ...current, rotY: Math.round(rotY) }))}
         />
+        {pie ? null : (
+          <>
+            <Check
+              label="Right Angle Axes"
+              checked={view.rightAngle}
+              onChange={(rightAngleAxes) => set((current) => ({ ...current, rightAngleAxes }))}
+            />
+            {view.rightAngle ? null : (
+              <>
+                <NumberField
+                  label="Perspective"
+                  value={view.perspective}
+                  unit="°"
+                  step={5}
+                  min={0}
+                  max={120}
+                  onChange={(perspective) => set((current) => ({ ...current, perspective }))}
+                />
+                <p className="format-pane-note">Kept for Word; the chart is drawn here without perspective.</p>
+              </>
+            )}
+            <NumberField
+              label="Depth (% of base)"
+              value={view.depth}
+              unit="%"
+              step={10}
+              min={20}
+              max={2000}
+              onChange={(depthPercent) => set((current) => ({ ...current, depthPercent: Math.round(depthPercent) }))}
+            />
+          </>
+        )}
         <button
           type="button"
           className="format-pane-button"
-          disabled={turn.x === own.x && turn.y === own.y}
-          onClick={() => set(({ rotX: _x, rotY: _y, ...current }) => current)}
+          disabled={
+            turn.x === own.x &&
+            turn.y === own.y &&
+            spec.rightAngleAxes === undefined &&
+            spec.perspective === undefined &&
+            spec.depthPercent === undefined
+          }
+          onClick={() =>
+            set(({ rotX: _x, rotY: _y, rightAngleAxes: _r, perspective: _p, depthPercent: _d, ...current }) => current)
+          }
         >
           Reset
         </button>

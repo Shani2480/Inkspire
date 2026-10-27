@@ -264,6 +264,25 @@ describe("3-D charts, Pie of Pie and Bar of Pie (22.6)", () => {
     expect(readChartSpace(custom)).toMatchObject({ ofPieSplitBy: "cust", ofPieCustom: [0, 2] })
   })
 
+  it("saves a 3-D chart's Depth, Right Angle Axes and Perspective, and an of-pie chart's Gap Width", () => {
+    const deep = withVariant(defaultChartSpec("column-3d"), "column-3d")
+    expect(chartSpaceXml(deep)).toContain('<c:rotY val="20"/><c:rAngAx val="0"/><c:perspective val="30"/></c:view3D>')
+    expect(chartSpaceXml(withVariant(defaultChartSpec("column"), "column-3d-clustered"))).toContain(
+      '<c:rotY val="20"/><c:rAngAx val="1"/></c:view3D>',
+    )
+    const set = { ...deep, depthPercent: 250, perspective: 40 }
+    const xml = chartSpaceXml(set)
+    expect(xml).toContain('<c:depthPercent val="250"/><c:rAngAx val="0"/><c:perspective val="80"/>')
+    expect(readChartSpace(xml)).toMatchObject({ depthPercent: 250, perspective: 40 })
+    const right = readChartSpace(chartSpaceXml({ ...deep, rightAngleAxes: true }))!
+    expect(right.rightAngleAxes).toBe(true)
+    const plain = readChartSpace(chartSpaceXml(deep))!
+    expect([plain.rightAngleAxes, plain.perspective, plain.depthPercent]).toEqual([undefined, undefined, undefined])
+    const ofPie = { ...withVariant(defaultChartSpec("pie-of-pie"), "pie-of-pie"), ofPieGap: 250 }
+    expect(chartSpaceXml(ofPie)).toContain('<c:gapWidth val="250"/>')
+    expect(readChartSpace(chartSpaceXml(ofPie))!.ofPieGap).toBe(250)
+  })
+
   it("keeps the split Word gave an of-pie chart", () => {
     const spec = { ...withVariant(defaultChartSpec("pie-of-pie"), "pie-of-pie"), ofPieSplit: 1 }
     expect(readChartSpace(chartSpaceXml(spec))!.ofPieSplit).toBe(1)
