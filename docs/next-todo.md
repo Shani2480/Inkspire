@@ -1026,7 +1026,7 @@ Order: the small fixes first (20.1, 20.3, 20.4, 20.11, 20.12), then the object w
      - Quick Layout: Word's eleven layouts. Change Colors: Colorful and Monochromatic palettes from the theme.
      - Chart Styles: a gallery of about 14 styles, previewed on hover.
      - Switch Row/Column, Select Data (the Select Data Source dialog, with series and categories to add, edit, remove, reorder and hide), Edit Data (the sheet) and Refresh.
-     - Change Chart Type, and Save as Template (kept locally, offered under Templates).
+     - Change Chart Type, and Save as Template (kept locally, offered under Templates). **Done 2026-10-27** (right-click → Save as Template…; Templates in the dialog; no .crtx).
   4. **Format tab:**
      - Current Selection: a dropdown of the chart's parts (Chart Area, Plot Area, Title, each axis, each series, Legend, …), plus Format Selection and Reset to Match Style.
      - Insert Shapes, Shape Styles (fill, outline, effects), WordArt Styles for chart text, Arrange (shared with 20.7) and Size.
@@ -1693,7 +1693,7 @@ Source: the 48 top-level files in `screenshots/` taken on 2026-10-19 (`screensho
   inner points. **Stock (2026-10-26).** High-Low-Close and Open-High-Low-Close, drawn as Word's (high-low lines, up/down
   bars, Close tick), saved and read as `c:stockChart`; the dialog preview now uses each type's own sample. Not done:
   Map, Combo
-  beyond the three that exist, Templates. **Volume stock charts (2026-10-27):** Volume-High-Low-Close and
+  beyond the three that exist. Templates done 2026-10-27 (see changes.md). **Volume stock charts (2026-10-27):** Volume-High-Low-Close and
   Volume-Open-High-Low-Close, the volume as columns on the left axis and the prices on a right one, saved as Word's
   bar group plus stock group. **3-D and of-pie (2026-10-27):** the 3-D variants of Column (4), Bar (3),
   Line, Pie and Area (3), Pie of Pie and Bar of Pie, drawn and saved as Word's own 3-D and of-pie charts (see

@@ -7,6 +7,26 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Chart templates: Save as Template… and Templates in Insert Chart
+
+- **Missing:** Word's chart templates. You could not keep a chart's type and look to use again.
+- **Changed:**
+  - **Save as Template…** on a chart's right-click menu: asks for a name and keeps the chart's type, elements, style
+    and formatting under it. A template of the same name is replaced (`src/editor/chart-templates.ts`).
+  - **Templates** in Insert Chart and Change Chart Type, after Recent. It shows each template drawn as it would
+    come out, and has Delete Template. With none saved it says how to make one.
+    - Inserting a template brings the data it was saved with (`insertFigure` now takes a chart's spec).
+    - Applying one to a chart keeps that chart's data, titles and series names (`applyChartTemplate`). Each series
+      takes the options of the template's series in its place (its type and axis in a combo, its trendline), and
+      extra series take the last one's.
+  - Templates are kept in this browser or profile, as Word keeps them in the user's Charts folder.
+- **Tests:** `chart-templates.test.ts` (save, replace by name, delete, bad saved data ignored; applying keeps the
+  data and takes the look and series options).
+- **Checked in Chrome:** saved a restyled 3-D pie as "Quarterly", then used Change Chart Type → Templates on a
+  column chart. It became the 3-D pie in style 3 with the column chart's data and title. All 1034 tests pass.
+- **Still open:** no .crtx import or export, so templates do not move to or from Word. Insert Chart has no "Manage
+  Templates" folder view (Delete Template stands in for it).
+
 ### Stock charts with Volume
 
 - **Missing:** Word's Volume-High-Low-Close and Volume-Open-High-Low-Close stock charts.

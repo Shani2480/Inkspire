@@ -1,5 +1,5 @@
 import { useViewStore } from "@/document/view"
-import { chartSpecOf, defaultChartSpec, renderChart, serializeChartSpec } from "@/editor/chart-spec"
+import { chartSpecOf, defaultChartSpec, renderChart, serializeChartSpec, type ChartSpec } from "@/editor/chart-spec"
 import { applyFrame, bindDrag, floatingAttributes, inlineMaxWidth, isFloating, resizeAttrs } from "@/editor/objects"
 import { bindObjectResize } from "@/editor/object-resize"
 import { bindRotate, ensureRotateHandle } from "@/editor/object-rotate"
@@ -19,7 +19,13 @@ export type WordArtPreset = string
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     insertBlocks: {
-      insertFigure: (kind: "shape" | "icon" | "model" | "chart", variant: string, values?: string) => ReturnType
+      /** `chart`: a chart's whole spec (a chart template), in place of the variant's sample. */
+      insertFigure: (
+        kind: "shape" | "icon" | "model" | "chart",
+        variant: string,
+        values?: string,
+        chart?: ChartSpec,
+      ) => ReturnType
       insertWordArt: (preset: string) => ReturnType
       insertSignature: (name?: string, title?: string) => ReturnType
       insertBookmark: (name: string) => ReturnType
@@ -1031,13 +1037,13 @@ export const insertBlockCommands = Node.create({
   addCommands() {
     return {
       insertFigure:
-        (kind, variant, values) =>
+        (kind, variant, values, spec) =>
         ({ state, tr }) => {
           const type = state.schema.nodes.figure
           if (!type) {
             return false
           }
-          const chart = kind === "chart" ? serializeChartSpec(defaultChartSpec(variant)) : ""
+          const chart = kind === "chart" ? serializeChartSpec(spec ?? defaultChartSpec(variant)) : ""
           insertSelectableBlock(state, tr, type.create({ kind, variant, values: values || "8,14,11", chart }))
           return true
         },

@@ -1,4 +1,5 @@
 import { useObjectPreview } from "@/components/object-preview-hook"
+import { TEMPLATE_PREFIX, applyChartTemplate, deleteChartTemplate, loadChartTemplates, saveChartTemplate } from "@/editor/chart-templates"
 import { askText } from "@/components/text-prompt"
 import { DialogButtons, DialogFrame } from "@/components/word-dialog"
 import { MenuFlyout, MenuHeading, MenuRow, MenuSeparator, PreviewTile } from "@/components/shape-menus"
@@ -841,6 +842,23 @@ function rememberChart(id: string) {
   }
 }
 
+/** Save as Template…: asks for a name and keeps the selected chart's type and look under it. */
+export async function saveChartAsTemplate(editor: Editor | null) {
+  const chart = selectedChart(editor)
+  if (!chart) {
+    return
+  }
+  const name = await askText({
+    title: "Save Chart Template",
+    label: "Template name:",
+    value: chart.spec.title.show && chart.spec.title.text !== "Chart Title" ? chart.spec.title.text : "Chart Template",
+    ok: "Save",
+  })
+  if (name?.trim()) {
+    saveChartTemplate(name, chart.spec)
+  }
+}
+
 /** Word's Insert Chart and Change Chart Type dialog: the types on the left, their variants and a large preview. */
 export function ChartTypeDialog({ editor }: { editor: Editor | null }) {
   const mode = useChartTypeDialog((state) => state.mode)
@@ -868,6 +886,7 @@ function ChartTypeDialogBody({
       : "column",
   )
   const [picked, setPicked] = useState(current)
+  const [templates, setTemplates] = useState(loadChartTemplates)
   const recent = recentCharts()
   const families = [
     {
@@ -875,13 +894,39 @@ function ChartTypeDialogBody({
       label: "Recent",
       items: CHART_FAMILIES.flatMap((item) => item.items).filter((item) => recent.includes(item.id)),
     },
+    {
+      id: "templates",
+      label: "Templates",
+      items: templates.map((item) => ({ id: `${TEMPLATE_PREFIX}${item.id}`, label: item.name, type: item.spec.type })),
+    },
     ...CHART_FAMILIES,
   ]
-  const shown = families.find((item) => item.id === family) ?? families[1]!
+  const shown = families.find((item) => item.id === family) ?? families[2]!
+  const templateOf = (id: string) =>
+    id.startsWith(TEMPLATE_PREFIX) ? templates.find((item) => `${TEMPLATE_PREFIX}${item.id}` === id) : undefined
   // Inserting previews the chart Insert will make, with the type's own sample data (prices for Stock, a funnel's
-  // stages); changing a chart's type previews that chart.
-  const sample = (id: string) => (chart ? withVariant(chart.spec, id) : defaultChartSpec(id))
+  // stages) or the data a template was saved with; changing a chart's type previews that chart.
+  const sample = (id: string) => {
+    const template = templateOf(id)
+    if (template) {
+      return chart ? applyChartTemplate(chart.spec, template.spec) : template.spec
+    }
+    return chart ? withVariant(chart.spec, id) : defaultChartSpec(id)
+  }
   const finish = () => {
+    const template = templateOf(picked)
+    if (template) {
+      if (mode === "insert") {
+        editor.chain().focus().insertFigure("chart", variantOf(template.spec), undefined, template.spec).run()
+      } else {
+        changeChart(editor, (spec) => applyChartTemplate(spec, template.spec))
+      }
+      onClose()
+      return
+    }
+    if (picked.startsWith(TEMPLATE_PREFIX)) {
+      return
+    }
     rememberChart(picked)
     if (mode === "insert") {
       editor.chain().focus().insertFigure("chart", picked).run()
@@ -891,6 +936,7 @@ function ChartTypeDialogBody({
     onClose()
   }
   const label = families.flatMap((item) => item.items).find((item) => item.id === picked)?.label ?? ""
+  const pickedTemplate = templateOf(picked)
   return (
     <DialogFrame title={mode === "insert" ? "Insert Chart" : "Change Chart Type"} width={720} onClose={onClose}>
       <div className="chart-type-body">
@@ -913,33 +959,63 @@ function ChartTypeDialogBody({
           ))}
         </nav>
         <div className="chart-type-main">
-          <div className="chart-type-variants" role="listbox" aria-label={shown.label}>
-            {shown.items.map((variant) => (
-              <button
-                key={variant.id}
-                type="button"
-                role="option"
-                aria-selected={picked === variant.id}
-                title={variant.label}
-                aria-label={variant.label}
-                className="chart-tile"
-                onClick={() => setPicked(variant.id)}
-                onDoubleClick={() => {
-                  setPicked(variant.id)
-                  finish()
-                }}
-              >
-                <ChartThumb spec={sample(variant.id)} width={72} height={50} />
-              </button>
-            ))}
-          </div>
-          <div className="chart-type-name">{label}</div>
-          <div className="chart-type-preview">
-            <ChartThumb spec={sample(picked)} width={330} height={200} />
-          </div>
+          {shown.id === "templates" && shown.items.length === 0 ? (
+            <p className="chart-type-empty">
+              No chart templates yet. Right-click a chart and choose Save as Template… to keep its type and look here.
+            </p>
+          ) : (
+            <div className="chart-type-variants" role="listbox" aria-label={shown.label}>
+              {shown.items.map((variant) => (
+                <button
+                  key={variant.id}
+                  type="button"
+                  role="option"
+                  aria-selected={picked === variant.id}
+                  title={variant.label}
+                  aria-label={variant.label}
+                  className="chart-tile"
+                  onClick={() => setPicked(variant.id)}
+                  onDoubleClick={() => {
+                    setPicked(variant.id)
+                    finish()
+                  }}
+                >
+                  <ChartThumb spec={sample(variant.id)} width={72} height={50} />
+                </button>
+              ))}
+            </div>
+          )}
+          {shown.id === "templates" && shown.items.length === 0 ? null : (
+            <>
+              <div className="chart-type-name">
+                {label}
+                {pickedTemplate && shown.id === "templates" ? (
+                  <button
+                    type="button"
+                    className="dialog-btn chart-template-delete"
+                    onClick={() => {
+                      deleteChartTemplate(pickedTemplate.id)
+                      const rest = loadChartTemplates()
+                      setTemplates(rest)
+                      setPicked(rest[0] ? `${TEMPLATE_PREFIX}${rest[0].id}` : current)
+                    }}
+                  >
+                    Delete Template
+                  </button>
+                ) : null}
+              </div>
+              <div className="chart-type-preview">
+                <ChartThumb spec={sample(picked)} width={330} height={200} />
+              </div>
+            </>
+          )}
         </div>
       </div>
-      <DialogButtons onOk={finish} onCancel={onClose} />
+      <DialogButtons
+        onOk={finish}
+        onCancel={onClose}
+        okDisabled={(picked.startsWith(TEMPLATE_PREFIX) || shown.id === "templates") && !pickedTemplate}
+      />
     </DialogFrame>
   )
 }

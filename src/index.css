@@ -11340,7 +11340,21 @@ html.dark .asset-library .asset-library-icon {
 }
 
 .chart-type-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   font-weight: 600;
+}
+
+.chart-template-delete {
+  font-weight: 400;
+}
+
+.chart-type-empty {
+  margin: 24px 8px;
+  color: var(--dlg-muted, #605e5c);
+  font-size: 12px;
 }
 
 .chart-type-preview {
