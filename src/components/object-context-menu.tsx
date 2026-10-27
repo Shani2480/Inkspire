@@ -11,6 +11,7 @@ import {
   changeChart,
   formatChartPart,
   useChartPart,
+  saveChartAsTemplate,
   useChartTypeDialog,
   useSelectDataDialog,
 } from "@/components/chart-menus"
@@ -500,6 +501,7 @@ function chartItems(
       )}
       {sep()}
       {leaf("Change Chart Type...", () => run(() => useChartTypeDialog.getState().show("change")))}
+      {leaf("Save as Template...", () => run(() => void saveChartAsTemplate(editor)))}
       {leaf("Select Data...", () => run(() => useSelectDataDialog.getState().show()))}
       {leaf("Edit Data...", () => openDialog("figure"))}
       {series >= 0 ? (

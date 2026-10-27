@@ -250,6 +250,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Compare each with Word's own chart of the same data, side by side.
 - Open Word's 3-D charts and an of-pie chart split by value: what each opens as here.
 - Desktop app: the 3-D drawing in WebKitGTK.
+- Chart templates in the desktop app: save one, restart the app, and it is still under Templates.
 - Save Volume-High-Low-Close and Volume-Open-High-Low-Close and open them in Word: the same variants, the volume on
   the left axis and the prices on the right. Open Word's own Volume stock chart here.
 - The Chart button's own menu on Insert draws its six thumbnails cramped (seen while checking; not changed here).
