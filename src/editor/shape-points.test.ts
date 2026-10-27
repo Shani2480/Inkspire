@@ -5,8 +5,10 @@ import {
   anchorsOf,
   custGeomXml,
   deletePoint,
+  fitPoints,
   movePoint,
   parsePath,
+  pathBounds,
   pathString,
   pointsFromCustGeom,
   pointsFromMarkup,
@@ -123,5 +125,72 @@ describe("Word's custom geometry", () => {
     expect(points.at(-1)).toEqual({ kind: "Z" })
     // A point given by a guide's name cannot be drawn here.
     expect(pointsFromCustGeom('<a:custGeom><a:pathLst><a:path w="10" h="10"><a:moveTo><a:pt x="l" y="t"/></a:moveTo></a:path></a:pathLst></a:custGeom>')).toBeNull()
+  })
+})
+
+describe("fitting the box to the outline", () => {
+  const frame = { width: 200, height: 100, rotate: 0, flipH: false, flipV: false }
+
+  /** A point of the outline on the page, for a box whose top-left corner is at (left, top). */
+  function onPage([x, y]: [number, number], box: typeof frame, left: number, top: number) {
+    let lx = (x / 100) * box.width - box.width / 2
+    let ly = (y / 100) * box.height - box.height / 2
+    if (box.flipH) {
+      lx = -lx
+    }
+    if (box.flipV) {
+      ly = -ly
+    }
+    const turn = (box.rotate * Math.PI) / 180
+    return [
+      left + box.width / 2 + lx * Math.cos(turn) - ly * Math.sin(turn),
+      top + box.height / 2 + lx * Math.sin(turn) + ly * Math.cos(turn),
+    ]
+  }
+
+  it("leaves a box that fits alone", () => {
+    expect(fitPoints(parsePath("M50 0 L100 100 L0 100 Z"), frame)).toBeNull()
+  })
+
+  it("grows the box when a point goes out, and spreads the points over it again", () => {
+    const fit = fitPoints(parsePath("M50 -50 L100 100 L0 100 Z"), frame)!
+    expect(pathString(fit.segments)).toBe("M50 0 L100 100 L0 100 Z")
+    expect([fit.width, fit.height, fit.dx, fit.dy]).toEqual([200, 150, 0, -50])
+  })
+
+  it("shrinks it when the outline is pulled in", () => {
+    const fit = fitPoints(parsePath("M50 0 L75 100 L25 100 Z"), frame)!
+    expect([fit.width, fit.height, fit.dx, fit.dy]).toEqual([100, 100, 50, 0])
+  })
+
+  it("keeps the points that did not move where they were on the page, turned and flipped", () => {
+    for (const box of [
+      { ...frame, rotate: 30 },
+      { ...frame, rotate: -75, flipH: true },
+      { ...frame, rotate: 120, flipV: true },
+    ]) {
+      const moved = parsePath("M50 -40 L130 100 L0 100 Z")
+      const fit = fitPoints(moved, box)!
+      const after = { ...box, width: fit.width, height: fit.height }
+      const fixed = anchorsOf(moved).slice(1)
+      const fitted = anchorsOf(fit.segments).slice(1)
+      fixed.forEach((anchor, index) => {
+        const before = onPage(anchor.at, box, 10, 20)
+        const now = onPage(fitted[index]!.at, after, 10 + fit.dx, 20 + fit.dy)
+        expect(now[0]).toBeCloseTo(before[0]!, 1)
+        expect(now[1]).toBeCloseTo(before[1]!, 1)
+      })
+    }
+  })
+
+  it("measures a curve by how far it reaches, not by its control points", () => {
+    const bounds = pathBounds(parsePath("M0 50 C0 -16.67 100 -16.67 100 50"))!
+    expect(bounds.minY).toBeCloseTo(0, 0)
+    expect(bounds.maxX).toBe(100)
+  })
+
+  it("keeps a straight line's box across it", () => {
+    const fit = fitPoints(parsePath("M0 50 L100 50"), frame)
+    expect(fit).toBeNull()
   })
 })
