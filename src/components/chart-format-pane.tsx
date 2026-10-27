@@ -5,6 +5,7 @@ import {
   NUMBER_FORMATS,
   boxOptions,
   chartParts,
+  mapColors,
   chartRotation,
   chartView3d,
   ofPieGap,
@@ -500,6 +501,65 @@ function BoxWhiskerOptions({ spec, set }: { spec: ChartSpec; set: Setter }) {
   )
 }
 
+/**
+ * Filled Map's Series Options, as Word has them: Map projection, Map area and Map labels, and the Series Color's
+ * Minimum and Maximum.
+ */
+function MapOptions({ spec, set }: { spec: ChartSpec; set: Setter }) {
+  const colors = mapColors(spec)
+  return (
+    <>
+      <Select
+        label="Map projection"
+        value={spec.mapProjection ?? "auto"}
+        options={[
+          { value: "auto", label: "Automatic" },
+          { value: "mercator", label: "Mercator" },
+          { value: "miller", label: "Miller" },
+          { value: "robinson", label: "Robinson" },
+        ]}
+        onChange={(value) =>
+          set((current) => ({
+            ...current,
+            mapProjection: value === "auto" ? undefined : (value as ChartSpec["mapProjection"]),
+          }))
+        }
+      />
+      <Select
+        label="Map area"
+        value={spec.mapArea ?? "auto"}
+        options={[
+          { value: "auto", label: "Automatic" },
+          { value: "data", label: "Only regions with data" },
+          { value: "world", label: "World" },
+        ]}
+        onChange={(value) =>
+          set((current) => ({ ...current, mapArea: value === "auto" ? undefined : (value as ChartSpec["mapArea"]) }))
+        }
+      />
+      <Select
+        label="Map labels"
+        value={spec.mapLabels ?? "none"}
+        options={[
+          { value: "none", label: "None" },
+          { value: "show", label: "Show all" },
+        ]}
+        onChange={(value) => set((current) => ({ ...current, mapLabels: value === "show" ? "show" : undefined }))}
+      />
+      <ColorField
+        label="Minimum"
+        color={colors.min}
+        onPick={(min) => set((current) => ({ ...current, mapColors: { ...current.mapColors, min } }))}
+      />
+      <ColorField
+        label="Maximum"
+        color={colors.max}
+        onPick={(max) => set((current) => ({ ...current, mapColors: { ...current.mapColors, max } }))}
+      />
+    </>
+  )
+}
+
 function Check({
   label,
   checked,
@@ -564,6 +624,8 @@ function AutoNumber({
 
 function PartOptions({ spec, part, set }: { spec: ChartSpec; part: string; set: Setter }) {
   const round = spec.type === "pie" || spec.type === "doughnut"
+  // No axes: no secondary axis and no trendline.
+  const axisless = round || spec.type === "map"
   if (part === "title" || part.startsWith("axisTitle:")) {
     const axis = part === "title" ? null : (part.slice("axisTitle:".length) as "category" | "value")
     const value = axis ? spec.axisTitles[axis].text : spec.title.text
@@ -724,7 +786,7 @@ function PartOptions({ spec, part, set }: { spec: ChartSpec; part: string; set: 
     return (
       <>
         <Section title="Series Options">
-          {serie && !round && spec.type !== "scatter" && spec.type !== "radar" && spec.series.length > 1 ? (
+          {serie && !axisless && spec.type !== "scatter" && spec.type !== "radar" && spec.series.length > 1 ? (
             <Check
               label="Plot on secondary axis"
               checked={Boolean(serie.secondary)}
@@ -776,6 +838,7 @@ function PartOptions({ spec, part, set }: { spec: ChartSpec; part: string; set: 
             />
           ) : null}
           {spec.type === "boxWhisker" ? <BoxWhiskerOptions spec={spec} set={set} /> : null}
+          {spec.type === "map" && part.startsWith("series:") ? <MapOptions spec={spec} set={set} /> : null}
           {round ? (
             <>
               {spec.ofPie ? null : (
@@ -812,7 +875,7 @@ function PartOptions({ spec, part, set }: { spec: ChartSpec; part: string; set: 
             </>
           ) : null}
         </Section>
-        {serie && !round && spec.type !== "radar" && spec.grouping === "clustered" ? (
+        {serie && !axisless && spec.type !== "radar" && spec.grouping === "clustered" ? (
           <Section title="Trendline">
             {trends.map(([kind, label]) => (
               <Radio

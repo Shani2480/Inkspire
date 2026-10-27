@@ -1,4 +1,5 @@
 import { parseChartSheet, type ChartSheet } from "@/editor/chart-sheet"
+import { drawMap, loadMapCountries, mixColor, type MapArea, type MapLabels, type MapProjection } from "@/editor/chart-map"
 import { boxGroups, chartTree, expandSpec, squarify, type TreeNode } from "@/editor/chart-expand"
 import { THEME_ACCENTS, shade } from "@/editor/shape-style"
 
@@ -24,6 +25,7 @@ export type ChartType =
   | "histogram"
   | "waterfall"
   | "funnel"
+  | "map"
 export type ChartGrouping = "clustered" | "stacked" | "percent"
 export type LegendPosition = "none" | "right" | "top" | "bottom" | "left"
 export type LabelPosition = "none" | "center" | "insideEnd" | "insideBase" | "outsideEnd" | "bestFit"
@@ -161,6 +163,14 @@ export type ChartSpec = {
   pointColumns?: number[]
   /** Box & Whisker's Series Options (Word's own unset: see `boxOptions`). */
   box?: BoxOptions
+  /**
+   * Filled Map's Series Options: the projection and the area shown (Automatic unset), whether the countries' names
+   * are written on them, and the Series Color's Minimum and Maximum (unset: a pale and the full series colour).
+   */
+  mapProjection?: MapProjection
+  mapArea?: MapArea
+  mapLabels?: MapLabels
+  mapColors?: { min?: string; max?: string }
   /** Stock: the first series is the volume traded, drawn as columns on the left axis, the prices on a right one. */
   volume?: boolean
   categories: string[]
@@ -359,6 +369,11 @@ export const CHART_FAMILIES: { id: string; label: string; items: ChartVariant[] 
       },
       { id: "scatter-lines", label: "Scatter with Straight Lines", type: "scatter", lines: true },
     ],
+  },
+  {
+    id: "map",
+    label: "Map",
+    items: [{ id: "filled-map", label: "Filled Map", type: "map" }],
   },
   {
     id: "stock",
@@ -704,6 +719,18 @@ export function defaultChartSpec(variantId = "column"): ChartSpec {
         categories: ["Start", "Sales", "Returns", "Services", "Costs", "Total"],
         series: [{ name: "Change", values: [100, 40, -15, 25, -30, 120] }],
         waterfallTotals: [5],
+      },
+      variant.id,
+    )
+  }
+  if (variant.type === "map") {
+    return withVariant(
+      {
+        ...structuredClone(BASE),
+        title: { show: true, text: "Sales by Country" },
+        legend: "right",
+        categories: ["United States", "Canada", "Mexico", "Brazil", "United Kingdom", "France", "Germany", "China", "India", "Australia"],
+        series: [{ name: "Sales", values: [120, 45, 30, 52, 60, 48, 70, 95, 66, 38] }],
       },
       variant.id,
     )
@@ -1218,7 +1245,8 @@ export function renderChart(source: ChartSpec, width: number, height: number) {
               bare: spec.format[`series:${serie.index}`]?.line === "none",
               tick: Boolean(serie.tick),
             }))
-  if (spec.legend !== "none" && !(spec.dataTable && !round)) {
+  // A map's key is its colour scale, drawn with it.
+  if (spec.legend !== "none" && !(spec.dataTable && !round) && spec.type !== "map") {
     legend(painter, entries, box, spec.legend)
   }
   if (round) {
@@ -1237,6 +1265,8 @@ export function renderChart(source: ChartSpec, width: number, height: number) {
     treemap(painter, box)
   } else if (spec.type === "sunburst") {
     sunburst(painter, box)
+  } else if (spec.type === "map") {
+    filledMap(painter, box)
   } else {
     cartesian(painter, box, visibleSeries, entries)
   }
@@ -2388,6 +2418,110 @@ function wholePie(painter: Painter, box: Box) {
   pie({ ...painter, spec: { ...painter.spec, ofPie: undefined } }, box)
 }
 
+/** A Filled Map's Minimum and Maximum colours: as set, or a pale and the full series colour. */
+export function mapColors(spec: ChartSpec) {
+  const color = spec.format["series:0"]?.fill || paletteColor(spec, 0)
+  return { min: spec.mapColors?.min || mixColor(color, "#ffffff", 0.85), max: spec.mapColors?.max || color }
+}
+
+/**
+ * Filled Map: each country with data coloured along the scale from the lowest value to the highest, the countries
+ * round it in grey, and the scale as the legend, as Word draws it. Until the outlines are loaded, a note.
+ */
+function filledMap(painter: Painter, box: Box) {
+  const { spec, look } = painter
+  const serie = spec.series.findIndex((item) => !item.hidden)
+  const values = serie < 0 ? [] : spec.series[serie]!.values
+  const points = spec.categories
+    .map((name, index) => ({ index, name, value: values[index] ?? Number.NaN }))
+    .filter((point) => !spec.hiddenCategories.includes(point.index) && Number.isFinite(point.value))
+  const low = Math.min(...points.map((point) => point.value))
+  const high = Math.max(...points.map((point) => point.value))
+  const colors = mapColors(spec)
+  const format = spec.valueAxis.numberFormat ?? "General"
+  // The scale: a bar beside the map, or under or over it, with the highest and lowest values.
+  const key = spec.legend !== "none" && points.length > 0
+  const across = spec.legend === "top" || spec.legend === "bottom"
+  const plot = { ...box }
+  if (key) {
+    if (across) {
+      plot.h -= 34
+      if (spec.legend === "top") {
+        plot.y += 34
+      }
+    } else {
+      const wide = Math.max(formatNumber(high, format).length, formatNumber(low, format).length) * CHAR + 26
+      plot.w -= wide
+      if (spec.legend === "left") {
+        plot.x += wide
+      }
+    }
+  }
+  const drawn = drawMap(points, plot, { projection: spec.mapProjection, area: spec.mapArea })
+  if (!drawn) {
+    void loadMapCountries()
+    painter.out.push(
+      `<text x="${n(box.x + box.w / 2)}" y="${n(box.y + box.h / 2)}" text-anchor="middle" ${textAttrs(painter, "chartArea")}>Loading map…</text>`,
+    )
+    return
+  }
+  const share = (value: number) => (high > low ? (value - low) / (high - low) : 1)
+  const parts: string[] = [
+    `<path d="${drawn.rest}" fill="${shade(look.grid, 0.4)}" stroke="${look.background}" stroke-width="0.5"/>`,
+  ]
+  const labels: string[] = []
+  for (const shape of drawn.shapes) {
+    const part = `point:${shape.point.index}`
+    const fill = spec.format[part]?.fill || mixColor(colors.min, colors.max, share(shape.point.value))
+    const line = spec.format[part]?.line || look.background
+    parts.push(`<path data-chart-part="${part}" d="${shape.d}" fill="${fill}" stroke="${line}" stroke-width="0.75"/>`)
+    const text = [
+      spec.mapLabels === "show" ? shape.point.name : "",
+      spec.dataLabels !== "none" ? formatNumber(shape.point.value, format) : "",
+    ].filter(Boolean)
+    if (text.length) {
+      labels.push(
+        `<text x="${n(shape.at[0])}" y="${n(shape.at[1] + 3)}" text-anchor="middle" ${textAttrs(painter, "dataLabels", 10)}>${escapeXml(text.join(" "))}</text>`,
+      )
+    }
+  }
+  painter.out.push(`<g data-chart-part="series:${Math.max(0, serie)}">${parts.join("")}</g>`)
+  if (labels.length) {
+    painter.out.push(`<g data-chart-part="dataLabels">${labels.join("")}</g>`)
+  }
+  if (key) {
+    const id = `map-scale-${painter.defs.length}`
+    const text = textAttrs(painter, "legend")
+    const top = formatNumber(high, format)
+    const bottom = formatNumber(low, format)
+    if (across) {
+      const w = Math.min(220, box.w * 0.6)
+      const x = box.x + (box.w - w) / 2
+      const y = spec.legend === "top" ? box.y + 4 : box.y + box.h - 22
+      painter.defs.push(
+        `<linearGradient id="${id}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${colors.min}"/><stop offset="1" stop-color="${colors.max}"/></linearGradient>`,
+      )
+      painter.out.push(
+        `<g data-chart-part="legend"><rect x="${n(x)}" y="${n(y)}" width="${n(w)}" height="8" fill="url(#${id})"/>` +
+          `<text x="${n(x)}" y="${n(y + 20)}" ${text}>${escapeXml(bottom)}</text>` +
+          `<text x="${n(x + w)}" y="${n(y + 20)}" text-anchor="end" ${text}>${escapeXml(top)}</text></g>`,
+      )
+    } else {
+      const h = Math.min(160, box.h * 0.6)
+      const x = spec.legend === "left" ? box.x + 2 : box.x + box.w - (box.w - plot.w) + 8
+      const y = box.y + (box.h - h) / 2
+      painter.defs.push(
+        `<linearGradient id="${id}" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="${colors.min}"/><stop offset="1" stop-color="${colors.max}"/></linearGradient>`,
+      )
+      painter.out.push(
+        `<g data-chart-part="legend"><rect x="${n(x)}" y="${n(y)}" width="10" height="${n(h)}" fill="url(#${id})"/>` +
+          `<text x="${n(x + 14)}" y="${n(y + 8)}" ${text}>${escapeXml(top)}</text>` +
+          `<text x="${n(x + 14)}" y="${n(y + h)}" ${text}>${escapeXml(bottom)}</text></g>`,
+      )
+    }
+  }
+}
+
 /**
  * Box & Whisker: a box from the first to the third quartile per group and series, a line at the median, × at the
  * mean, whiskers out to the furthest values within 1.5 × the box's height, and the values beyond as points.
@@ -2995,7 +3129,7 @@ function radar(painter: Painter, box: Box, series: Serie[]) {
 /** The chart's parts as the Format tab's Current Selection lists them. */
 export function chartParts(spec: ChartSpec): { id: string; label: string }[] {
   // Treemap and Sunburst have no axes, as pie charts have none.
-  const round = spec.type === "pie" || spec.type === "doughnut" || isHierarchy(spec.type)
+  const round = spec.type === "pie" || spec.type === "doughnut" || isHierarchy(spec.type) || spec.type === "map"
   const parts = [{ id: "chartArea", label: "Chart Area" }]
   if (!round) {
     parts.push({ id: "plotArea", label: "Plot Area" })

@@ -1,3 +1,4 @@
+import { onMapCountries } from "@/editor/chart-map"
 import { useViewStore } from "@/document/view"
 import { chartSpecOf, defaultChartSpec, renderChart, serializeChartSpec, type ChartSpec } from "@/editor/chart-spec"
 import { applyFrame, bindDrag, floatingAttributes, inlineMaxWidth, isFloating, resizeAttrs } from "@/editor/objects"
@@ -646,6 +647,12 @@ export const Figure = Node.create({
           max: inlineMaxWidth,
         },
       )
+      // A map chart is drawn again once the country outlines have loaded.
+      const stopMap = onMapCountries(() => {
+        if (!editing && current.attrs.kind === "chart") {
+          paint(current)
+        }
+      })
       return {
         dom,
         update(next) {
@@ -665,6 +672,7 @@ export const Figure = Node.create({
         ignoreMutation: (mutation) => editing || mutation.type !== "selection",
         destroy() {
           dom.removeEventListener("dblclick", edit)
+          stopMap()
           stopRotate()
           stopDrag()
           stopResize()

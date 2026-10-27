@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { loadMapCountries } from "@/editor/chart-map"
 import {
   CHART_VARIANTS,
   QUICK_LAYOUTS,
@@ -51,7 +52,9 @@ describe("chart spec", () => {
     }
   })
 
-  it("draws every variant with its parts named", () => {
+  it("draws every variant with its parts named", async () => {
+    // A map is drawn once its country outlines are loaded.
+    await loadMapCountries()
     for (const variant of CHART_VARIANTS) {
       const spec = { ...withVariant(defaultChartSpec(variant.id), variant.id), dataLabels: "center" as const }
       const svg = renderChart(spec, 576, 336)
