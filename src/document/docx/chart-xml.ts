@@ -5,6 +5,7 @@ import {
   CHART_STYLES,
   defaultChartSpec,
   normalizeChartSpec,
+  ofPieSplit,
   paletteColor,
   type ChartSpec,
   type LabelPosition,
@@ -342,7 +343,20 @@ export function chartSpaceXml(source: ChartSpec, workbookRelId?: string) {
   const groups: string[] = []
   const round = spec.type === "pie" || spec.type === "doughnut"
   const text = spec.format.dataLabels?.color || look.text
-  if (round) {
+  if (round && spec.type === "pie" && (spec.ofPie || spec.threeD)) {
+    const first = shown[0]
+    const series = `<c:varyColors val="1"/>${first ? seriesXml(spec, first.index, "pie", rows) : ""}${labelsXml(spec, "pie", text)}`
+    if (spec.ofPie) {
+      // Split by position: the last points go to the second plot, as the app draws it.
+      const split = ofPieSplit(spec, rows)
+      groups.push(
+        `<c:ofPieChart><c:ofPieType val="${spec.ofPie}"/>${series}<c:gapWidth val="100"/><c:splitType val="pos"/>` +
+          `<c:splitPos val="${split}"/><c:secondPieSize val="75"/><c:serLines/></c:ofPieChart>`,
+      )
+    } else {
+      groups.push(`<c:pie3DChart>${series}</c:pie3DChart>`)
+    }
+  } else if (round) {
     const first = shown[0]
     const group = groupOf(spec.type)
     groups.push(
@@ -383,9 +397,16 @@ export function chartSpaceXml(source: ChartSpec, workbookRelId?: string) {
       keys.push(`${groupOf(undefined)}:1`)
       members.set(keys[0]!, [])
     }
+    // A 3-D chart is one group of Word's 3-D kind; a "deep" one has a series axis (3) going back, a "front" one
+    // has none (Word writes 0 for it).
+    const threeD = spec.threeD && keys.length === 1 ? spec.threeD : undefined
     for (const key of keys) {
       const [group, axis] = key.split(":") as [Group, string]
-      const ids = axis === "2" ? '<c:axId val="3"/><c:axId val="4"/>' : '<c:axId val="1"/><c:axId val="2"/>'
+      const ids = threeD
+        ? `<c:axId val="1"/><c:axId val="2"/><c:axId val="${threeD === "deep" || group === "line" ? 3 : 0}"/>`
+        : axis === "2"
+          ? '<c:axId val="3"/><c:axId val="4"/>'
+          : '<c:axId val="1"/><c:axId val="2"/>'
       const main = group === groupOf(undefined)
       const grouping = main
         ? spec.grouping === "clustered"
@@ -403,7 +424,21 @@ export function chartSpaceXml(source: ChartSpec, workbookRelId?: string) {
         .map((index) => seriesXml(spec, index, group, rows))
         .join("")
       const labels = labelsXml(spec, group, text)
-      if (group === "bar") {
+      const grouping3d = threeD === "deep" ? "standard" : grouping
+      if (threeD && group === "bar") {
+        groups.push(
+          `<c:bar3DChart><c:barDir val="${spec.type === "bar" ? "bar" : "col"}"/><c:grouping val="${grouping3d}"/><c:varyColors val="0"/>${series}${labels}` +
+            `<c:gapWidth val="${Math.round(spec.gapWidth)}"/><c:shape val="box"/>${ids}</c:bar3DChart>`,
+        )
+      } else if (threeD && group === "line") {
+        groups.push(
+          `<c:line3DChart><c:grouping val="standard"/><c:varyColors val="0"/>${series}${labels}${spec.dropLines ? `<c:dropLines/>` : ""}${ids}</c:line3DChart>`,
+        )
+      } else if (threeD && group === "area") {
+        groups.push(
+          `<c:area3DChart><c:grouping val="${grouping3d}"/><c:varyColors val="0"/>${series}${labels}${spec.dropLines ? `<c:dropLines/>` : ""}${ids}</c:area3DChart>`,
+        )
+      } else if (group === "bar") {
         const stacked = grouping !== "clustered"
         groups.push(
           `<c:barChart><c:barDir val="${spec.type === "bar" ? "bar" : "col"}"/><c:grouping val="${grouping}"/><c:varyColors val="0"/>${series}${labels}` +
@@ -436,18 +471,25 @@ export function chartSpaceXml(source: ChartSpec, workbookRelId?: string) {
               `<c:delete val="1"/>`,
             )
           : axisXml(spec, "val", [2, 1], {})) +
-        `<c:serAx><c:axId val="3"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="${spec.axes.value ? 0 : 1}"/>` +
-        `<c:axPos val="b"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>` +
-        `<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>${textProps(spec.format["axis:value"]?.color || look.text, 9)}` +
-        `<c:crossAx val="2"/><c:crosses val="autoZero"/></c:serAx>`
+        seriesAxis(spec.axes.value)
       : spec.type === "scatter"
         ? scatterAxes(spec)
         : axisXml(spec, "cat", [1, 2], {}) +
           axisXml(spec, "val", [2, 1], {}) +
+          // The series axis of a deep 3-D chart: the app does not label its rows, so neither does Word.
+          (spec.threeD === "deep" || (spec.threeD && spec.type === "line") ? seriesAxis(false) : "") +
           (shown.some((item) => item.serie.secondary)
             ? axisXml(spec, "val", [4, 3], { secondary: true }) +
               axisXml(spec, "cat", [3, 4], { secondary: true }).replace(`<c:delete val="0"/>`, `<c:delete val="1"/>`)
             : "")
+  function seriesAxis(shownAxis: boolean) {
+    return (
+      `<c:serAx><c:axId val="3"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="${shownAxis ? 0 : 1}"/>` +
+      `<c:axPos val="b"/><c:majorTickMark val="none"/><c:minorTickMark val="none"/><c:tickLblPos val="nextTo"/>` +
+      `<c:spPr><a:noFill/><a:ln><a:noFill/></a:ln></c:spPr>${textProps(spec.format["axis:value"]?.color || look.text, 9)}` +
+      `<c:crossAx val="2"/><c:crosses val="autoZero"/></c:serAx>`
+    )
+  }
   const table =
     spec.dataTable && !round
       ? `<c:dTable><c:showHorzBorder val="1"/><c:showVertBorder val="1"/><c:showOutline val="1"/><c:showKeys val="1"/>${textProps(look.text, 9)}</c:dTable>`
@@ -477,7 +519,13 @@ export function chartSpaceXml(source: ChartSpec, workbookRelId?: string) {
   const walls = `<c:floor><c:thickness val="0"/></c:floor><c:sideWall><c:thickness val="0"/></c:sideWall><c:backWall><c:thickness val="0"/></c:backWall>`
   const view3d =
     spec.type !== "surface"
-      ? ""
+      ? spec.type === "pie" && spec.threeD && !spec.ofPie
+        ? `<c:view3D><c:rotX val="30"/><c:rotY val="0"/><c:rAngAx val="0"/></c:view3D>`
+        : spec.threeD && !round && spec.type !== "scatter"
+          ? spec.threeD === "deep" || spec.type === "line"
+            ? `<c:view3D><c:rotX val="15"/><c:rotY val="20"/><c:rAngAx val="0"/><c:perspective val="30"/></c:view3D>${walls}`
+            : `<c:view3D><c:rotX val="15"/><c:rotY val="20"/><c:rAngAx val="1"/></c:view3D>${walls}`
+          : ""
       : spec.contour
         ? `<c:view3D><c:rotX val="90"/><c:rotY val="0"/><c:rAngAx val="0"/><c:perspective val="0"/></c:view3D>${walls}`
         : `<c:view3D><c:rotX val="15"/><c:rotY val="20"/><c:rAngAx val="0"/><c:perspective val="30"/></c:view3D>${walls}`
@@ -852,6 +900,18 @@ export function readChartSpace(xml: string): ChartSpec | null {
   } else if (spec.type === "pie" || spec.type === "doughnut") {
     spec.firstSliceAngle = Number(value(first, "firstSliceAng") ?? 0)
     spec.holeSize = Number(value(first, "holeSize") ?? 75)
+  }
+  // Word's 3-D charts: "standard" grouping puts each series in a row of its own; a 3-D line always does.
+  if (["bar3DChart", "line3DChart", "area3DChart"].includes(first.name)) {
+    spec.threeD = first.name === "line3DChart" || grouping === "standard" ? "deep" : "front"
+  } else if (first.name === "pie3DChart") {
+    spec.threeD = "front"
+  } else if (first.name === "ofPieChart") {
+    spec.ofPie = value(first, "ofPieType") === "bar" ? "bar" : "pie"
+    const split = Number(value(first, "splitPos"))
+    if ((value(first, "splitType") ?? "auto") === "pos" && Number.isFinite(split) && split > 0) {
+      spec.ofPieSplit = split
+    }
   }
   // Title.
   const title = child(chart, "title")

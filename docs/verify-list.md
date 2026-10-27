@@ -243,6 +243,15 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Move the toolbar below the ribbon and turn on command labels; check light and dark mode and the Simplified ribbon.
 - Dark mode: icons added in light mode keep their accent colours; check they still read on the dark title bar.
 
+## 3-D charts, Pie of Pie and Bar of Pie (2026-10-27)
+
+- Save one of each new chart and open the file in Word: each is the same kind (Change Chart Type shows it), with
+  the same data. Pie of Pie and Bar of Pie put the same last points in the second plot.
+- Compare each with Word's own chart of the same data, side by side.
+- Open Word's 3-D charts and an of-pie chart split by value: what each opens as here.
+- Desktop app: the 3-D drawing in WebKitGTK.
+- The Chart button's own menu on Insert draws its six thumbnails cramped (seen while checking; not changed here).
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

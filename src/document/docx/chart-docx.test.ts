@@ -5,7 +5,7 @@ import { openDocxBytes, saveDocxBytes } from "@/document/docx/io"
 import { findPart, openPackage, relationshipsFor } from "@/document/docx/opc"
 import { decodeXml } from "@/document/docx/xml"
 import { readZip } from "@/document/docx/zip"
-import { defaultChartSpec, serializeChartSpec, withVariant, type ChartSpec } from "@/editor/chart-spec"
+import { defaultChartSpec, serializeChartSpec, variantOf, withVariant, type ChartSpec } from "@/editor/chart-spec"
 
 // A 1×1 transparent PNG: the picture a chart is rasterised to before saving, which Word's chart replaces.
 const PNG =
@@ -188,6 +188,60 @@ describe("charts in .docx", () => {
         id,
       ).toEqual(spec.series.map((serie) => serie.type ?? null))
     }
+  })
+})
+
+describe("3-D charts, Pie of Pie and Bar of Pie (22.6)", () => {
+  const ids = [
+    "column-3d-clustered",
+    "column-3d-stacked",
+    "column-3d-percent",
+    "column-3d",
+    "hbar-3d-clustered",
+    "hbar-3d-percent",
+    "line-3d",
+    "area-3d",
+    "area-3d-stacked",
+    "pie-3d",
+    "pie-of-pie",
+    "bar-of-pie",
+  ]
+
+  it.each(ids)("saves %s as Word's chart of that kind and opens it as the same variant", (id) => {
+    const spec = withVariant(defaultChartSpec(id), id)
+    const xml = chartSpaceXml(spec)
+    const read = readChartSpace(xml)!
+    expect(variantOf(read)).toBe(id)
+    expect(read.series.map((serie) => serie.values)).toEqual(spec.series.map((serie) => serie.values))
+  })
+
+  it("writes Word's elements: the 3-D groups with their view and axes, and the split of an of-pie chart", () => {
+    const deep = chartSpaceXml(withVariant(defaultChartSpec("column-3d"), "column-3d"))
+    expect(deep).toContain('<c:bar3DChart><c:barDir val="col"/><c:grouping val="standard"/>')
+    expect(deep).toMatch(/<c:shape val="box"\/><c:axId val="1"\/><c:axId val="2"\/><c:axId val="3"\/><\/c:bar3DChart>/)
+    expect(deep).toContain("<c:serAx>")
+    expect(deep).toMatch(/<c:view3D>.*<c:perspective val="30"\/><\/c:view3D><c:floor>/)
+    const front = chartSpaceXml(withVariant(defaultChartSpec("hbar-3d-stacked"), "hbar-3d-stacked"))
+    expect(front).toContain('<c:barDir val="bar"/><c:grouping val="stacked"/>')
+    expect(front).toContain('<c:axId val="0"/>')
+    expect(front).not.toContain("<c:serAx>")
+    expect(front).not.toContain("<c:overlap")
+    expect(chartSpaceXml(withVariant(defaultChartSpec("line-3d"), "line-3d"))).toContain(
+      '<c:line3DChart><c:grouping val="standard"/>',
+    )
+    const pie3d = chartSpaceXml(withVariant(defaultChartSpec("pie-3d"), "pie-3d"))
+    expect(pie3d).toContain("<c:pie3DChart><c:varyColors val=\"1\"/>")
+    expect(pie3d).toContain('<c:rotX val="30"/>')
+    const ofPie = chartSpaceXml(withVariant(defaultChartSpec("bar-of-pie"), "bar-of-pie"))
+    expect(ofPie).toMatch(
+      /<c:ofPieChart><c:ofPieType val="bar"\/><c:varyColors val="1"\/>.*<c:gapWidth val="100"\/><c:splitType val="pos"\/><c:splitPos val="2"\/><c:secondPieSize val="75"\/><c:serLines\/><\/c:ofPieChart>/,
+    )
+    expect(ofPie).not.toContain("view3D")
+  })
+
+  it("keeps the split Word gave an of-pie chart", () => {
+    const spec = { ...withVariant(defaultChartSpec("pie-of-pie"), "pie-of-pie"), ofPieSplit: 1 }
+    expect(readChartSpace(chartSpaceXml(spec))!.ofPieSplit).toBe(1)
   })
 })
 

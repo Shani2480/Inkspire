@@ -7,6 +7,54 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Charts: the 3-D variants, Pie of Pie and Bar of Pie
+
+- **Missing:** Insert Chart had none of Word's 3-D charts, and no Pie of Pie or Bar of Pie.
+- **Changed:**
+  - **New variants** in Insert Chart and Change Chart Type (`CHART_FAMILIES` in `src/editor/chart-spec.ts`):
+    - **Column:** 3-D Clustered Column, 3-D Stacked Column, 3-D 100% Stacked Column, 3-D Column.
+    - **Line:** 3-D Line.
+    - **Pie:** 3-D Pie, Pie of Pie, Bar of Pie.
+    - **Bar:** 3-D Clustered, Stacked and 100% Stacked Bar.
+    - **Area:** 3-D Area, 3-D Stacked Area, 3-D 100% Stacked Area.
+  - **The spec:** two new fields.
+    - `threeD`: "front" for a chart drawn as it is but with depth; "deep" for 3-D Column, 3-D Line and 3-D Area,
+      where each series is a row of its own, the first at the front.
+    - `ofPie` ("pie" or "bar") and `ofPieSplit`, the number of last points drawn again (default half the points,
+      at most three).
+  - **3-D drawing:** an oblique view going back up to the right, as Word's default rotation.
+    - The plot area becomes a back wall, a side wall and a floor, with gridlines running across the floor and
+      along the back.
+    - Bars are boxes with a lighter top and darker side. Areas get a top and an end. 3-D Line is a ribbon with a
+      front edge.
+    - Farther rows are drawn first.
+  - **3-D Pie:** tilted 30°, with the rim showing at the front.
+  - **Pie of Pie / Bar of Pie:** the first points and an Other slice facing the second plot, the last points as a
+    smaller pie or a stacked bar, joined to Other by two lines.
+  - **.docx** (`chart-xml.ts`): written as Word's own `c:bar3DChart` (shape box; grouping `standard` for a deep
+    chart), `c:line3DChart`, `c:area3DChart`, `c:pie3DChart` and `c:ofPieChart`.
+    - Each has `c:view3D` (perspective for a deep chart, right-angle axes otherwise, 30° for the pie) and the walls.
+    - A deep chart also gets a `c:serAx`; a front chart's third axis id is 0, as Word writes.
+    - An of-pie chart is split by position, with `splitPos`, `secondPieSize` 75 and `serLines`.
+    - Word's 3-D and of-pie charts open as these variants, keeping Word's split.
+- **Also fixed:** a lint error in `table-draw.ts` (an unused first value).
+- **Tests:**
+  - `chart-docx.test.ts`: each of the 12 saved and opened as the same variant; Word's elements, axes and view;
+    the split kept.
+  - `chart-spec.test.ts`: walls and faces drawn; the of-pie split and its second plot.
+- **Checked:**
+  - In Chrome: the new tiles and previews in Insert Chart, and Bar of Pie inserted.
+  - All nine saved to a .docx and opened in LibreOffice, which drew each as a real 3-D, Pie of Pie or Bar of Pie
+    chart.
+  - All 1029 tests pass.
+- **Still open:**
+  - 3-D Rotation (X, Y, perspective) can't be changed, and the series axis of a deep chart is not labelled.
+  - A 3-D Pie's slices show no cut faces when exploded.
+  - Of-pie: only the split by position (not by value, percentage or custom), and Other takes the next palette
+    colour.
+  - Stock with Volume, Map and Templates are still not done.
+  - Not opened in Word itself.
+
 ### Quick Access Toolbar: any ribbon command, below the ribbon, with labels
 
 - **Missing:** the Quick Access Toolbar could hold only eleven commands (New, Open, Save, Undo, Bold…). Word lets any
