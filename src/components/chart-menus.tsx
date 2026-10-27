@@ -198,6 +198,18 @@ function isRound(spec: ChartSpec) {
 }
 
 /** Word's chart elements, each with its placements and the Format pane part its More Options opens. */
+/** Word lists the gridlines by direction, whichever axis draws them (a bar chart's value axis runs across). */
+const GRIDLINE_ORDER = [
+  "Primary Major Horizontal",
+  "Primary Major Vertical",
+  "Primary Minor Horizontal",
+  "Primary Minor Vertical",
+]
+
+function sortedGridlines(choices: Choice[]) {
+  return [...choices].sort((a, b) => GRIDLINE_ORDER.indexOf(a.label) - GRIDLINE_ORDER.indexOf(b.label))
+}
+
 export function chartElements(spec: ChartSpec): {
   id: string
   label: string
@@ -212,6 +224,10 @@ export function chartElements(spec: ChartSpec): {
   const round = !chartHasAxes(spec.type)
   const ownRules = isStatisticChart(spec.type)
   const horizontal = spec.type === "bar"
+  // Word's funnel has one axis, its categories down the side: no value axis, axis titles or gridlines.
+  const funnel = spec.type === "funnel"
+  // A chart with a second value axis offers it as Secondary Vertical (a Pareto's percentages, a combo's).
+  const secondary = Boolean(spec.pareto) || spec.series.some((serie) => serie.secondary)
   const trendable = !round && !ownRules && spec.type !== "radar" && spec.grouping === "clustered"
   return [
     {
@@ -219,38 +235,58 @@ export function chartElements(spec: ChartSpec): {
       label: "Axes",
       part: "axis:value",
       more: "More Axis Options…",
-      shown: !round && (spec.axes.category || spec.axes.value),
+      shown: !round && (spec.axes.category || (!funnel && spec.axes.value)),
       disabled: round,
       toggle: (current) => {
-        const on = !(current.axes.category || current.axes.value)
-        return { ...current, axes: { category: on, value: on } }
+        const on = !(current.axes.category || (!funnel && current.axes.value))
+        return { ...current, axes: { category: on, value: on && !funnel, secondary: on } }
       },
-      choices: [
-        {
-          label: "Primary Horizontal",
-          on: (current) => (horizontal ? current.axes.value : current.axes.category),
-          change: (current) =>
-            horizontal
-              ? { ...current, axes: { ...current.axes, value: !current.axes.value } }
-              : { ...current, axes: { ...current.axes, category: !current.axes.category } },
-        },
-        {
-          label: "Primary Vertical",
-          on: (current) => (horizontal ? current.axes.category : current.axes.value),
-          change: (current) =>
-            horizontal
-              ? { ...current, axes: { ...current.axes, category: !current.axes.category } }
-              : { ...current, axes: { ...current.axes, value: !current.axes.value } },
-        },
-      ],
+      choices: funnel
+        ? [
+            {
+              label: "Primary Vertical",
+              on: (current) => current.axes.category,
+              change: (current) => ({ ...current, axes: { ...current.axes, category: !current.axes.category } }),
+            },
+          ]
+        : [
+            {
+              label: "Primary Horizontal",
+              on: (current) => (horizontal ? current.axes.value : current.axes.category),
+              change: (current) =>
+                horizontal
+                  ? { ...current, axes: { ...current.axes, value: !current.axes.value } }
+                  : { ...current, axes: { ...current.axes, category: !current.axes.category } },
+            },
+            {
+              label: "Primary Vertical",
+              on: (current) => (horizontal ? current.axes.category : current.axes.value),
+              change: (current) =>
+                horizontal
+                  ? { ...current, axes: { ...current.axes, category: !current.axes.category } }
+                  : { ...current, axes: { ...current.axes, value: !current.axes.value } },
+            },
+            ...(secondary
+              ? [
+                  {
+                    label: "Secondary Vertical",
+                    on: (current: ChartSpec) => current.axes.secondary !== false,
+                    change: (current: ChartSpec) => ({
+                      ...current,
+                      axes: { ...current.axes, secondary: current.axes.secondary === false },
+                    }),
+                  },
+                ]
+              : []),
+          ],
     },
     {
       id: "axisTitles",
       label: "Axis Titles",
       part: "axisTitle:value",
       more: "More Axis Title Options…",
-      shown: !round && (spec.axisTitles.category.show || spec.axisTitles.value.show),
-      disabled: round,
+      shown: !round && !funnel && (spec.axisTitles.category.show || spec.axisTitles.value.show),
+      disabled: round || funnel,
       toggle: (current) => {
         const on = !(current.axisTitles.category.show || current.axisTitles.value.show)
         return {
@@ -346,10 +382,16 @@ export function chartElements(spec: ChartSpec): {
       label: "Gridlines",
       part: "gridlines",
       more: "More Gridline Options…",
-      shown: !round && (spec.gridlines.major || spec.gridlines.minor || spec.gridlines.vertical),
-      disabled: round,
+      shown:
+        !round &&
+        !funnel &&
+        (spec.gridlines.major ||
+          spec.gridlines.minor ||
+          spec.gridlines.vertical ||
+          Boolean(spec.gridlines.minorVertical)),
+      disabled: round || funnel,
       toggle: (current) => ({ ...current, gridlines: { ...current.gridlines, major: !current.gridlines.major } }),
-      choices: [
+      choices: sortedGridlines([
         {
           label: horizontal ? "Primary Major Vertical" : "Primary Major Horizontal",
           on: (current) => current.gridlines.major,
@@ -368,7 +410,15 @@ export function chartElements(spec: ChartSpec): {
           on: (current) => current.gridlines.minor,
           change: (current) => ({ ...current, gridlines: { ...current.gridlines, minor: !current.gridlines.minor } }),
         },
-      ],
+        {
+          label: horizontal ? "Primary Minor Horizontal" : "Primary Minor Vertical",
+          on: (current) => Boolean(current.gridlines.minorVertical),
+          change: (current) => ({
+            ...current,
+            gridlines: { ...current.gridlines, minorVertical: !current.gridlines.minorVertical },
+          }),
+        },
+      ]),
     },
     {
       id: "legend",

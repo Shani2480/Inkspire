@@ -196,8 +196,10 @@ export type ChartSpec = {
   series: ChartSeries[]
   title: { show: boolean; text: string }
   axisTitles: { category: { show: boolean; text: string }; value: { show: boolean; text: string } }
-  axes: { category: boolean; value: boolean }
-  gridlines: { major: boolean; minor: boolean; vertical: boolean }
+  /** `secondary`: the right-hand value axis of a chart with one (a Pareto's, a combo's); shown unless false. */
+  axes: { category: boolean; value: boolean; secondary?: boolean }
+  /** Major and minor across the value axis; `vertical` and `minorVertical` across the category axis. */
+  gridlines: { major: boolean; minor: boolean; vertical: boolean; minorVertical?: boolean }
   legend: LegendPosition
   dataLabels: LabelPosition
   labelContent: LabelContent
@@ -1503,7 +1505,7 @@ function cartesian(painter: Painter, box: Box, series: Serie[], entries: { name:
   } else {
     plot.x += valueLabelWidth
     plot.w -= valueLabelWidth
-    if (scale2) {
+    if (scale2 && spec.axes.secondary !== false) {
       const width2 = Math.max(...scale2.ticks.map((tick) => formatNumber(tick).length)) * CHAR + 8
       plot.w -= width2
     }
@@ -1618,6 +1620,20 @@ function cartesian(painter: Painter, box: Box, series: Serie[], entries: { name:
   if (spec.gridlines.major) {
     scale.ticks.forEach((tick) => gridAt(tick))
   }
+  if (spec.gridlines.minorVertical) {
+    // Across the category axis: halfway between a scatter's ticks, through the middle of each category otherwise.
+    const minor = xScale
+      ? xScale.ticks.slice(0, -1).map((tick) => toX(tick + xScale.step / 2))
+      : Array.from({ length: count }, (_, column) => (horizontal ? plot.y : plot.x) + (column + 0.5) * band)
+    const stroke = shade(gridLine.stroke, 0.5)
+    for (const at of minor) {
+      grid.push(
+        horizontal && !xScale
+          ? `<line x1="${n(plot.x)}" y1="${n(at)}" x2="${n(plot.x + plot.w)}" y2="${n(at)}" stroke="${stroke}" stroke-width="${gridLine.width}"/>`
+          : `<line x1="${n(at)}" y1="${n(plot.y)}" x2="${n(at)}" y2="${n(plot.y + plot.h)}" stroke="${stroke}" stroke-width="${gridLine.width}"/>`,
+      )
+    }
+  }
   if (spec.gridlines.vertical) {
     if (xScale) {
       xScale.ticks.forEach((tick) => {
@@ -1657,7 +1673,7 @@ function cartesian(painter: Painter, box: Box, series: Serie[], entries: { name:
     })
     painter.out.push(`<g data-chart-part="axis:value">${labels.join("")}</g>`)
   }
-  if (scale2) {
+  if (scale2 && spec.axes.secondary !== false) {
     const labels = scale2.ticks.map((tick) => {
       const at = toValue(tick, scale2)
       return `<text x="${n(plot.x + plot.w + 6)}" y="${n(at + 4)}" ${valueText}>${escapeXml(formatNumber(tick, spec.pareto ? "0%" : "General"))}</text>`

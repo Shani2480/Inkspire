@@ -83,7 +83,8 @@ export function histogramBins(values: number[], bins: HistogramBins = { by: "aut
   const low = Math.min(...values)
   const high = Math.max(...values)
   const under = Number.isFinite(bins.underflow) ? bins.underflow! : undefined
-  const over = Number.isFinite(bins.overflow) && (under === undefined || bins.overflow! > under) ? bins.overflow! : undefined
+  const over =
+    Number.isFinite(bins.overflow) && (under === undefined || bins.overflow! > under) ? bins.overflow! : undefined
   const start = under ?? low
   const end = Math.max(start, over ?? high)
   const span = end - start
@@ -113,7 +114,11 @@ export function histogramBins(values: number[], bins: HistogramBins = { by: "aut
       `${index === 0 && under === undefined ? "[" : "("}${label(start + index * width)}, ${label(start + (index + 1) * width)}]`,
   )
   return {
-    labels: [...(under !== undefined ? [`≤${label(under)}`] : []), ...labels, ...(over !== undefined ? [`>${label(over)}`] : [])],
+    labels: [
+      ...(under !== undefined ? [`≤${label(under)}`] : []),
+      ...labels,
+      ...(over !== undefined ? [`>${label(over)}`] : []),
+    ],
     counts: [...(under !== undefined ? [below] : []), ...counts, ...(over !== undefined ? [above] : [])],
     /** The bin width and the number of bins between the underflow and overflow bins, as chosen. */
     width,
@@ -215,7 +220,11 @@ export function setWaterfallTotal(spec: ChartSpec, index: number, on: boolean): 
       categories: [...next.categories, "Total"],
       series: next.series.map((item) => ({
         ...item,
-        values: [...item.values, ...Array(next.categories.length - item.values.length).fill(Number.NaN), item === first ? sum : Number.NaN],
+        values: [
+          ...item.values,
+          ...Array(next.categories.length - item.values.length).fill(Number.NaN),
+          item === first ? sum : Number.NaN,
+        ],
       })),
       waterfallTotals: [next.categories.length],
     }
@@ -290,6 +299,13 @@ function funnel(spec: ChartSpec): ChartSpec {
     legend: "none",
     gapWidth: 30,
     overlap: 100,
+    // Word's funnel has one axis, the categories down its side, and no gridlines or axis titles.
+    axes: { category: spec.axes.category, value: false },
+    gridlines: { major: false, minor: false, vertical: false, minorVertical: false },
+    axisTitles: {
+      category: { ...spec.axisTitles.category, show: false },
+      value: { ...spec.axisTitles.value, show: false },
+    },
   }
 }
 

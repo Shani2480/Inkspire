@@ -196,16 +196,23 @@ export function chartExXml(source: ChartSpec, workbookRelId?: string) {
   if (spec.pareto) {
     series.push(`<cx:series layoutId="paretoLine" ownerIdx="0"><cx:axisId>2</cx:axisId></cx:series>`)
   }
-  const gridlines = spec.gridlines.major ? "<cx:majorGridlines/>" : ""
+  // Each axis: hidden or not, its title, its major and minor gridlines (across the categories: `vertical`).
+  const axisTitle = (title: { show: boolean; text: string }) =>
+    title.show ? `<cx:title>${text(title.text)}</cx:title>` : ""
+  const grid = (major: boolean | undefined, minor: boolean | undefined) =>
+    `${major ? "<cx:majorGridlines/>" : ""}${minor ? "<cx:minorGridlines/>" : ""}`
+  const hidden = (shown: boolean | undefined) => (shown === false ? ` hidden="1"` : "")
   const axes =
     spec.type === "treemap" || spec.type === "sunburst"
       ? ""
       : spec.type === "funnel"
-        ? `<cx:axis id="0"><cx:catScaling gapWidth="0.06"/><cx:tickLabels/></cx:axis>`
-        : `<cx:axis id="0"${spec.axes.category ? "" : ` hidden="1"`}><cx:catScaling gapWidth="${spec.type === "histogram" ? 0 : 0.5}"/><cx:tickLabels/></cx:axis>` +
-          `<cx:axis id="1"${spec.axes.value ? "" : ` hidden="1"`}><cx:valScaling/>${gridlines}<cx:tickLabels/></cx:axis>` +
+        ? `<cx:axis id="0"${hidden(spec.axes.category)}><cx:catScaling gapWidth="0.06"/><cx:tickLabels/></cx:axis>`
+        : `<cx:axis id="0"${hidden(spec.axes.category)}><cx:catScaling gapWidth="${spec.type === "histogram" ? 0 : 0.5}"/>` +
+          `${axisTitle(spec.axisTitles.category)}${grid(spec.gridlines.vertical, spec.gridlines.minorVertical)}<cx:tickLabels/></cx:axis>` +
+          `<cx:axis id="1"${hidden(spec.axes.value)}><cx:valScaling/>${axisTitle(spec.axisTitles.value)}` +
+          `${grid(spec.gridlines.major, spec.gridlines.minor)}<cx:tickLabels/></cx:axis>` +
           (spec.pareto
-            ? `<cx:axis id="2"><cx:valScaling max="1" min="0"/><cx:units unit="percentage"/><cx:tickLabels/></cx:axis>`
+            ? `<cx:axis id="2"${hidden(spec.axes.secondary)}><cx:valScaling max="1" min="0"/><cx:units unit="percentage"/><cx:tickLabels/></cx:axis>`
             : "")
   const title = spec.title.show ? `<cx:title pos="t" align="ctr" overlay="0">${text(spec.title.text)}</cx:title>` : ""
   const legend = LEGEND[spec.legend] ? `<cx:legend pos="${LEGEND[spec.legend]}" align="ctr" overlay="0"/>` : ""
@@ -284,6 +291,35 @@ function textOf(element: Element | undefined) {
 }
 
 /** A chartex part as the app's chart; null for kinds the app does not draw (Map) or a part it cannot read. */
+/** Word's axes: shown or hidden, their titles, and their gridlines (a category axis' run up the chart). */
+function readAxes(spec: ChartSpec, axes: Element[]) {
+  if (!axes.length) {
+    return
+  }
+  const shown = (axis: Element) => axis.attrs.hidden !== "1" && axis.attrs.hidden !== "true"
+  const titleOf = (axis: Element) => {
+    const title = child(axis, "title")
+    return { show: Boolean(title), text: (title && textOf(child(title, "tx"))) || "Axis Title" }
+  }
+  const category = axes.find((axis) => child(axis, "catScaling"))
+  const [value, second] = axes.filter((axis) => child(axis, "valScaling"))
+  if (category) {
+    spec.axes.category = shown(category)
+    spec.axisTitles.category = titleOf(category)
+    spec.gridlines.vertical = Boolean(child(category, "majorGridlines"))
+    spec.gridlines.minorVertical = Boolean(child(category, "minorGridlines"))
+  }
+  if (value) {
+    spec.axes.value = shown(value)
+    spec.axisTitles.value = titleOf(value)
+    spec.gridlines.major = Boolean(child(value, "majorGridlines"))
+    spec.gridlines.minor = Boolean(child(value, "minorGridlines"))
+  }
+  if (second && !shown(second)) {
+    spec.axes.secondary = false
+  }
+}
+
 export function readChartEx(xml: string): ChartSpec | null {
   const root = tree(xml)
   const chart = child(root ?? undefined, "chart")
@@ -418,6 +454,7 @@ export function readChartEx(xml: string): ChartSpec | null {
     show: Boolean(title),
     text: title ? textOf(child(title, "tx")) || spec.title.text : spec.title.text,
   }
+  readAxes(spec, children(child(chart, "plotArea"), "axis"))
   const legend = child(chart, "legend")
   const position = Object.entries(LEGEND).find(([, value]) => value === legend?.attrs.pos)?.[0] as
     LegendPosition | undefined

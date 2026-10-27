@@ -7,6 +7,40 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Charts against Word's menus: Funnel's axes, the secondary axis, Primary Minor Vertical gridlines, chartex axes
+
+- **What was wrong:**
+  - Add Chart Element offered Funnel the same Axes, Axis Titles and Gridlines as a column chart; Word offers only
+    Primary Vertical (the category names) and no axis titles or gridlines. The app also drew a value axis and
+    gridlines on a new funnel.
+  - There was no Secondary Vertical choice under Axes for a Pareto or a chart with a series on the secondary axis,
+    so its right axis could not be hidden.
+  - Gridlines had three choices; Word has four (Primary Major Horizontal, Primary Major Vertical, Primary Minor
+    Horizontal, Primary Minor Vertical), in that order.
+  - Word's chartex charts (Histogram, Pareto, Waterfall, Box & Whisker, Funnel) were written without the axes'
+    `hidden`, their titles or gridlines, and those were not read back.
+- **What changed:**
+  - `chart-spec.ts`: `axes.secondary` (shown unless false) and `gridlines.minorVertical`; minor vertical
+    gridlines are drawn between the major ones (category centres, or midway between a scatter chart's ticks); the
+    secondary axis is left out when `axes.secondary` is false.
+  - `chart-expand.ts`: a funnel draws no value axis, gridlines or axis titles.
+  - `chart-menus.tsx` (`chartElements`): Funnel's Axes has only Primary Vertical, its Axis Titles and Gridlines
+    are off; Secondary Vertical is offered when the chart is a Pareto or a series is on the secondary axis;
+    Primary Minor Vertical added, the four in Word's order.
+  - `chart-xml.ts`: the secondary value axis is `c:delete`d when hidden; the category axis writes
+    `c:minorGridlines` for Primary Minor Vertical; both are read back.
+  - `chartex-xml.ts`: each axis is written with `hidden`, its title (`cx:title`) and its major/minor gridlines;
+    `readAxes` reads them back.
+- **Tests:** `chart-menus.test.ts` (Funnel's menu; Secondary Vertical and the four gridlines), `chartex.test.ts`
+  (axes, titles and gridlines round trip), `chart-docx.test.ts` (minor vertical gridlines and a hidden secondary
+  axis round trip). 1111 tests pass; the type-check is clean.
+- **Checked:** a saved .docx with a Pareto (secondary hidden, axis titles, all gridlines), a column chart with
+  minor vertical gridlines and a hidden secondary axis, and a funnel passes the Open XML validator with no errors.
+  Drawn in Chrome: the funnel with only its category names, the column chart's minor vertical gridlines, and the
+  Pareto with and without its right axis.
+- **Open:** not opened in Word. Secondary axis titles (Secondary Horizontal/Vertical under Axis Titles) and the
+  Data Labels choices for the chartex kinds were not compared with Word.
+
 ### Customize Ribbon round 2: Reset ▾, a main tab's own groups, the user's groups on the single line
 
 - **What was wrong:**

@@ -187,6 +187,25 @@ describe("Word's chartex charts (Histogram, Pareto, Waterfall, Funnel, Box & Whi
     expect(typed.series[0]!.texts).toEqual(["Low", "High", "Low", "High"])
   })
 
+  it("writes and reads each axis: hidden, its title and its gridlines, and a Pareto's percentage axis hidden", () => {
+    const spec = defaultChartSpec("pareto")
+    spec.axes = { category: true, value: false, secondary: false }
+    spec.axisTitles = { category: { show: true, text: "Bins" }, value: { show: false, text: "Axis Title" } }
+    spec.gridlines = { major: false, minor: true, vertical: true, minorVertical: true }
+    const xml = chartExXml(spec, "rId1")
+    expect(xml).toContain(`<cx:axis id="1" hidden="1">`)
+    expect(xml).toContain(`<cx:axis id="2" hidden="1">`)
+    const read = readChartEx(xml)!
+    expect(read.axes).toEqual({ category: true, value: false, secondary: false })
+    expect(read.axisTitles.category).toEqual({ show: true, text: "Bins" })
+    expect(read.axisTitles.value.show).toBe(false)
+    expect(read.gridlines).toEqual({ major: false, minor: true, vertical: true, minorVertical: true })
+    // A funnel's one axis, hidden.
+    const funnel = defaultChartSpec("funnel")
+    funnel.axes = { ...funnel.axes, category: false }
+    expect(readChartEx(chartExXml(funnel, "rId1"))!.axes.category).toBe(false)
+  })
+
   it("saves a Filled Map as its picture, which opens as the map again", async () => {
     const spec = { ...defaultChartSpec("filled-map"), mapProjection: "miller" as const }
     const bytes = await save(spec)
