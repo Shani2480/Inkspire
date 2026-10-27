@@ -460,6 +460,8 @@ export function paintTextBoxBody(body: HTMLElement, node: ProseNode) {
     color: text.color,
     webkitTextStroke: text.webkitTextStroke,
     textShadow: text.textShadow,
+    // Align Left, Center, Right and Justify apply to the box's text as a whole.
+    textAlign: typeof attrs.textAlign === "string" ? attrs.textAlign : "",
   })
 }
 
@@ -529,6 +531,12 @@ export const TextBox = Node.create({
         renderHTML: (attributes) => (attributes.linkId ? { "data-link-id": String(attributes.linkId) } : {}),
       },
       linkSeq: numberAttr("linkSeq", "data-link-seq", 0),
+      // A box opened from Word: its look and text as Word wrote them, so saving it unchanged keeps Word's drawing.
+      wordBox: {
+        default: "",
+        parseHTML: (element) => element.getAttribute("data-word-box") || "",
+        renderHTML: (attributes) => (attributes.wordBox ? { "data-word-box": String(attributes.wordBox) } : {}),
+      },
       ...shapeStyleAttributes(),
       ...textBoxStyleAttributes(),
     }

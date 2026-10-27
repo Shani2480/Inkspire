@@ -128,11 +128,24 @@ function themeFill(themeXml: string | null, reference: RegExpExecArray | null) {
   return own ? (fills[index - 1]?.[0] ?? "").replace(/<a:schemeClr val="phClr"/g, own) : ""
 }
 
-/** A colour element (`srgbClr` or `schemeClr`, with its shade / tint / lumMod children) as a hex colour. */
+/** DrawingML's preset colours Word writes (`a:prstClr`), such as a text box's black outline. */
+const PRESET_COLORS: Record<string, string> = {
+  black: "#000000",
+  white: "#ffffff",
+  red: "#ff0000",
+  green: "#008000",
+  blue: "#0000ff",
+  yellow: "#ffff00",
+  gray: "#808080",
+  grey: "#808080",
+}
+
+/** A colour element (`srgbClr`, `schemeClr` or `prstClr`, with its shade / tint / lumMod children) as a hex colour. */
 export function colorOf(markup: string, scheme: Map<string, string>): string {
   const srgb = /<a:srgbClr val="([0-9A-Fa-f]{6})"/.exec(markup)
   const named = /<a:schemeClr val="(\w+)"/.exec(markup)
-  let base = srgb ? `#${(srgb[1] ?? "").toLowerCase()}` : ""
+  const preset = /<a:prstClr val="(\w+)"/.exec(markup)?.[1]
+  let base = srgb ? `#${(srgb[1] ?? "").toLowerCase()}` : (PRESET_COLORS[preset ?? ""] ?? "")
   if (!base && named) {
     const name = named[1] ?? ""
     base = scheme.get(SCHEME_NAMES[name] ?? name) ?? ""
@@ -193,6 +206,38 @@ export function readWordShape(xml: string, themeXml: string | null): WordShape |
   if (!preset || !variant) {
     return null
   }
+  const look = readShapeLook(shape, themeXml)
+  const body = /<w:txbxContent>([\s\S]*?)<\/w:txbxContent>/.exec(shape)?.[1] ?? ""
+  const text = [...body.matchAll(/<w:p[\s>][\s\S]*?<\/w:p>/g)]
+    .map((paragraph) =>
+      [...paragraph[0].matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/g)]
+        .map((item) => unescapeText(item[1] ?? ""))
+        .join(""),
+    )
+    .join("\n")
+  const textFont = /<w:rFonts\b[^>]*\bw:ascii="([^"]+)"/.exec(body)?.[1]
+  const textColor = /<w:color w:val="([0-9A-Fa-f]{6})"/.exec(body)?.[1]
+  const textSize = Number(/<w:sz w:val="(\d+)"/.exec(body)?.[1])
+  return {
+    preset,
+    variant,
+    points,
+    fill: look.fill,
+    stroke: look.stroke,
+    strokeWidth: look.strokeWidth,
+    text,
+    textFont: textFont ? unescapeText(textFont) : "",
+    textColor: textColor ? `#${textColor.toLowerCase()}` : "",
+    textSize: Number.isFinite(textSize) && textSize > 0 ? textSize / 2 : 0,
+    textBold: /<w:b\/>|<w:b w:val="(?:1|true)"\/>/.test(body),
+    dash: look.dash,
+    gradient: look.gradient,
+    ...look.effects,
+  }
+}
+
+/** The fill, outline and effects of a `wps:wsp`: its own `spPr`, else its `wps:style` references to the theme. */
+export function readShapeLook(shape: string, themeXml: string | null) {
   const scheme = schemeColors(themeXml)
   const properties = /<wps:spPr[\s>][\s\S]*?<\/wps:spPr>/.exec(shape)?.[0] ?? ""
   const style = /<wps:style>[\s\S]*?<\/wps:style>/.exec(shape)?.[0] ?? ""
@@ -233,32 +278,15 @@ export function readWordShape(xml: string, themeXml: string | null): WordShape |
   const styleIndex = Number(lineRef?.[1] ?? 0)
   const emu = Number.isFinite(width) && width > 0 ? width : (STYLE_LINE_EMU[styleIndex] ?? 0)
   const effects = readEffects(properties, scheme)
-  const body = /<w:txbxContent>([\s\S]*?)<\/w:txbxContent>/.exec(shape)?.[1] ?? ""
-  const text = [...body.matchAll(/<w:p[\s>][\s\S]*?<\/w:p>/g)]
-    .map((paragraph) =>
-      [...paragraph[0].matchAll(/<w:t(?:\s[^>]*)?>([\s\S]*?)<\/w:t>/g)]
-        .map((item) => unescapeText(item[1] ?? ""))
-        .join(""),
-    )
-    .join("\n")
-  const textFont = /<w:rFonts\b[^>]*\bw:ascii="([^"]+)"/.exec(body)?.[1]
-  const textColor = /<w:color w:val="([0-9A-Fa-f]{6})"/.exec(body)?.[1]
-  const textSize = Number(/<w:sz w:val="(\d+)"/.exec(body)?.[1])
   return {
-    preset,
-    variant,
-    points,
     fill,
     stroke,
     strokeWidth: Math.round((emu / 12700) * 100) / 100,
-    text,
-    textFont: textFont ? unescapeText(textFont) : "",
-    textColor: textColor ? `#${textColor.toLowerCase()}` : "",
-    textSize: Number.isFinite(textSize) && textSize > 0 ? textSize / 2 : 0,
-    textBold: /<w:b\/>|<w:b w:val="(?:1|true)"\/>/.test(body),
+    /** Word's double (or other compound) line. */
+    compound: /<a:ln [^>]*\bcmpd="(\w+)"/.exec(line)?.[1] ?? "",
     dash: readDash(line),
     gradient: gradient?.gradient ?? "",
-    ...effects,
+    effects,
   }
 }
 

@@ -681,6 +681,13 @@ function writeBlock(block: Block, styles: StyleCatalog, section: SectionProps | 
   return writeTable(block, styles, section, ids)
 }
 
+/** Paragraphs that go inside a drawing (a text box's `w:txbxContent`): no styles of their own, no paragraph ids. */
+export function looseParagraphsXml(paragraphs: Paragraph[]) {
+  const styles: StyleCatalog = { docDefaults: { pPr: {}, rPr: {} }, styles: [] }
+  const ids = paraIdState()
+  return paragraphs.map((paragraph) => writeParagraph(paragraph, styles, ids)).join("")
+}
+
 function writeParagraph(paragraph: Paragraph, styles: StyleCatalog, ids: ParaIds) {
   const attributes = paragraphAttributes(paragraph, ids)
   const properties = writeParagraphProperties(paragraph, styles)

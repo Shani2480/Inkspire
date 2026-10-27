@@ -11,7 +11,7 @@ export const DocxSource = Extension.create({
   addGlobalAttributes() {
     return [
       {
-        types: ["paragraph", "heading", "table", "image", "pageBreak", "figure"],
+        types: ["paragraph", "heading", "table", "image", "pageBreak", "figure", "textBox"],
         attributes: {
           docxKey: {
             default: null as string | null,

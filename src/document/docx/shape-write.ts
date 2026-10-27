@@ -56,7 +56,7 @@ export function plainShapePreset(attrs: Attrs) {
   return colorOf(attrs.fill, defaults.fill) !== null && colorOf(attrs.stroke, defaults.stroke) !== null ? preset : null
 }
 
-function gradientFill(fill: string, gradient: string) {
+export function gradientFill(fill: string, gradient: string) {
   const stops = gradientStopList(fill === "none" ? "" : fill, gradient)
     .map(
       ([offset, hex]) =>
@@ -74,7 +74,7 @@ function gradientFill(fill: string, gradient: string) {
   return `<a:gradFill rotWithShape="1"><a:gsLst>${stops}</a:gsLst>${direction}</a:gradFill>`
 }
 
-const solid = (hex: string) => `<a:solidFill><a:srgbClr val="${hex.slice(1).toUpperCase()}"/></a:solidFill>`
+export const solid = (hex: string) => `<a:solidFill><a:srgbClr val="${hex.slice(1).toUpperCase()}"/></a:solidFill>`
 
 /** The text a shape holds as Word's `wps:txbx`, one paragraph per line, centred, and the body that centres it. */
 function textBody(attrs: Attrs) {

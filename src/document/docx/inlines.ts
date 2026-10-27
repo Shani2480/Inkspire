@@ -27,6 +27,8 @@ import { MC_NS } from "@/document/docx/mce"
 import { decodeXml } from "@/document/docx/xml"
 import { readWordShape, shapeLook, wordShapeMark } from "@/document/docx/shape-import"
 import { wordShapeGraphic } from "@/document/docx/shape-write"
+import { boxLink, readWordTextBox, textBoxMark, wordTextBoxGraphic } from "@/document/docx/word-text-box"
+import { looseParagraphsXml } from "@/document/docx/wml-write"
 import { diagramDataRelId, diagramDrawingRelId, renderDiagramDrawing } from "@/document/docx/smartart-import"
 import { pointsMarkup, shapeMarkup } from "@/editor/insert-blocks"
 import { hasPictureFormat } from "@/editor/picture-format"
@@ -46,6 +48,7 @@ import {
   type DrawingLayout,
   type Hyperlink,
   type Inline,
+  type JcValue,
   type MediaPart,
   type Paragraph,
   type Revision,
@@ -259,6 +262,10 @@ function runHtml(run: Run, ctx: Projection) {
   const chart = chartPictureHtml(run, ctx)
   if (chart) {
     return wrapComments(chart, ctx)
+  }
+  const box = textBoxPictureHtml(run, ctx)
+  if (box) {
+    return wrapComments(box, ctx)
   }
   const shape = shapePictureHtml(run, ctx)
   if (shape) {
@@ -678,6 +685,96 @@ function shapePictureHtml(run: Run, ctx: Projection) {
   )
 }
 
+/** The chains of linked boxes in a document: the ids its `wps:linkedTxbx` name. */
+const linkedChains = new WeakMap<WordDocument, Set<number>>()
+/** The chains whose first box has been shown, per projection: a chain has one first box. */
+const shownChains = new WeakMap<Projection, Set<number>>()
+
+function chainIdsOf(doc: WordDocument) {
+  let ids = linkedChains.get(doc)
+  if (!ids) {
+    ids = new Set(
+      [...JSON.stringify(doc.blocks).matchAll(/linkedTxbx\b[^>]*?\bid=\\"(\d+)\\"/g)].map((match) => Number(match[1])),
+    )
+    linkedChains.set(doc, ids)
+  }
+  return ids
+}
+
+const ALIGN_OF_JC: Record<string, string> = { center: "center", right: "right", end: "right", both: "justify" }
+
+/**
+ * A Word text box, shown as the app's own: a picture carrying the text box, which opens as one with Word's text
+ * (as HTML, read into the box when it is restored), formatting, size and place. A box later in a chain of linked
+ * boxes opens empty, in its chain; the chain's text, in its first box, flows on into it.
+ */
+function textBoxPictureHtml(run: Run, ctx: Projection) {
+  const drawings = run.content.filter((item) => item.kind === "drawing")
+  const drawing = drawings.length === 1 ? drawings[0] : undefined
+  if (drawing?.kind !== "drawing" || !drawing.boxParagraphs || mediaFor(ctx.doc, drawing.relId)) {
+    return null
+  }
+  // A box in line with text would split its paragraph: the app's text boxes always float.
+  if (ctx.textParagraph && !drawing.layout) {
+    return null
+  }
+  const theme = ctx.doc.preserved?.parts.find((item) => item.name.toLowerCase() === "/word/theme/theme1.xml")
+  const box = readWordTextBox(drawing.xml, theme ? decodeXml(theme.data) : null)
+  if (!box) {
+    return null
+  }
+  const shown = shownChains.get(ctx) ?? new Set<number>()
+  shownChains.set(ctx, shown)
+  const head = !box.linked && chainIdsOf(ctx.doc).has(box.txbxId) && !shown.has(box.txbxId)
+  if (head) {
+    shown.add(box.txbxId)
+  }
+  const link = box.linked ?? (head ? { id: box.txbxId, seq: 0 } : null)
+  const paragraphs = drawing.boxParagraphs
+  const html = box.linked ? "" : paragraphs.map((paragraph) => inlinesHtml(paragraph.inlines, ctx)).join("<br>")
+  const width = Math.max(1, Math.round((drawing.cx ?? 0) / EMU_PER_PX))
+  const height = Math.max(1, Math.round((drawing.cy ?? 0) / EMU_PER_PX))
+  const textBox = {
+    type: "textBox",
+    attrs: {
+      ...box.attrs,
+      width,
+      // Resize shape to fit text: as high as the text, as the app's own boxes are by default.
+      height: box.autoFit && !link ? 0 : height,
+      textAlign: ALIGN_OF_JC[paragraphs[0]?.pPr.jc ?? ""] ?? null,
+      linkId: link ? `word-${link.id}` : "",
+      linkSeq: link?.seq ?? 0,
+      alt: drawing.name && !/^[A-Za-z ]+ \d+$/.test(drawing.name) ? drawing.name : "",
+    },
+    html,
+    fromWord: true,
+    shown: [width, height],
+  }
+  const fill = /^#[0-9a-f]{6}$/i.test(String(box.attrs.fill)) ? String(box.attrs.fill) : "none"
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">` +
+    `<rect width="100%" height="100%" fill="${fill}"/></svg>`
+  const picture: MediaPart = {
+    relId: "",
+    type: "",
+    target: "",
+    name: "",
+    contentType: "image/svg+xml",
+    data: new TextEncoder().encode(svg),
+  }
+  const layout = drawing.layout ? floatingLayout(drawing.layout, drawing.cx, ctx.doc.section, drawing.cy) : null
+  return imageHtml(
+    picture,
+    drawing.cx,
+    drawing.cy,
+    drawing.name,
+    run.key,
+    layout,
+    drawing.rot,
+    encodeObjectJson(textBox),
+  )
+}
+
 /** A Word equation as the editor's equation: its LaTeX to edit, with Word's markup kept for saving it unchanged. */
 function equationHtml(xml: string) {
   const read = isOmml(xml) ? ommlToTex(xml) : null
@@ -725,7 +822,7 @@ export function blockAtomHtml(block: Block, text: string) {
 }
 
 /** Text a reader sees: field results without their codes, deleted text left out. */
-function visibleText(inlines: Inline[]) {
+export function visibleText(inlines: Inline[]) {
   let text = ""
   let depth = 0
   const inCode: boolean[] = []
@@ -1522,6 +1619,12 @@ export function imageRun(node: JsonNode, build: InlineBuild): Run | null {
       return run
     }
   }
+  if (figure?.type === "textBox") {
+    const box = textBoxRun(node, figure, build)
+    if (box) {
+      return box
+    }
+  }
   const diagram = diagramRun(node, build)
   if (diagram) {
     return diagram
@@ -1715,6 +1818,106 @@ function wordShapeRun(node: JsonNode, figure: JsonNode, build: InlineBuild): Run
     return structuredClone(origin)
   }
   return null
+}
+
+const JC_OF_ALIGN: Record<string, JcValue> = { center: "center", right: "right", justify: "both" }
+
+/** A text box's text as Word's paragraphs: each line (a line break in the box) a paragraph, in the box's alignment. */
+function textBoxParagraphs(content: JsonNode[], align: unknown, build: InlineBuild): Paragraph[] {
+  const lines: JsonNode[][] = [[]]
+  for (const node of content) {
+    if (node.type === "hardBreak") {
+      lines.push([])
+    } else {
+      lines[lines.length - 1]!.push(node)
+    }
+  }
+  const jc = JC_OF_ALIGN[String(align ?? "")]
+  return lines.map((line) => ({
+    kind: "paragraph",
+    pPr: jc ? { jc } : {},
+    markRPr: {},
+    inlines: inlinesFromEditor(line, build).flatMap(plainInline),
+  }))
+}
+
+/**
+ * What a text box's paragraph keeps of an inline: links and comment ranges need parts the drawing does not carry,
+ * so a link keeps its text and a comment its text without its range.
+ */
+function plainInline(inline: Inline): Inline[] {
+  if (inline.kind === "hyperlink") {
+    return inline.inlines.flatMap(plainInline)
+  }
+  if (inline.kind === "commentRangeStart" || inline.kind === "commentRangeEnd") {
+    return []
+  }
+  if (inline.kind === "run" && inline.content.some((item) => item.kind === "commentReference")) {
+    return []
+  }
+  return [inline]
+}
+
+/**
+ * A text box, as Word's own text box. One opened from Word and not changed since goes back as Word wrote it;
+ * otherwise it is written anew, when Word draws it as the app does (see `wordTextBoxGraphic`).
+ */
+function textBoxRun(node: JsonNode, figure: JsonNode, build: InlineBuild): Run | null {
+  const attrs: Record<string, unknown> = figure.attrs ?? {}
+  const width = numberAttr(node.attrs?.width) ?? 0
+  const height = numberAttr(node.attrs?.height) ?? 0
+  if (width <= 0 || height <= 0) {
+    return null
+  }
+  const key = typeof node.attrs?.docxKey === "string" ? node.attrs.docxKey : undefined
+  const origin = key ? build.runs.get(key) : undefined
+  const drawing = origin?.content.find((item) => item.kind === "drawing")
+  if (origin && typeof (figure as { html?: unknown }).html === "string") {
+    // Still the picture it opened as (the box was never shown): as Word wrote it.
+    return structuredClone(origin)
+  }
+  if (origin && drawing?.kind === "drawing" && attrs.wordBox && attrs.wordBox === textBoxMark(figure)) {
+    // A box as high as its text is measured in the app: only a size set in the app counts as a change.
+    const sameSize =
+      Math.round((drawing.cx ?? 0) / EMU_PER_PX) === width &&
+      (!numberAttr(attrs.height) || Math.round((drawing.cy ?? 0) / EMU_PER_PX) === height)
+    if (
+      sameSize &&
+      sameLayout(node, drawing.layout, drawing.cx, build.section, drawing.cy) &&
+      rotationDegrees(drawing.rot) === (numberAttr(node.attrs?.rotate) ?? 0)
+    ) {
+      return structuredClone(origin)
+    }
+  }
+  const cx = Math.round(width * EMU_PER_PX)
+  const cy = Math.round(height * EMU_PER_PX)
+  const link = boxLink(attrs, build)
+  const paragraphs =
+    link && link.seq > 0 ? "" : looseParagraphsXml(textBoxParagraphs(figure.content ?? [], attrs.textAlign, build))
+  const graphic = wordTextBoxGraphic(attrs, cx, cy, rotationRot(numberAttr(node.attrs?.rotate) ?? 0), paragraphs, link)
+  if (!graphic) {
+    return null
+  }
+  const id = build.picture
+  build.picture += 1
+  const alt = typeof attrs.alt === "string" ? attrs.alt : ""
+  const name = alt || `Text Box ${id}`
+  const layout = editorLayout(node)
+  return {
+    kind: "run",
+    rPr: {},
+    content: [
+      {
+        kind: "drawing",
+        xml: drawingXml(id, "", cx, cy, layout, 0, build.section, undefined, { graphic, name }),
+        text: "",
+        floating: layout !== null,
+        name,
+        cx,
+        cy,
+      },
+    ],
+  }
 }
 
 /** A shape from the app, written as Word's own shape when Word draws it the same way (see `wordShapeGraphic`). */

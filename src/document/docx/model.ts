@@ -340,6 +340,8 @@ export type RunContent =
       geometry?: string
       /** An object the app saved as its picture (a shape, chart, 3D model…): its editor node, base64 JSON. */
       object?: string
+      /** A text box's paragraphs (`w:txbxContent` of the wps Choice), when they are paragraphs of text only. */
+      boxParagraphs?: Paragraph[]
     }
 
 /** One axis of a wp:anchor position: an offset in EMU or an alignment, measured from `from`. */

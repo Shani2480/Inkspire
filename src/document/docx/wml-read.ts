@@ -858,7 +858,30 @@ function drawingContent(node: MarkupNode, raw: RawCursor): RunContent {
   if (object) {
     content.object = object
   }
+  const paragraphs = textBoxParagraphs(node)
+  if (paragraphs) {
+    content.boxParagraphs = paragraphs
+  }
   return content
+}
+
+/**
+ * The paragraphs of a Word text box (a `wps:wsp` holding `w:txbxContent`), or nothing when it holds more than
+ * paragraphs of text (a table, a picture, a content control): such a box stays whole.
+ */
+function textBoxParagraphs(node: MarkupNode): Paragraph[] | undefined {
+  const shape = descendant(node, "wsp")
+  const content = shape ? descendant(shape, "txbxContent") : undefined
+  if (!content) {
+    // A box later in a chain of linked boxes: its text is in the chain's first box.
+    return shape && descendant(shape, "linkedTxbx") ? [] : undefined
+  }
+  const children = content.children.filter((child) => child.uri === WORD_NS)
+  const pictures = children.some((child) => descendant(child, "drawing") || descendant(child, "pict"))
+  if (pictures || children.some((child) => child.local !== "p")) {
+    return undefined
+  }
+  return children.map((child) => readParagraph(child, []))
 }
 
 const WRAP_ELEMENTS: Record<string, DrawingLayout["wrap"]> = {
