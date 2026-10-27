@@ -1697,7 +1697,7 @@ Source: the 48 top-level files in `screenshots/` taken on 2026-10-19 (`screensho
   Volume-Open-High-Low-Close, the volume as columns on the left axis and the prices on a right one, saved as Word's
   bar group plus stock group. **3-D and of-pie (2026-10-27):** the 3-D variants of Column (4), Bar (3),
   Line, Pie and Area (3), Pie of Pie and Bar of Pie, drawn and saved as Word's own 3-D and of-pie charts (see
-  changes.md); no 3-D Rotation settings, no of-pie split by value; no `chartex` is written, so Word shows these as plain stacked or clustered charts (since 2026-10-26 they come back
+  changes.md); 3-D Rotation (X and Y) in the Format pane since 2026-10-27, but no Perspective, Depth or Height, and no view from below or the left; no of-pie split by value; no `chartex` is written, so Word shows these as plain stacked or clustered charts (since 2026-10-26 they come back
   into the app as Histogram/Waterfall/Funnel while Word has not edited their data); a Waterfall that goes below zero is drawn from zero for that bar; no "set as total" for a point; Histogram has fixed automatic bins (no bin width, count, overflow or underflow); Histogram was not looked at in Chrome.
 
 #### 22.7 — Columns dialog and the Text Wrapping break (screenshots 082750, 082741, 082806)
@@ -1788,7 +1788,7 @@ choices are in the object toolbar's and the ribbon's Wrap Text menus and the rig
 #### 22.14 — Chart side panels (screenshots 082327–082511)
 
 - Chart Styles (brush): the Style tab shows live thumbnails of the current chart in each style; the Color tab has Colorful and Monochromatic groups and "How do I change these colors?". Chart Filters (funnel): Values tab with Series and Categories sections, Select All, check boxes, Apply and "Select Data…"; Names tab. Chart Elements (+): Axes, Axis Titles, Chart Title, Data Labels, Data Table, Error Bars, Gridlines, Legend, Trendline, Up/Down Bars, each with a flyout. Verify every item and the Apply button behave as in Word.
-- Chart Design styles gallery shows eight thumbnails of the actual chart type; ours should render the user's own chart in each. **2026-10-27:** small thumbnails now draw text as bars and keep the plot's share, as Word's do.
+- Chart Design styles gallery shows eight thumbnails of the actual chart type; ours should render the user's own chart in each. **Already done** (found 2026-10-27: `ChartStylesGallery` draws `withStyle(chart.spec, style)`, the chart itself in each style). **2026-10-27:** small thumbnails now draw text as bars and keep the plot's share, as Word's do.
 - Edit Data opens a small "Chart in …" spreadsheet window pinned under the chart (081826 shows Word's); match this as a docked pane rather than a dialog.
 
 **Done (partly).** Audited the panels: Chart Elements (check box per element with flyouts), Chart Styles (Style tab with the user's own chart in each style, Color tab with Colorful and Monochromatic), Chart Filters (Values and Names tabs, Apply, Select Data…) and the Chart Design styles gallery already existed. Added (Select All) to the filter Values tab and a "How do I change these colors?" note under the Color tab. Not done: Error Bars, Lines and Up/Down Bars stay disabled (the chart renderer has none); the "How do I change" text is a note, not a link to help; Edit Data is still a dialog, not a docked "Chart in …" pane; not compared in Chrome.

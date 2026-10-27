@@ -6,6 +6,7 @@ import {
   defaultChartSpec,
   normalizeChartSpec,
   ofPieSplit,
+  chartRotation,
   paletteColor,
   type ChartSpec,
   type LabelPosition,
@@ -517,14 +518,16 @@ export function chartSpaceXml(source: ChartSpec, workbookRelId?: string) {
     : ""
   // A surface is a 3-D chart in Word: a contour is the same seen from straight above.
   const walls = `<c:floor><c:thickness val="0"/></c:floor><c:sideWall><c:thickness val="0"/></c:sideWall><c:backWall><c:thickness val="0"/></c:backWall>`
+  const turn = chartRotation(spec)
+  const rotation = `<c:rotX val="${turn.x}"/><c:rotY val="${turn.y}"/>`
   const view3d =
     spec.type !== "surface"
       ? spec.type === "pie" && spec.threeD && !spec.ofPie
-        ? `<c:view3D><c:rotX val="30"/><c:rotY val="0"/><c:rAngAx val="0"/></c:view3D>`
+        ? `<c:view3D>${rotation}<c:rAngAx val="0"/></c:view3D>`
         : spec.threeD && !round && spec.type !== "scatter"
           ? spec.threeD === "deep" || spec.type === "line"
-            ? `<c:view3D><c:rotX val="15"/><c:rotY val="20"/><c:rAngAx val="0"/><c:perspective val="30"/></c:view3D>${walls}`
-            : `<c:view3D><c:rotX val="15"/><c:rotY val="20"/><c:rAngAx val="1"/></c:view3D>${walls}`
+            ? `<c:view3D>${rotation}<c:rAngAx val="0"/><c:perspective val="30"/></c:view3D>${walls}`
+            : `<c:view3D>${rotation}<c:rAngAx val="1"/></c:view3D>${walls}`
           : ""
       : spec.contour
         ? `<c:view3D><c:rotX val="90"/><c:rotY val="0"/><c:rAngAx val="0"/><c:perspective val="0"/></c:view3D>${walls}`
@@ -917,6 +920,19 @@ export function readChartSpace(xml: string): ChartSpec | null {
     const split = Number(value(first, "splitPos"))
     if ((value(first, "splitType") ?? "auto") === "pos" && Number.isFinite(split) && split > 0) {
       spec.ofPieSplit = split
+    }
+  }
+  // A 3-D chart's rotation, kept only where it is not Word's own view.
+  if (spec.threeD) {
+    const view = child(chart, "view3D")
+    const own = chartRotation({ type: spec.type })
+    const rotX = Number(value(view, "rotX") ?? own.x)
+    const rotY = Number(value(view, "rotY") ?? own.y)
+    if (Number.isFinite(rotX) && rotX !== own.x) {
+      spec.rotX = rotX
+    }
+    if (Number.isFinite(rotY) && rotY !== own.y) {
+      spec.rotY = rotY
     }
   }
   // Title.

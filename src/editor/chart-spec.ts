@@ -79,6 +79,12 @@ export type ChartSpec = {
    * Column, 3-D Line, 3-D Area).
    */
   threeD?: "front" | "deep"
+  /**
+   * A 3-D chart's 3-D Rotation (Format Chart Area): X tips it towards the viewer, Y turns it round; unset is Word's
+   * own view (X 15°, Y 20°; a 3-D pie X 30°, Y 0°). See `chartRotation`.
+   */
+  rotX?: number
+  rotY?: number
   /** Pie of Pie and Bar of Pie: the last points (`ofPieSplit` of them) drawn again as a second pie or a bar. */
   ofPie?: "pie" | "bar"
   ofPieSplit?: number
@@ -423,6 +429,9 @@ export function withVariant(spec: ChartSpec, id: string): ChartSpec {
     filled: Boolean(variant.filled),
     contour: variant.contour || undefined,
     threeD: variant.threeD,
+    // The rotation goes with a 3-D chart of the same kind: a pie's view is not a column's.
+    rotX: variant.threeD && (variant.type === "pie") === (spec.type === "pie") ? spec.rotX : undefined,
+    rotY: variant.threeD && (variant.type === "pie") === (spec.type === "pie") ? spec.rotY : undefined,
     ofPie: variant.ofPie,
     volume: variant.volume,
     series: spec.series.map((serie, index) => {
@@ -1324,8 +1333,14 @@ function cartesian(painter: Painter, box: Box, series: Serie[], entries: { name:
   const rows = threeD === "deep" ? Math.max(1, series.length) : 1
   const depth = { x: 0, y: 0 }
   if (threeD) {
-    depth.x = Math.min(plot.w * (threeD === "deep" ? 0.3 : 0.08), threeD === "deep" ? 26 * rows : 18)
-    depth.y = Math.min(depth.x * 0.55, plot.h * 0.3)
+    // The depth drawn follows the 3-D Rotation, scaled from Word's own view (X 15°, Y 20°). The walls only go back
+    // up to the right, so a view from below or from the left is drawn as seen straight on.
+    const turn = chartRotation(spec)
+    const base = Math.min(plot.w * (threeD === "deep" ? 0.3 : 0.08), threeD === "deep" ? 26 * rows : 18)
+    const across = Math.max(0, Math.min(2, Math.sin((turn.y * Math.PI) / 180) / Math.sin((20 * Math.PI) / 180)))
+    const up = Math.max(0, Math.min(2.5, Math.sin((turn.x * Math.PI) / 180) / Math.sin((15 * Math.PI) / 180)))
+    depth.x = Math.min(base * across, plot.w * 0.45)
+    depth.y = Math.min(base * 0.55 * up, plot.h * 0.4)
     plot.w = Math.max(10, plot.w - depth.x)
     plot.y += depth.y
     plot.h = Math.max(10, plot.h - depth.y)
@@ -1975,7 +1990,7 @@ function pieData(spec: ChartSpec) {
 /** The angle ranges of [from, to] that face the viewer on a tilted pie: its lower half on screen. */
 function frontArcs(from: number, to: number) {
   const arcs: [number, number][] = []
-  for (let turn = -2; turn <= 2; turn += 1) {
+  for (let turn = -2; turn <= 3; turn += 1) {
     const low = Math.max(from, turn * Math.PI * 2)
     const high = Math.min(to, turn * Math.PI * 2 + Math.PI)
     if (high > low + 1e-6) {
@@ -1994,9 +2009,13 @@ function pie3d(painter: Painter, box: Box) {
   }
   const labels = spec.dataLabels !== "none"
   const outside = labels && spec.dataLabels === "outsideEnd" ? 18 : 4
-  const rx = Math.max(4, Math.min(box.w / 2 - outside, (box.h - 2 * outside) / 1.16))
-  const ry = rx * 0.5
-  const thick = rx * 0.16
+  // X Rotation tips the pie: flatter and thicker towards 0°, a full circle seen from above at 90°.
+  const turn = chartRotation(spec)
+  const tilt = Math.max(0.04, Math.sin((turn.x * Math.PI) / 180))
+  const side = 0.185 * Math.cos((turn.x * Math.PI) / 180)
+  const rx = Math.max(4, Math.min(box.w / 2 - outside, (box.h - 2 * outside) / (2 * tilt + side)))
+  const ry = rx * tilt
+  const thick = rx * side
   const cx = box.x + box.w / 2
   const cy = box.y + box.h / 2 - thick / 2
   const explode = (rx * spec.explosion) / 100
@@ -2004,7 +2023,7 @@ function pie3d(painter: Painter, box: Box) {
   const sides: string[] = []
   const tops: string[] = []
   const texts: string[] = []
-  let angle = ((spec.firstSliceAngle - 90) * Math.PI) / 180
+  let angle = ((spec.firstSliceAngle + turn.y - 90) * Math.PI) / 180
   values.forEach((value, place) => {
     const index = shown[place]!
     const sweep = (value / total) * Math.PI * 2
@@ -2012,7 +2031,7 @@ function pie3d(painter: Painter, box: Box) {
     angle += sweep
     const middle = start + sweep / 2
     const dx = Math.cos(middle) * explode
-    const dy = Math.sin(middle) * explode * 0.5
+    const dy = Math.sin(middle) * explode * tilt
     const at = (a: number, lift = 0) => `${n(cx + dx + Math.cos(a) * rx)} ${n(cy + dy + Math.sin(a) * ry + lift)}`
     const color = pointColor(painter, index)
     let paint = seriesPaint(painter, color, `point:${index}`)
@@ -2040,6 +2059,17 @@ function pie3d(painter: Painter, box: Box) {
   painter.out.push(`<g data-chart-part="series:${serie.index}">${sides.join("")}${tops.join("")}</g>`)
   if (texts.length) {
     painter.out.push(`<g data-chart-part="dataLabels">${texts.join("")}</g>`)
+  }
+}
+
+/** A 3-D chart's rotation in degrees, Word's own view where the chart has none: X -90 to 90 (a pie 0 to 90), Y 0 to 359. */
+export function chartRotation(spec: Pick<ChartSpec, "type" | "rotX" | "rotY">) {
+  const pie = spec.type === "pie"
+  const x = Number.isFinite(spec.rotX) ? spec.rotX! : pie ? 30 : 15
+  const y = Number.isFinite(spec.rotY) ? spec.rotY! : pie ? 0 : 20
+  return {
+    x: Math.round(Math.max(pie ? 0 : -90, Math.min(90, x))),
+    y: Math.round(((y % 360) + 360) % 360),
   }
 }
 
