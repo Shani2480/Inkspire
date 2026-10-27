@@ -5,6 +5,7 @@ import { StarterKit } from "@tiptap/starter-kit"
 import { describe, expect, it } from "vitest"
 import { TextBox } from "@/editor/objects"
 import {
+  asFlow,
   breakTextBoxLink,
   canLinkTo,
   chainAt,
@@ -13,11 +14,13 @@ import {
   hasNextBox,
   linkTextBoxes,
   textBoxChains,
+  TextBoxFlow,
+  unlinkSlice,
 } from "@/editor/text-box-link"
 
 function make(...texts: string[]) {
   return new Editor({
-    extensions: [StarterKit, TextBox],
+    extensions: [StarterKit, TextBox, TextBoxFlow],
     content: texts.map((text) => `<div data-text-box>${text}</div>`).join("") + "<p>end</p>",
   })
 }
@@ -38,7 +41,9 @@ const texts = (editor: Editor) => boxes(editor).map((pos) => editor.state.doc.no
 function chain(editor: Editor) {
   for (let index = 0; index < boxes(editor).length - 1; index += 1) {
     const at = boxes(editor)
-    editor.view.dispatch(linkTextBoxes(editor.state, at[index]!, at[index + 1]!, { [at[index]!]: 60, [at[index + 1]!]: 60 })!)
+    editor.view.dispatch(
+      linkTextBoxes(editor.state, at[index]!, at[index + 1]!, { [at[index]!]: 60, [at[index + 1]!]: 60 })!,
+    )
   }
 }
 
@@ -112,7 +117,9 @@ describe("Linked text boxes (Create Link)", () => {
     chain(editor)
     const chained = [...textBoxChains(editor.state.doc).values()][0]!
     expect(chained).toHaveLength(3)
-    editor.view.dispatch(editor.state.tr.insertText(" two ", chained[1]!.pos + 1).insertText("three", chained[2]!.pos + 1 + 5))
+    editor.view.dispatch(
+      editor.state.tr.insertText(" two ", chained[1]!.pos + 1).insertText("three", chained[2]!.pos + 1 + 5),
+    )
     expect(texts(editor)).toEqual(["one", " two ", "three"])
     editor.view.dispatch(breakTextBoxLink(editor.state, boxes(editor)[0]!)!)
     expect(texts(editor)).toEqual(["one two three", "", ""])
@@ -121,5 +128,56 @@ describe("Linked text boxes (Create Link)", () => {
     expect(second!.linkId).not.toBe("")
     expect(third).toMatchObject({ linkId: second!.linkId, linkSeq: 1 })
     expect(breakTextBoxLink(editor.state, boxes(editor)[2]!)).toBeNull()
+  })
+
+  it("gives a deleted box's text to the box before it, and unlinks a chain left with one box", () => {
+    const editor = make("one", "", "")
+    chain(editor)
+    const at = boxes(editor)
+    editor.view.dispatch(editor.state.tr.insertText(" two", at[1]! + 1).insertText(" three", at[2]! + 1 + 4))
+    expect(texts(editor)).toEqual(["one", " two", " three"])
+    // The middle box goes: its text joins the first box's, and the chain is the first and last.
+    const middle = boxes(editor)[1]!
+    editor.view.dispatch(editor.state.tr.delete(middle, middle + editor.state.doc.nodeAt(middle)!.nodeSize))
+    expect(texts(editor)).toEqual(["one two", " three"])
+    expect(hasNextBox(editor.state.doc, boxes(editor)[0]!)).toBe(true)
+    // Undo brings the box back with its text, in one step.
+    undo(editor.state, editor.view.dispatch)
+    expect(texts(editor)).toEqual(["one", " two", " three"])
+    // The first box goes: its text goes to the start of the next, and the one left alone is no chain.
+    editor.view.dispatch(
+      editor.state.tr.delete(
+        boxes(editor)[2]!,
+        boxes(editor)[2]! + editor.state.doc.nodeAt(boxes(editor)[2]!)!.nodeSize,
+      ),
+    )
+    const first = boxes(editor)[0]!
+    editor.view.dispatch(editor.state.tr.delete(first, first + editor.state.doc.nodeAt(first)!.nodeSize))
+    expect(texts(editor)).toEqual(["one two three"])
+    expect(editor.state.doc.nodeAt(boxes(editor)[0]!)!.attrs.linkId).toBe("")
+  })
+
+  it("leaves a copied box out of its chain", () => {
+    const editor = make("one", "")
+    chain(editor)
+    const [first] = boxes(editor) as [number]
+    const slice = unlinkSlice(editor.state.doc.slice(first, first + editor.state.doc.nodeAt(first)!.nodeSize))
+    expect(slice.content.firstChild!.attrs).toMatchObject({ linkId: "", linkSeq: 0 })
+    expect(slice.content.firstChild!.textContent).toBe("one")
+  })
+
+  it("undoes typing that a flow carried into the next box in one step", () => {
+    const editor = make("aaa bbb", "")
+    chain(editor)
+    const [first] = boxes(editor) as [number]
+    editor.view.dispatch(editor.state.tr.insertText(" ccc", first + 1 + 7))
+    const flow = flowChain(editor.state, [...textBoxChains(editor.state.doc).values()][0]!, [8])!
+    editor.view.dispatch(asFlow(flow, editor.state))
+    // Typing goes on in the second box, which history alone would make a step of its own.
+    const second = boxes(editor)[1]!
+    editor.view.dispatch(editor.state.tr.insertText("d", second + 1 + 3))
+    expect(texts(editor)).toEqual(["aaa bbb ", "cccd"])
+    undo(editor.state, editor.view.dispatch)
+    expect(texts(editor)).toEqual(["aaa bbb", ""])
   })
 })

@@ -7,6 +7,34 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Linked text boxes: deleting, copying, the right-click menu and undo
+
+- **What was wrong:** deleting a box in the middle of a chain lost the text it held. A copied box was pasted still
+  in its chain, so two boxes claimed the same place. Create Link was only on the ribbon. Typing that a flow carried
+  into the next box undid in two steps, as history only groups typing next to the last.
+- **What changed (`src/editor/text-box-link.ts`):**
+  - `keepDeletedText`, run from the `TextBoxFlow` plugin's `appendTransaction` when a step deletes a whole linked box.
+    The deleted box's text goes to the end of the box before it in what is left of the chain, or to the start of
+    the first box left when none is before. A chain left with one box is unlinked. The flow then spreads the text
+    again. Moving a box (deleted and put back with the same place) changes nothing. Undo and redo are left alone,
+    as they bring their own steps back.
+  - `unlinkSlice` in `transformPasted`: a pasted box stands alone. A box dragged within the document keeps its link.
+  - One undo step for typing that crosses boxes. The plugin state notes when a chain's text was last typed or
+    flowed. Typing in a chain within 500 ms of that joins the same undo step, via `appendedTransaction` set in
+    `filterTransaction`. `asFlow` (exported for the tests) marks a flow.
+  - Right-click menu on a text box (`object-context-menu.tsx`): "Create Text Box Link", or "Break Forward Link"
+    when the box passes its text on, as in Word.
+- **Tests:** three in `text-box-link.test.ts` (1091 in all):
+  - deleting the middle box and then the first;
+  - a copied box's attributes;
+  - the crossing undo, which fails without the grouping.
+- **How checked:** headless Chrome, three boxes linked from the right-click menu:
+  - typing ran into the second box and undid in one Ctrl+Z, and redo brought it back;
+  - deleting the middle box kept its text, and undo brought the box back;
+  - a pasted copy was unlinked.
+- **Open:** Word's own linked boxes (`wps:linkedTxbx`) are not read, as Word's text boxes open as shapes with
+  text, not as the app's text boxes.
+
 ### Map charts: Filled Map
 
 - **Missing:** Insert Chart had no Map. A Word document's map chart (`cx:regionMap`) opened only as its fallback
