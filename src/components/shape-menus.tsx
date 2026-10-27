@@ -258,11 +258,20 @@ export function ShapeThumb({ name, size = 18 }: { name: string; size?: number })
 }
 
 /** Word's shapes list: Recently Used, then each category, as a grid of small pictures. */
-export function ShapesList({ onPick, current }: { onPick: (name: string) => void; current?: string }) {
+export function ShapesList({
+  onPick,
+  current,
+  only,
+}: {
+  onPick: (name: string) => void
+  current?: string
+  /** Just the shapes this allows (Crop to Shape leaves out lines and shapes Word has no preset for). */
+  only?: (name: string) => boolean
+}) {
   const recent = recentShapes()
-  const categories = recent.length
-    ? [{ label: "Recently Used Shapes", shapes: recent }, ...SHAPE_CATEGORIES]
-    : SHAPE_CATEGORIES
+  const categories = (recent.length ? [{ label: "Recently Used Shapes", shapes: recent }, ...SHAPE_CATEGORIES] : SHAPE_CATEGORIES)
+    .map((category) => ({ ...category, shapes: only ? category.shapes.filter(only) : category.shapes }))
+    .filter((category) => category.shapes.length > 0)
   return (
     <div className="shapes-list" role="listbox" aria-label="Shapes">
       {categories.map((category) => (

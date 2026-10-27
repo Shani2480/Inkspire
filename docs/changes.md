@@ -7,6 +7,48 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Crop: Crop to Shape, Aspect Ratio, Fill and Fit; pictures stretch to their box as in Word
+
+- **Missing:** Crop was a plain button. Word's Crop is a split button with Crop to Shape, Aspect Ratio, Fill and Fit.
+- **Changed:**
+  - **The menu:** Crop on Picture Format (both ribbon layouts) is now a split button. The picture still crops;
+    the arrow opens Crop, Crop to Shape ▸, Aspect Ratio ▸, Fill and Fit (`CropMenu` in `picture-menus.tsx`).
+  - **Crop to Shape:**
+    - Offers the shape gallery, leaving out lines and the few shapes Word has no preset for (`croppableShape`).
+    - The picture's `frame` attribute now names any shape. Rounded and oval stay as before
+      (`src/editor/picture-shape.ts`).
+    - The picture shows through a CSS mask made from the shape's drawing, stretched as Word stretches a preset.
+      The mask combines with soft edges.
+    - A picture border follows the shape's outline, drawn as an SVG over the picture, since a CSS outline would be
+      masked away.
+    - In .docx it is the picture's own `a:prstGeom` (e.g. `star5`, `heart`), and Word's geometry opens as the same
+      frame.
+    - A Word picture whose shape is unchanged is still written from its source drawing.
+  - **Aspect Ratio:** 1:1, the portrait and landscape ratios Word offers. Crops to the largest centred part of the
+    whole picture at that ratio and opens crop mode to adjust or apply (`aspectRatioCrop`).
+  - **Fill / Fit:** keep the frame and scale the picture in it, centred (`fillCrop`, `fitCrop`). Fill covers the
+    frame. Fit shows all of the picture with empty room beside it.
+    - That needed negative crop: `cropOf` now allows down to -100 %, and a drag cannot crop back past the empty
+      room.
+    - It is written as a negative `a:srcRect`, as Word writes Fit, and read back.
+- **Fixed alongside:** `.page-editor img { object-fit: contain }` letterboxed any picture sized out of proportion.
+  Word stretches it, and the file says so. Pictures on the page now fill their box (`.page-image img`).
+- **Tests:**
+  - `picture-crop.test.ts`: aspect ratios from the whole picture, Fill and Fit with the frame kept, the drag limit
+    after Fit, the frame/preset names, which shapes are offered, and the mask.
+  - `floating.test.ts`: `star5` and `ellipse` written and read back, and Fit's negative `a:srcRect` written and
+    read back.
+  - 997 tests pass.
+- **Checked in Chrome** (from the Picture Format ribbon):
+  - Crop ▸ Crop to Shape ▸ Heart drew the picture as a heart.
+  - Aspect Ratio ▸ 1:1 on the 300×200 picture gave 200×200 with a sixth off each side, in crop mode.
+  - Fit left a quarter of empty room above and below.
+  - A red 3 pt border followed a heart, and a dashed one followed a star.
+- **Open:**
+  - The cropped-away parts drawn faint in crop mode are hidden outside the shape.
+  - The picture bar's Crop button is not a split button.
+  - Not yet opened in Word (verify-list).
+
 ### Equations are saved to Word, Word's equations open to edit, and Display / Inline switches
 
 - **Wrong:** an equation made in the app was dropped when saving to .docx, because `inlinesFromEditor` had no case

@@ -3493,6 +3493,8 @@ button.line-menu-row:focus-visible {
   display: block;
   max-width: none;
   height: auto;
+  /* A picture sized out of proportion is stretched to its box, as Word draws (and saves) it. */
+  object-fit: fill;
   user-select: none;
   -webkit-user-drag: none;
 }
@@ -11577,6 +11579,15 @@ textarea.text-prompt-field {
 
 /* Crop mode: black corner and edge grips at the part that shows; the rest of the picture is drawn faint. */
 .image-crop {
+  pointer-events: none;
+}
+
+/* A picture border along a Crop to Shape outline. */
+.image-shape-outline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow: visible;
   pointer-events: none;
 }
 

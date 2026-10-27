@@ -84,6 +84,7 @@ import {
 import { MODEL_VIEWS, viewPose, viewSourceFor } from "@/editor/model-views"
 import { selectedObject } from "@/editor/objects"
 import {
+  CropMenu,
   PictureArtisticMenu,
   PictureBorderMenu,
   PictureColorMenu,
@@ -959,6 +960,7 @@ export function PictureFormatTab() {
   }
   const cropping = useCropMode((state) => state.active)
   const toggleCrop = () => (cropping ? applyCrop() : useCropMode.getState().set(true))
+  const cropMenu = (close: () => void) => <CropMenu editor={editor} close={close} />
   const resetPicture = () =>
     editor
       ?.chain()
@@ -1010,6 +1012,7 @@ export function PictureFormatTab() {
         active: cropping,
         disabled: !ready,
         onClick: toggleCrop,
+        menu: cropMenu,
       },
       ...(cropping
         ? [
@@ -1252,6 +1255,7 @@ export function PictureFormatTab() {
           disabled={!ready}
           active={cropping}
           onClick={toggleCrop}
+          menu={cropMenu}
         >
           <ContextGlyph label="Crop" />
         </RibbonCommand>

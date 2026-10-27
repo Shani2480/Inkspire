@@ -217,6 +217,15 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
   save: Word shows the change.
 - Desktop app: equations draw (KaTeX fonts load in WebKitGTK), and Change to Display / Inline works.
 
+## Crop to Shape, Aspect Ratio, Fill and Fit (2026-10-27)
+
+- Save pictures cropped to a heart, a star and an oval, one cropped 16:9, and one set to Fit. Open the file in Word:
+  - Each shows the same shape and crop.
+  - Fit shows empty room beside the picture.
+  - A picture border follows the shape.
+- Open a Word document with a picture already cropped to a shape. It shows that shape here and is saved unchanged.
+- Desktop app: the shape mask and the border along it draw in WebKitGTK.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and
