@@ -171,7 +171,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       empty card), then the start screen at once with no ghosting or stale frames. Blank document: File closes at
       once. File again: it is opaque from the first frame and its pane slides in. Click through the ribbon tabs: each
       switches at once with no blink at the end of the slide. Since: no blank ribbon frame and no late jump on a
-      switch, the underline moves with the tab, and menus and dialogs appear without motion.
+      switch, the underline moves with the tab. Menus, tooltips, dialogs and File slide or fade in visibly and never
+      jump after settling (checked in WebKitGTK on a software display; confirm with the GPU).
 - [ ] **Open Containing Folder (21.34)** — the file manager actually opens (`ShowItems`); macOS and Windows
       branches untested.
 - [ ] **First-run setup wizard (21.42)** — `system_defaults` returns the real author and locale live.

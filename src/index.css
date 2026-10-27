@@ -5050,9 +5050,6 @@ body,
     width: 45%;
     animation: none;
   }
-  [data-slot="popover-content"].ribbon-menu {
-    transition: none;
-  }
 }
 
 [data-slot="popover-content"][data-closed] {
@@ -10138,105 +10135,11 @@ html.dark .asset-library .asset-library-icon {
 }
 
 /*
- * Motion: short and quiet, after Fluent. Things arrive with a decelerating ease and leave faster with an
- * accelerating one. Menus close at once, as Office's do. Nothing moves with reduced motion.
+ * Motion: short and quiet, after Fluent. Things arrive with a decelerating ease; menus close at once, as Office's do.
+ * The entrances (dialogs, menus, the File pane and page, a ribbon tab's commands) are drawn from script a frame at a
+ * time (src/document/entrances.ts), not as CSS animations: the desktop webview showed a CSS animation's first frame
+ * again as it ended, a jump after the thing had settled. Nothing moves with reduced motion.
  */
-:root {
-  --motion-ease-in: cubic-bezier(0.1, 0.9, 0.2, 1);
-  --motion-ease-out: cubic-bezier(0.7, 0, 1, 0.5);
-  --motion-menu: 120ms;
-  --motion-dialog: 160ms;
-  --motion-panel: 220ms;
-  --motion-tab: 150ms;
-}
-
-@keyframes motion-fade-in {
-  from {
-    opacity: 0;
-  }
-}
-
-@keyframes motion-dialog-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px) scale(0.98);
-  }
-}
-
-@keyframes motion-slide-in {
-  from {
-    opacity: 0;
-    transform: translateX(-24px);
-  }
-}
-
-@keyframes motion-content-in {
-  from {
-    opacity: 0;
-    transform: translateX(12px);
-  }
-}
-
-/* A ribbon tab's commands fade in from a few pixels to the right, as Word's do; only the content moves, so the ribbon never changes height. */
-@keyframes motion-tab-in {
-  from {
-    opacity: 0;
-    transform: translateX(10px);
-  }
-}
-
-.ribbon-card[data-tab-motion="on"] [data-slot="tabs-content"] {
-  animation: motion-tab-in var(--motion-tab) var(--motion-ease-in);
-}
-/* The new tab's first, slow frame is drawn with its commands unseen; the slide starts on the next (useTabMotion). */
-.ribbon-card[data-tab-motion="waiting"] [data-slot="tabs-content"] {
-  opacity: 0;
-}
-
-/*
- * File (backstage): it covers the window at once, and its pane slides in from the left with the page following. Only
- * the pane and page move: fading the whole window in showed the document through it in the desktop webview, a grey
- * ghost of both. The start screen at launch arrives without motion, and closing is instant, as in Word.
- */
-.backstage .backstage-nav {
-  animation: motion-slide-in var(--motion-panel) var(--motion-ease-in);
-}
-.backstage .backstage-content {
-  animation: motion-content-in var(--motion-panel) var(--motion-ease-in);
-}
-.backstage.is-instant .backstage-nav,
-.backstage.is-instant .backstage-content {
-  animation: none;
-}
-
-/*
- * Ribbon menus drop from their button. A keyframe entrance flickered in the desktop webview (see the ribbon-menu
- * rule), so they transition from the first frame Base UI renders with data-starting-style, as tooltips do, and
- * close at once. Context menus fade in where they were asked for.
- */
-[data-slot="popover-content"].ribbon-menu {
-  transition:
-    opacity var(--motion-menu) var(--motion-ease-in),
-    translate var(--motion-menu) var(--motion-ease-in);
-}
-[data-slot="popover-content"].ribbon-menu[data-starting-style] {
-  opacity: 0;
-  translate: 0 -4px;
-}
-[data-slot="popover-content"].ribbon-menu[data-side="top"][data-starting-style] {
-  translate: 0 4px;
-}
-[data-slot="popover-content"].ribbon-menu[data-ending-style] {
-  transition: none;
-}
-.spell-menu,
-.object-menu,
-.mini-menu {
-  animation: motion-fade-in var(--motion-menu) var(--motion-ease-in);
-}
-.line-menu-sub {
-  animation: motion-content-in var(--motion-menu) var(--motion-ease-in);
-}
 
 /* A new document fades in: a cover in the workspace colour fades away over the pages (playDocumentEntrance). */
 .document-entrance-cover {
@@ -10246,66 +10149,22 @@ html.dark .asset-library .asset-library-icon {
   pointer-events: none;
 }
 
-/* Dialogs settle into place from just below. */
-.word-dialog {
-  animation: motion-dialog-in var(--motion-dialog) var(--motion-ease-in);
-}
-
 /*
- * The desktop webview draws an animating element on a layer of its own, and drops the layer the frame the animation
- * ends, repainting its text: a blink at the very end. These surfaces are small, so they keep their layer for good.
+ * The desktop webview draws a fading element on a layer of its own and drops the layer when it is done, repainting
+ * its text: a blink at the very end. These surfaces are small, so they keep their layer for good.
  */
 .word-dialog,
 .ribbon-card [data-slot="tabs-content"],
 .backstage .backstage-nav,
 .backstage .backstage-content,
-[data-slot="popover-content"].ribbon-menu,
+[data-slot="popover-content"],
+[data-slot="tooltip-content"],
 .spell-menu,
 .object-menu,
 .mini-menu,
 .line-menu-sub {
   /* Opacity, not transform: a transform would become the containing block of fixed pickers inside. */
   will-change: opacity;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ribbon-card[data-tab-motion="on"] [data-slot="tabs-content"],
-  .backstage .backstage-nav,
-  .backstage .backstage-content,
-  .spell-menu,
-  .object-menu,
-  .mini-menu,
-  .line-menu-sub,
-  .word-dialog {
-    animation: none;
-  }
-  [data-slot="popover-content"].ribbon-menu {
-    transition: none;
-  }
-  .ribbon-card[data-tab-motion="waiting"] [data-slot="tabs-content"] {
-    opacity: 1;
-  }
-}
-
-/*
- * The same, in the Linux desktop app (data-no-entrance, main.tsx): WebKitGTK shows the content in place first and then
- * replays a frame of the animation's start after it has settled, a jump in every tab switch, menu and dialog.
- */
-:root[data-no-entrance]
-  :is(
-    .ribbon-card [data-slot="tabs-content"],
-    .backstage .backstage-nav,
-    .backstage .backstage-content,
-    .spell-menu,
-    .object-menu,
-    .mini-menu,
-    .line-menu-sub,
-    .word-dialog
-  ) {
-  animation: none;
-}
-:root[data-no-entrance] [data-slot="popover-content"].ribbon-menu {
-  transition: none;
 }
 
 /* Format 3D Model */

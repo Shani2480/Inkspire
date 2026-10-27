@@ -759,8 +759,9 @@ goes at once (no fade over the start screen) and hides its card until the pictur
 whole window in and closes at once, and the main ribbon tabs stay built (`Activity`), so switching is one frame.
 The tab slide then still stuttered: its first, slow frame ate most of it. Now that frame is drawn with the commands
 unseen and the slide starts on the next one, set on the card element rather than through state. A recording then
-showed WebKitGTK replays a frame of each entrance after the content has settled, so the Linux desktop app has no
-entrance motion at all (`data-no-entrance`), and the tab underline no longer fades between tabs.
+showed WebKitGTK replays a frame of each entrance after the content has settled. Turning motion off there felt dead,
+so every entrance is now drawn from script a frame at a time (`src/document/entrances.ts`, `playEntrance`), checked
+in WebKitGTK itself (MiniBrowser on Xvfb, recorded) with no jumps. The tab underline no longer fades between tabs.
 
 ### 18.8 — Styles
 
