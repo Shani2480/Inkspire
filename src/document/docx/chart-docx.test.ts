@@ -277,7 +277,17 @@ describe("3-D charts, Pie of Pie and Bar of Pie (22.6)", () => {
     const right = readChartSpace(chartSpaceXml({ ...deep, rightAngleAxes: true }))!
     expect(right.rightAngleAxes).toBe(true)
     const plain = readChartSpace(chartSpaceXml(deep))!
-    expect([plain.rightAngleAxes, plain.perspective, plain.depthPercent]).toEqual([undefined, undefined, undefined])
+    expect([plain.rightAngleAxes, plain.perspective, plain.depthPercent, plain.heightPercent]).toEqual([
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ])
+    // Height (% of base) goes between X and Y Rotation; none is Autoscale.
+    const high = chartSpaceXml({ ...deep, heightPercent: 150 })
+    expect(high).toContain('<c:rotX val="15"/><c:hPercent val="150"/><c:rotY val="20"/>')
+    expect(readChartSpace(high)!.heightPercent).toBe(150)
+    expect(chartSpaceXml(deep)).not.toContain("hPercent")
     const ofPie = { ...withVariant(defaultChartSpec("pie-of-pie"), "pie-of-pie"), ofPieGap: 250 }
     expect(chartSpaceXml(ofPie)).toContain('<c:gapWidth val="250"/>')
     expect(readChartSpace(chartSpaceXml(ofPie))!.ofPieGap).toBe(250)

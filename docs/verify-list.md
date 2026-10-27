@@ -303,6 +303,11 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Desktop app: drag a floating shape's point out of its box; the box and text wrap follow during the drag, and
   one Ctrl+Z undoes it.
 
+## 3-D Height and Autoscale (2026-10-27)
+
+- Save a 3-D Clustered Column with Autoscale off and Height 150%, and a 3-D Column with Height 40%; open in Word:
+  the Format pane shows the same, and the charts look about as tall as here.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

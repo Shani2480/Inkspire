@@ -156,11 +156,32 @@ describe("chart spec", () => {
 
   it("keeps a 3-D chart's view as Word has it, and draws deeper with Depth", () => {
     const column = withVariant(defaultChartSpec("column"), "column-3d")
-    expect(chartView3d(column)).toEqual({ rightAngle: false, perspective: 15, depth: 100 })
+    expect(chartView3d(column)).toEqual({ rightAngle: false, perspective: 15, depth: 100, height: undefined })
     expect(chartView3d(withVariant(defaultChartSpec("column"), "column-3d-clustered")).rightAngle).toBe(true)
     expect(chartView3d({ ...column, depthPercent: 5000, perspective: -3 })).toMatchObject({ depth: 2000, perspective: 0 })
     const backWall = (svg: string) => Number(/data-chart-part="plotArea"[^>]*><polygon points="([\d.]+)/.exec(svg)![1])
     expect(backWall(renderChart({ ...column, depthPercent: 200 }, 576, 336))).toBeGreaterThan(backWall(renderChart(column, 576, 336)))
+  })
+
+  it("draws Height (% of base): the front that share of its width tall, Autoscale filling the room", () => {
+    const column = withVariant(defaultChartSpec("column"), "column-3d-clustered")
+    expect(chartView3d({ ...column, heightPercent: 900 }).height).toBe(500)
+    // The floor's front edge: its left and right ends, and the front's bottom.
+    const front = (svg: string) => {
+      const floor = /data-chart-part="plotArea"[^>]*><polygon points="[^"]+"\/><polygon points="[^"]+"\/><polygon points="([^"]+)"/.exec(svg)![1]!
+      const corners = floor.split(" ").map((point) => point.split(",").map(Number))
+      const [left, right] = [corners[0], corners[3]]
+      return { width: right![0]! - left![0]!, bottom: left![1]! }
+    }
+    const back = (svg: string) => Number(/data-chart-part="plotArea"[^>]*><polygon points="[\d.]+,([\d.]+)/.exec(svg)![1])
+    const tall = (svg: string) => front(svg).bottom - back(svg)
+    const auto = renderChart(column, 576, 336)
+    const flat = renderChart({ ...column, heightPercent: 20 }, 576, 336)
+    expect(tall(flat)).toBeLessThan(tall(auto))
+    // As tall as a fifth of its width, give or take the depth going back.
+    expect(tall(flat)).toBeLessThan(front(flat).width * 0.3)
+    // Taller than there is room for: narrower instead.
+    expect(front(renderChart({ ...column, heightPercent: 500 }, 576, 336)).width).toBeLessThan(front(auto).width)
   })
 
   it("applies Quick Layouts and leaves out hidden series and categories", () => {
