@@ -762,6 +762,8 @@ unseen and the slide starts on the next one, set on the card element rather than
 showed WebKitGTK replays a frame of each entrance after the content has settled. Turning motion off there felt dead,
 so every entrance is now drawn from script a frame at a time (`src/document/entrances.ts`, `playEntrance`), checked
 in WebKitGTK itself (MiniBrowser on Xvfb, recorded) with no jumps. The tab underline no longer fades between tabs.
+Then only switches to and from Home slid: the slide picked Home's panel, which Activity had hidden but not yet
+marked hidden. It now picks the panel actually shown (`shownTabPanel`), as do the ribbon's scroll arrows.
 
 ### 18.8 — Styles
 

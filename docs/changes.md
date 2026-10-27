@@ -7,6 +7,19 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Every ribbon tab slides in, not just Home
+
+- **Bug:** the tab slide only showed when switching to or from Home (and the File view); every other switch had no
+  motion. A tab put behind is hidden by React's `Activity` at once (an inline `display: none`), but the update that
+  marks its panel `hidden` waits until the ribbon is idle. The slide took the first panel without `hidden`, which
+  was always Home's, so it animated Home's hidden panel. The ribbon's scroll arrows looked up their toolbar the
+  same way.
+- **Changed:** `shownTabPanel` (`src/components/ribbon/tab-motion.ts`) also skips panels Activity has hidden; the
+  slide and the scroll arrows (`ribbon.tsx`) both use it.
+- **Checked:** `tab-motion.test.tsx` now puts a just-hidden panel first, and failed before the fix. In Chrome,
+  Insert, Layout, Home, References, Review and View each start their own panel's slide. Full suite 849 passing.
+- **Open:** confirm in the desktop app.
+
 ### Animations back, drawn frame by frame, so they no longer jump in the desktop app
 
 - **Bug:** the previous fix turned every entrance off in the Linux desktop app, and the app felt dead ("animation is
