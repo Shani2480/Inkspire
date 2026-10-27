@@ -1,3 +1,4 @@
+import { openCommandMenu, type MenuItem } from "@/components/command-menu"
 import { useViewStore } from "@/document/view"
 import { shapeMarkup, shapeViewBox } from "@/editor/insert-blocks"
 import { isFloating } from "@/editor/objects"
@@ -5,12 +6,23 @@ import {
   POINTS_BOX,
   addPoint,
   anchorsOf,
+  closePath,
   deletePoint,
+  deleteSegment,
+  figureOf,
   fitPoints,
+  handlesAt,
+  moveHandle,
   movePoint,
+  nearestSegment,
+  openPath,
   parsePath,
   pathString,
+  pointKind,
   pointsFromMarkup,
+  setPointKind,
+  setSegmentKind,
+  type PointKind,
   type Segment,
 } from "@/editor/shape-points"
 import { Extension, type Editor } from "@tiptap/core"
@@ -21,7 +33,9 @@ import type { EditorView } from "@tiptap/pm/view"
 /**
  * Word's Edit Points (Shape Format → Edit Shape, or the shape's right-click menu): black handles on each point of the
  * shape's outline. Drag one to move it (one undo step a drag), Ctrl+click a point to delete it, Ctrl+click the
- * outline to add one. Escape, or a click away from the shape, ends it. A gallery shape becomes points when it begins.
+ * outline to add one. A point clicked shows its curve handles, to drag; right-click a point or the outline for
+ * Word's menu (Smooth, Straight and Corner Point; Straight and Curved Segment; Open and Close Path; Delete Segment).
+ * Escape, or a click away from the shape, ends it. A gallery shape becomes points when it begins.
  */
 
 const key = new PluginKey<{ pos: number | null }>("editPoints")
@@ -100,6 +114,13 @@ class PointsOverlay {
   private readonly outline: SVGPathElement
   private readonly target: SVGPathElement
   private handles: HTMLDivElement[] = []
+  /** The picked point's curve handles, coming in and going out, and the lines to them. */
+  private readonly tangentLine: SVGPathElement
+  private readonly tangents: Record<"in" | "out", HTMLDivElement>
+  /** The point picked last (its segment's index), whose curve handles show. */
+  private selected: number | null = null
+  /** Kinds set from the menu this session: a Corner point keeps its handles apart even while they are in line. */
+  private kinds = new Map<number, PointKind>()
   private pos: number | null = null
   /** A handle or the outline is being pressed: the shape may lose its selection meanwhile, which must not end it. */
   private pressing = false
@@ -122,8 +143,21 @@ class PointsOverlay {
     this.target.setAttribute("class", "edit-points-target")
     this.target.setAttribute("vector-effect", "non-scaling-stroke")
     this.target.style.strokeWidth = `${REACH * 2}px`
-    svg.append(this.outline, this.target)
+    this.tangentLine = document.createElementNS(svgNs, "path")
+    this.tangentLine.setAttribute("class", "edit-points-tangent-line")
+    this.tangentLine.setAttribute("vector-effect", "non-scaling-stroke")
+    svg.append(this.outline, this.tangentLine, this.target)
     this.root.append(svg)
+    const tangent = (side: "in" | "out") => {
+      const handle = document.createElement("div")
+      handle.className = "edit-points-tangent"
+      handle.hidden = true
+      handle.addEventListener("pointerdown", (event) => this.onTangentDown(event, side))
+      this.root.append(handle)
+      return handle
+    }
+    this.tangents = { in: tangent("in"), out: tangent("out") }
+    this.root.addEventListener("contextmenu", this.onMenu)
     document.body.append(this.root)
     this.target.addEventListener("pointerdown", this.onOutlineDown)
     // A press here must not move the page's text selection: that would deselect the shape and end Edit Points.
@@ -152,6 +186,8 @@ class PointsOverlay {
     const node = pos == null ? null : this.view.state.doc.nodeAt(pos)
     if (pos == null || !node || node.type.name !== "figure" || !node.attrs.points) {
       this.pos = null
+      this.selected = null
+      this.kinds.clear()
       this.root.hidden = true
       return
     }
@@ -224,15 +260,32 @@ class PointsOverlay {
       this.root.append(handle)
       this.handles.push(handle)
     }
+    const place = (element: HTMLElement, at: [number, number]) => {
+      element.style.left = `${(at[0] / POINTS_BOX) * 100}%`
+      element.style.top = `${(at[1] / POINTS_BOX) * 100}%`
+    }
     this.handles.forEach((handle, index) => {
       const anchor = anchors[index]
       handle.hidden = !anchor
       if (anchor) {
         handle.dataset.index = String(anchor.index)
-        handle.style.left = `${(anchor.at[0] / POINTS_BOX) * 100}%`
-        handle.style.top = `${(anchor.at[1] / POINTS_BOX) * 100}%`
+        handle.toggleAttribute("data-selected", anchor.index === this.selected)
+        place(handle, anchor.at)
       }
     })
+    // The picked point's curve handles, where curves meet it.
+    const picked = anchors.some((anchor) => anchor.index === this.selected) ? this.selected : null
+    const handles = picked == null ? null : handlesAt(this.segments, picked)
+    let lines = ""
+    for (const side of ["in", "out"] as const) {
+      const handle = handles?.[side]
+      this.tangents[side].hidden = !handle
+      if (handles && handle) {
+        place(this.tangents[side], handle.at)
+        lines += `M${handles.at[0]} ${handles.at[1]} L${handle.at[0]} ${handle.at[1]} `
+      }
+    }
+    this.tangentLine.setAttribute("d", lines.trim())
   }
 
   /** Screen movement as movement in the points' box, undoing the shape's turn and flips. */
@@ -320,9 +373,11 @@ class PointsOverlay {
     event.preventDefault()
     event.stopPropagation()
     if (event.ctrlKey || event.metaKey) {
-      this.commit(deletePoint(this.segments, index))
+      this.reshape(deletePoint(this.segments, index))
       return
     }
+    this.selected = index
+    this.draw()
     this.pressing = true
     const start = this.segments
     const startX = event.clientX
@@ -353,8 +408,132 @@ class PointsOverlay {
     const reach = (REACH / Math.min(this.frame.width, this.frame.height)) * POINTS_BOX
     const added = addPoint(this.segments, x, y, reach)
     if (added) {
-      this.commit(added)
+      this.reshape(added)
     }
+  }
+
+  /** A change that adds or takes away points: the picked point and the kinds set by index no longer apply. */
+  private reshape(segments: Segment[]) {
+    if (segments === this.segments) {
+      return
+    }
+    this.selected = null
+    this.kinds.clear()
+    this.commit(segments)
+  }
+
+  /** Dragging one of the picked point's curve handles, its other handle following by the point's kind. */
+  private onTangentDown = (event: PointerEvent, side: "in" | "out") => {
+    const index = this.selected
+    if (event.button !== 0 || index == null) {
+      return
+    }
+    event.preventDefault()
+    event.stopPropagation()
+    this.pressing = true
+    const start = this.segments
+    const kind = this.kinds.get(index) ?? pointKind(start, index)
+    const startX = event.clientX
+    const startY = event.clientY
+    let latest = start
+    const move = (moved: PointerEvent) => {
+      const [dx, dy] = this.toBox(moved.clientX - startX, moved.clientY - startY)
+      latest = moveHandle(start, index, side, dx, dy, kind)
+      this.preview(latest)
+    }
+    const up = () => {
+      window.removeEventListener("pointermove", move)
+      window.removeEventListener("pointerup", up)
+      this.pressing = false
+      if (latest !== start) {
+        this.commit(latest)
+      }
+    }
+    window.addEventListener("pointermove", move)
+    window.addEventListener("pointerup", up)
+  }
+
+  /** Word's right-click menus: one for a point, one for the line or curve between two. */
+  private onMenu = (event: MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    const segments = this.segments
+    const exit: MenuItem = { label: "Exit Edit Points", run: () => stopEditPoints(this.view) }
+    const handle = event.target instanceof Element ? event.target.closest<HTMLElement>(".edit-points-handle") : null
+    if (handle) {
+      const index = Number(handle.dataset.index)
+      this.selected = index
+      this.draw()
+      const closed = figureOf(segments, index).closed
+      const kind = (next: PointKind) => () => {
+        const changed = setPointKind(this.segments, index, next)
+        if (changed.length !== this.segments.length) {
+          // A close's line became a curve of its own: the points after this one have moved along.
+          this.kinds.clear()
+        }
+        this.kinds.set(index, next)
+        if (changed !== this.segments) {
+          this.commit(changed)
+        }
+      }
+      openCommandMenu(
+        [
+          { label: "Delete Point", run: () => this.reshape(deletePoint(this.segments, index)) },
+          { label: "Open Path", disabled: !closed, run: () => this.reshape(openPath(this.segments, index)) },
+          { label: "Close Path", disabled: closed, run: () => this.reshape(closePath(this.segments, index)) },
+          "-",
+          { label: "Smooth Point", run: kind("smooth") },
+          { label: "Straight Point", run: kind("straight") },
+          { label: "Corner Point", run: kind("corner") },
+          "-",
+          exit,
+        ],
+        event.clientX,
+        event.clientY,
+        "Edit Points",
+      )
+      return
+    }
+    const [x, y] = this.boxPoint(event.clientX, event.clientY)
+    const reach = (REACH / Math.min(this.frame.width, this.frame.height)) * POINTS_BOX
+    const found = nearestSegment(segments, x, y)
+    if (!found || found.distance > reach) {
+      return
+    }
+    const segment = segments[found.index]!
+    const closed = figureOf(segments, found.index).closed
+    openCommandMenu(
+      [
+        { label: "Add Point", run: () => this.reshape(addPoint(this.segments, x, y, reach) ?? this.segments) },
+        { label: "Delete Segment", run: () => this.reshape(deleteSegment(this.segments, found.index)) },
+        {
+          label: "Open Path",
+          disabled: !closed,
+          // Cut where it was clicked: a point is added there, and the path opens at it.
+          run: () => {
+            const added = addPoint(this.segments, x, y, reach)
+            this.reshape(added ? openPath(added, found.index) : this.segments)
+          },
+        },
+        { label: "Close Path", disabled: closed, run: () => this.reshape(closePath(this.segments, found.index)) },
+        "-",
+        {
+          label: "Straight Segment",
+          disabled: segment.kind !== "C",
+          run: () => this.commit(setSegmentKind(this.segments, found.index, "straight")),
+        },
+        {
+          label: "Curved Segment",
+          disabled: segment.kind === "C",
+          run: () => this.reshape(setSegmentKind(this.segments, found.index, "curved")),
+        },
+        "-",
+        exit,
+      ],
+      event.clientX,
+      event.clientY,
+      "Edit Points",
+    )
   }
 
   /** A press away from the shape and its handles ends Edit Points, as in Word. */
@@ -363,14 +542,16 @@ class PointsOverlay {
       return
     }
     const dom = this.view.nodeDOM(this.pos)
-    if (this.root.contains(event.target) || (dom instanceof Node && dom.contains(event.target))) {
+    const onMenu = event.target instanceof Element && event.target.closest(".command-menu, .command-menu-backdrop")
+    if (onMenu || this.root.contains(event.target) || (dom instanceof Node && dom.contains(event.target))) {
       return
     }
     stopEditPoints(this.view)
   }
 
   private onKey = (event: KeyboardEvent) => {
-    if (event.key === "Escape" && this.pos != null) {
+    // With a menu open, Escape closes the menu alone.
+    if (event.key === "Escape" && this.pos != null && !document.querySelector(".command-menu")) {
       event.preventDefault()
       event.stopPropagation()
       stopEditPoints(this.view)

@@ -13,7 +13,7 @@ import { QUICK_COMMANDS } from "@/components/quick-commands"
 import { openCustomize } from "@/components/customize-dialog"
 import { SEPARATOR, addCommand, parseRibbonCommandId, useCustomize } from "@/document/customize"
 import { cleanIcon, ribbonCommandAt, ribbonCommandEnabled, runRibbonCommand } from "@/components/ribbon/ribbon-commands"
-import { create } from "zustand"
+import { openCommandMenu, type MenuItem } from "@/components/command-menu"
 
 /**
  * The Quick Access Toolbar: in the title bar, or under the ribbon when Toolbar Position says so (`placement` is where
@@ -325,13 +325,6 @@ function QuickButton({
   )
 }
 
-type MenuItem = { label: string; run: () => void; disabled?: boolean } | "-"
-
-const useCommandMenu = create<{ at: { x: number; y: number } | null; items: MenuItem[] }>(() => ({
-  at: null,
-  items: [],
-}))
-
 /** The rows Word puts under any right-click on the ribbon or the toolbar. */
 function toolbarRows(): MenuItem[] {
   const { qatShown, qatBelow, set } = useCustomize.getState()
@@ -362,7 +355,7 @@ function openToolbarMenu(id: string | null, x: number, y: number) {
         "-",
       ]
     : []
-  useCommandMenu.setState({ at: { x, y }, items: [...remove, ...toolbarRows()] })
+  openCommandMenu([...remove, ...toolbarRows()], x, y, "Quick Access Toolbar")
 }
 
 /**
@@ -394,68 +387,6 @@ export function openRibbonCommandMenu(target: EventTarget | null, x: number, y: 
         "-",
       ]
     : []
-  useCommandMenu.setState({ at: { x, y }, items: [...add, ...toolbarRows()] })
+  openCommandMenu([...add, ...toolbarRows()], x, y, "Quick Access Toolbar")
   return true
-}
-
-/** The right-click menu of the ribbon and the toolbar; drawn once, under the ribbon. */
-export function CommandMenuHost() {
-  const at = useCommandMenu((state) => state.at)
-  const items = useCommandMenu((state) => state.items)
-  const close = () => useCommandMenu.setState({ at: null })
-  useEffect(() => {
-    if (!at) {
-      return
-    }
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault()
-        close()
-      }
-    }
-    window.addEventListener("keydown", onKey, true)
-    return () => window.removeEventListener("keydown", onKey, true)
-  }, [at])
-  if (!at) {
-    return null
-  }
-  return createPortal(
-    <>
-      <div
-        className="fixed inset-0 z-[90]"
-        onMouseDown={close}
-        onContextMenu={(event) => {
-          event.preventDefault()
-          close()
-        }}
-      />
-      <div
-        role="menu"
-        aria-label="Quick Access Toolbar"
-        style={{ top: Math.min(at.y, window.innerHeight - 140), left: Math.min(at.x, window.innerWidth - 300) }}
-        className="quick-menu fixed z-[91] flex min-w-56 flex-col rounded-md border border-[var(--app-popover-border,#e1dfdd)] bg-[var(--app-popover-bg,#fff)] py-1 text-[12px] text-[var(--app-ribbon-text)] shadow-lg"
-      >
-        {items.map((item, index) =>
-          item === "-" ? (
-            <div key={`sep-${index}`} className="my-1 border-t border-black/10" />
-          ) : (
-            <button
-              key={item.label}
-              type="button"
-              role="menuitem"
-              disabled={item.disabled}
-              className="px-3 py-1 text-left hover:bg-[var(--app-hover)] disabled:opacity-40"
-              onClick={() => {
-                close()
-                item.run()
-              }}
-            >
-              {item.label}
-            </button>
-          ),
-        )}
-      </div>
-    </>,
-    document.body,
-  )
 }

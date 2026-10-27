@@ -263,6 +263,13 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Open a Word chart turned to X 40° / Y 60° here: the pane shows 40 and 60. Compare the drawing with Word's.
 - Word's view from below (negative X) or from the left (Y over 180°): drawn straight on here, saved as it was.
 
+## Edit Points curve handles and menus (2026-10-27)
+
+- Compare with Word on the same shape: Smooth Point on a rectangle's corner bends it the way Word does; dragging
+  a Smooth, Straight and Corner point's handles behaves the same.
+- Open Path, Delete Segment and Close Path, then save: Word opens the shape with the same open or closed outline.
+- Desktop app: right-click a point and a segment (WebKitGTK), and the curve handles on a turned and flipped shape.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

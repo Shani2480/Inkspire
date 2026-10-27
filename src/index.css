@@ -11641,6 +11641,30 @@ textarea.text-prompt-field {
   cursor: move;
 }
 
+/* The point picked last: its curve handles show. */
+.edit-points-handle[data-selected] {
+  outline: 1px solid #000;
+  outline-offset: 1px;
+}
+
+/* A picked point's curve handles, on lines out from the point, as Word draws them. */
+.edit-points-tangent-line {
+  fill: none;
+  stroke: #2b579a;
+  stroke-width: 1px;
+}
+
+.edit-points-tangent {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  background: #fff;
+  border: 1px solid #000;
+  pointer-events: auto;
+  cursor: move;
+}
+
 /* A picture border along a Crop to Shape outline. */
 .image-shape-outline {
   position: absolute;

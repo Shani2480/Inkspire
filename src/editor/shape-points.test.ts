@@ -3,8 +3,17 @@ import { SHAPE_NAMES, shapeMarkup, shapeViewBox } from "@/editor/insert-blocks"
 import {
   addPoint,
   anchorsOf,
+  closePath,
   custGeomXml,
   deletePoint,
+  deleteSegment,
+  handlesAt,
+  moveHandle,
+  nearestSegment,
+  openPath,
+  pointKind,
+  setPointKind,
+  setSegmentKind,
   fitPoints,
   movePoint,
   parsePath,
@@ -100,6 +109,78 @@ describe("shapes as points", () => {
     expect(split).toHaveLength(3)
     expect((split[1] as { to: number[] }).to).toEqual([50, 75])
     expect((split[2] as { to: number[] }).to).toEqual([100, 0])
+  })
+})
+
+describe("point kinds, curve handles and paths", () => {
+  const path = (d: string) => parsePath(d)
+  const text = (segments: Segment[]) => pathString(segments)
+
+  it("tells a point's kind from its handles", () => {
+    const smooth = path("M0 50 C0 20 20 0 50 0 C80 0 100 20 100 50")
+    expect(pointKind(smooth, 1)).toBe("smooth")
+    expect(pointKind(path("M0 50 C0 20 40 0 50 0 C80 0 100 20 100 50"), 1)).toBe("straight")
+    expect(pointKind(path("M0 50 C0 20 40 10 50 0 C80 0 100 20 100 50"), 1)).toBe("corner")
+    expect(pointKind(SQUARE, 1)).toBe("corner")
+    expect(handlesAt(smooth, 1)).toEqual({ at: [50, 0], in: { segment: 1, at: [20, 0] }, out: { segment: 2, at: [80, 0] } })
+    // Into a closed figure's first point comes its last line back; out of its last point, the close (a line).
+    const closed = path("M50 0 C80 0 100 20 100 50 C100 80 80 100 50 100 C20 100 0 80 0 50 C0 20 20 0 50 0 Z")
+    expect(handlesAt(closed, 0).in).toEqual({ segment: 4, at: [20, 0] })
+    expect(handlesAt(SQUARE, 3).out).toBeNull()
+  })
+
+  it("drags a handle: a Smooth point's other handle follows at the same length, a Straight one's at its own", () => {
+    const curve = path("M0 50 C0 20 20 0 50 0 C80 0 100 20 100 50")
+    expect(text(moveHandle(curve, 1, "out", 0, 10, "smooth"))).toBe("M0 50 C0 20 20 -10 50 0 C80 10 100 20 100 50")
+    const straight = path("M0 50 C0 20 40 0 50 0 C80 0 100 20 100 50")
+    const turned = moveHandle(straight, 1, "out", 0, 30, "straight")
+    const { in: incoming } = handlesAt(turned, 1)
+    // Turned to stay opposite, keeping its length of 10.
+    expect(incoming!.at[0]).toBeCloseTo(50 - 10 / Math.SQRT2, 1)
+    expect(incoming!.at[1]).toBeCloseTo(-10 / Math.SQRT2, 1)
+    expect(text(moveHandle(curve, 1, "out", 0, 10, "corner"))).toBe("M0 50 C0 20 20 0 50 0 C80 10 100 20 100 50")
+  })
+
+  it("makes a corner Smooth or Straight, turning the lines either side into curves", () => {
+    const smooth = setPointKind(SQUARE, 1, "smooth")
+    expect(smooth.map((segment) => segment.kind).join("")).toBe("MCCLZ")
+    expect(pointKind(smooth, 1)).toBe("smooth")
+    // The handles lie along the way from the point before to the point after.
+    const { in: incoming, out } = handlesAt(smooth, 1)
+    expect((out!.at[1] - 0) / (out!.at[0] - 100)).toBeCloseTo((100 - 0) / (100 - 0), 5)
+    expect(incoming!.at[0]).toBeLessThan(100)
+    // The first point of a closed figure: the close's line becomes a curve of its own, coming back to it.
+    const first = setPointKind(SQUARE, 0, "smooth")
+    expect(text(first)).toMatch(/^M0 0 C.* C[^C]* 0 0 Z$/)
+    expect(pointKind(first, 0)).toBe("smooth")
+    expect(setPointKind(SQUARE, 1, "corner")).toBe(SQUARE)
+  })
+
+  it("makes a segment straight or curved, drawing the same until its handles move", () => {
+    const curved = setSegmentKind(SQUARE, 1, "curved")
+    expect(text(curved)).toBe("M0 0 C33.33 0 66.67 0 100 0 L100 100 L0 100 Z")
+    expect(text(setSegmentKind(curved, 1, "straight"))).toBe(text(SQUARE))
+    expect(text(setSegmentKind(SQUARE, 4, "curved"))).toBe("M0 0 L100 0 L100 100 L0 100 C0 66.67 0 33.33 0 0 Z")
+    expect(nearestSegment(SQUARE, 2, 50)!.index).toBe(4)
+  })
+
+  it("opens a closed path at a point and closes it again", () => {
+    const open = openPath(SQUARE, 2)
+    expect(text(open)).toBe("M100 100 L0 100 L0 0 L100 0 L100 100")
+    // Both ends are points of their own now, one on top of the other.
+    expect(anchorsOf(open)).toHaveLength(5)
+    expect(text(openPath(SQUARE, 0))).toBe("M0 0 L100 0 L100 100 L0 100 L0 0")
+    expect(text(closePath(open, 1))).toBe("M100 100 L0 100 L0 0 L100 0 L100 100 Z")
+    expect(closePath(SQUARE, 1)).toBe(SQUARE)
+  })
+
+  it("deletes a segment: a closed path opens there, an open one splits", () => {
+    expect(text(deleteSegment(SQUARE, 2))).toBe("M100 100 L0 100 L0 0 L100 0")
+    expect(text(deleteSegment(SQUARE, 4))).toBe("M0 0 L100 0 L100 100 L0 100")
+    const line = path("M0 0 L10 0 L20 0 L30 0")
+    expect(text(deleteSegment(line, 2))).toBe("M0 0 L10 0 M20 0 L30 0")
+    expect(text(deleteSegment(line, 1))).toBe("M10 0 L20 0 L30 0")
+    expect(deleteSegment(path("M0 0 L10 0"), 1)).toHaveLength(2)
   })
 })
 
