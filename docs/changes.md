@@ -7,6 +7,51 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Customize Ribbon round 2: Reset ▾, a main tab's own groups, the user's groups on the single line
+
+- **What was wrong:**
+  - Reset put back everything at once.
+  - A main tab's own groups were listed greyed and could not be removed or moved.
+  - On the single line ribbon, the user's groups sat off the end of the row (portalled into a toolbar that
+    clips), and the user's tabs were drawn as classic groups.
+- **What changed:**
+  - Reset ▾ (`customize-dialog.tsx`), as in Word:
+    - Quick Access Toolbar page: Reset only Quick Access Toolbar, Reset all customizations;
+    - Customize Ribbon page: Reset only selected Ribbon tab (off for a tab the user made), Reset all
+      customizations.
+    - The tree's selection moved up into the dialog for this.
+  - `ribbon-layout.ts`:
+    - `hiddenGroups` and `groupOrder` per main tab; the tab's own groups are named `own:<name>` by their
+      `data-group`.
+    - `groupKeys` gives the tab's groups in order; groups it does not know yet go at the end.
+    - `moveItem` and `newGroup` place groups among the tab's own; `removeItem` removes one of the tab's own.
+    - `resetTab` puts a main tab back.
+    - All of it is saved, exported and read back.
+  - Tree: under a main tab its groups are listed in ribbon order, the tab's own (by caption, from the last classic
+    drawing, `tabGroups`) and the user's together; the tab's own can be selected, moved and removed, not renamed.
+  - Classic ribbon (`MainTabGroups`): CSS `order` puts the tab's groups in the order given, and removed groups are
+    hidden. A MutationObserver keeps this when a group collapses or expands with the width.
+  - Single line:
+    - `SingleLineBar` reads the tab it is on (`RibbonTabContext`), leaves out removed groups and adds the user's
+      groups as line commands (16 px icons, kept on the row before the tab's least used);
+    - the user's tabs draw as a single line (`CustomTabLine`);
+    - Home's Find and Add-ins line groups carry the classic names, so removing Editing removes Find.
+- **Tests:**
+  - `ribbon-layout.test.ts`: a new test for moving, removing and resetting a main tab's own groups.
+  - `customize-dialog.test.tsx`: the three Reset choices.
+  - Full suite: 1107 passing.
+- **How checked:**
+  - Chrome, classic ribbon:
+    - Home's groups listed;
+    - Font moved after Paragraph, Editing removed, a group of the user's moved up to after Clipboard;
+    - the ribbon shows Clipboard, Quick, Paragraph, Font, Styles, Add-ins.
+  - Chrome, single line: Find left out, the user's Save and Bold on the row, and the user's tab as a single line.
+- **Open:**
+  - The single line has groups of its own, so only removal (where the names match) carries over to it, not the
+    order.
+  - Built-in groups cannot be renamed, and a removed one comes back only through Reset.
+  - "For this document" (a toolbar kept in the .docx, Word's customUI part) is not done.
+
 ### Word's text boxes open as text boxes; linked boxes saved as Word's chains
 
 - **What was wrong:** a Word text box (`wps:wsp` with `txBox="1"`) opened as a grey atom showing its text in the

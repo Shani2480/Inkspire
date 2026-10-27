@@ -3,6 +3,7 @@ import {
   addToGroup,
   canRemove,
   emptyLayout,
+  groupKeys,
   groupsOf,
   moveItem,
   newGroup,
@@ -10,6 +11,7 @@ import {
   readLayout,
   removeItem,
   renameItem,
+  resetTab,
   tabName,
   tabOrder,
 } from "@/document/ribbon-layout"
@@ -119,7 +121,38 @@ describe("Customize Ribbon: New Tab, New Group, Rename (22.5)", () => {
       customTabs: [{ id: "t", label: "New Tab", after: "ai", groups: [{ id: "g", label: "G", commands: ["save"] }] }],
       customGroups: {},
       tabNames: { home: "Start" },
+      hiddenGroups: {},
+      groupOrder: {},
     })
     expect(readCustomization(null, () => true)).toMatchObject({ customTabs: [], customGroups: {}, tabNames: {} })
+  })
+
+  it("removes and moves a main tab's own groups among the user's, and Reset puts the tab back", () => {
+    const own = ["clipboard", "font", "paragraph"]
+    // New Group with Font selected: straight after it.
+    let { layout, target } = newGroup(emptyLayout(), { tab: "home", group: "own:font" }, own)
+    const mine = target.group!
+    expect(groupKeys(layout, "home", own)).toEqual(["own:clipboard", "own:font", mine, "own:paragraph"])
+    // Moved up past Font and Clipboard; no further.
+    layout = moveItem(layout, { tab: "home", group: mine }, -1, own)!.layout
+    layout = moveItem(layout, { tab: "home", group: mine }, -1, own)!.layout
+    expect(moveItem(layout, { tab: "home", group: mine }, -1, own)).toBeNull()
+    expect(groupKeys(layout, "home", own)).toEqual([mine, "own:clipboard", "own:font", "own:paragraph"])
+    // One of the tab's own groups moves too, and is removed.
+    layout = moveItem(layout, { tab: "home", group: "own:paragraph" }, -1, own)!.layout
+    expect(groupKeys(layout, "home", own)).toEqual([mine, "own:clipboard", "own:paragraph", "own:font"])
+    expect(canRemove(layout, { tab: "home", group: "own:font" })).toBe(true)
+    layout = removeItem(layout, { tab: "home", group: "own:font" })
+    expect(layout.hiddenGroups).toEqual({ home: ["font"] })
+    expect(groupKeys(layout, "home", own)).toEqual([mine, "own:clipboard", "own:paragraph"])
+    // A group the tab gains later goes at the end.
+    expect(groupKeys(layout, "home", [...own, "editing"]).slice(-1)).toEqual(["own:editing"])
+    // Kept with the rest, and read back.
+    const read = readCustomization(JSON.stringify({ ...defaults(), ...layout }), () => true)
+    expect(read).toMatchObject({ hiddenGroups: layout.hiddenGroups, groupOrder: layout.groupOrder })
+    // Reset only selected Ribbon tab: Home as it comes, other tabs untouched.
+    layout = renameItem(layout, { tab: "insert" }, "Add")
+    const reset = resetTab(layout, "home")
+    expect(reset).toMatchObject({ customGroups: {}, hiddenGroups: {}, groupOrder: {}, tabNames: { insert: "Add" } })
   })
 })

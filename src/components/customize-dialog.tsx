@@ -2,6 +2,7 @@ import { openCommandMenu } from "@/components/command-menu"
 import { QUICK_COMMANDS } from "@/components/quick-commands"
 import { DialogButtons, DialogFrame } from "@/components/word-dialog"
 import { ribbonCommandsOn } from "@/components/ribbon/ribbon-commands"
+import { tabGroups } from "@/components/ribbon/custom-groups"
 import {
   SEPARATOR,
   addCommand,
@@ -17,14 +18,18 @@ import {
 } from "@/document/customize"
 import {
   addToGroup,
+  OWN,
   canRemove,
+  groupKeys,
   groupsOf,
   isCustomTab,
+  isOwnGroup,
   moveItem,
   newGroup,
   newTab,
   removeItem,
   renameItem,
+  resetTab,
   tabName,
   tabOrder,
   type RibbonLayout,
@@ -103,11 +108,9 @@ function CustomizeDialog({ initial, onClose }: { initial: Page; onClose: () => v
   const [below, setBelow] = useState(stored.qatBelow)
   const [labels, setLabels] = useState(stored.qatLabels)
   const [looks, setLooks] = useState(stored.ribbon)
-  const [layout, setLayout] = useState<RibbonLayout>({
-    customTabs: stored.customTabs,
-    customGroups: stored.customGroups,
-    tabNames: stored.tabNames,
-  })
+  const [layout, setLayout] = useState<RibbonLayout>(() => layoutOf(stored))
+  // The place selected in the Customize Ribbon tree; Reset only selected Ribbon tab resets its tab.
+  const [target, setTarget] = useState<RibbonTarget | null>({ tab: "home" })
   const [sources] = useState(commandSources)
   const [from, setFrom] = useState("popular")
   const choices = useMemo(
@@ -169,7 +172,7 @@ function CustomizeDialog({ initial, onClose }: { initial: Page; onClose: () => v
       setBelow(read.qatBelow)
       setLabels(read.qatLabels)
       setLooks(read.ribbon)
-      setLayout({ customTabs: read.customTabs, customGroups: read.customGroups, tabNames: read.tabNames })
+      setLayout(layoutOf(read))
       setRight(-1)
       setNotice("Customizations imported. Click OK to use them.")
     } catch (error) {
@@ -189,16 +192,30 @@ function CustomizeDialog({ initial, onClose }: { initial: Page; onClose: () => v
     }
   }
 
-  const reset = () => {
+  // Word's Reset ▾: the toolbar alone, the selected main tab alone, or everything.
+  const resetToolbar = () => {
     const base = defaults()
     setShown(base.qatShown)
     setQat(base.qat)
-    setHidden(base.hiddenTabs)
     setBelow(base.qatBelow)
     setLabels(base.qatLabels)
-    setLooks(base.ribbon)
-    setLayout({ customTabs: base.customTabs, customGroups: base.customGroups, tabNames: base.tabNames })
     setRight(-1)
+  }
+  const resetAll = () => {
+    const base = defaults()
+    resetToolbar()
+    setHidden(base.hiddenTabs)
+    setLooks(base.ribbon)
+    setLayout(layoutOf(base))
+    setTarget({ tab: "home" })
+  }
+  const selectedTab = target && !isCustomTab(layout, target.tab) ? target.tab : null
+  const resetSelectedTab = () => {
+    if (selectedTab) {
+      setLayout(resetTab(layout, selectedTab))
+      setHidden(hidden.filter((id) => id !== selectedTab))
+      setTarget({ tab: selectedTab })
+    }
   }
 
   return (
@@ -326,6 +343,8 @@ function CustomizeDialog({ initial, onClose }: { initial: Page; onClose: () => v
           setHidden={setHidden}
           labelOf={labelOf}
           onLook={(id, look) => setLooks((current) => ({ ...current, [id]: look }))}
+          target={target}
+          setTarget={setTarget}
         />
       )}
       {notice ? (
@@ -334,8 +353,29 @@ function CustomizeDialog({ initial, onClose }: { initial: Page; onClose: () => v
         </p>
       ) : null}
       <DialogButtons submit onCancel={onClose}>
-        <button type="button" className="dialog-btn" onClick={reset}>
-          Reset
+        <button
+          type="button"
+          className="dialog-btn"
+          aria-haspopup="menu"
+          onClick={(event) => {
+            const box = event.currentTarget.getBoundingClientRect()
+            openCommandMenu(
+              page === "ribbon"
+                ? [
+                    { label: "Reset only selected Ribbon tab", run: resetSelectedTab, disabled: !selectedTab },
+                    { label: "Reset all customizations", run: resetAll },
+                  ]
+                : [
+                    { label: "Reset only Quick Access Toolbar", run: resetToolbar },
+                    { label: "Reset all customizations", run: resetAll },
+                  ],
+              box.left,
+              box.bottom,
+              "Reset",
+            )
+          }}
+        >
+          Reset ▾
         </button>
         <button
           type="button"
@@ -361,13 +401,19 @@ function CustomizeDialog({ initial, onClose }: { initial: Page; onClose: () => v
   )
 }
 
-/** The groups a main tab draws itself, by their captions, as the tree lists them; none before the tab is built. */
+/** The part of the customization the Customize Ribbon tree changes. */
+function layoutOf(value: RibbonLayout): RibbonLayout {
+  const { customTabs, customGroups, tabNames, hiddenGroups, groupOrder } = value
+  return { customTabs, customGroups, tabNames, hiddenGroups, groupOrder }
+}
+
+/**
+ * The groups a main tab draws itself (by name and caption) as the classic ribbon last drew them, for the tree to
+ * list; none before the tab is built.
+ */
 function ownGroups(tab: string) {
-  const panel = document.querySelector(`[data-ribbon-tab="${CSS.escape(tab)}"]`)
-  const captions = panel?.querySelectorAll(
-    ":scope .ribbon-group-labeled:not([data-group^='custom:']) > .ribbon-caption > span",
-  )
-  return [...new Set([...(captions ?? [])].map((caption) => caption.textContent?.trim() ?? "").filter(Boolean))]
+  const seen = new Set<string>()
+  return (tabGroups.get(tab) ?? []).filter((group) => !seen.has(group.name) && seen.add(group.name))
 }
 
 const same = (a: RibbonTarget | null, b: RibbonTarget) =>
@@ -386,6 +432,8 @@ function RibbonPage({
   setHidden,
   labelOf,
   onLook,
+  target,
+  setTarget,
 }: {
   sources: { id: string; label: string; choices: () => Choice[] }[]
   layout: RibbonLayout
@@ -394,14 +442,17 @@ function RibbonPage({
   setHidden: (hidden: string[]) => void
   labelOf: (id: string) => string
   onLook: (id: string, look: RibbonCommandLook) => void
+  target: RibbonTarget | null
+  setTarget: (target: RibbonTarget | null) => void
 }) {
   const [from, setFrom] = useState("popular")
   const choices = useMemo(() => sources.find((source) => source.id === from)?.choices() ?? [], [sources, from])
   const [left, setLeft] = useState("")
-  const [target, setTarget] = useState<RibbonTarget | null>({ tab: "home" })
   const [open, setOpen] = useState<string[]>([])
   const [renaming, setRenaming] = useState<string | null>(null)
   const own = useMemo(() => Object.fromEntries(tabOrder(layout).map((tab) => [tab, ownGroups(tab)])), [layout])
+  // The names of the selected tab's own groups, which Move and New Group place the tab's groups among.
+  const names = (tab: string) => (own[tab] ?? []).map((group) => group.name)
 
   const select = (next: RibbonTarget) => {
     setTarget(next)
@@ -438,7 +489,8 @@ function RibbonPage({
     }
     setRenaming(null)
   }
-  const renamable = Boolean(target && target.command === undefined)
+  const renamable = Boolean(target && target.command === undefined && !isOwnGroup(target.group))
+  const move = (direction: -1 | 1) => (target ? moveItem(layout, target, direction, names(target.tab)) : null)
 
   return (
     <div className="cz-panel">
@@ -540,17 +592,24 @@ function RibbonPage({
                   </div>
                   {expanded ? (
                     <ul role="group">
-                      {(own[tab] ?? []).map((group) => (
-                        <li
-                          key={`own-${group}`}
-                          role="treeitem"
-                          className="cz-row cz-own"
-                          onClick={() => select({ tab })}
-                        >
-                          {group}
-                        </li>
-                      ))}
-                      {groupsOf(layout, tab).map((group) => {
+                      {groupKeys(layout, tab, names(tab)).map((key) => {
+                        const group = groupsOf(layout, tab).find((item) => item.id === key)
+                        if (!group) {
+                          // One of the tab's own groups: it can be moved or removed, not changed.
+                          const here = { tab, group: key }
+                          const label = own[tab]?.find((item) => OWN + item.name === key)?.label ?? key
+                          return (
+                            <li
+                              key={key}
+                              role="treeitem"
+                              aria-selected={same(target, here)}
+                              className={`cz-row cz-own${same(target, here) ? " is-selected" : ""}`}
+                              onClick={() => select(here)}
+                            >
+                              {label}
+                            </li>
+                          )
+                        }
                         const here = { tab, group: group.id }
                         const groupOpen = open.includes(group.id)
                         return (
@@ -612,7 +671,7 @@ function RibbonPage({
               type="button"
               className="dialog-btn"
               disabled={!target}
-              onClick={() => target && apply(newGroup(layout, target))}
+              onClick={() => target && apply(newGroup(layout, target, names(target.tab)))}
             >
               New Group
             </button>
@@ -657,8 +716,8 @@ function RibbonPage({
             type="button"
             className="dialog-btn"
             aria-label="Move Up"
-            disabled={!target || !moveItem(layout, target, -1)}
-            onClick={() => target && apply(moveItem(layout, target, -1))}
+            disabled={!move(-1)}
+            onClick={() => apply(move(-1))}
           >
             ▲
           </button>
@@ -666,8 +725,8 @@ function RibbonPage({
             type="button"
             className="dialog-btn"
             aria-label="Move Down"
-            disabled={!target || !moveItem(layout, target, 1)}
-            onClick={() => target && apply(moveItem(layout, target, 1))}
+            disabled={!move(1)}
+            onClick={() => apply(move(1))}
           >
             ▼
           </button>

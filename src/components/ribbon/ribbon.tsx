@@ -1,6 +1,7 @@
 import { HIDEABLE_TABS, useCustomize } from "@/document/customize"
-import { tabName, tabOrder } from "@/document/ribbon-layout"
-import { CustomGroups, MainTabGroups } from "@/components/ribbon/custom-groups"
+import { emptyLayout, tabName, tabOrder, type CustomGroup } from "@/document/ribbon-layout"
+import { CustomGroups, MainTabGroups, RibbonTabContext, useCustomLineGroups } from "@/components/ribbon/custom-groups"
+import { SingleLineBar } from "@/components/ribbon/single-line"
 import { ChartDesignTab, ChartFormatTab } from "@/components/ribbon/chart-tabs"
 import { ShapeFormatTab } from "@/components/ribbon/shape-format-tab"
 import { CommandMenuHost } from "@/components/command-menu"
@@ -36,7 +37,17 @@ import { rememberSelection } from "@/editor/selection-memory"
 import { NodeSelection } from "@tiptap/pm/state"
 import { useEditorState } from "@tiptap/react"
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Moon, Sun } from "lucide-react"
-import { Activity, memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type RefObject } from "react"
+import {
+  Activity,
+  memo,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type RefObject,
+} from "react"
 import { prefersReducedMotion } from "@/document/motion"
 
 type RibbonContext =
@@ -135,6 +146,11 @@ const CONTEXT_TAB: Record<Exclude<RibbonContext, "none">, { id: string; label: s
 }
 
 /** A tab's name, as its trigger shows it; the Quick Access Toolbar names a ribbon command's tab with it. */
+/** A tab the user made, on the single line ribbon: its groups' commands in a row, as the other tabs have them. */
+function CustomTabLine({ label, groups }: { label: string; groups: CustomGroup[] }) {
+  return <SingleLineBar label={label} groups={useCustomLineGroups(groups)} />
+}
+
 function tabLabel(id: string) {
   const fixed = id === "home" ? "Home" : HIDEABLE_TABS.find((tab) => tab.id === id)?.label
   const tool = Object.values(CONTEXT_TAB).find((tab) => tab.id === id)?.label
@@ -362,7 +378,7 @@ export function Ribbon() {
   const customGroups = useCustomize((state) => state.customGroups)
   const tabNames = useCustomize((state) => state.tabNames)
   const ribbonTabs = useMemo(() => {
-    const layout = { customTabs, customGroups, tabNames }
+    const layout = { ...emptyLayout(), customTabs, customGroups, tabNames }
     return tabOrder(layout)
       .filter((id) => id !== "home")
       .filter((id) => !hiddenTabs.includes(id) && !customTabs.find((custom) => custom.id === id)?.hidden)
@@ -487,8 +503,10 @@ export function Ribbon() {
           {MAIN_TABS.filter(([id]) => visited.includes(id)).map(([id, Content]) => (
             <Activity key={id} mode={tab === id ? "visible" : "hidden"}>
               <TabsContent value={id} keepMounted data-ribbon-tab={id} data-ribbon-tab-label={tabLabel(id)}>
-                <Content />
-                <MainTabGroups tab={id} />
+                <RibbonTabContext value={id}>
+                  <Content />
+                  <MainTabGroups tab={id} />
+                </RibbonTabContext>
               </TabsContent>
             </Activity>
           ))}
@@ -501,29 +519,53 @@ export function Ribbon() {
                 data-ribbon-tab-label={custom.label}
                 data-custom-tab=""
               >
-                <div role="toolbar" aria-label={custom.label} className="ribbon-home flex items-stretch overflow-x-hidden">
-                  <CustomGroups groups={custom.groups} />
-                </div>
+                {ribbonLayout === "single" ? (
+                  <CustomTabLine label={custom.label} groups={custom.groups} />
+                ) : (
+                  <div
+                    role="toolbar"
+                    aria-label={custom.label}
+                    className="ribbon-home flex items-stretch overflow-x-hidden"
+                  >
+                    <CustomGroups groups={custom.groups} />
+                  </div>
+                )}
               </TabsContent>
             </Activity>
           ))}
           {tab === "ctx-table-design" && (
-            <TabsContent value="ctx-table-design" data-ribbon-tab="ctx-table-design" data-ribbon-tab-label={tabLabel("ctx-table-design")}>
+            <TabsContent
+              value="ctx-table-design"
+              data-ribbon-tab="ctx-table-design"
+              data-ribbon-tab-label={tabLabel("ctx-table-design")}
+            >
               <TableDesignTab />
             </TabsContent>
           )}
           {tab === "ctx-table-layout" && (
-            <TabsContent value="ctx-table-layout" data-ribbon-tab="ctx-table-layout" data-ribbon-tab-label={tabLabel("ctx-table-layout")}>
+            <TabsContent
+              value="ctx-table-layout"
+              data-ribbon-tab="ctx-table-layout"
+              data-ribbon-tab-label={tabLabel("ctx-table-layout")}
+            >
               <TableLayoutTab />
             </TabsContent>
           )}
           {tab === "ctx-smartart" && (
-            <TabsContent value="ctx-smartart" data-ribbon-tab="ctx-smartart" data-ribbon-tab-label={tabLabel("ctx-smartart")}>
+            <TabsContent
+              value="ctx-smartart"
+              data-ribbon-tab="ctx-smartart"
+              data-ribbon-tab-label={tabLabel("ctx-smartart")}
+            >
               <SmartArtDesignTab />
             </TabsContent>
           )}
           {tab === "ctx-picture" && (
-            <TabsContent value="ctx-picture" data-ribbon-tab="ctx-picture" data-ribbon-tab-label={tabLabel("ctx-picture")}>
+            <TabsContent
+              value="ctx-picture"
+              data-ribbon-tab="ctx-picture"
+              data-ribbon-tab-label={tabLabel("ctx-picture")}
+            >
               <PictureFormatTab />
             </TabsContent>
           )}
@@ -538,7 +580,11 @@ export function Ribbon() {
             </TabsContent>
           )}
           {tab === "ctx-chart-format" && (
-            <TabsContent value="ctx-chart-format" data-ribbon-tab="ctx-chart-format" data-ribbon-tab-label={tabLabel("ctx-chart-format")}>
+            <TabsContent
+              value="ctx-chart-format"
+              data-ribbon-tab="ctx-chart-format"
+              data-ribbon-tab-label={tabLabel("ctx-chart-format")}
+            >
               <ChartFormatTab />
             </TabsContent>
           )}
@@ -548,12 +594,20 @@ export function Ribbon() {
             </TabsContent>
           )}
           {tab === "ctx-equation" && (
-            <TabsContent value="ctx-equation" data-ribbon-tab="ctx-equation" data-ribbon-tab-label={tabLabel("ctx-equation")}>
+            <TabsContent
+              value="ctx-equation"
+              data-ribbon-tab="ctx-equation"
+              data-ribbon-tab-label={tabLabel("ctx-equation")}
+            >
               <EquationTab />
             </TabsContent>
           )}
           {tab === "ctx-header-footer" && (
-            <TabsContent value="ctx-header-footer" data-ribbon-tab="ctx-header-footer" data-ribbon-tab-label={tabLabel("ctx-header-footer")}>
+            <TabsContent
+              value="ctx-header-footer"
+              data-ribbon-tab="ctx-header-footer"
+              data-ribbon-tab-label={tabLabel("ctx-header-footer")}
+            >
               <HeaderFooterTab />
             </TabsContent>
           )}

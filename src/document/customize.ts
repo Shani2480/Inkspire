@@ -120,8 +120,21 @@ export function exportCustomization(value: Customization) {
 
 /** The customization alone, without the store's functions. */
 function pick(value: Customization): Customization {
-  const { qatShown, qat, hiddenTabs, qatBelow, qatLabels, ribbon, customTabs, customGroups, tabNames } = value
-  return { qatShown, qat, hiddenTabs, qatBelow, qatLabels, ribbon, customTabs, customGroups, tabNames }
+  const { qatShown, qat, hiddenTabs, qatBelow, qatLabels, ribbon } = value
+  const { customTabs, customGroups, tabNames, hiddenGroups, groupOrder } = value
+  return {
+    qatShown,
+    qat,
+    hiddenTabs,
+    qatBelow,
+    qatLabels,
+    ribbon,
+    customTabs,
+    customGroups,
+    tabNames,
+    hiddenGroups,
+    groupOrder,
+  }
 }
 
 /** Import customization file: what it holds, checked as a saved one is; null when it is not such a file. */

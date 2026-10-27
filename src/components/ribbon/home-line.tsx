@@ -659,10 +659,14 @@ export function HomeLine() {
           { id: "font", commands: font },
           { id: "paragraph", commands: paragraph },
           { id: "styles", commands: styles },
-          ...tools.map((commands) => ({ id: commands[0].id, commands })),
+          // Named as the classic tab's groups, so a group removed in Customize Ribbon leaves the line too.
+          ...tools.map((commands) => ({ id: CLASSIC_GROUP[commands[0].id] ?? commands[0].id, commands })),
         ]}
       />
       <ListDialogs editor={editor} dialog={listDialog} onClose={() => setListDialog(null)} />
     </>
   )
 }
+
+/** The classic Home tab's group a tool on the line stands for. */
+const CLASSIC_GROUP: Record<string, string> = { find: "editing", "add-ins": "addins" }

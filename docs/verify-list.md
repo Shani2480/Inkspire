@@ -362,6 +362,13 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
   flowing from the first into the second.
 - Make linked boxes in Word, open here: the chain flows the same way; type in the first and the overflow moves on.
 
+## Customize Ribbon round 2 (2026-10-27)
+
+- Desktop app: on Home, move Font after Paragraph and remove Editing; OK; narrow the window until groups collapse:
+  the order holds and Editing stays gone. Restart: still so.
+- Reset ▾ > Reset only selected Ribbon tab with Home selected: Home is as it came; a renamed Insert keeps its name.
+- Single line ribbon: a group added to Home shows its commands on the row; a tab you made shows as a single line.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

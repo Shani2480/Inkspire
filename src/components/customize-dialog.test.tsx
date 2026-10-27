@@ -73,11 +73,43 @@ describe("Customize the Ribbon and Quick Access Toolbar (22.5)", () => {
     expect(tab!.groups[0]!.commands).toEqual(["save"])
   })
 
-  it("Reset puts back the standard toolbar and shows every tab", () => {
-    useCustomize.getState().set({ qat: ["bold"], hiddenTabs: ["view"], qatShown: false })
-    render(<CustomizeDialogHost />)
+  it("Reset ▾ puts back the toolbar alone, the selected tab alone, or everything", () => {
+    useCustomize.getState().set({
+      qat: ["bold"],
+      hiddenTabs: ["view", "review"],
+      qatShown: false,
+      tabNames: { home: "Start", insert: "Add" },
+      hiddenGroups: { home: ["font"] },
+    })
+    const all = (
+      <>
+        <CustomizeDialogHost />
+        <CommandMenuHost />
+      </>
+    )
+    const { rerender } = render(all)
     act(() => openCustomize("quick-access"))
-    fireEvent.click(screen.getByText("Reset"))
+    fireEvent.click(screen.getByText("Reset ▾"))
+    fireEvent.click(screen.getByText("Reset only Quick Access Toolbar"))
+    fireEvent.click(screen.getByText("OK"))
+    expect(useCustomize.getState()).toMatchObject({
+      qat: defaults().qat,
+      qatShown: true,
+      hiddenTabs: ["view", "review"],
+    })
+
+    // Review selected on the Customize Ribbon page: only it comes back as it was.
+    act(() => openCustomize("ribbon"))
+    rerender(all)
+    fireEvent.click(screen.getByText("Review"))
+    fireEvent.click(screen.getByText("Reset ▾"))
+    fireEvent.click(screen.getByText("Reset only selected Ribbon tab"))
+    fireEvent.click(screen.getByText("OK"))
+    expect(useCustomize.getState()).toMatchObject({ hiddenTabs: ["view"], tabNames: { home: "Start", insert: "Add" } })
+
+    act(() => openCustomize("ribbon"))
+    fireEvent.click(screen.getByText("Reset ▾"))
+    fireEvent.click(screen.getByText("Reset all customizations"))
     fireEvent.click(screen.getByText("OK"))
     expect(useCustomize.getState()).toMatchObject(defaults())
   })

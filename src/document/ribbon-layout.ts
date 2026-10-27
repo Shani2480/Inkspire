@@ -1,7 +1,9 @@
 /**
  * Customize Ribbon's own tabs and groups (22.5): Word's New Tab, New Group and Rename, and the commands put in them.
- * The main tabs keep their own groups, which cannot be changed; a group the user makes is drawn after them. These
- * are pure functions on the part of the customization they change, so the dialog can keep its edits until OK.
+ * A main tab's own groups can be removed and moved among its groups, the user's among them; what is in them stays
+ * as it is. These are pure functions on the part of the customization they change, so the dialog can keep its
+ * edits until OK. A main tab's own groups are named `own:<name>` here (their `data-group` on the ribbon), and the
+ * functions that place groups are given the names the tab has (`own`), which only the ribbon knows.
  */
 
 /** A group the user made: its name and its commands, as toolbar ids or "ribbon:<tab>:<label>" ids. */
@@ -16,6 +18,17 @@ export type RibbonLayout = {
   customGroups: Record<string, CustomGroup[]>
   /** Names the user gave the main tabs. */
   tabNames: Record<string, string>
+  /** A main tab's own groups the user removed, by their names. */
+  hiddenGroups: Record<string, string[]>
+  /** The order of a main tab's groups once the user moved one: `own:<name>` and the user's group ids. */
+  groupOrder: Record<string, string[]>
+}
+
+/** How a main tab's own group is named among its groups. */
+export const OWN = "own:"
+
+export function isOwnGroup(group: string | undefined): group is string {
+  return Boolean(group?.startsWith(OWN))
 }
 
 /** A place in the Customize Ribbon tree: a tab, one of its groups, or a command in a group (by its place). */
@@ -35,7 +48,7 @@ export const MAIN_TABS = [
 ]
 
 export function emptyLayout(): RibbonLayout {
-  return { customTabs: [], customGroups: {}, tabNames: {} }
+  return { customTabs: [], customGroups: {}, tabNames: {}, hiddenGroups: {}, groupOrder: {} }
 }
 
 let made = 0
@@ -76,6 +89,33 @@ export function groupsOf(layout: RibbonLayout, tab: string): CustomGroup[] {
   return layout.customTabs.find((item) => item.id === tab)?.groups ?? layout.customGroups[tab] ?? []
 }
 
+/**
+ * A main tab's groups in ribbon order: its own (`own`, those it draws, by name) not removed, and the user's. Groups
+ * not in the saved order (new ones) go at the end, the tab's own first.
+ */
+export function groupKeys(layout: RibbonLayout, tab: string, own: string[] = []) {
+  const hidden = layout.hiddenGroups[tab] ?? []
+  const all = [
+    ...own.filter((name) => !hidden.includes(name)).map((name) => OWN + name),
+    ...groupsOf(layout, tab).map((group) => group.id),
+  ]
+  const saved = (layout.groupOrder[tab] ?? []).filter((key) => all.includes(key))
+  return [...saved, ...all.filter((key) => !saved.includes(key))]
+}
+
+/** The order given: kept for a main tab, with the user's groups listed in it too. */
+function withOrder(layout: RibbonLayout, tab: string, keys: string[]): RibbonLayout {
+  if (isCustomTab(layout, tab)) {
+    return layout
+  }
+  const groups = groupsOf(layout, tab)
+  const sorted = keys.flatMap((key) => groups.filter((group) => group.id === key))
+  return {
+    ...withGroups(layout, tab, [...sorted, ...groups.filter((group) => !keys.includes(group.id))]),
+    groupOrder: { ...layout.groupOrder, [tab]: keys },
+  }
+}
+
 function withGroups(layout: RibbonLayout, tab: string, groups: CustomGroup[]): RibbonLayout {
   if (isCustomTab(layout, tab)) {
     return { ...layout, customTabs: layout.customTabs.map((item) => (item.id === tab ? { ...item, groups } : item)) }
@@ -100,13 +140,25 @@ export function newTab(layout: RibbonLayout, at: string): { layout: RibbonLayout
   return { layout: { ...layout, customTabs }, target: { tab: tab.id, group: group.id } }
 }
 
-/** New Group: a group at the end of the tab, or after the selected group. */
-export function newGroup(layout: RibbonLayout, at: RibbonTarget): { layout: RibbonLayout; target: RibbonTarget } {
+/** New Group: a group at the end of the tab, or after the selected group (one of the tab's own too). */
+export function newGroup(
+  layout: RibbonLayout,
+  at: RibbonTarget,
+  own: string[] = [],
+): { layout: RibbonLayout; target: RibbonTarget } {
   const groups = [...groupsOf(layout, at.tab)]
   const group: CustomGroup = { id: newId("group"), label: "New Group", commands: [] }
   const index = groups.findIndex((item) => item.id === at.group)
   groups.splice(index >= 0 ? index + 1 : groups.length, 0, group)
-  return { layout: withGroups(layout, at.tab, groups), target: { tab: at.tab, group: group.id } }
+  const added = withGroups(layout, at.tab, groups)
+  if (isCustomTab(layout, at.tab) || (!layout.groupOrder[at.tab] && !isOwnGroup(at.group))) {
+    return { layout: added, target: { tab: at.tab, group: group.id } }
+  }
+  // Among the tab's own groups: straight after the selected group, or at the end.
+  const keys = groupKeys(layout, at.tab, own)
+  const place = at.group ? keys.indexOf(at.group) : -1
+  keys.splice(place >= 0 ? place + 1 : keys.length, 0, group.id)
+  return { layout: withOrder(added, at.tab, keys), target: { tab: at.tab, group: group.id } }
 }
 
 /** Rename: a tab (a main tab too) or a group the user made. A blank name puts back a main tab's own. */
@@ -159,8 +211,13 @@ export function addToGroup(
   }
 }
 
-/** Remove: a command, a group the user made, or a tab the user made. A main tab and its own groups stay. */
+/** Remove: a command, a group (a main tab's own too), or a tab the user made. A main tab stays. */
 export function removeItem(layout: RibbonLayout, target: RibbonTarget): RibbonLayout {
+  if (isOwnGroup(target.group)) {
+    const name = target.group.slice(OWN.length)
+    const hidden = layout.hiddenGroups[target.tab] ?? []
+    return { ...layout, hiddenGroups: { ...layout.hiddenGroups, [target.tab]: [...new Set([...hidden, name])] } }
+  }
   const groups = groupsOf(layout, target.tab)
   if (target.group && target.command !== undefined) {
     return withGroups(
@@ -183,9 +240,25 @@ export function removeItem(layout: RibbonLayout, target: RibbonTarget): RibbonLa
   return { ...layout, customTabs: layout.customTabs.filter((tab) => tab.id !== target.tab) }
 }
 
-/** Whether Remove applies: anything the user made. */
+/** Whether Remove applies: anything the user made, and a main tab's own groups. */
 export function canRemove(layout: RibbonLayout, target: RibbonTarget | null) {
   return Boolean(target && (target.group || isCustomTab(layout, target.tab)))
+}
+
+/** Reset only selected Ribbon tab: a main tab as it comes, with its name, its own groups in order and none added. */
+export function resetTab(layout: RibbonLayout, tab: string): RibbonLayout {
+  if (isCustomTab(layout, tab)) {
+    return layout
+  }
+  const without = <T>(record: Record<string, T>) =>
+    Object.fromEntries(Object.entries(record).filter(([id]) => id !== tab))
+  return {
+    ...layout,
+    customGroups: without(layout.customGroups),
+    tabNames: without(layout.tabNames),
+    hiddenGroups: without(layout.hiddenGroups),
+    groupOrder: without(layout.groupOrder),
+  }
 }
 
 /**
@@ -197,6 +270,7 @@ export function moveItem(
   layout: RibbonLayout,
   target: RibbonTarget,
   direction: -1 | 1,
+  own: string[] = [],
 ): { layout: RibbonLayout; target: RibbonTarget } | null {
   const groups = groupsOf(layout, target.tab)
   const at = groups.findIndex((group) => group.id === target.group)
@@ -240,6 +314,17 @@ export function moveItem(
       layout: withGroups(layout, target.tab, moved),
       target: { tab: target.tab, group: next.id, command: place },
     }
+  }
+  if (target.group && !isCustomTab(layout, target.tab)) {
+    // A main tab's groups, its own and the user's, move among each other.
+    const keys = groupKeys(layout, target.tab, own)
+    const from = keys.indexOf(target.group)
+    const to = from + direction
+    if (from < 0 || to < 0 || to >= keys.length) {
+      return null
+    }
+    ;[keys[from], keys[to]] = [keys[to]!, keys[from]!]
+    return { layout: withOrder(layout, target.tab, keys), target }
   }
   if (target.group) {
     const to = at + direction
@@ -340,5 +425,23 @@ export function readLayout(value: Partial<RibbonLayout>, keep: (id: string) => b
       }
     }
   }
-  return { customTabs, customGroups, tabNames }
+  const lists = (record: unknown) => {
+    const read: Record<string, string[]> = {}
+    if (record && typeof record === "object") {
+      for (const [tab, list] of Object.entries(record)) {
+        const names = Array.isArray(list) ? list.filter((item): item is string => typeof item === "string") : []
+        if (main.includes(tab) && names.length) {
+          read[tab] = [...new Set(names)]
+        }
+      }
+    }
+    return read
+  }
+  return {
+    customTabs,
+    customGroups,
+    tabNames,
+    hiddenGroups: lists(value.hiddenGroups),
+    groupOrder: lists(value.groupOrder),
+  }
 }
