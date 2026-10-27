@@ -348,13 +348,65 @@ export function shade(color: string, amount: number) {
   return `#${channel(16)}${channel(8)}${channel(0)}`
 }
 
+/**
+ * A gradient from Word that is none of the app's presets (more stops, its own angle, theme colours), kept whole as
+ * "word:<angle>:<pos>#hex;<pos>#hex…": positions in percent, and the angle in degrees clockwise from left-to-right
+ * as DrawingML's `a:lin` gives it, or "radial".
+ */
+export type WordGradient = { angle: number | null; stops: [number, string][] }
+
+export function wordGradientValue(gradient: WordGradient) {
+  const stops = gradient.stops.map(([position, color]) => `${Math.round(position * 10) / 10}${color}`).join(";")
+  return `word:${gradient.angle === null ? "radial" : Math.round(gradient.angle * 100) / 100}:${stops}`
+}
+
+export function parseWordGradient(value: string): WordGradient | null {
+  const match = /^word:(radial|-?[\d.]+):(.+)$/.exec(value)
+  if (!match) {
+    return null
+  }
+  const stops = match[2]!.split(";").map((part) => /^([\d.]+)(#[0-9a-f]{6})$/i.exec(part))
+  if (stops.length < 2 || stops.some((stop) => !stop)) {
+    return null
+  }
+  return {
+    angle: match[1] === "radial" ? null : Number(match[1]),
+    stops: stops.map((stop) => [Number(stop![1]), stop![2]!.toLowerCase()]),
+  }
+}
+
+/** A gradient's colour stops, as offsets from 0 to 1, for the app's presets and Word's own alike. */
+export function gradientStopList(fill: string, gradient: string): [number, string][] {
+  const word = parseWordGradient(gradient)
+  if (word) {
+    return word.stops.map(([position, color]) => [position / 100, color])
+  }
+  const [from, to] = gradientStops(fill, gradient)
+  return [
+    [0, from!],
+    [1, to!],
+  ]
+}
+
 export function gradientStops(fill: string, gradient: string) {
   const [tone] = gradient.split("-")
   const base = fill && fill !== "none" ? fill : "#4472c4"
   return tone === "dark" ? [shade(base, 0.25), shade(base, -0.4)] : [shade(base, 0.7), base]
 }
 
-export function gradientVector(gradient: string) {
+export function gradientVector(gradient: string): [number, number, number, number] | null {
+  const word = parseWordGradient(gradient)
+  if (word) {
+    if (word.angle === null) {
+      return null
+    }
+    // Across the box at that angle, from corner to corner as Word spans it, in the box's own units.
+    const radians = (word.angle * Math.PI) / 180
+    const [cos, sin] = [Math.cos(radians), Math.sin(radians)]
+    const reach = (Math.abs(cos) + Math.abs(sin)) / 2
+    const round = (value: number) => Math.round(value * 10000) / 10000
+    return [round(0.5 - cos * reach), round(0.5 - sin * reach), round(0.5 + cos * reach), round(0.5 + sin * reach)]
+  }
   const direction = gradient.split("-").slice(1).join("-")
   const vectors: Record<string, [number, number, number, number]> = {
     down: [0, 0, 0, 1],
@@ -370,13 +422,15 @@ export function gradientVector(gradient: string) {
 
 /** A CSS gradient for a text box, matching the shape gradient. */
 export function cssGradient(fill: string, gradient: string) {
-  const [from, to] = gradientStops(fill, gradient)
+  const stops = gradientStopList(fill, gradient)
+    .map(([offset, color]) => `${color} ${Math.round(offset * 1000) / 10}%`)
+    .join(", ")
   const vector = gradientVector(gradient)
   if (!vector) {
-    return `radial-gradient(circle, ${from}, ${to})`
+    return `radial-gradient(circle, ${stops})`
   }
   const angle = (Math.atan2(vector[2] - vector[0], -(vector[3] - vector[1])) * 180) / Math.PI
-  return `linear-gradient(${Math.round(angle)}deg, ${from}, ${to})`
+  return `linear-gradient(${Math.round(angle)}deg, ${stops})`
 }
 
 function textureMarkup(id: string, pattern: string) {
@@ -483,12 +537,14 @@ export function paintShapeSvg(svg: SVGSVGElement, attrs: Attrs, size: { width: n
     defs.push(textureMarkup(texture, `${id}-texture`))
     paint = `url(#${id}-texture)`
   } else if (gradient) {
-    const [from, to] = gradientStops(fill, gradient)
+    const stops = gradientStopList(fill, gradient)
+      .map(([offset, color]) => `<stop offset="${offset}" stop-color="${color}"/>`)
+      .join("")
     const vector = gradientVector(gradient)
     defs.push(
       vector
-        ? `<linearGradient id="${id}-gradient" x1="${vector[0]}" y1="${vector[1]}" x2="${vector[2]}" y2="${vector[3]}"><stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient>`
-        : `<radialGradient id="${id}-gradient"><stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/></radialGradient>`,
+        ? `<linearGradient id="${id}-gradient" x1="${vector[0]}" y1="${vector[1]}" x2="${vector[2]}" y2="${vector[3]}">${stops}</linearGradient>`
+        : `<radialGradient id="${id}-gradient">${stops}</radialGradient>`,
     )
     paint = `url(#${id}-gradient)`
   }

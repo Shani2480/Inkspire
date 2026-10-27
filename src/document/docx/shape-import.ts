@@ -107,6 +107,24 @@ function toHex(values: number[]) {
     .join("")}`
 }
 
+/**
+ * The theme fill a shape's style refers to (`a:fillRef` idx 1 to 3: subtle, moderate, intense), with the theme's
+ * placeholder colour (phClr) made the reference's own colour. Word's shape styles with a gradient fill this way.
+ */
+function themeFill(themeXml: string | null, reference: RegExpExecArray | null) {
+  const index = Number(reference?.[1])
+  if (!themeXml || !reference || !(index >= 1 && index < 1000)) {
+    return ""
+  }
+  const list = /<a:fillStyleLst>([\s\S]*?)<\/a:fillStyleLst>/.exec(themeXml)?.[1] ?? ""
+  const fills = [...list.matchAll(/<a:(solidFill|gradFill|noFill|blipFill|pattFill)\b[^>]*?(?:\/>|>[\s\S]*?<\/a:\1>)/g)]
+  const color = reference[2] ?? ""
+  const named = /<a:schemeClr val="(\w+)"/.exec(color)?.[1]
+  const srgb = /<a:srgbClr val="([0-9A-Fa-f]{6})"/.exec(color)?.[1]
+  const own = named ? `<a:schemeClr val="${named}"` : srgb ? `<a:srgbClr val="${srgb}"` : ""
+  return own ? (fills[index - 1]?.[0] ?? "").replace(/<a:schemeClr val="phClr"/g, own) : ""
+}
+
 /** A colour element (`srgbClr` or `schemeClr`, with its shade / tint / lumMod children) as a hex colour. */
 export function colorOf(markup: string, scheme: Map<string, string>): string {
   const srgb = /<a:srgbClr val="([0-9A-Fa-f]{6})"/.exec(markup)
@@ -180,7 +198,8 @@ export function readWordShape(xml: string, themeXml: string | null): WordShape |
   const fillRef = reference("fillRef")
 
   const own = properties.replace(line, "")
-  const gradient = readGradient(own)
+  const ownFill = /<a:(?:solidFill|gradFill|noFill|blipFill|pattFill)\b/.test(own)
+  const gradient = readGradient(own, scheme) ?? (ownFill ? null : readGradient(themeFill(themeXml, fillRef), scheme))
   const ownSolid = /<a:solidFill>([\s\S]*?)<\/a:solidFill>/.exec(own)?.[1]
   // A gradient the app has no equal of (three stops, theme colours) shows as its first colour.
   const firstStop = /<a:gradFill\b[\s\S]*?<a:gs pos="\d+">([\s\S]*?)<\/a:gs>/.exec(own)?.[1]

@@ -77,9 +77,9 @@ describe("Word's drawn shapes (21.35)", () => {
       `<a:effectLst><a:glow rad="139700"><a:schemeClr val="accent1"><a:satMod val="175000"/><a:alpha val="40000"/></a:schemeClr></a:glow></a:effectLst>` +
       `</wps:spPr></wps:wsp><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">`
     const read = readWordShape(xml, THEME)
-    // The three-stop theme gradient is not one of the app's, so the shape takes its first colour (accent1 at 67%).
+    // The three-stop theme gradient is not one of the app's, so it is kept whole: its stops and Word's angle.
     expect(read).toMatchObject({ preset: "irregularSeal1", variant: "burst", fill: "#0e4057", stroke: "none" })
-    expect(read?.gradient).toBe("")
+    expect(read?.gradient).toBe("word:270:0#0e4057;48#1c6586;100#73a0b4")
     expect(read?.glow).toBe("#156082:11")
   })
 

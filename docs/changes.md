@@ -7,6 +7,28 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Word's own gradients and dashes on shapes open as they are
+
+- **Bug:** a shape the app filled with a gradient or dashed already saved and reopened correctly (22.11). A gradient
+  Word made did not: the reader only knew the app's two-stop presets, so Word's usual gradients (three stops, theme
+  colours, any angle, or a theme gradient from a shape style's `a:fillRef`) opened as one flat colour. Word's
+  `sysDashDot`, `sysDashDotDot` and custom dashes opened solid. Seen on `Document1.docx`'s Explosion.
+- **Changed:**
+  - A gradient that is none of the app's presets is kept whole in `fillGradient` as
+    `word:<angle|radial>:<pos>#hex;…` (`wordGradientValue`, `parseWordGradient` and `gradientStopList` in
+    `src/editor/shape-style.ts`). Shapes (SVG) and text boxes (CSS) draw every stop at Word's angle.
+  - `readGradient` (`docx/shape-effects.ts`) falls back to it, with theme colours resolved.
+  - `themeFill` (`docx/shape-import.ts`) reads the theme fill a style's `a:fillRef` names, with `phClr` made the
+    reference's colour.
+  - `gradientFill` (`docx/shape-write.ts`) writes every stop and Word's exact angle.
+  - `readDash` maps `sysDashDot` to Dash Dot, `sysDashDotDot` to Long Dash Dot Dot, and `a:custDash` to Dash.
+- **Checked:** `shape-write.test.ts` covers multi-stop and angle, writing back, a file save and reopen, the theme
+  fillRef gradient, and the dashes. The theme-gradient test in `shape-import.test.ts` now expects the three stops.
+  In Chrome, a copy of `Document1.docx` draws the Explosion with Word's three orange stops, dark at the bottom.
+  Full suite 857 passing.
+- **Open:** per-stop transparency is dropped; rectangle and shape path gradients draw as radial; not compared in
+  Word side by side.
+
 ### Narrow and Wide cell margins are saved to .docx
 
 - **Bug:** Table Layout → Cell Margins and Table Properties' Narrow / Normal / Wide only set an app-only `cellPad`

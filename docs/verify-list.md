@@ -181,9 +181,13 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - [ ] **Narrow / Wide cell margins in Word (2026-10-27)** — set Wide on a table, save, open in Word: Table
       Properties → Options shows 0.26 cm top/bottom and 0.37 cm left/right; reopened in the app, Cell Margins is Wide.
 
+- [ ] **Word's gradients on shapes (2026-10-27)** — a shape Word filled with a multi-stop or theme gradient
+      (Shape Styles' lower rows, or Format Shape → Gradient) opens with the same colours and direction; change its
+      outline in the app, save, and Word still shows the same gradient.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
-- Native shapes: the reader does not yet read a dash or gradient back (file keeps it until the shape is
-  edited in the app).
+- Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and
+  Word's custom dashes (shown as a plain dash) are approximated.
 - Error bars are one setting for all series, Y direction only; no More Options panes.
 - Chart data sheet is held at the top of the window, over the ribbon, when the chart scrolls under it.
