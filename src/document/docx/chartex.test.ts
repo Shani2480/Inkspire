@@ -61,17 +61,53 @@ describe("Word's chartex charts (Histogram, Pareto, Waterfall, Funnel, Box & Whi
     expect(pareto).toContain("<cx:aggregation/>")
     expect(pareto).toContain('<cx:series layoutId="paretoLine" ownerIdx="0"><cx:axisId>2</cx:axisId></cx:series>')
     expect(pareto).toContain('<cx:units unit="percentage"/>')
-    const spec = defaultChartSpec("waterfall")
+    const spec = { ...defaultChartSpec("waterfall"), waterfallTotals: undefined }
     const waterfall = chartExXml(spec)
-    // The total the app draws after the last point is a point of its own, marked as a total.
+    // A chart from before Set as total: the total the app draws after the last point is a point of its own.
     const rows = spec.categories.length
     expect(waterfall).toContain(`<cx:pt idx="${rows}">Total</cx:pt>`)
     expect(waterfall).toContain(`<cx:subtotals><cx:idx val="${rows}"/></cx:subtotals>`)
     expect(chartExXml(defaultChartSpec("box-whisker"))).toContain('<cx:statistics quartileMethod="exclusive"/>')
+    expect(chartExXml(defaultChartSpec("box-whisker"))).toContain(
+      '<cx:visibility meanLine="0" meanMarker="1" nonoutliers="0" outliers="1"/>',
+    )
     // Treemap levels: innermost first, the formula over the label columns by row.
     const treemap = chartExXml(defaultChartSpec("treemap"))
     expect(treemap).toMatch(/<cx:strDim type="cat"><cx:f dir="row">Sheet1!\$A\$2:\$C\$\d+<\/cx:f><cx:lvl ptCount="\d+"><cx:pt idx="0">Leaf 1</)
     expect(treemap).toContain('<cx:numDim type="size">')
+  })
+
+  it("writes and reads back Set as total, Box & Whisker's options and colours", () => {
+    const waterfall = { ...defaultChartSpec("waterfall"), waterfallTotals: [2, 5] }
+    waterfall.format = { ...waterfall.format, "point:1": { fill: "#123456" } }
+    const xml = chartExXml(waterfall)
+    expect(xml).toContain('<cx:subtotals><cx:idx val="2"/><cx:idx val="5"/></cx:subtotals>')
+    // Each bar in the colour the app draws it: rises green, falls red, totals grey; a point's own colour over that.
+    expect(xml).toContain('<cx:dataPt idx="0"><cx:spPr><a:solidFill><a:srgbClr val="2E7D32"/>')
+    expect(xml).toContain('<cx:dataPt idx="1"><cx:spPr><a:solidFill><a:srgbClr val="123456"/>')
+    expect(xml).toContain('<cx:dataPt idx="2"><cx:spPr><a:solidFill><a:srgbClr val="5F6B7A"/>')
+    const read = readChartEx(xml)!
+    expect(read.waterfallTotals).toEqual([2, 5])
+    expect(read.categories).toEqual(waterfall.categories)
+    // Only the colour that is not the app's own comes back.
+    expect(Object.keys(read.format).filter((key) => key.startsWith("point:"))).toEqual(["point:1"])
+    expect(read.format["point:1"]).toEqual({ fill: "#123456" })
+
+    const box = {
+      ...defaultChartSpec("box-whisker"),
+      box: { meanLine: true, meanMarkers: false, innerPoints: true, outliers: false, quartiles: "inclusive" as const },
+    }
+    box.format = { ...box.format, "series:1": { fill: "#abcdef" } }
+    const boxXml = chartExXml(box)
+    expect(boxXml).toContain('<cx:visibility meanLine="1" meanMarker="0" nonoutliers="1" outliers="0"/>')
+    expect(boxXml).toContain('<cx:statistics quartileMethod="inclusive"/>')
+    const boxRead = readChartEx(boxXml)!
+    expect(boxRead.box).toEqual(box.box)
+    expect(boxRead.format["series:1"]).toEqual({ fill: "#abcdef" })
+    expect(readChartEx(chartExXml(defaultChartSpec("box-whisker")))!.box).toBeUndefined()
+    // A hidden series is left out, and the colours after it move up with the series.
+    const hidden = { ...box, series: box.series.map((serie, index) => ({ ...serie, hidden: index === 0 })) }
+    expect(readChartEx(chartExXml(hidden))!.format["series:0"]).toEqual({ fill: "#abcdef" })
   })
 
   it("reads each bin setting back, and leaves Automatic unset", () => {

@@ -39,7 +39,7 @@ const SHEET_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 // Writing
 // ---------------------------------------------------------------------------------------------------------------
 
-function hex(color: string | undefined) {
+export function hex(color: string | undefined) {
   const match = /^#?([0-9a-f]{6})$/i.exec((color ?? "").trim())
   return match ? match[1]!.toUpperCase() : null
 }
@@ -748,7 +748,7 @@ function pointsOf(cache: Element) {
   return points
 }
 
-function srgb(element: Element | undefined) {
+export function srgb(element: Element | undefined) {
   const fill = child(element, "solidFill")
   const color = child(fill, "srgbClr")?.attrs.val
   return color ? `#${color.toLowerCase()}` : undefined

@@ -1,6 +1,13 @@
-import { child, children, column, find, tree, type Element } from "@/document/docx/chart-xml"
+import { child, children, column, find, hex, srgb, tree, type Element } from "@/document/docx/chart-xml"
 import { escapeXml, escapeXmlText } from "@/document/docx/xml"
-import { defaultChartSpec, type ChartSpec, type HistogramBins, type LegendPosition } from "@/editor/chart-spec"
+import {
+  boxOptions,
+  defaultChartSpec,
+  type BoxOptions,
+  type ChartSpec,
+  type HistogramBins,
+  type LegendPosition,
+} from "@/editor/chart-spec"
 
 /**
  * Word's own charts of the 2016 kinds (chartex): Histogram and Pareto, Waterfall, Funnel, Box & Whisker, Treemap and
@@ -33,8 +40,8 @@ export function chartExRequires(spec: ChartSpec): keyof typeof CHARTEX_REQUIRES 
 }
 
 /**
- * The data as the chartex part and its workbook hold it: the shown rows only, a Waterfall's total as a last row
- * Word is told is a total (the app draws one at the end of every Waterfall).
+ * The data as the chartex part and its workbook hold it: the shown rows only. A Waterfall's totals are the rows set
+ * as totals; one from before Set as total gets the total the app draws after its last point as a last row.
  */
 export function chartExData(spec: ChartSpec): ChartSpec {
   const rows = spec.categories.map((_, index) => index).filter((index) => !spec.hiddenCategories.includes(index))
@@ -49,13 +56,47 @@ export function chartExData(spec: ChartSpec): ChartSpec {
       ...serie,
       values: pick(serie.values),
     })),
+    format: Object.fromEntries(
+      Object.entries(spec.format).flatMap(([key, value]) => {
+        // Series and points are numbered as written: the hidden ones are left out.
+        const [part, at] = key.split(":")
+        if (part === "series" || part === "point") {
+          const place = (part === "series" ? series.map((serie) => spec.series.indexOf(serie)) : rows).indexOf(Number(at))
+          return place < 0 ? [] : [[`${part}:${place}`, value]]
+        }
+        return [[key, value]]
+      }),
+    ),
   }
   if (spec.type === "waterfall" && data.series[0]) {
-    const total = data.series[0].values.reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0)
-    data.categories = [...data.categories, "Total"]
-    data.series = [{ ...data.series[0], values: [...data.series[0].values, total] }]
+    if (spec.waterfallTotals) {
+      data.waterfallTotals = rows.flatMap((row, place) => (spec.waterfallTotals!.includes(row) ? [place] : []))
+    } else {
+      const total = data.series[0].values.reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0)
+      data.categories = [...data.categories, "Total"]
+      data.series = [{ ...data.series[0], values: [...data.series[0].values, total] }]
+      data.waterfallTotals = [data.categories.length - 1]
+    }
   }
   return data
+}
+
+/** The colours the app draws a Waterfall's bars in: rises green, falls red, totals grey, as it expands them. */
+const WATERFALL_COLORS = { up: "#2e7d32", down: "#c62828", total: "#5f6b7a" }
+
+function waterfallColors(spec: ChartSpec) {
+  return (spec.series[0]?.values ?? []).map((value, row) =>
+    spec.waterfallTotals?.includes(row)
+      ? WATERFALL_COLORS.total
+      : value < 0
+        ? WATERFALL_COLORS.down
+        : WATERFALL_COLORS.up,
+  )
+}
+
+function fillXml(color: string | undefined) {
+  const value = hex(color)
+  return value ? `<cx:spPr><a:solidFill><a:srgbClr val="${value}"/></a:solidFill></cx:spPr>` : ""
 }
 
 const LAYOUT: Record<string, string> = {
@@ -117,21 +158,37 @@ export function chartExXml(source: ChartSpec, workbookRelId?: string) {
       case "histogram":
         return `<cx:layoutPr>${binningXml(spec.bins)}</cx:layoutPr>`
       case "waterfall":
-        return `<cx:layoutPr><cx:subtotals><cx:idx val="${rows - 1}"/></cx:subtotals></cx:layoutPr>`
-      case "boxWhisker":
+        return spec.waterfallTotals?.length
+          ? `<cx:layoutPr><cx:subtotals>${spec.waterfallTotals.map((row) => `<cx:idx val="${row}"/>`).join("")}</cx:subtotals></cx:layoutPr>`
+          : ""
+      case "boxWhisker": {
+        const box = boxOptions(spec)
+        const flag = (on: boolean) => (on ? 1 : 0)
         return (
-          `<cx:layoutPr><cx:visibility meanLine="0" meanMarker="1" nonoutliers="0" outliers="1"/>` +
-          `<cx:statistics quartileMethod="exclusive"/></cx:layoutPr>`
+          `<cx:layoutPr><cx:visibility meanLine="${flag(box.meanLine)}" meanMarker="${flag(box.meanMarkers)}" nonoutliers="${flag(box.innerPoints)}" outliers="${flag(box.outliers)}"/>` +
+          `<cx:statistics quartileMethod="${box.quartiles}"/></cx:layoutPr>`
         )
+      }
       case "treemap":
         return `<cx:layoutPr><cx:parentLabelLayout val="overlapping"/></cx:layoutPr>`
       default:
         return ""
     }
   }
+  // Word draws a Waterfall's bars in its theme's colours unless told: each point gets the colour the app draws.
+  const points =
+    spec.type === "waterfall"
+      ? waterfallColors(spec)
+          .map((color, row) => {
+            const paint = fillXml(spec.format[`point:${row}`]?.fill ?? color)
+            return paint ? `<cx:dataPt idx="${row}">${paint}</cx:dataPt>` : ""
+          })
+          .join("")
+      : ""
   const series = spec.series.map(
     (serie, index) =>
       `<cx:series layoutId="${LAYOUT[spec.type]}">${text(serie.name, `Sheet1!$${column(first + index)}$1`)}` +
+      `${fillXml(spec.format[`series:${index}`]?.fill)}${points}` +
       `${dataLabels}<cx:dataId val="${index}"/>${layoutPr()}${spec.pareto ? `<cx:axisId>1</cx:axisId>` : ""}</cx:series>`,
   )
   if (spec.pareto) {
@@ -265,11 +322,42 @@ export function readChartEx(xml: string): ChartSpec | null {
     spec.bins = binsOf(layout)
   }
   if (kind === "waterfall") {
-    // The app draws a total after the last point: a last point Word was told is a total is that one.
-    const totals = children(child(layout, "subtotals"), "idx").map((item) => Number(item.attrs.val))
-    if (rows > 1 && totals.includes(rows - 1)) {
-      spec.categories = spec.categories.slice(0, -1)
-      spec.series = spec.series.map((item) => ({ ...item, values: item.values.slice(0, -1) }))
+    spec.waterfallTotals = children(child(layout, "subtotals"), "idx")
+      .map((item) => Number(item.attrs.val))
+      .filter((row) => Number.isInteger(row) && row >= 0 && row < rows)
+  }
+  if (kind === "boxWhisker") {
+    const shown = child(layout, "visibility")
+    const flag = (name: string) => (shown?.attrs[name] === undefined ? undefined : shown.attrs[name] === "1")
+    const read: BoxOptions = {
+      meanLine: flag("meanLine"),
+      meanMarkers: flag("meanMarker"),
+      innerPoints: flag("nonoutliers"),
+      outliers: flag("outliers"),
+      quartiles: child(layout, "statistics")?.attrs.quartileMethod === "inclusive" ? "inclusive" : undefined,
+    }
+    // Only what differs from Word's own.
+    const defaults = boxOptions({})
+    const box = Object.fromEntries(
+      Object.entries(read).filter(([key, value]) => value !== undefined && value !== defaults[key as keyof BoxOptions]),
+    ) as BoxOptions
+    spec.box = Object.keys(box).length ? box : undefined
+  }
+  // Colours: a series' fill, and a Waterfall's points where they are not the colours the app draws them in.
+  series.forEach((item, index) => {
+    const fill = srgb(child(item, "spPr"))
+    if (fill && index < spec.series.length) {
+      spec.format = { ...spec.format, [`series:${index}`]: { ...spec.format[`series:${index}`], fill } }
+    }
+  })
+  if (kind === "waterfall") {
+    const drawn = waterfallColors(spec)
+    for (const point of children(series[0]!, "dataPt")) {
+      const row = Number(point.attrs.idx)
+      const fill = srgb(child(point, "spPr"))
+      if (fill && row >= 0 && row < rows && fill !== drawn[row]) {
+        spec.format = { ...spec.format, [`point:${row}`]: { ...spec.format[`point:${row}`], fill } }
+      }
     }
   }
   const title = child(chart, "title")

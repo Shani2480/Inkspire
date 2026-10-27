@@ -65,6 +65,29 @@ export type HistogramBins = {
   underflow?: number
 }
 
+/**
+ * Box & Whisker, as Word's Format Data Series has it: Show inner points, outlier points, mean markers and the mean
+ * line; quartiles by the exclusive median (the median left out of both halves) or the inclusive one.
+ */
+export type BoxOptions = {
+  innerPoints?: boolean
+  outliers?: boolean
+  meanMarkers?: boolean
+  meanLine?: boolean
+  quartiles?: "exclusive" | "inclusive"
+}
+
+/** A Box & Whisker chart's options with Word's own where unset. */
+export function boxOptions(spec: Pick<ChartSpec, "box">): Required<BoxOptions> {
+  return {
+    innerPoints: spec.box?.innerPoints ?? false,
+    outliers: spec.box?.outliers ?? true,
+    meanMarkers: spec.box?.meanMarkers ?? true,
+    meanLine: spec.box?.meanLine ?? false,
+    quartiles: spec.box?.quartiles ?? "exclusive",
+  }
+}
+
 export type LabelContent = { value: boolean; category: boolean; series: boolean; percent: boolean }
 
 export type ValueAxis = {
@@ -123,6 +146,19 @@ export type ChartSpec = {
   bins?: HistogramBins
   /** Pareto: a histogram with its bins sorted from the largest down and a line of the running percentage. */
   pareto?: boolean
+  /**
+   * Waterfall: the points set as totals (by category), each drawn from zero to its value, the running total going
+   * on from there, as Word's "Set as total". Unset, the chart has no totals of its own and the app draws one after
+   * the last point (charts made before Set as total).
+   */
+  waterfallTotals?: number[]
+  /**
+   * Set only on the column chart a Waterfall is drawn as: the Waterfall's point (by category) each column is, so the
+   * bars can be picked and coloured as points; -1 for the total the app adds after the last point.
+   */
+  pointColumns?: number[]
+  /** Box & Whisker's Series Options (Word's own unset: see `boxOptions`). */
+  box?: BoxOptions
   /** Stock: the first series is the volume traded, drawn as columns on the left axis, the prices on a right one. */
   volume?: boolean
   categories: string[]
@@ -661,8 +697,10 @@ export function defaultChartSpec(variantId = "column"): ChartSpec {
         ...structuredClone(BASE),
         title: { show: true, text: "Waterfall" },
         legend: "none",
-        categories: ["Start", "Sales", "Returns", "Services", "Costs"],
-        series: [{ name: "Change", values: [100, 40, -15, 25, -30] }],
+        // The last row is the total, set as one, as Word's own sample has its end total.
+        categories: ["Start", "Sales", "Returns", "Services", "Costs", "Total"],
+        series: [{ name: "Change", values: [100, 40, -15, 25, -30, 120] }],
+        waterfallTotals: [5],
       },
       variant.id,
     )
@@ -1600,19 +1638,24 @@ function cartesian(painter: Painter, box: Box, series: Serie[], entries: { name:
       if (kind === "column") {
         const place = stacking || threeD === "deep" ? 0 : bars.indexOf(serie)
         const offset = -((barCount - 1) * (1 - overlap) * barWidth + barWidth) / 2 + place * (1 - overlap) * barWidth
-        const paint = seriesPaint(painter, color, `series:${serie.index}`)
+        const seriesPaintOf = seriesPaint(painter, color, `series:${serie.index}`)
         for (const point of points) {
           const start = point.at + offset
           const from = Math.min(point.top, point.base)
           const length = Math.abs(point.top - point.base)
+          // A Waterfall's bars are its points: each can be picked, and coloured on its own.
+          const owner = length > 0 && serie.index > 0 ? spec.pointColumns?.[point.column] : undefined
+          const own = owner !== undefined && owner >= 0 ? `point:${owner}` : null
+          const paint = own && spec.format[own]?.fill ? seriesPaint(painter, spec.format[own]!.fill!, own) : seriesPaintOf
+          const tag = own ? ` data-chart-part="${own}"` : ""
           shapes.push(
             threeD
               ? horizontal
                 ? box3d(from, start, length, barWidth, thick.x, thick.y, paint, color)
                 : box3d(start, from, barWidth, length, thick.x, thick.y, paint, color)
               : horizontal
-                ? `<rect x="${n(from)}" y="${n(start)}" width="${n(length)}" height="${n(barWidth)}" ${paint}/>`
-                : `<rect x="${n(start)}" y="${n(from)}" width="${n(barWidth)}" height="${n(length)}" ${paint}/>`,
+                ? `<rect${tag} x="${n(from)}" y="${n(start)}" width="${n(length)}" height="${n(barWidth)}" ${paint}/>`
+                : `<rect${tag} x="${n(start)}" y="${n(from)}" width="${n(barWidth)}" height="${n(length)}" ${paint}/>`,
           )
           if (labelPosition !== "none") {
             labels.push(barLabel(painter, serie, point, start + barWidth / 2, horizontal, labelPosition))
@@ -2331,9 +2374,10 @@ function wholePie(painter: Painter, box: Box) {
  */
 function boxWhisker(painter: Painter, box: Box) {
   const { spec, look } = painter
+  const options = boxOptions(spec)
   const groups = boxGroups(spec)
   const all = groups.flatMap((group) =>
-    group.boxes.flatMap((stats) => (stats ? [stats.min, stats.max, ...stats.outliers] : [])),
+    group.boxes.flatMap((stats) => (stats ? [stats.min, stats.max, ...(options.outliers ? stats.outliers : [])] : [])),
   )
   const format = spec.valueAxis.numberFormat ?? "General"
   const scale = niceScale(Math.min(0, ...all), Math.max(1, ...all), spec.valueAxis, labelCount(box.h - 30, 22))
@@ -2366,6 +2410,8 @@ function boxWhisker(painter: Painter, box: Box) {
   const shown = spec.series.map((serie, index) => ({ serie, index })).filter((item) => !item.serie.hidden)
   const width = Math.min(48, (band * 0.7) / Math.max(1, shown.length))
   const statLabels: string[] = []
+  // The mean line joins each series' means across the groups, drawn over the boxes.
+  const meanLines = new Map<number, string[]>()
   groups.forEach((group, column) => {
     shown.forEach(({ index }, place) => {
       const stats = group.boxes[index]
@@ -2383,12 +2429,15 @@ function boxWhisker(painter: Painter, box: Box) {
         `<path d="M${n(center)} ${n(top)}V${n(toY(stats.max))}M${n(center - cap)} ${n(toY(stats.max))}H${n(center + cap)}M${n(center)} ${n(bottom)}V${n(toY(stats.min))}M${n(center - cap)} ${n(toY(stats.min))}H${n(center + cap)}" stroke="${look.text}" stroke-width="1" fill="none"/>`,
         `<rect x="${n(left)}" y="${n(top)}" width="${n(width)}" height="${n(Math.max(1, bottom - top))}" ${seriesPaint(painter, color, `series:${index}`)}/>`,
         `<line x1="${n(left)}" y1="${n(toY(stats.median))}" x2="${n(left + width)}" y2="${n(toY(stats.median))}" stroke="#ffffff" stroke-width="1.5"/>`,
-        `<path d="M${n(center - 3)} ${n(mean - 3)}l6 6m0 -6l-6 6" stroke="#ffffff" stroke-width="1.5"/>`,
-        ...stats.outliers.map(
+        options.meanMarkers
+          ? `<path d="M${n(center - 3)} ${n(mean - 3)}l6 6m0 -6l-6 6" stroke="#ffffff" stroke-width="1.5"/>`
+          : "",
+        ...[...(options.innerPoints ? stats.inner : []), ...(options.outliers ? stats.outliers : [])].map(
           (value) =>
             `<circle cx="${n(center)}" cy="${n(toY(value))}" r="2.5" fill="none" stroke="${color}" stroke-width="1"/>`,
         ),
       ]
+      meanLines.set(index, [...(meanLines.get(index) ?? []), `${n(center)} ${n(mean)}`])
       parts.push(`<g data-chart-part="series:${index}">${pieces.join("")}</g>`)
       if (spec.dataLabels !== "none") {
         // As in Word: each statistic of the box is labelled beside it.
@@ -2402,6 +2451,15 @@ function boxWhisker(painter: Painter, box: Box) {
       }
     })
   })
+  if (options.meanLine) {
+    for (const [index, points] of meanLines) {
+      if (points.length > 1) {
+        parts.push(
+          `<path data-chart-part="series:${index}" d="M${points.join("L")}" stroke="${seriesColor(painter, index)}" stroke-width="1.5" fill="none"/>`,
+        )
+      }
+    }
+  }
   const axisLine = partLine(painter, "axis:category", look.axis, 0.75)
   parts.push(
     `<line x1="${n(plot.x)}" y1="${n(plot.y + plot.h)}" x2="${n(plot.x + plot.w)}" y2="${n(plot.y + plot.h)}" stroke="${axisLine.stroke}" stroke-width="${axisLine.width}"/>`,
@@ -2964,8 +3022,12 @@ export function chartParts(spec: ChartSpec): { id: string; label: string }[] {
     chartTree(spec).children.forEach((node) =>
       parts.push({ id: `point:${node.branch}`, label: `Point "${node.name}"` }),
     )
-  } else if (round) {
-    spec.categories.forEach((name, index) => parts.push({ id: `point:${index}`, label: `Point "${name}"` }))
+  } else if (round || spec.type === "waterfall") {
+    spec.categories.forEach((name, index) => {
+      if (!spec.hiddenCategories.includes(index)) {
+        parts.push({ id: `point:${index}`, label: `Point "${name}"` })
+      }
+    })
   }
   return parts
 }

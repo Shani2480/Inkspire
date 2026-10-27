@@ -434,7 +434,12 @@ function chartPictureHtml(run: Run, ctx: Projection) {
   const spec =
     // The app's own spec wins while Word left the data alone; Histogram, Waterfall and Funnel are written as the
     // chart they expand to (bins, running totals), so that is what is compared for them.
-    own && (!read || sameChartData(own, read) || sameChartData(expandSpec(own), read))
+    own &&
+    (!read ||
+      sameChartData(own, read) ||
+      sameChartData(expandSpec(own), read) ||
+      // A Waterfall from before Set as total is saved with its total as a row of its own.
+      (isChartEx(own) && sameChartData(chartExData(own), read)))
       ? own
       : read
         ? { ...read, ...(own ? { style: own.style, palette: own.palette } : {}) }

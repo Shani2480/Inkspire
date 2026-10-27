@@ -7,6 +7,46 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### Waterfall Set as total, Box & Whisker options, colours in Word's chartex charts
+
+- **Missing:**
+  - A Waterfall point could not be set as a total; the app always added its own total after the last point, and
+    Word's totals in the middle of a chart were dropped (only a last one was understood).
+  - Waterfall bars could not be picked or coloured one by one, and a bar below or across zero was drawn from zero.
+  - Box & Whisker had no Series Options: inner points, outlier points, mean markers and mean line were fixed, and
+    quartiles were always exclusive.
+  - The chartex part had no colours, so Word drew a Waterfall in its theme colours, not green and red.
+- **Changed:**
+  - `waterfallTotals` on the chart: each point set as total stands from zero to its value, and the running total
+    goes on from it. A chart from before has none set and keeps its added total. Setting one on such a chart
+    first makes that total a row of its own, so the chart looks the same (`setWaterfallTotal`). The Waterfall
+    sample now has its Total as a row set as total, as Word's does.
+  - A Waterfall's bars are its points (`pointColumns` on the drawn chart). Click one: Format Point shows "Set as
+    total", and its Fill colours that bar. Bars below zero hang from their top, and one across zero is drawn as a
+    piece each side (two more series in the drawn chart, only when needed).
+  - Format Data Series on a Box & Whisker: Show inner points, outlier points, mean markers, mean line, and
+    Inclusive or Exclusive median (`box`, `boxOptions`; `boxStats` takes the method and returns the inner
+    points). The mean line joins each series' means.
+  - chartex: totals written as `cx:subtotals` and read back (all of them, the rows kept). Box options as
+    `cx:visibility` and `cx:statistics quartileMethod`, read back where they differ from Word's. A series' fill as
+    `cx:spPr`. A Waterfall's points each get a `cx:dataPt` with the colour the app draws (green, red, grey, or the
+    point's own); on reading, only colours other than those come back. Hidden series and rows are left out and
+    the colour keys move with them (`chartExData`).
+  - Opening: a chart from before Set as total still opens as the app's own chart (its data is compared with
+    `chartExData` too), in `src/document/docx/inlines.ts`.
+  - Files: `src/editor/chart-spec.ts`, `src/editor/chart-expand.ts`, `src/document/docx/chartex-xml.ts`,
+    `src/components/chart-format-pane.tsx`.
+- **Tests:** `chart-expand.test.ts` (totals in the running total, below and across zero, Set as total on an old
+  chart, bars as points with their own fill, inclusive quartiles, inner points, each Box option drawn);
+  `chartex.test.ts` (totals, dataPt colours, Box options and series colour written and read back, colour keys
+  after a hidden series). All 1075 tests pass.
+- **Checked:** in Chrome, clicking the Waterfall's "Returns" bar selected Point "Returns"; Set as total drew it
+  from zero (−15) and the bars after it floated from −15 across zero. Box & Whisker with inner points, mean line
+  and inclusive median drew them. The Open XML validator reports 0 errors on a document with these charts, and
+  LibreOffice draws the fallbacks.
+- **Open:** the fallback chart has no per-point colours. Word itself was not used to look at the result. Data
+  labels on a Waterfall bar across zero label its two pieces.
+
 ### Edit Points: drag the outline to bend it
 
 - **Missing:** only a segment's curve handles could bend it; Word also lets the line or curve itself be dragged.
