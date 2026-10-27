@@ -212,6 +212,7 @@ export function NumberField({
   step = 0.25,
   min = 0,
   max = 100,
+  disabled = false,
   onChange,
 }: {
   label: string
@@ -220,6 +221,8 @@ export function NumberField({
   step?: number
   min?: number
   max?: number
+  /** Greyed out, as Word shows an option that does not apply. */
+  disabled?: boolean
   onChange: (value: number) => void
 }) {
   return (
@@ -231,6 +234,7 @@ export function NumberField({
           step={step}
           min={min}
           max={max}
+          disabled={disabled}
           onChange={(event) => {
             const next = Number(event.target.value)
             if (Number.isFinite(next)) {

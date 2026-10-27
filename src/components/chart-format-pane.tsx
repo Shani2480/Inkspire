@@ -500,10 +500,25 @@ function BoxWhiskerOptions({ spec, set }: { spec: ChartSpec; set: Setter }) {
   )
 }
 
-function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) {
+function Check({
+  label,
+  checked,
+  disabled = false,
+  onChange,
+}: {
+  label: string
+  checked: boolean
+  disabled?: boolean
+  onChange: (value: boolean) => void
+}) {
   return (
     <label className="format-pane-check">
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.checked)}
+      />
       {label}
     </label>
   )
@@ -895,6 +910,25 @@ function PartOptions({ spec, part, set }: { spec: ChartSpec; part: string; set: 
               max={2000}
               onChange={(depthPercent) => set((current) => ({ ...current, depthPercent: Math.round(depthPercent) }))}
             />
+            {/* As in Word: Autoscale only with right-angle axes, and the Height greyed while it is on. */}
+            <Check
+              label="Autoscale"
+              checked={view.height === undefined}
+              disabled={!view.rightAngle}
+              onChange={(on) =>
+                set(({ heightPercent: _h, ...current }) => (on ? current : { ...current, heightPercent: 100 }))
+              }
+            />
+            <NumberField
+              label="Height (% of base)"
+              value={view.height ?? 100}
+              unit="%"
+              step={10}
+              min={5}
+              max={500}
+              disabled={view.height === undefined && view.rightAngle}
+              onChange={(heightPercent) => set((current) => ({ ...current, heightPercent: Math.round(heightPercent) }))}
+            />
           </>
         )}
         <button
@@ -905,10 +939,21 @@ function PartOptions({ spec, part, set }: { spec: ChartSpec; part: string; set: 
             turn.y === own.y &&
             spec.rightAngleAxes === undefined &&
             spec.perspective === undefined &&
-            spec.depthPercent === undefined
+            spec.depthPercent === undefined &&
+            spec.heightPercent === undefined
           }
           onClick={() =>
-            set(({ rotX: _x, rotY: _y, rightAngleAxes: _r, perspective: _p, depthPercent: _d, ...current }) => current)
+            set(
+              ({
+                rotX: _x,
+                rotY: _y,
+                rightAngleAxes: _r,
+                perspective: _p,
+                depthPercent: _d,
+                heightPercent: _h,
+                ...current
+              }) => current,
+            )
           }
         >
           Reset

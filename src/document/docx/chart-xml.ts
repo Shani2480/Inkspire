@@ -535,9 +535,12 @@ export function chartSpaceXml(source: ChartSpec, workbookRelId?: string) {
   // A surface is a 3-D chart in Word: a contour is the same seen from straight above.
   const walls = `<c:floor><c:thickness val="0"/></c:floor><c:sideWall><c:thickness val="0"/></c:sideWall><c:backWall><c:thickness val="0"/></c:backWall>`
   const turn = chartRotation(spec)
-  const rotation = `<c:rotX val="${turn.x}"/><c:rotY val="${turn.y}"/>`
-  // Perspective is written in Word's half degrees, and only while the axes are not at right angles.
+  // Perspective is written in Word's half degrees, and only while the axes are not at right angles. No height is
+  // Autoscale.
   const view = chartView3d(spec)
+  const rotation =
+    `<c:rotX val="${turn.x}"/>${view.height !== undefined && spec.type !== "pie" ? `<c:hPercent val="${view.height}"/>` : ""}` +
+    `<c:rotY val="${turn.y}"/>`
   const sight =
     `${view.depth !== 100 ? `<c:depthPercent val="${view.depth}"/>` : ""}<c:rAngAx val="${view.rightAngle ? 1 : 0}"/>` +
     `${view.rightAngle ? "" : `<c:perspective val="${Math.round(view.perspective * 2)}"/>`}`
@@ -990,6 +993,10 @@ export function readChartSpace(xml: string): ChartSpec | null {
       const depth = Number(value(view, "depthPercent"))
       if (Number.isFinite(depth) && depth !== word.depth) {
         spec.depthPercent = depth
+      }
+      const height = Number(value(view, "hPercent"))
+      if (value(view, "hPercent") !== undefined && Number.isFinite(height)) {
+        spec.heightPercent = height
       }
     }
   }

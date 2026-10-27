@@ -7,6 +7,28 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-27
 
+### 3-D charts: Height (% of base) and Autoscale
+
+- **Missing:** a 3-D chart's Height could not be set, and Word's `c:hPercent` was lost on opening.
+- **Changed:** Format Chart Area / Plot Area → 3-D Rotation adds Autoscale and Height (% of base), 5–500%.
+  - They behave as in Word: Autoscale can be used only with Right Angle Axes, and Height is greyed while
+    Autoscale is on. Unchecking Autoscale starts at 100%.
+  - The chart's front is drawn as tall as that share of its width, centred in the room there is. If it would be
+    taller than the room, it is drawn narrower instead. Reset clears Height too.
+  - Saved as `c:hPercent` between `c:rotX` and `c:rotY` (none is Autoscale) and read back, except for 3-D pie.
+  - `heightPercent` and `chartView3d(...).height` in `src/editor/chart-spec.ts`; `src/document/docx/chart-xml.ts`;
+    `src/components/chart-format-pane.tsx`. `NumberField` and the pane's `Check` take `disabled`.
+- **Tests:**
+  - `chart-spec.test.ts`: Height clamped; a low Height draws a flatter front; too tall draws narrower.
+  - `chart-docx.test.ts`: `hPercent` written in place, read back, and absent for Autoscale.
+- **Checked:**
+  - In Chrome, on a 3-D Clustered Column: Autoscale was on with Height greyed. Unchecking it and typing 40 set
+    it. Turning off Right Angle Axes greyed Autoscale and left Height on.
+  - The Open XML validator reports 0 errors. All tests pass.
+- **Open:**
+  - 3-D pie has no Height (Word's thickness).
+  - How tall Word draws a given Height was not compared in Word.
+
 ### Edit Points: the box grows while dragging
 
 - **Wrong:** while a point, curve handle or segment was being dragged, the outline was drawn outside the shape's

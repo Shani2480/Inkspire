@@ -123,11 +123,13 @@ export type ChartSpec = {
   rotY?: number
   /**
    * The rest of a 3-D chart's 3-D Rotation, unset as Word has it (see `chartView3d`): Right Angle Axes, the
-   * Perspective in degrees when they are off, and the Depth as a percentage of the base.
+   * Perspective in degrees when they are off, and the Depth as a percentage of the base. The Height as a
+   * percentage of the base; unset is Autoscale, the plot as tall as there is room for.
    */
   rightAngleAxes?: boolean
   perspective?: number
   depthPercent?: number
+  heightPercent?: number
   /**
    * Pie of Pie and Bar of Pie: some points drawn again as a second pie or a bar, chosen as Word's Split Series By
    * says (`ofPieSplitBy`, unset is Position): the last `ofPieSplit` points; those below `ofPieSplitValue`, or below
@@ -514,6 +516,7 @@ export function withVariant(spec: ChartSpec, id: string): ChartSpec {
         rightAngleAxes: keep ? spec.rightAngleAxes : undefined,
         perspective: keep ? spec.perspective : undefined,
         depthPercent: keep ? spec.depthPercent : undefined,
+        heightPercent: keep ? spec.heightPercent : undefined,
       }
     })(),
     ofPie: variant.ofPie,
@@ -1451,6 +1454,19 @@ function cartesian(painter: Painter, box: Box, series: Serie[], entries: { name:
     plot.w = Math.max(10, plot.w - depth.x)
     plot.y += depth.y
     plot.h = Math.max(10, plot.h - depth.y)
+    // Height (% of base): the front as tall as that share of its width, within the room there is, centred.
+    const height = chartView3d(spec).height
+    if (height !== undefined) {
+      const tall = (plot.w * height) / 100
+      if (tall <= plot.h) {
+        plot.y += (plot.h - tall) / 2
+        plot.h = Math.max(10, tall)
+      } else {
+        const wide = (plot.h * 100) / height
+        plot.x += (plot.w - wide) / 2
+        plot.w = Math.max(10, wide)
+      }
+    }
   }
   const row = { x: depth.x / rows, y: depth.y / rows }
   const plotLine = partLine(painter, "plotArea", "none", 0.75)
@@ -2197,7 +2213,9 @@ export function ofPieSplit(spec: ChartSpec, count: number) {
  * chart whose series sit one behind another (and a 3-D Line), which Word draws in perspective; Perspective 15°;
  * Depth 100% of the base. The app draws without perspective either way.
  */
-export function chartView3d(spec: Pick<ChartSpec, "type" | "threeD" | "rightAngleAxes" | "perspective" | "depthPercent">) {
+export function chartView3d(
+  spec: Pick<ChartSpec, "type" | "threeD" | "rightAngleAxes" | "perspective" | "depthPercent" | "heightPercent">,
+) {
   const deep = spec.threeD === "deep" || spec.type === "line"
   const clamp = (value: number | undefined, low: number, high: number, fallback: number) =>
     Math.round(Math.max(low, Math.min(high, Number.isFinite(value) ? value! : fallback)) * 10) / 10
@@ -2205,6 +2223,8 @@ export function chartView3d(spec: Pick<ChartSpec, "type" | "threeD" | "rightAngl
     rightAngle: spec.rightAngleAxes ?? !deep,
     perspective: clamp(spec.perspective, 0, 120, 15),
     depth: Math.round(clamp(spec.depthPercent, 20, 2000, 100)),
+    /** Unset is Autoscale. */
+    height: spec.heightPercent === undefined ? undefined : Math.round(clamp(spec.heightPercent, 5, 500, 100)),
   }
 }
 
