@@ -16,7 +16,7 @@ import { decodeXml } from "@/document/docx/xml"
 import { readWordShape, shapeLook, wordShapeMark } from "@/document/docx/shape-import"
 import { wordShapeGraphic } from "@/document/docx/shape-write"
 import { diagramDataRelId, diagramDrawingRelId, renderDiagramDrawing } from "@/document/docx/smartart-import"
-import { shapeMarkup } from "@/editor/insert-blocks"
+import { pointsMarkup, shapeMarkup } from "@/editor/insert-blocks"
 import { hasPictureFormat } from "@/editor/picture-format"
 import { fontOf, fontStack, themeFontsOf, type ThemeFonts } from "@/document/docx/word-styles"
 import { runBoxOf, textBoxAttributes, textBoxOfRun, type TextBox } from "@/document/docx/text-box"
@@ -614,6 +614,7 @@ function shapePictureHtml(run: Run, ctx: Projection) {
     attrs: {
       kind: "shape",
       variant: shape.variant,
+      points: shape.points,
       fill: shape.fill === "none" ? "transparent" : shape.fill,
       stroke: shape.stroke === "none" ? "transparent" : shape.stroke,
       strokeWidth: shape.strokeWidth,
@@ -636,8 +637,8 @@ function shapePictureHtml(run: Run, ctx: Projection) {
     shown: [width, height],
   }
   const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 56" width="${width}" height="${height}" ` +
-    `preserveAspectRatio="none">${shapeMarkup(shape.variant)}</svg>`
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${shape.points ? "0 0 100 100" : "0 0 80 56"}" width="${width}" height="${height}" ` +
+    `preserveAspectRatio="none">${shape.points ? pointsMarkup(shape.variant, shape.points) : shapeMarkup(shape.variant)}</svg>`
   const picture: MediaPart = {
     relId: "",
     type: "",

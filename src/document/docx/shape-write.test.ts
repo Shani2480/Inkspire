@@ -91,6 +91,18 @@ describe("shapes written as Word's own (22.11)", () => {
     })
   })
 
+  it("saves a shape with edited points as Word's freeform, and opens it again with them", async () => {
+    const points = "M0 0 L100 20 L80 100 L10 90 Z"
+    const { bytes, xml } = await save([shapeImage({ variant: "rect", points, fill: "#70ad47" })])
+    expect(xml).toContain("<a:custGeom>")
+    expect(xml).toContain('<a:lnTo><a:pt x="100000" y="20000"/></a:lnTo>')
+    expect(xml).not.toContain("<a:prstGeom")
+    const reopened = await openDocxBytes(bytes, "s.docx")
+    const object = /data-inkspire-object="([^"]*)"/.exec(reopened.view.html)?.[1] ?? ""
+    const figure = JSON.parse(atob(object)) as { attrs: Record<string, unknown> }
+    expect(figure.attrs).toMatchObject({ points, fill: "#70ad47" })
+  })
+
   it("writes a dash and a gradient fill as DrawingML", () => {
     const xml = wordShapeGraphic(
       { variant: "rect", fill: "#4472c4", fillGradient: "light-diagonal", strokeDash: "dash-dot" },

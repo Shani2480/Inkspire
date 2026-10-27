@@ -226,6 +226,16 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Open a Word document with a picture already cropped to a shape. It shows that shape here and is saved unchanged.
 - Desktop app: the shape mask and the border along it draw in WebKitGTK.
 
+## Edit Points and Convert to Freeform (2026-10-27)
+
+- Edit the points of a triangle, a rounded rectangle and a heart (move, add and delete points), and convert a star
+  to a freeform. Save and open the file in Word: each shape is the same outline, and Word's Edit Points shows the
+  same points.
+- Open a Word document with a freeform drawn in Word (Insert → Shapes → Freeform). It shows the same outline here,
+  and Edit Points shows its points.
+- Edit Points on a rotated and a flipped shape: the handles sit on the shape and drag the right way.
+- Desktop app: the handles show, drag, and Ctrl+click adds and deletes in WebKitGTK.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

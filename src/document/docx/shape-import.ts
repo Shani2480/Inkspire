@@ -1,4 +1,5 @@
 import { readDash, readEffects, readGradient } from "@/document/docx/shape-effects"
+import { pathString, pointsFromCustGeom } from "@/editor/shape-points"
 /**
  * Word's drawn shapes (21.35): a `wps:wsp` with a preset geometry, read into the values the app's shape object takes
  * (preset, fill, outline). Colours come from the shape's own `spPr`, else from its `wps:style` references resolved
@@ -58,6 +59,8 @@ export const VARIANT_OF_PRESET: Record<string, string> = {
 export type WordShape = {
   preset: string
   variant: string
+  /** A freeform's outline as points (see `shape-points.ts`); empty for a preset. */
+  points: string
   fill: string
   stroke: string
   /** The outline's weight in points. */
@@ -182,8 +185,11 @@ export function readWordShape(xml: string, themeXml: string | null): WordShape |
   if (!shape || /<wps:cNvSpPr\b[^>]*\btxBox="(?:1|true)"/.test(shape)) {
     return null
   }
-  const preset = /<a:prstGeom prst="(\w+)"/.exec(shape)?.[1]
-  const variant = preset ? VARIANT_OF_PRESET[preset] : undefined
+  // A freeform (Word's custom geometry) opens as a shape drawn from its points, which Edit Points can change.
+  const custom = /<a:prstGeom\b/.test(shape) ? null : pointsFromCustGeom(shape)
+  const points = custom ? pathString(custom) : ""
+  const preset = points ? "custom" : /<a:prstGeom prst="(\w+)"/.exec(shape)?.[1]
+  const variant = points ? "rect" : preset ? VARIANT_OF_PRESET[preset] : undefined
   if (!preset || !variant) {
     return null
   }
@@ -241,6 +247,7 @@ export function readWordShape(xml: string, themeXml: string | null): WordShape |
   return {
     preset,
     variant,
+    points,
     fill,
     stroke,
     strokeWidth: Math.round((emu / 12700) * 100) / 100,
@@ -264,6 +271,7 @@ export function wordShapeMark(shape: WordShape) {
 export function shapeLook(look: Record<string, unknown>) {
   return JSON.stringify([
     look.variant,
+    look.points || "",
     look.fill,
     look.stroke,
     look.strokeWidth,

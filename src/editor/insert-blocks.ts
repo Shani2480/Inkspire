@@ -6,6 +6,7 @@ import { bindRotate, ensureRotateHandle } from "@/editor/object-rotate"
 import { chainWithSelection } from "@/editor/selection-memory"
 import { paintShapeSvg, shapeStyleAttributes } from "@/editor/shape-style"
 import { WORD_ART_PRESETS } from "@/editor/text-effects"
+import { POINTS_BOX } from "@/editor/shape-points"
 import { Mark, Node, mergeAttributes } from "@tiptap/core"
 import type { Node as ProseNode } from "@tiptap/pm/model"
 import { NodeSelection, type EditorState, type Transaction } from "@tiptap/pm/state"
@@ -173,6 +174,15 @@ const SHAPE_SVG: Record<string, string> = {
 
 export const SHAPE_NAMES = Object.keys(SHAPE_SVG)
 
+/** A shape drawn from its points, in the colours and outline weight of the gallery drawing it came from. */
+export function pointsMarkup(variant: string, points: string) {
+  const markup = shapeMarkup(variant)
+  const fill = /\bfill="(#[0-9a-fA-F]{6})"/.exec(markup)?.[1] ?? "#deecf9"
+  const stroke = /\bstroke="(#[0-9a-fA-F]{6})"/.exec(markup)?.[1] ?? ""
+  const open = !/[Zz]\s*$/.test(points.trim()) && /\bfill="none"/.test(markup)
+  return `<path data-shape-points="" d="${points.replace(/"/g, "")}" fill="${open ? "none" : fill}"${stroke ? ` stroke="${stroke}" stroke-width="2"` : ""}/>`
+}
+
 export function shapeMarkup(kind: string) {
   return SHAPE_SVG[kind] ?? SHAPE_SVG.rect
 }
@@ -300,7 +310,8 @@ function paintShapeText(dom: HTMLElement, node: ProseNode) {
 function paintFigure(dom: HTMLElement, node: ProseNode) {
   const kind = String(node.attrs.kind || "shape")
   const variant = String(node.attrs.variant || "rect")
-  let body = shapeSvg(variant)
+  const points = kind === "shape" ? String(node.attrs.points || "") : ""
+  let body = points ? pointsMarkup(variant, points) : shapeSvg(variant)
   if (kind === "icon") {
     body = ICONS[variant] ?? ICONS.star
   } else if (kind === "model") {
@@ -319,9 +330,11 @@ function paintFigure(dom: HTMLElement, node: ProseNode) {
       ? "0 0 16 16"
       : kind === "chart"
         ? `0 0 ${width} ${height}`
-        : kind === "shape"
-          ? shapeViewBox(variant)
-          : "0 0 80 56"
+        : points
+          ? `0 0 ${POINTS_BOX} ${POINTS_BOX}`
+          : kind === "shape"
+            ? shapeViewBox(variant)
+            : "0 0 80 56"
   // A shape fills its box whatever the box's proportions, as Word stretches a preset to its extent (22.11).
   const stretch = kind === "shape" ? ' preserveAspectRatio="none"' : ""
   const src = String(node.attrs.src || "")
@@ -400,6 +413,15 @@ export const Figure = Node.create({
         default: "rect",
         parseHTML: (element) => element.getAttribute("data-variant") || "rect",
         renderHTML: (attributes) => ({ "data-variant": attributes.variant }),
+      },
+      /**
+       * Edit Points: the shape's outline as points (an SVG path in a 100 by 100 box stretched to the shape), which
+       * then replaces the gallery's drawing; empty for a shape drawn as the gallery draws it.
+       */
+      points: {
+        default: "",
+        parseHTML: (element) => element.getAttribute("data-points") || "",
+        renderHTML: (attributes) => (attributes.points ? { "data-points": attributes.points } : {}),
       },
       values: {
         default: "8,14,11",
@@ -632,7 +654,9 @@ export const Figure = Node.create({
         },
         stopEvent: (event) =>
           editing && event.target instanceof Element && Boolean(event.target.closest(".figure-text")),
-        ignoreMutation: () => editing,
+        // Its drawing has no content to read back: a change to it (Edit Points redraws the outline as it is dragged)
+        // is not an edit.
+        ignoreMutation: (mutation) => editing || mutation.type !== "selection",
         destroy() {
           dom.removeEventListener("dblclick", edit)
           stopRotate()

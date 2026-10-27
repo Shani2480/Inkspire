@@ -3,6 +3,7 @@ import { escapeXml, escapeXmlText } from "@/document/docx/xml"
 import { shapeMarkup } from "@/editor/insert-blocks"
 import { PRESET_DASH, effectListXml, plainEffects } from "@/document/docx/shape-effects"
 import { gradientStopList, gradientVector, parseWordGradient } from "@/editor/shape-style"
+import { custGeomXml, parsePath } from "@/editor/shape-points"
 
 /**
  * A shape made or formatted in the app, written as Word's own drawing (a `wps:wsp` with a preset geometry, a solid
@@ -11,6 +12,9 @@ import { gradientStopList, gradientVector, parseWordGradient } from "@/editor/sh
  * edges or reflection. Pictures, textures, arrows, bevel and 3-D rotation stay a picture, as they were.
  */
 export const WPS_URI = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
+
+/** `plainShapePreset`'s answer for a shape drawn from its own points (`a:custGeom`). */
+export const CUSTOM = "custom"
 
 const PRESET_OF_VARIANT = new Map(Object.entries(VARIANT_OF_PRESET).map(([preset, variant]) => [variant, preset]))
 
@@ -42,7 +46,9 @@ function colorOf(value: unknown, fallback: string) {
 
 /** The Word preset that draws this shape exactly as the app does, or null when it needs a picture. */
 export function plainShapePreset(attrs: Attrs) {
-  const preset = PRESET_OF_VARIANT.get(String(attrs.variant ?? ""))
+  // A shape with edited points is Word's freeform (custom geometry), whatever it was drawn from.
+  const points = typeof attrs.points === "string" && attrs.points ? parsePath(attrs.points) : []
+  const preset = points.length > 0 ? CUSTOM : PRESET_OF_VARIANT.get(String(attrs.variant ?? ""))
   if (!preset || NOT_PLAIN.some((key) => attrs[key]) || !plainEffects(attrs)) {
     return null
   }
@@ -116,7 +122,7 @@ export function wordShapeGraphic(attrs: Attrs, cx: number, cy: number, rot = 0):
   return (
     `<a:graphicData uri="${WPS_URI}"><wps:wsp xmlns:wps="${WPS_URI}"><wps:cNvSpPr/><wps:spPr>` +
     `<a:xfrm${rot ? ` rot="${rot}"` : ""}${flips}><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>` +
-    `<a:prstGeom prst="${preset}"><a:avLst/></a:prstGeom>` +
+    (preset === CUSTOM ? custGeomXml(parsePath(String(attrs.points))) : `<a:prstGeom prst="${preset}"><a:avLst/></a:prstGeom>`) +
     `${gradient ? gradientFill(fill, gradient) : fill === "none" ? "<a:noFill/>" : solid(fill)}${line}${effectListXml(attrs)}</wps:spPr>${textBody(attrs)}</wps:wsp></a:graphicData>`
   )
 }
