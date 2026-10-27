@@ -191,6 +191,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       tables, the second with Allow overlap off, do not cover each other. Checked in Chrome; check the desktop app
       and against Word with a .docx.
 
+- [ ] **Formatting keys (2026-10-27)** — in the desktop app: Ctrl+Shift+D / K / H, Ctrl+T / Ctrl+Shift+T, Ctrl+Q,
+      and Ctrl+Shift+C then Ctrl+Shift+V on another selection. Checked in Chrome by pressing them.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and
