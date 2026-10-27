@@ -12618,6 +12618,12 @@ textarea.tp-input {
   font-size: 12px;
 }
 
+.cz-notice {
+  margin: 0;
+  font-size: 12px;
+  color: var(--app-ribbon-text);
+}
+
 .cz-check {
   display: flex;
   align-items: center;

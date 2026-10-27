@@ -33,6 +33,8 @@ pub fn run() {
             export_document,
             read_document,
             write_document,
+            read_settings_file,
+            write_settings_file,
             list_system_fonts,
             open_window,
             rename_document,
@@ -491,6 +493,37 @@ fn read_document(path: String) -> Result<tauri::ipc::Response, String> {
     Ok(tauri::ipc::Response::new(bytes))
 }
 
+/// Reads a customization file the user picked to import.
+#[tauri::command]
+fn read_settings_file(path: String) -> Result<String, String> {
+    let path = assert_settings_path(&path)?;
+    let metadata = std::fs::metadata(&path)
+        .map_err(|_| "The selected file could not be found.".to_string())?;
+    // A customization file is a few kilobytes; anything far larger is not one.
+    if !metadata.is_file() || metadata.len() > 4 * 1024 * 1024 {
+        return Err("That is not a customization file.".into());
+    }
+    std::fs::read_to_string(&path).map_err(|err| format!("Could not read the file: {err}"))
+}
+
+/// Writes exported customizations where the user chose, beside the destination first as documents are.
+#[tauri::command]
+fn write_settings_file(path: String, text: String) -> Result<(), String> {
+    let path = assert_settings_path(&path)?;
+    let mut temporary = path.clone();
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or("Choose a file path.")?;
+    temporary.set_file_name(format!(".{file_name}.tmp"));
+    std::fs::write(&temporary, text).map_err(|err| format!("Could not save the file: {err}"))?;
+    if let Err(err) = std::fs::rename(&temporary, &path) {
+        let _ = std::fs::remove_file(&temporary);
+        return Err(format!("Could not save the file: {err}"));
+    }
+    Ok(())
+}
+
 /// Writes raw bytes sent as the request body. The path travels percent-encoded in
 /// the `x-document-path` header so non-ASCII folder names survive.
 #[tauri::command]
@@ -562,6 +595,16 @@ fn assert_user_document_path(path: &str) -> Result<PathBuf, String> {
         return Err("That file path is not allowed.".into());
     }
     Ok(path)
+}
+
+/// A settings file the user picked (Import/Export of the ribbon and Quick Access Toolbar): JSON only, so these
+/// commands cannot be used to read or overwrite anything else.
+fn assert_settings_path(path: &str) -> Result<PathBuf, String> {
+    let path = assert_user_document_path(path)?;
+    match file_extension(path.to_string_lossy().as_ref()).as_deref() {
+        Some("json") => Ok(path),
+        _ => Err("Customizations are saved and opened as .json files.".into()),
+    }
 }
 
 fn assert_local_document_path(path: &str) -> Result<PathBuf, String> {
@@ -746,8 +789,8 @@ impl Drop for TempHtml {
 #[cfg(test)]
 mod tests {
     use super::{
-        assert_local_document_path, assert_user_document_path, document_body, export_format,
-        font_families, import_format, is_local_document_extension, percent_decode,
+        assert_local_document_path, assert_settings_path, assert_user_document_path, document_body,
+        export_format, font_families, import_format, is_local_document_extension, percent_decode,
         typst_project_root,
     };
     use super::{existing_file_path, file_uri, gecos_name};
@@ -788,6 +831,16 @@ mod tests {
             document_body("<html><head><title>T</title></head><body><p>Hi</p></body></html>"),
             "<p>Hi</p>"
         );
+    }
+
+    #[test]
+    fn settings_files_are_json_only() {
+        assert!(assert_settings_path("/home/user/Inkspire Customizations.json").is_ok());
+        assert!(assert_settings_path("/home/user/settings.JSON").is_ok());
+        assert!(assert_settings_path("/home/user/.bashrc").is_err());
+        assert!(assert_settings_path("/home/user/doc.docx").is_err());
+        assert!(assert_settings_path("/home/user/../x.json").is_err());
+        assert!(assert_settings_path("x.json").is_err());
     }
 
     #[test]

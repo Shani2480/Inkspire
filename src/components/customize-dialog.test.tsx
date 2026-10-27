@@ -1,7 +1,17 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
+import { CommandMenuHost } from "@/components/command-menu"
 import { CustomizeDialogHost, openCustomize } from "@/components/customize-dialog"
-import { defaults, useCustomize } from "@/document/customize"
+import { defaults, exportCustomization, useCustomize } from "@/document/customize"
+
+const files = vi.hoisted(() => ({ opened: null as string | null, saved: [] as [string, string][] }))
+vi.mock("@/lib/file-io", () => ({
+  openSettingsFile: async () => files.opened,
+  saveSettingsFile: async (name: string, text: string) => {
+    files.saved.push([name, text])
+    return true
+  },
+}))
 
 afterEach(() => {
   cleanup()
@@ -43,5 +53,36 @@ describe("Customize the Ribbon and Quick Access Toolbar (22.5)", () => {
     fireEvent.click(screen.getByText("Reset"))
     fireEvent.click(screen.getByText("OK"))
     expect(useCustomize.getState()).toMatchObject(defaults())
+  })
+
+  it("exports all customizations and imports a file, kept on OK", async () => {
+    useCustomize.getState().set({ qat: ["save", "bold"] })
+    render(
+      <>
+        <CustomizeDialogHost />
+        <CommandMenuHost />
+      </>,
+    )
+    act(() => openCustomize("quick-access"))
+    fireEvent.click(screen.getByText("Import/Export ▾"))
+    fireEvent.click(screen.getByText("Export all customizations"))
+    await screen.findByText("Customizations exported.")
+    expect(files.saved[0]![0]).toBe("Inkspire Customizations.json")
+    expect(JSON.parse(files.saved[0]![1]).qat).toEqual(["save", "bold"])
+
+    files.opened = exportCustomization({ ...defaults(), qat: ["undo"], hiddenTabs: ["view"] })
+    fireEvent.click(screen.getByText("Import/Export ▾"))
+    fireEvent.click(screen.getByText("Import customization file"))
+    await screen.findByText("Customizations imported. Click OK to use them.")
+    // Not used until OK.
+    expect(useCustomize.getState().qat).toEqual(["save", "bold"])
+    fireEvent.click(screen.getByText("OK"))
+    expect(useCustomize.getState()).toMatchObject({ qat: ["undo"], hiddenTabs: ["view"] })
+
+    files.opened = "{}"
+    act(() => openCustomize("quick-access"))
+    fireEvent.click(screen.getByText("Import/Export ▾"))
+    fireEvent.click(screen.getByText("Import customization file"))
+    await screen.findByText("That file is not an Inkspire customization file.")
   })
 })

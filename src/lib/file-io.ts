@@ -20,6 +20,7 @@ const ACCEPT_MAP: Record<string, string> = {
   md: "text/markdown",
   txt: "text/plain",
   rtf: "application/rtf",
+  json: "application/json",
 }
 
 function extOf(name: string) {
@@ -192,4 +193,33 @@ function downloadBlob(blob: Blob, filename: string) {
 
 export function fileExtension(path: string) {
   return extOf(path)
+}
+
+const SETTINGS_FILTERS: FileFilter[] = [{ name: "Customizations", extensions: ["json"] }]
+
+/**
+ * Saves a settings file (Export all customizations) where the user chooses; in the browser it is downloaded.
+ * Resolves false when the choice was cancelled. The desktop app writes only .json this way (`write_settings_file`).
+ */
+export async function saveSettingsFile(name: string, text: string, title: string): Promise<boolean> {
+  if (isTauriRuntime()) {
+    const path = await tauriSave({ title, filters: SETTINGS_FILTERS, defaultPath: name })
+    if (!path) {
+      return false
+    }
+    await invoke("write_settings_file", { path, text })
+    return true
+  }
+  downloadBlob(new Blob([text], { type: "application/json;charset=utf-8" }), name)
+  return true
+}
+
+/** Opens a settings file the user picks (Import customization file); null when the choice was cancelled. */
+export async function openSettingsFile(title: string): Promise<string | null> {
+  if (isTauriRuntime()) {
+    const path = await pickOpenPath(SETTINGS_FILTERS, title)
+    return path ? invoke<string>("read_settings_file", { path }) : null
+  }
+  const opened = await openLocalFile(SETTINGS_FILTERS, title)
+  return opened ? new TextDecoder().decode(opened.bytes) : null
 }

@@ -90,6 +90,32 @@ export function readCustomization(raw: string | null, known: (id: string) => boo
   }
 }
 
+/** What marks an exported customization file (Import/Export), so another JSON file is not taken for one. */
+export const CUSTOMIZATION_FORMAT = "inkspire-customizations"
+
+/** Export all customizations: the toolbar and the tabs, as a file to import on another computer. */
+export function exportCustomization(value: Customization) {
+  const { qatShown, qat, hiddenTabs, qatBelow, qatLabels, ribbon } = value
+  return JSON.stringify(
+    { format: CUSTOMIZATION_FORMAT, version: 1, qatShown, qat, hiddenTabs, qatBelow, qatLabels, ribbon },
+    null,
+    2,
+  )
+}
+
+/** Import customization file: what it holds, checked as a saved one is; null when it is not such a file. */
+export function importCustomization(raw: string, isKnown: (id: string) => boolean = (id) => known(id)) {
+  try {
+    const parsed = JSON.parse(raw) as { format?: unknown } | null
+    if (!parsed || typeof parsed !== "object" || parsed.format !== CUSTOMIZATION_FORMAT) {
+      return null
+    }
+  } catch {
+    return null
+  }
+  return readCustomization(raw, isKnown)
+}
+
 /** Add: a command goes at the end, once; a separator may go in again and again. */
 export function addCommand(list: string[], id: string) {
   return id === SEPARATOR || !list.includes(id) ? [...list, id] : list
