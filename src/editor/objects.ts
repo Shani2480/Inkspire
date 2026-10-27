@@ -430,7 +430,7 @@ export const PositionedImage = Image.extend({
 })
 
 /** A text box's fill, outline, effects and text formatting (20.9). */
-function paintTextBoxBody(body: HTMLElement, node: ProseNode) {
+export function paintTextBoxBody(body: HTMLElement, node: ProseNode) {
   const attrs = node.attrs
   const fill = String(attrs.fill || "#ffffff")
   const image = String(attrs.fillImage || "")
@@ -522,6 +522,13 @@ export const TextBox = Node.create({
         parseHTML: (element) => element.getAttribute("data-alt") || "",
         renderHTML: (attributes) => (attributes.alt ? { "data-alt": String(attributes.alt) } : {}),
       },
+      // Linked text boxes (Create Link): the chain the box is in and its place in it (see `text-box-link.ts`).
+      linkId: {
+        default: "",
+        parseHTML: (element) => element.getAttribute("data-link-id") || "",
+        renderHTML: (attributes) => (attributes.linkId ? { "data-link-id": String(attributes.linkId) } : {}),
+      },
+      linkSeq: numberAttr("linkSeq", "data-link-seq", 0),
       ...shapeStyleAttributes(),
       ...textBoxStyleAttributes(),
     }
@@ -553,6 +560,11 @@ export const TextBox = Node.create({
         dom.style.width = `${Math.max(80, Number(next.attrs.width) || 200)}px`
         const height = Number(next.attrs.height) || 0
         body.style.minHeight = height ? `${height}px` : ""
+        // A linked box keeps its size: what does not fit flows on, and the last box clips the rest.
+        const linked = Boolean(next.attrs.linkId)
+        body.style.height = linked && height ? `${height}px` : ""
+        body.style.overflow = linked ? "clip" : ""
+        dom.toggleAttribute("data-linked", linked)
         paintTextBoxBody(body, next)
       }
       paint(node)

@@ -13122,3 +13122,9 @@ textarea.tp-input {
 .page-editor table tr.page-gap {
   display: table-row;
 }
+
+/* Create Link: picking the empty text box the text flows on to. */
+:root[data-linking-text-box],
+:root[data-linking-text-box] * {
+  cursor: alias !important;
+}

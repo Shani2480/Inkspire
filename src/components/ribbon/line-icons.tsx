@@ -66,6 +66,16 @@ export function LineLinkIcon() {
   )
 }
 
+/** Break Link: the two halves of the link apart, the gap marked. */
+export function LineUnlinkIcon() {
+  return (
+    <LineSvg>
+      <path d="M6.6 5H5a3 3 0 0 0 0 6h1.6M9.4 5H11a3 3 0 0 1 0 6H9.4" {...base} />
+      <path d="M8 2.6v1.6M8 11.8v1.6" {...accent} />
+    </LineSvg>
+  )
+}
+
 export function LineContentsIcon() {
   return (
     <LineSvg>

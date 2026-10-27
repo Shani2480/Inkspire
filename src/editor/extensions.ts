@@ -32,6 +32,7 @@ import { ColumnSection } from "@/editor/columns"
 import { DrawingCanvas } from "@/editor/drawing"
 import { TableDrawing } from "@/editor/table-draw"
 import { EditPoints } from "@/editor/edit-points"
+import { TextBoxFlow } from "@/editor/text-box-link"
 import { ObjectGrouping } from "@/editor/object-group"
 import {
   Bookmark,
@@ -112,6 +113,7 @@ export function createExtensions() {
       inline: false,
     }),
     TextBox.configure(),
+    TextBoxFlow,
     PageBreak.configure(),
     BlankPage.configure(),
     CoverPage.configure(),

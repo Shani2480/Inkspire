@@ -61,6 +61,7 @@ import { useLayoutDialog } from "@/document/object-layout"
 import { useViewStore } from "@/document/view"
 import { useDocumentEditor } from "@/editor/document-editor"
 import { SHAPE_NAMES } from "@/editor/insert-blocks"
+import { breakTextBoxLink, hasNextBox, startLinking, useTextBoxLinking } from "@/editor/text-box-link"
 import { TEXT_PRESETS } from "@/editor/text-effects"
 import type { Editor } from "@tiptap/core"
 import { useEditorState } from "@tiptap/react"
@@ -75,6 +76,8 @@ type Target = {
   width: number
   height: number
   textBox: boolean
+  /** A text box that passes its text on to another (Break Link instead of Create Link). */
+  linked: boolean
   fill: string
   stroke: string
   shapeStyle: string
@@ -95,6 +98,7 @@ function targetOf(editor: Editor): Target | null {
     width: Number(found.attrs.width) || Math.round((rect?.width ?? 0) / zoom),
     height: Number(found.attrs.height) || Math.round((rect?.height ?? 0) / zoom),
     textBox: found.name === "textBox",
+    linked: found.name === "textBox" && hasNextBox(editor.state.doc, found.pos),
     fill: String(found.attrs.fill || ""),
     stroke: String(found.attrs.stroke || found.attrs.borderColor || ""),
     shapeStyle: String(found.attrs.shapeStyle || ""),
@@ -121,6 +125,25 @@ export function ShapeFormatTab() {
   const ready = Boolean(editor && target)
   const icon = target?.kind === "icon"
   const textual = Boolean(target?.textBox)
+  const linking = useTextBoxLinking((state) => state.source !== null)
+  // Create Link picks the box the text flows on to; on a box that already passes it on it is Break Link.
+  const link = () => {
+    if (!editor || !target?.textBox) {
+      return
+    }
+    if (target.linked) {
+      const tr = breakTextBoxLink(editor.state, target.pos)
+      if (tr) {
+        editor.view.dispatch(tr)
+      }
+    } else {
+      startLinking(editor.view, target.pos)
+    }
+  }
+  const linkLabel = target?.linked ? "Break Link" : "Create Link"
+  const linkDescription = target?.linked
+    ? "Stop this text box's text flowing on to the next one."
+    : "Flow this text box's text on to an empty text box: click Create Link, then click the empty box."
   const menu = (Menu: (props: { editor: Editor | null; close: () => void }) => ReactNode) => (close: () => void) => (
     <Menu editor={editor} close={close} />
   )
@@ -314,10 +337,12 @@ export function ShapeFormatTab() {
           },
           {
             id: "create-link",
-            label: "Create Link",
-            icon: <ContextGlyph label="Create Link" />,
-            disabled: true,
-            description: "Linking text boxes so text flows between them isn't available yet.",
+            label: linkLabel,
+            icon: <ContextGlyph label={linkLabel} />,
+            disabled: !textual,
+            active: linking,
+            description: linkDescription,
+            onClick: link,
           },
         ],
       },
@@ -482,12 +507,13 @@ export function ShapeFormatTab() {
           </RibbonCommand>
           <RibbonCommand
             size="small"
-            label="Create Link"
-            description="Linking text boxes so text flows between them isn't available yet."
-            disabled
-            onClick={() => undefined}
+            label={linkLabel}
+            description={linkDescription}
+            disabled={!textual}
+            active={linking}
+            onClick={link}
           >
-            <ContextGlyph label="Create Link" />
+            <ContextGlyph label={linkLabel} />
           </RibbonCommand>
         </div>
       </RibbonGroup>
