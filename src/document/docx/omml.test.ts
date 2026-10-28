@@ -44,7 +44,9 @@ describe("equations to Word's math markup", () => {
     expect(texToOmml("\\sqrt{x}")).toContain('<m:degHide m:val="1"/>')
     expect(texToOmml("\\sqrt[3]{x}")).toContain("<m:deg><m:r>")
     expect(texToOmml("\\sum_{k=0}^{n} k")).toContain('<m:chr m:val="∑"/><m:limLoc m:val="undOvr"/>')
-    expect(texToOmml("\\int x\\,dx")).toContain('<m:limLoc m:val="subSup"/><m:subHide m:val="1"/><m:supHide m:val="1"/>')
+    expect(texToOmml("\\int x\\,dx")).toContain(
+      '<m:limLoc m:val="subSup"/><m:subHide m:val="1"/><m:supHide m:val="1"/>',
+    )
     expect(texToOmml("\\left[x\\right]")).toContain('<m:begChr m:val="["/><m:endChr m:val="]"/>')
     expect(texToOmml("\\binom{n}{k}")).toContain('<m:type m:val="noBar"/>')
     expect(texToOmml("\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}")).toContain('<m:count m:val="2"/>')
@@ -97,7 +99,9 @@ describe("Word's equations to LaTeX", () => {
 
   it("reads plain text, bold and upright runs, and cases", () => {
     expect(
-      ommlToTex(`<m:oMath ${M}><m:r><m:rPr><m:nor/></m:rPr><m:t>if </m:t></m:r><m:r><m:rPr><m:sty m:val="b"/></m:rPr><m:t>v</m:t></m:r></m:oMath>`)!.tex,
+      ommlToTex(
+        `<m:oMath ${M}><m:r><m:rPr><m:nor/></m:rPr><m:t>if </m:t></m:r><m:r><m:rPr><m:sty m:val="b"/></m:rPr><m:t>v</m:t></m:r></m:oMath>`,
+      )!.tex,
     ).toBe("\\text{if }\\mathbf{v}")
     const cases = texToOmml("\\begin{cases} a & b \\\\ c & d \\end{cases}")
     expect(ommlToTex(cases)!.tex).toBe("\\begin{cases}a & b \\\\ c & d\\end{cases}")

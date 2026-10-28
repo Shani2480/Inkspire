@@ -35,7 +35,9 @@ function cellsOf(table: ProseNode, tablePos: number): CellAt[] {
 
 function widthsOf(cell: ProseNode, from: number, to: number, widths: number[]) {
   const own = Array.isArray(cell.attrs.colwidth) ? (cell.attrs.colwidth as number[]) : null
-  return Array.from({ length: to - from }, (_, index) => Math.max(1, Math.round(own?.[index] || widths[from + index] || 1)))
+  return Array.from({ length: to - from }, (_, index) =>
+    Math.max(1, Math.round(own?.[index] || widths[from + index] || 1)),
+  )
 }
 
 /**
@@ -153,9 +155,7 @@ export function splitCellAcross(tr: Transaction, tablePos: number, cellPos: numb
     // Inside a cell spanning rows, along an existing row's top: the cell divides there.
     tr.setNodeMarkup(target.pos, undefined, { ...target.node.attrs, rowspan: row - target.top })
     // The new cell goes in that row before the first cell that starts to its right.
-    const next = cells
-      .filter((cell) => cell.top === row && cell.left > target.left)
-      .sort((a, b) => a.left - b.left)[0]
+    const next = cells.filter((cell) => cell.top === row && cell.left > target.left).sort((a, b) => a.left - b.left)[0]
     const rowNode = table.child(row)
     const at = next ? next.pos : rowStart(row) + rowNode.nodeSize - 1
     tr.insert(tr.mapping.map(at), cellOf(target.bottom - row))
@@ -406,7 +406,12 @@ export const TableDrawing = Extension.create({
                     height = 0
                   }
                 }
-                Object.assign(preview.style, { left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px` })
+                Object.assign(preview.style, {
+                  left: `${left}px`,
+                  top: `${top}px`,
+                  width: `${width}px`,
+                  height: `${height}px`,
+                })
               }
               place(startX, startY)
               const move = (moved: MouseEvent) => place(moved.clientX, moved.clientY)

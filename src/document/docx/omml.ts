@@ -16,26 +16,160 @@ const MATH_NS = "http://schemas.openxmlformats.org/officeDocument/2006/math"
 
 /** LaTeX commands that stand for one character. */
 const SYMBOLS: Record<string, string> = {
-  alpha: "α", beta: "β", gamma: "γ", delta: "δ", epsilon: "ϵ", varepsilon: "ε", zeta: "ζ", eta: "η", theta: "θ",
-  vartheta: "ϑ", iota: "ι", kappa: "κ", lambda: "λ", mu: "μ", nu: "ν", xi: "ξ", pi: "π", varpi: "ϖ", rho: "ρ",
-  varrho: "ϱ", sigma: "σ", varsigma: "ς", tau: "τ", upsilon: "υ", phi: "ϕ", varphi: "φ", chi: "χ", psi: "ψ",
-  omega: "ω", Gamma: "Γ", Delta: "Δ", Theta: "Θ", Lambda: "Λ", Xi: "Ξ", Pi: "Π", Sigma: "Σ", Upsilon: "Υ",
-  Phi: "Φ", Psi: "Ψ", Omega: "Ω",
-  pm: "±", mp: "∓", times: "×", div: "÷", cdot: "⋅", ast: "∗", star: "⋆", circ: "∘", bullet: "∙", oplus: "⊕",
-  ominus: "⊖", otimes: "⊗", partial: "∂", nabla: "∇", infty: "∞", forall: "∀", exists: "∃", nexists: "∄",
-  in: "∈", notin: "∉", ni: "∋", subset: "⊂", supset: "⊃", subseteq: "⊆", supseteq: "⊇", cup: "∪", cap: "∩",
-  emptyset: "∅", varnothing: "∅", setminus: "∖", neg: "¬", lnot: "¬", land: "∧", wedge: "∧", lor: "∨", vee: "∨",
-  cdots: "⋯", ldots: "…", dots: "…", vdots: "⋮", ddots: "⋱", prime: "′", angle: "∠", triangle: "△", degree: "°",
-  hbar: "ℏ", ell: "ℓ", Re: "ℜ", Im: "ℑ", aleph: "ℵ", wp: "℘",
-  neq: "≠", ne: "≠", approx: "≈", equiv: "≡", leq: "≤", le: "≤", geq: "≥", ge: "≥", ll: "≪", gg: "≫",
-  propto: "∝", sim: "∼", simeq: "≃", cong: "≅", perp: "⊥", parallel: "∥", mid: "∣", vdash: "⊢", models: "⊨",
-  rightarrow: "→", to: "→", leftarrow: "←", gets: "←", leftrightarrow: "↔", Rightarrow: "⇒", Leftarrow: "⇐",
-  Leftrightarrow: "⇔", implies: "⟹", iff: "⟺", mapsto: "↦", uparrow: "↑", downarrow: "↓", longrightarrow: "⟶",
-  longleftarrow: "⟵", rightleftharpoons: "⇌",
-  langle: "⟨", rangle: "⟩", lfloor: "⌊", rfloor: "⌋", lceil: "⌈", rceil: "⌉", vert: "|", Vert: "‖", lvert: "|",
-  rvert: "|", lVert: "‖", rVert: "‖", backslash: "\\",
-  quad: " ", qquad: "  ", ",": " ", ":": " ", ">": " ", ";": " ", " ": " ",
-  "{": "{", "}": "}", "%": "%", "#": "#", "&": "&", _: "_", $: "$", "|": "‖",
+  alpha: "α",
+  beta: "β",
+  gamma: "γ",
+  delta: "δ",
+  epsilon: "ϵ",
+  varepsilon: "ε",
+  zeta: "ζ",
+  eta: "η",
+  theta: "θ",
+  vartheta: "ϑ",
+  iota: "ι",
+  kappa: "κ",
+  lambda: "λ",
+  mu: "μ",
+  nu: "ν",
+  xi: "ξ",
+  pi: "π",
+  varpi: "ϖ",
+  rho: "ρ",
+  varrho: "ϱ",
+  sigma: "σ",
+  varsigma: "ς",
+  tau: "τ",
+  upsilon: "υ",
+  phi: "ϕ",
+  varphi: "φ",
+  chi: "χ",
+  psi: "ψ",
+  omega: "ω",
+  Gamma: "Γ",
+  Delta: "Δ",
+  Theta: "Θ",
+  Lambda: "Λ",
+  Xi: "Ξ",
+  Pi: "Π",
+  Sigma: "Σ",
+  Upsilon: "Υ",
+  Phi: "Φ",
+  Psi: "Ψ",
+  Omega: "Ω",
+  pm: "±",
+  mp: "∓",
+  times: "×",
+  div: "÷",
+  cdot: "⋅",
+  ast: "∗",
+  star: "⋆",
+  circ: "∘",
+  bullet: "∙",
+  oplus: "⊕",
+  ominus: "⊖",
+  otimes: "⊗",
+  partial: "∂",
+  nabla: "∇",
+  infty: "∞",
+  forall: "∀",
+  exists: "∃",
+  nexists: "∄",
+  in: "∈",
+  notin: "∉",
+  ni: "∋",
+  subset: "⊂",
+  supset: "⊃",
+  subseteq: "⊆",
+  supseteq: "⊇",
+  cup: "∪",
+  cap: "∩",
+  emptyset: "∅",
+  varnothing: "∅",
+  setminus: "∖",
+  neg: "¬",
+  lnot: "¬",
+  land: "∧",
+  wedge: "∧",
+  lor: "∨",
+  vee: "∨",
+  cdots: "⋯",
+  ldots: "…",
+  dots: "…",
+  vdots: "⋮",
+  ddots: "⋱",
+  prime: "′",
+  angle: "∠",
+  triangle: "△",
+  degree: "°",
+  hbar: "ℏ",
+  ell: "ℓ",
+  Re: "ℜ",
+  Im: "ℑ",
+  aleph: "ℵ",
+  wp: "℘",
+  neq: "≠",
+  ne: "≠",
+  approx: "≈",
+  equiv: "≡",
+  leq: "≤",
+  le: "≤",
+  geq: "≥",
+  ge: "≥",
+  ll: "≪",
+  gg: "≫",
+  propto: "∝",
+  sim: "∼",
+  simeq: "≃",
+  cong: "≅",
+  perp: "⊥",
+  parallel: "∥",
+  mid: "∣",
+  vdash: "⊢",
+  models: "⊨",
+  rightarrow: "→",
+  to: "→",
+  leftarrow: "←",
+  gets: "←",
+  leftrightarrow: "↔",
+  Rightarrow: "⇒",
+  Leftarrow: "⇐",
+  Leftrightarrow: "⇔",
+  implies: "⟹",
+  iff: "⟺",
+  mapsto: "↦",
+  uparrow: "↑",
+  downarrow: "↓",
+  longrightarrow: "⟶",
+  longleftarrow: "⟵",
+  rightleftharpoons: "⇌",
+  langle: "⟨",
+  rangle: "⟩",
+  lfloor: "⌊",
+  rfloor: "⌋",
+  lceil: "⌈",
+  rceil: "⌉",
+  vert: "|",
+  Vert: "‖",
+  lvert: "|",
+  rvert: "|",
+  lVert: "‖",
+  rVert: "‖",
+  backslash: "\\",
+  quad: " ",
+  qquad: "  ",
+  ",": " ",
+  ":": " ",
+  ">": " ",
+  ";": " ",
+  " ": " ",
+  "{": "{",
+  "}": "}",
+  "%": "%",
+  "#": "#",
+  "&": "&",
+  _: "_",
+  $: "$",
+  "|": "‖",
 }
 
 /** The character each symbol is read back as, preferring the first name given for it above. */
@@ -284,7 +418,10 @@ class TexParser {
       items.push({ t: "nary", chr: nary.chr, under, sub: scripts.sub, sup: scripts.sup, e })
       return
     }
-    if (token.kind === "cmd" && (FUNCTIONS.has(token.name) || LIMIT_FUNCTIONS.has(token.name) || token.name === "operatorname")) {
+    if (
+      token.kind === "cmd" &&
+      (FUNCTIONS.has(token.name) || LIMIT_FUNCTIONS.has(token.name) || token.name === "operatorname")
+    ) {
       const name: MathNode = {
         t: "run",
         text: token.name === "operatorname" ? this.groupText() : token.name,
@@ -458,7 +595,14 @@ class TexParser {
       case "binom":
       case "dbinom":
       case "tbinom":
-        return [{ t: "delim", open: "(", close: ")", items: [[{ t: "frac", num: this.group(), den: this.group(), bar: false }]] }]
+        return [
+          {
+            t: "delim",
+            open: "(",
+            close: ")",
+            items: [[{ t: "frac", num: this.group(), den: this.group(), bar: false }]],
+          },
+        ]
       case "sqrt": {
         const deg = this.optional()
         return [{ t: "rad", deg, e: this.group() }]
@@ -604,7 +748,9 @@ class TexParser {
       return [
         {
           t: "eqArr",
-          rows: rows.map((cells) => cells.flatMap((cell, index) => (index === 0 ? cell : [{ t: "run", text: "&" } as MathNode, ...cell]))),
+          rows: rows.map((cells) =>
+            cells.flatMap((cell, index) => (index === 0 ? cell : [{ t: "run", text: "&" } as MathNode, ...cell])),
+          ),
         },
       ]
     }
@@ -650,7 +796,10 @@ const arg = (name: string, row: Row | null) => (row && row.length > 0 ? wrap(nam
 function writeNode(node: Exclude<MathNode, { t: "run" }>): string {
   switch (node.t) {
     case "frac":
-      return wrap("f", `${node.bar ? "" : wrap("fPr", val("type", "noBar"))}${arg("num", node.num)}${arg("den", node.den)}`)
+      return wrap(
+        "f",
+        `${node.bar ? "" : wrap("fPr", val("type", "noBar"))}${arg("num", node.num)}${arg("den", node.den)}`,
+      )
     case "script": {
       if (node.sub && node.sup) {
         return wrap("sSubSup", `${arg("e", node.base)}${arg("sub", node.sub)}${arg("sup", node.sup)}`)
@@ -671,16 +820,23 @@ function writeNode(node: Exclude<MathNode, { t: "run" }>): string {
         val("limLoc", node.under ? "undOvr" : "subSup") +
         (node.sub ? "" : val("subHide", "1")) +
         (node.sup ? "" : val("supHide", "1"))
-      return wrap("nary", `${wrap("naryPr", properties)}${arg("sub", node.sub)}${arg("sup", node.sup)}${arg("e", node.e)}`)
+      return wrap(
+        "nary",
+        `${wrap("naryPr", properties)}${arg("sub", node.sub)}${arg("sup", node.sup)}${arg("e", node.e)}`,
+      )
     }
     case "delim":
       return wrap(
         "d",
-        wrap("dPr", val("begChr", node.open) + val("endChr", node.close)) + node.items.map((item) => arg("e", item)).join(""),
+        wrap("dPr", val("begChr", node.open) + val("endChr", node.close)) +
+          node.items.map((item) => arg("e", item)).join(""),
       )
     case "matrix": {
       const columns = Math.max(1, ...node.rows.map((row) => row.length))
-      const properties = wrap("mPr", wrap("mcs", wrap("mc", wrap("mcPr", val("count", String(columns)) + val("mcJc", "center")))))
+      const properties = wrap(
+        "mPr",
+        wrap("mcs", wrap("mc", wrap("mcPr", val("count", String(columns)) + val("mcJc", "center")))),
+      )
       const rows = node.rows.map((row) =>
         wrap("mr", Array.from({ length: columns }, (_, index) => arg("e", row[index] ?? [])).join("")),
       )
@@ -897,7 +1053,14 @@ function read(element: Element, inArray: boolean): string {
       const name = NARY_NAMES.get(chr)
       const under = name ? NARY[name]!.under : true
       const location = property(element, "naryPr", "limLoc")
-      const limits = location === undefined ? "" : location === "undOvr" && !under ? "\\limits" : location === "subSup" && under ? "\\nolimits" : ""
+      const limits =
+        location === undefined
+          ? ""
+          : location === "undOvr" && !under
+            ? "\\limits"
+            : location === "subSup" && under
+              ? "\\nolimits"
+              : ""
       const sub = flag(property(element, "naryPr", "subHide")) ? "" : readAll(child(element, "sub"))
       const sup = flag(property(element, "naryPr", "supHide")) ? "" : readAll(child(element, "sup"))
       return join([
@@ -943,9 +1106,10 @@ function read(element: Element, inArray: boolean): string {
       const name = child(element, "fName")
       const only = single(name)
       const plain = only?.name === "r" ? textOf(child(only, "t") ?? only) : ""
-      const head = plain && /^[A-Za-z]+$/.test(plain) && !FUNCTIONS.has(plain) && !LIMIT_FUNCTIONS.has(plain)
-        ? `\\operatorname{${plain}}`
-        : readAll(name)
+      const head =
+        plain && /^[A-Za-z]+$/.test(plain) && !FUNCTIONS.has(plain) && !LIMIT_FUNCTIONS.has(plain)
+          ? `\\operatorname{${plain}}`
+          : readAll(name)
       const body = child(element, "e")
       const inner = single(body)
       return join([head, inner?.name === "d" ? readAll(body) : braced(body)])
@@ -1028,7 +1192,10 @@ export function ommlToTex(xml: string): { tex: string; display: boolean } | null
   const lines = elements(root)
     .filter((item) => item.name === "oMath")
     .map((item) => read(item, false).trim())
-  return { tex: lines.length > 1 ? `\\begin{gathered}${lines.join("\\\\")}\\end{gathered}` : (lines[0] ?? ""), display: true }
+  return {
+    tex: lines.length > 1 ? `\\begin{gathered}${lines.join("\\\\")}\\end{gathered}` : (lines[0] ?? ""),
+    display: true,
+  }
 }
 
 /** Whether `xml` is a Word equation, by its outermost element. */

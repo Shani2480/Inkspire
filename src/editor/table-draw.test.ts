@@ -29,7 +29,11 @@ function cells(editor: Editor) {
   const list: { pos: number; text: string; colspan: number; rowspan: number; colwidth: number[] | null }[] = []
   editor.state.doc.descendants((node, pos) => {
     if (node.type.name === "tableCell") {
-      list.push({ pos, text: node.textContent, ...(node.attrs as { colspan: number; rowspan: number; colwidth: number[] | null }) })
+      list.push({
+        pos,
+        text: node.textContent,
+        ...(node.attrs as { colspan: number; rowspan: number; colwidth: number[] | null }),
+      })
     }
   })
   return list
@@ -69,7 +73,11 @@ describe("Draw Table: splitting a cell with a drawn line", () => {
     expect(splitCellDown(tr, table.pos, cells(editor)[0]!.pos, [100, 100], 101)).toBe(true)
     editor.view.dispatch(tr)
     expect(grid(editor)).toEqual({ width: 2, height: 2, problems: null })
-    expect(cells(editor).slice(0, 2).map((cell) => [cell.text, cell.colspan, cell.colwidth])).toEqual([
+    expect(
+      cells(editor)
+        .slice(0, 2)
+        .map((cell) => [cell.text, cell.colspan, cell.colwidth]),
+    ).toEqual([
       ["a", 1, [100]],
       ["", 1, [100]],
     ])
@@ -103,9 +111,7 @@ describe("Draw Table: splitting a cell with a drawn line", () => {
   })
 
   it("a side-to-side line along a row edge inside a cell spanning rows divides it there", () => {
-    const editor = tableEditor(
-      '<tr><td rowspan="2"><p>a</p></td><td><p>b</p></td></tr><tr><td><p>d</p></td></tr>',
-    )
+    const editor = tableEditor('<tr><td rowspan="2"><p>a</p></td><td><p>b</p></td></tr><tr><td><p>d</p></td></tr>')
     const table = tableOf(editor)
     const tr = editor.state.tr
     expect(splitCellAcross(tr, table.pos, cells(editor)[0]!.pos, 1, true)).toBe(true)

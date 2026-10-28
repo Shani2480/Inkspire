@@ -474,7 +474,11 @@ export function CropMenu({ editor, close }: MenuProps) {
           current={frameVariant(frame)}
           only={croppableShape}
           onPick={(name) => {
-            editor?.chain().focus().updateAttributes("image", { frame: frameForVariant(name) }).run()
+            editor
+              ?.chain()
+              .focus()
+              .updateAttributes("image", { frame: frameForVariant(name) })
+              .run()
             close()
           }}
         />
@@ -497,7 +501,11 @@ export function CropMenu({ editor, close }: MenuProps) {
         </div>
       </MenuFlyout>
       <MenuSeparator />
-      <MenuRow disabled={!ready} title="Fill the frame with the picture, cropping what overhangs" onClick={() => cropWith(fillCrop)}>
+      <MenuRow
+        disabled={!ready}
+        title="Fill the frame with the picture, cropping what overhangs"
+        onClick={() => cropWith(fillCrop)}
+      >
         Fill
       </MenuRow>
       <MenuRow disabled={!ready} title="Show all of the picture inside its frame" onClick={() => cropWith(fitCrop)}>

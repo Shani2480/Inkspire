@@ -19,10 +19,13 @@ export function registerRibbonTabSetter(setter: ((id: string) => void) | null) {
 }
 
 /** The ribbon's buttons that are not commands: scrolling the tab, the layout toggle. */
-const NOT_COMMANDS = /^(Scroll ribbon|Previous styles|Next styles|More styles|Show the |Collapse the |Simplified Ribbon|Classic Ribbon)/
+const NOT_COMMANDS =
+  /^(Scroll ribbon|Previous styles|Next styles|More styles|Show the |Collapse the |Simplified Ribbon|Classic Ribbon)/
 
 /** The ribbon command a press or right-click landed on, with the look the toolbar draws it with; null for none. */
-export function ribbonCommandAt(target: EventTarget | null): { id: string; label: string; look: RibbonCommandLook } | null {
+export function ribbonCommandAt(
+  target: EventTarget | null,
+): { id: string; label: string; look: RibbonCommandLook } | null {
   if (!(target instanceof Element)) {
     return null
   }
@@ -37,7 +40,11 @@ export function ribbonCommandAt(target: EventTarget | null): { id: string; label
   if (!button || !panel || !label || !tab || NOT_COMMANDS.test(label)) {
     return null
   }
-  return { id: ribbonCommandId(tab, label), label, look: { icon: iconOf(button), tab: panel.dataset.ribbonTabLabel || tab } }
+  return {
+    id: ribbonCommandId(tab, label),
+    label,
+    look: { icon: iconOf(button), tab: panel.dataset.ribbonTabLabel || tab },
+  }
 }
 
 /** Every command on a built tab, once each, in ribbon order. */
@@ -143,8 +150,22 @@ export function cleanIcon(markup: string) {
     return ""
   }
   const allowed = new Set([
-    "svg", "g", "path", "rect", "circle", "ellipse", "line", "polyline", "polygon", "defs", "linearGradient",
-    "radialGradient", "stop", "clipPath", "mask", "title",
+    "svg",
+    "g",
+    "path",
+    "rect",
+    "circle",
+    "ellipse",
+    "line",
+    "polyline",
+    "polygon",
+    "defs",
+    "linearGradient",
+    "radialGradient",
+    "stop",
+    "clipPath",
+    "mask",
+    "title",
   ])
   for (const element of [root, ...root.querySelectorAll("*")]) {
     if (!allowed.has(element.nodeName)) {
