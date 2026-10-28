@@ -32,4 +32,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri -> target
+      # The shell links GTK and WebKitGTK (the webview, pinch.rs) and D-Bus (the keyring).
+      - name: System libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libdbus-1-dev
       - run: cargo test --lib
