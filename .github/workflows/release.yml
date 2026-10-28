@@ -2,7 +2,8 @@ name: Release
 
 # Builds the installers and attaches them to a GitHub release:
 # a .deb and an AppImage (built on Ubuntu 22.04 so they run on older distributions too),
-# a Flatpak made from that .deb, a Windows setup .exe (NSIS), and a macOS .dmg (Apple Silicon and Intel in one).
+# a Flatpak made from that .deb, a Windows setup .exe (NSIS), a macOS .dmg (Apple Silicon and Intel in one),
+# and an Android tablet .apk (from the android branch, signed with the key in the repository's secrets).
 # Push a tag such as v0.1.0, or run it by hand with the tag to publish.
 
 on:
@@ -138,9 +139,50 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$TAG" src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg --clobber
 
+  android:
+    name: Android (.apk)
+    needs: draft
+    runs-on: ubuntu-latest
+    steps:
+      # The Android port lives on its own branch until it joins main.
+      - uses: actions/checkout@v4
+        with:
+          ref: android
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - run: npm ci
+      - name: Signing key
+        env:
+          ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          echo "$ANDROID_KEY_BASE64" | base64 -d > "$RUNNER_TEMP/inkspire-release.jks"
+          printf 'password=%s\nkeyAlias=inkspire\nstoreFile=%s\n' "$ANDROID_KEY_PASSWORD" "$RUNNER_TEMP/inkspire-release.jks" \
+            > src-tauri/gen/android/keystore.properties
+      - name: Build (arm64 tablets, and x86_64 for emulators and Chromebooks)
+        run: NDK_HOME="$ANDROID_NDK_LATEST_HOME" npm run tauri android build -- --target aarch64 --target x86_64 --apk
+      - name: Upload to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release.apk "Inkspire_${TAG#v}_android.apk"
+          gh release upload "$TAG" "Inkspire_${TAG#v}_android.apk" --clobber
+
   publish:
     name: Publish the release
-    needs: [linux, flatpak, windows, macos]
+    needs: [linux, flatpak, windows, macos, android]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
