@@ -7,6 +7,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Picture alignment and margin-relative footer pictures (2026-10-28)** — a picture centred or right-aligned in
+      the app opens in Word aligned the same; a Word document with a footer picture placed relative to the margin shows
+      it at the same place in the app and, saved from the app, in Word.
 - [ ] **Tables text wraps around (22.10, 2026-10-27)** — a table set to Around, one at Right / Top of the margin and
       one dragged into a paragraph open in Word at the same places with the text wrapped the same way; a Word document
       with floating tables opens in the app with them in place.

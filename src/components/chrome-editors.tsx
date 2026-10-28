@@ -11,6 +11,8 @@ import { ChromeFlow } from "@/editor/chrome-flow"
 import { createExtensions } from "@/editor/extensions"
 import { objectLeft, objectTop } from "@/editor/objects"
 
+const MM_TO_PX = 96 / 25.4
+
 /** The schema and behaviour of the body, without the checks that only make sense over a whole document. */
 let chromeExtensions: ReturnType<typeof createExtensions> | null = null
 function getChromeExtensions() {
@@ -213,6 +215,9 @@ export function ChromeBox({
       return
     }
     const report = () => {
+      // From the box's top to the page's top margin, which pictures placed relative to the margin are measured from.
+      const margin = useDocumentStore.getState().pageSetup.marginTop * MM_TO_PX
+      element.style.setProperty("--chrome-margin", `${Math.round(margin - element.offsetTop)}px`)
       const sheet = element.offsetParent as HTMLElement | null
       if (!sheet || useViewStore.getState().layoutMode === "web") {
         reportChromeReach(id, kind, null)
@@ -229,7 +234,7 @@ export function ChromeBox({
       observer.disconnect()
       reportChromeReach(id, kind, null)
     }
-  }, [id, kind, live, editor])
+  }, [id, kind, live, editor, pageSetup.marginTop])
 
   if (live && editor) {
     return (
