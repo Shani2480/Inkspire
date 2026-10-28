@@ -7,6 +7,17 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### v0.1.4: finger resizing on the Android tablet
+
+- **What was wrong:** in v0.1.3, dragging a resize or crop handle with a finger turned into a page scroll part way
+  and the picture went back to its old size (see the entry below).
+- **What changed:** version 0.1.4 in `package.json`, `package-lock.json`, `Cargo.toml`, `Cargo.lock`,
+  `tauri.conf.json` and the Flatpak metainfo; tagged `v0.1.4`. The fix was cherry-picked onto main; the android
+  branch merges main for the version.
+- **Tests:** 177 files, 1174 tests pass on main; 178 files, 1179 on android.
+- **Checked:** the release workflow's jobs and the assets on the release.
+- **Open:** the finger check on the tablet (verify list).
+
 ### Resizing pictures with a finger no longer turns into a scroll (Android tablet)
 
 - **What was wrong:** on the tablet, dragging a resize handle worked for a moment and then the page scrolled and the
