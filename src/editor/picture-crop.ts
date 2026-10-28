@@ -346,6 +346,8 @@ export function bindPictureCrop(
       return
     }
     beginCrop(view, pos, original.attrs)
+    // The handle keeps the finger once it slides off its edge.
+    handle.setPointerCapture?.(event.pointerId)
     const edge = handle.dataset.cropEdge as CropEdge
     const zoom = useViewStore.getState().zoom || 1
     const rect = dom.getBoundingClientRect()
@@ -407,7 +409,8 @@ export function bindPictureCrop(
       next = compute()
       finish(true)
     }
-    const cancel = () => finish(false)
+    // A drag the system interrupts keeps the crop reached so far; only Esc puts the original back.
+    const cancel = () => finish(true)
     const onKey = (ev: KeyboardEvent) => {
       if (ev.key === "Escape") {
         ev.preventDefault()
