@@ -161,6 +161,7 @@ export function ChartSheetDialog({ editor, onClose }: { editor: Editor; onClose:
                     <input
                       aria-label={`${COLUMNS[columnIndex]}${rowIndex + 1}`}
                       value={cell}
+                      data-number={cell.trim() !== "" && Number.isFinite(Number(cell)) ? "" : undefined}
                       onFocus={() => setActive({ row: rowIndex, column: columnIndex })}
                       onBlur={commit}
                       onChange={(event) => write(rowIndex, columnIndex, event.target.value)}

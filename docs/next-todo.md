@@ -1999,3 +1999,20 @@ What it lacked, to do when it returns:
 - Save As → Places from real accounts: show Google Drive or OneDrive only with a valid token; remove the static, mocked cloud places.
 - Share to the cloud: upload the current document to the linked drive and create a shareable link.
 - Needs from the owner: a Google Cloud OAuth client ID (type Desktop app; `drive.file` scope avoids full verification), a Microsoft Entra app registration (public client, loopback redirect, `Files.ReadWrite` and `offline_access`), and a test account for each.
+
+## Found in the verify-list run (2026-10-28)
+
+- **Default line spacing.** The Paragraph dialog shows Multiple 1.15 for a paragraph with no line spacing of its own,
+  but the editor draws such paragraphs at `line-height: 1.65` (body CSS). Choosing 1.15 there makes the lines
+  visibly tighter. Make the two agree (the editor's default as Word's Normal style for a new document, or the
+  dialog showing what is drawn).
+- **WordArt row for shape text.** Text Fill, Text Outline and Text Effects on Shape Format are on only for text
+  boxes; Word turns them on for any shape with text. Shape text has `textColor` (from Font Color) but no outline
+  or effects yet.
+- **Adjustment handles.** Shapes have no yellow adjustment handles (Word's Division sign has three). Word's `a:avLst`
+  values are read (`preset-geometry.ts`), so the handles would change those.
+- **Several picked objects.** Shift+click in the Selection Pane picks several objects, and Align and Group act on
+  them, but only the last one shows its handles on the page; Word frames each. Shift+click on the objects themselves
+  does not pick them.
+- **Keep with next and space after.** A paragraph's space after counts when deciding whether its last line fits
+  at a page foot. Compare with Word, which may let space after run past the foot.
