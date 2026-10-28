@@ -7,6 +7,30 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### Insert Index and Insert Table of Authorities crashed with the cursor in a paragraph
+
+- **What was wrong:** both commands inserted their block at the cursor and then selected the node at that
+  position; inside a paragraph the block lands after the paragraph, so nothing was there and the command threw
+  "Cannot read properties of null (reading 'nodeSize')" and inserted nothing.
+- **What changed:** `index-entry.ts` `insertDocumentIndex` and `authorities.ts` `insertAuthoritiesTable` select the
+  block where it actually went.
+- **Tests:** `index-insert.test.ts` (both commands from the middle of a paragraph; both threw before the fix).
+- **Checked:** found by the ribbon sweep (see the dialogs entry below); 177 files, 1171 tests pass.
+- **Open:** none.
+
+### Pinching on a touch screen zoomed the whole interface
+
+- **What was wrong:** on the Android tablet (and any touch screen) a two-finger pinch scaled the whole page like a
+  website: ribbon, title bar and all.
+- **What changed:** `index.html`'s viewport no longer lets the page zoom (`maximum-scale=1, user-scalable=no`), and
+  `app-menu.ts` turns a two-finger pinch into document zoom through `zoomGesture`, around the point between the
+  fingers, as Ctrl+wheel and a touchpad pinch already did. On Android, `MainActivity` also turns off the WebView's
+  own zoom.
+- **Tests:** none (a touch gesture).
+- **Checked:** in Chrome emulating an Android tablet with touch, a pinch drove the status bar from 100% to 200%
+  while `visualViewport.scale` stayed 1.
+- **Open:** check on a real tablet.
+
 ### Dialogs opened from the ribbon were hidden under the document (3D Models showed as a strip in the ribbon)
 
 - **What was wrong:** Insert > 3D Models (and Icons, SmartArt, Bookmark, Online Video, Symbol, Equation, and any
@@ -20,8 +44,8 @@ in Word, Chrome or the desktop app.
 - **Checked:** in Chrome against the dev server, a script clicked every ribbon button and every "…" menu item on
   each tab and tested that the dialog's centre and title bar are topmost: all 13 Insert dialogs and 45 on the
   other tabs open over the document.
-- **Open:** that sweep logged `Cannot read properties of null (reading 'nodeSize')` from some ribbon action, not yet
-  traced.
+- **Open:** that sweep logged `Cannot read properties of null (reading 'nodeSize')`: Insert Index and Insert Table
+  of Authorities, fixed above.
 
 ### Android: a signed release APK, attached to v0.1.1 and built by the release workflow
 
