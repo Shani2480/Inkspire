@@ -101,7 +101,8 @@ export function createExtensions() {
       types: ["paragraph", "heading"],
     }),
     TextAlign.configure({
-      types: ["heading", "paragraph", "textBox"],
+      // A picture in line takes its Word paragraph's alignment (the editor has no paragraph around it).
+      types: ["heading", "paragraph", "textBox", "image"],
       // No alignment of its own: the paragraph follows its style (which is left unless the style says otherwise).
       defaultAlignment: null,
     }),

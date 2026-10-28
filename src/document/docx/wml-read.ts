@@ -2745,9 +2745,23 @@ function bindHyperlinkStory(pkg: OpcPackage, source: string, blocks: Block[]) {
   }
 }
 
+/**
+ * A Table of Contents content control: Word's own (its gallery), or any control around a TOC field, as other tools
+ * and older Word versions write it with only an alias or nothing to say what it holds.
+ */
 function isTocControl(node: MarkupNode) {
   const gallery = wordChild(wordChild(wordChild(node, "sdtPr"), "docPartObj"), "docPartGallery")
-  return attr(gallery, "val") === "Table of Contents"
+  return attr(gallery, "val") === "Table of Contents" || holdsTocField(wordChild(node, "sdtContent"))
+}
+
+function holdsTocField(node: MarkupNode | undefined): boolean {
+  if (!node) {
+    return false
+  }
+  if (node.uri === WORD_NS && node.local === "instrText") {
+    return /^\s*TOC\b/i.test(node.text)
+  }
+  return node.children.some(holdsTocField)
 }
 
 function wordChild(node: MarkupNode | undefined, local: string) {

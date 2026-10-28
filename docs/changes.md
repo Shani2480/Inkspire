@@ -7,6 +7,47 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### Pictures centred by their paragraph style; table cell widths kept on save
+
+- **What was wrong:** (1) a picture alone in a paragraph took only the paragraph's own `w:jc`, so one centred by its
+  style (a "Figure" style, say) opened at the left. (2) Saving rewrote every cell's `w:tcW` to the sum of its grid
+  columns, even with the columns untouched; Word's preferred cell widths often differ from the grid (the Cursor
+  brief's cover table: 2337/340 against a grid of 2124/328).
+- **What changed:** `project.ts` `pictureAlign` resolves the alignment through the paragraph, its style's basedOn
+  chain and the default paragraph style, on open and on save (`Build.wordStyles` carries the source's styles);
+  setting such a picture to the left writes `w:jc="left"` over the style. Table cells keep the source cell's
+  `w:tcW` while the table's grid is as read; a resized table still gets the new grid's widths.
+- **Tests:** `cover-layout.test.ts` (style-centred picture opens centred and saves without its own `w:jc`; set to
+  left it saves `w:jc="left"`; cell widths kept with columns unchanged; resized columns get the new widths).
+  178 files, 1179 tests pass; typecheck and lint clean.
+- **Checked:** the Cursor brief saved untouched: `document.xml`, header and footer identical to the source apart from
+  revision ids and `w:lastRenderedPageBreak`; Open XML validator 0 errors.
+- **Not changed:** `w:lastRenderedPageBreak` is still dropped on purpose (`wml-read.ts`): it is Word's cache of
+  where it last broke pages, rewritten on every Word save, and would be stale after an edit in the app.
+
+### A Word brief opened with its cover logo at the left, no footer and its table of contents as plain text
+
+- **What was wrong:** a user's Word file (cover page with a centred logo, a footer picture, a TOC) showed three
+  faults. (1) A picture alone in a centred paragraph opened at the left margin: the editor's pictures are blocks
+  with no paragraph, and the paragraph's alignment was dropped. (2) A header or footer picture placed "relative to
+  margin" was measured from the footer box's top instead of the page's top margin, so the footer picture (10.3"
+  below the margin) was drawn off the page. (3) The TOC's content control had only `w:alias="Table of Contents"`,
+  no `docPartObj/docPartGallery`, so it was not read as a table of contents and its entries ran together.
+- **What changed:** pictures take `textAlign` (TextAlign's types in `extensions.ts` now include `image`, so the
+  ribbon's align buttons work on a selected picture); `project.ts` opens a picture-only paragraph's `jc` onto the
+  image and saves an edited alignment back to `w:jc` (an unchanged one stays as read); `objects.ts` draws a centred
+  or right-aligned picture as a block with auto margins, and marks margin-relative frames `data-relative="margin"`;
+  `chrome-editors.tsx` gives each header/footer box `--chrome-margin` (page top margin minus the box's top), which
+  `index.css` adds to such frames. `wml-read.ts` `isTocControl` also accepts any content control holding a TOC field.
+- **Tests:** `cover-layout.test.ts` (centred picture opens centred and saves unchanged; an alignment set in the
+  editor is saved; a left picture is untouched; a TOC control with only an alias opens as a TOC and saves as read).
+  178 files, 1175 tests pass; typecheck clean.
+- **Checked:** the file in the dev app (headless Chrome): cover logo centred at 2.23" (Word: 2.23"), header logo at
+  6.87"/0.09" (Word: 6.86"/0.08"), footer picture at 11.06" from the top (Word: 11.03"), TOC with 16 entries, levels,
+  dot leaders and Update Table. Saved untouched: header and footer parts identical to the source apart from revision
+  ids, body unchanged from before the fix; Open XML validator 0 errors.
+- **Open:** not opened in Word itself. (The two items first left open here are fixed in the entry above.)
+
 ### v0.1.2: the ribbon dialog fix, the Index crash fix and touch pinch, with the Android APK built by the workflow
 
 - **What was wrong:** v0.1.1's installers had dialogs from the ribbon hidden under the document, Insert Index and
