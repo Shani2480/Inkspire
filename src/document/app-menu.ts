@@ -172,8 +172,35 @@ export function useDocumentCommands() {
       zoomGesture((zoom) => zoom + step, { x: event.clientX, y: event.clientY })
     }
 
+    // Two fingers on a touch screen zoom the document, not the whole interface (the viewport forbids page zoom).
+    let pinchSpan = 0
+    function touchSpan(event: TouchEvent) {
+      const [a, b] = [event.touches[0], event.touches[1]]
+      return {
+        span: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY),
+        x: (a.clientX + b.clientX) / 2,
+        y: (a.clientY + b.clientY) / 2,
+      }
+    }
+    function onTouchStart(event: TouchEvent) {
+      pinchSpan = event.touches.length === 2 ? touchSpan(event).span : 0
+    }
+    function onTouchMove(event: TouchEvent) {
+      if (event.touches.length !== 2 || !pinchSpan) {
+        return
+      }
+      event.preventDefault()
+      const { span, x, y } = touchSpan(event)
+      if (span > 0) {
+        zoomGesture(span / pinchSpan, { x, y })
+        pinchSpan = span
+      }
+    }
+
     window.addEventListener("keydown", onKeyDown, true)
     window.addEventListener("wheel", onWheel, { passive: false })
+    window.addEventListener("touchstart", onTouchStart, { passive: true })
+    window.addEventListener("touchmove", onTouchMove, { passive: false })
     window.addEventListener("pointermove", notePointer, { passive: true })
     // The desktop app on Linux claims the pinch before the webview can zoom the whole window (src-tauri/src/pinch.rs).
     let stopPinch: (() => void) | undefined
@@ -195,6 +222,8 @@ export function useDocumentCommands() {
       stopPinch?.()
       window.removeEventListener("keydown", onKeyDown, true)
       window.removeEventListener("wheel", onWheel)
+      window.removeEventListener("touchstart", onTouchStart)
+      window.removeEventListener("touchmove", onTouchMove)
       window.removeEventListener("pointermove", notePointer)
     }
   }, [])

@@ -182,9 +182,18 @@ export const AuthoritiesTable = Node.create({
             return false
           }
           const node = type.create({ stamp: Date.now() })
-          const pos = state.selection.to
-          tr.insert(pos, node)
-          tr.setSelection(NodeSelection.create(tr.doc, pos))
+          tr.insert(state.selection.to, node)
+          // Inside a paragraph the block lands after it, not at the cursor: select it where it went.
+          let at = -1
+          tr.doc.descendants((child, pos) => {
+            if (child === node) {
+              at = pos
+            }
+            return at < 0
+          })
+          if (at >= 0) {
+            tr.setSelection(NodeSelection.create(tr.doc, at))
+          }
           return true
         },
       updateAuthoritiesTable:
