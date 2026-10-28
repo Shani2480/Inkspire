@@ -18,6 +18,7 @@ import { HelpTab } from "@/components/ribbon/help-tab"
 import { ViewTab } from "@/components/ribbon/view-tab"
 import { ReferencesTab } from "@/components/ribbon/references-tab"
 import { SmartArtDesignTab } from "@/components/ribbon/smartart-tab"
+import { SmartArtFormatTab } from "@/components/ribbon/smartart-format-tab"
 import { EquationTab } from "@/components/ribbon/equation-tab"
 import {
   HeaderFooterTab,
@@ -154,7 +155,11 @@ function CustomTabLine({ label, groups }: { label: string; groups: CustomGroup[]
 function tabLabel(id: string) {
   const fixed = id === "home" ? "Home" : HIDEABLE_TABS.find((tab) => tab.id === id)?.label
   const tool = Object.values(CONTEXT_TAB).find((tab) => tab.id === id)?.label
-  const extra: Record<string, string> = { "ctx-table-layout": "Table Layout", "ctx-chart-format": "Chart Format" }
+  const extra: Record<string, string> = {
+    "ctx-table-layout": "Table Layout",
+    "ctx-chart-format": "Chart Format",
+    "ctx-smartart-format": "SmartArt Format",
+  }
   return fixed ?? tool ?? extra[id] ?? id
 }
 
@@ -418,6 +423,9 @@ export function Ribbon() {
       if (context === "chart" && (current === "ctx-chart" || current === "ctx-chart-format")) {
         return current
       }
+      if (context === "smartart" && (current === "ctx-smartart" || current === "ctx-smartart-format")) {
+        return current
+      }
       if (context !== "none" && current === CONTEXT_TAB[context].id) {
         return current
       }
@@ -464,6 +472,16 @@ export function Ribbon() {
                 </TabsTrigger>
               </>
             ) : null}
+            {context === "smartart" ? (
+              <>
+                <TabsTrigger value="ctx-smartart" className={contextTabClassName}>
+                  SmartArt Design
+                </TabsTrigger>
+                <TabsTrigger value="ctx-smartart-format" className={contextTabClassName}>
+                  Format
+                </TabsTrigger>
+              </>
+            ) : null}
             {context === "chart" ? (
               <>
                 <TabsTrigger value="ctx-chart" className={contextTabClassName}>
@@ -479,7 +497,7 @@ export function Ribbon() {
                 {CONTEXT_TAB.headerFooter.label}
               </TabsTrigger>
             ) : null}
-            {context !== "none" && context !== "table" && context !== "chart" ? (
+            {context !== "none" && context !== "table" && context !== "chart" && context !== "smartart" ? (
               <TabsTrigger value={CONTEXT_TAB[context].id} className={contextTabClassName}>
                 {CONTEXT_TAB[context].label}
               </TabsTrigger>
@@ -558,6 +576,15 @@ export function Ribbon() {
               data-ribbon-tab-label={tabLabel("ctx-smartart")}
             >
               <SmartArtDesignTab />
+            </TabsContent>
+          )}
+          {tab === "ctx-smartart-format" && (
+            <TabsContent
+              value="ctx-smartart-format"
+              data-ribbon-tab="ctx-smartart-format"
+              data-ribbon-tab-label={tabLabel("ctx-smartart-format")}
+            >
+              <SmartArtFormatTab />
             </TabsContent>
           )}
           {tab === "ctx-picture" && (

@@ -7,9 +7,11 @@ import {
   canMoveUp,
   canPromote,
   demote,
+  MAX_SIZE_STEP,
   moveItem,
   promote,
   readItems,
+  withLook,
   writeItems,
   type SmartArtItem,
 } from "@/editor/smartart-model"
@@ -68,5 +70,37 @@ describe("pictures in SmartArt items", () => {
     expect(items.map((item) => item.picture)).toEqual(["data:x", undefined])
     const written = writeItems([items[1]!, items[0]!])
     expect(JSON.parse(written.pictures)).toEqual(["", "data:x"])
+  })
+})
+
+describe("SmartArt Format: a shape's own look (22.1)", () => {
+  const base = [
+    { text: "Top", level: 0 },
+    { text: "Left", level: 1 },
+    { text: "Right", level: 1 },
+  ]
+
+  it("is set, merged and cleared one key at a time", () => {
+    const filled = withLook(base[1]!, { fill: "#ff0000", shape: "ellipse" })
+    expect(filled.look).toEqual({ fill: "#ff0000", shape: "ellipse" })
+    const outlined = withLook(filled, { line: "#00ff00", fill: undefined })
+    expect(outlined.look).toEqual({ shape: "ellipse", line: "#00ff00" })
+    expect(withLook(outlined, { shape: undefined, line: undefined })).toEqual(base[1])
+  })
+
+  it("keeps Larger and Smaller within Word's steps and drops bad values", () => {
+    expect(withLook(base[0]!, { size: 9 }).look).toEqual({ size: MAX_SIZE_STEP })
+    expect(withLook(base[0]!, { size: 0 }).look).toBeUndefined()
+    expect(withLook(base[0]!, { fill: "red", shape: "star" }).look).toBeUndefined()
+  })
+
+  it("goes with its item through the file attributes and through moves", () => {
+    const items = [base[0]!, withLook(base[1]!, { fill: "#123456" }), base[2]!]
+    const saved = writeItems(items)
+    const read = readItems(saved.labels, saved.levels, saved.pictures, saved.looks)
+    expect(read[1]!.look).toEqual({ fill: "#123456" })
+    const moved = moveItem(read, 1, "down")
+    expect(moved.items[2]!.look).toEqual({ fill: "#123456" })
+    expect(writeItems(base).looks).toBe("[]")
   })
 })

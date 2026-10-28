@@ -13326,3 +13326,108 @@ textarea.tp-input {
 :root[data-linking-text-box] * {
   cursor: alias !important;
 }
+
+/* SmartArt Format tab (22.1): a shape's own outline. */
+.smartart .smartart-cell[data-shape="rect"] {
+  border-radius: 0;
+}
+
+.smartart .smartart-cell[data-shape="rounded"] {
+  border-radius: 14px;
+}
+
+.smartart .smartart-cell[data-shape="ellipse"] {
+  border-radius: 50%;
+  text-align: center;
+}
+
+.smartart .smartart-cell[data-shape="hexagon"] {
+  padding-inline: 22px;
+  border-radius: 0;
+  text-align: center;
+  clip-path: polygon(16px 0, calc(100% - 16px) 0, 100% 50%, calc(100% - 16px) 100%, 16px 100%, 0 50%);
+}
+
+.smartart .smartart-cell[data-shape="diamond"] {
+  padding: 18px 28px;
+  border-radius: 0;
+  text-align: center;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+.smartart .smartart-cell[data-shape="parallelogram"] {
+  padding-inline: 22px;
+  border-radius: 0;
+  clip-path: polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
+}
+
+/* Hierarchy as a tree: each item over a row of the items under it, joined by elbow lines in the graphic's colour. */
+.smartart-hierarchy {
+  display: block;
+}
+
+.smartart-tree,
+.smartart-children {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.smartart-children {
+  position: relative;
+  padding-top: 16px;
+}
+
+.smartart-branch {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 6px 0;
+}
+
+.smartart-tree > .smartart-branch {
+  padding-top: 0;
+}
+
+.smartart-hierarchy .smartart-cell,
+.smartart-hierarchy .smartart-cell[data-level] {
+  margin-inline-start: 0;
+  text-align: center;
+}
+
+/* The line down from an item to the bar over its children. */
+.smartart-children::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 16px;
+  border-left: 1px solid var(--smartart-line, #8a8886);
+}
+
+/* The bar over a row of children and the line down to each. */
+.smartart-children > .smartart-branch::before,
+.smartart-children > .smartart-branch::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 16px;
+  border-top: 1px solid var(--smartart-line, #8a8886);
+}
+
+.smartart-children > .smartart-branch::before {
+  right: 50%;
+}
+
+.smartart-children > .smartart-branch::after {
+  left: 50%;
+  border-left: 1px solid var(--smartart-line, #8a8886);
+}
+
+/* The bar ends over the first and last child; the line down to each child stays (an only child hangs straight). */
+.smartart-children > .smartart-branch:first-child::before,
+.smartart-children > .smartart-branch:last-child::after {
+  border-top: none;
+}
