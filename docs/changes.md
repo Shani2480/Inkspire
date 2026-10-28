@@ -51,6 +51,19 @@ in Word, Chrome or the desktop app.
   dictionary loads. The desktop builds use the same configuration.
 - **Open:** a v0.1.1 release would carry this to the installers.
 
+### Install instructions for the v0.1.0 installers
+
+- **What was wrong:** the README's Download section was one paragraph; it did not say how to install each file.
+- **What changed:** README "Download and install": a table of the four files, then steps for the Windows setup
+  .exe (SmartScreen, per-user install, uninstall), the .deb (`apt install`, dependencies, removal), the Flatpak
+  (adding Flathub, install, run, what it can reach), the AppImage (FUSE 2), and what the first start asks. "Setup"
+  is renamed "Build from source". WINDOWS.md points people who only want to use the app to the installer.
+- **Tests:** none (documentation only).
+- **Checked:** the published .deb's package name (`inkspire`), binary and dependencies; the published Flatpak
+  installed, started and was removed again.
+- **Open:** the installers stay on the GitHub release, not in the repository (the AppImage alone is over GitHub's
+  100 MB file limit).
+
 ### Installers: .deb, AppImage, Flatpak and Windows setup .exe published from a release workflow
 
 - **What was wrong:** there were no downloadable builds; `npm run tauri build` also stopped at once because the npm
