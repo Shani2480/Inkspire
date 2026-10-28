@@ -411,6 +411,15 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
   the item shows as on; again: the numbers come back.
 - In Word set Restart Each Section, open here: the menu shows Restart Each Section; save and open in Word: the same.
 
+## Table rows across pages, Fit text (2026-10-28)
+
+- A table whose row has more text than the room left on the page: the row breaks, the rest of each cell at the top
+  of the next page; the cell borders end at the page's foot and start again at the top; nothing crosses the grey.
+- Table Properties → Row → untick Allow row to break across pages: the row moves whole to the next page.
+- A cell with a few hundred lines: it runs over several pages and the text after the table follows it.
+- Cell Options → Fit text on a cell with one word: the letters spread across the cell; on a long sentence: it is
+  narrowed onto one line inside the cell.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

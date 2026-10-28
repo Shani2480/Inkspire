@@ -1,6 +1,6 @@
 import { Schema } from "@tiptap/pm/model"
 import { describe, expect, it } from "vitest"
-import { firstContentDiff, mustMoveToNextPage, pageCountForBlockHeights } from "@/editor/pages"
+import { firstContentDiff, mustMoveToNextPage, pageCountForBlockHeights, splittable } from "@/editor/pages"
 
 const schema = new Schema({
   nodes: {
@@ -159,5 +159,32 @@ describe("incremental measure cache (profile)", () => {
         speedup: Number((cold.ms / Math.max(warmEnd.ms, 0.01)).toFixed(1)),
       }),
     )
+  })
+})
+
+describe("splittable (Allow row to break across pages, 22.10)", () => {
+  const tables = new Schema({
+    nodes: {
+      doc: { content: "block+" },
+      paragraph: { content: "text*", group: "block" },
+      image: { group: "block", atom: true },
+      table: { content: "tableRow+", group: "block" },
+      tableRow: { content: "tableCell+", attrs: { cantSplit: { default: false } } },
+      tableCell: { content: "block+" },
+      text: { group: "inline" },
+    },
+  })
+  const cell = (...content: ReturnType<typeof tables.node>[]) => tables.node("tableCell", null, content)
+  const text = (value: string) => tables.node("paragraph", null, [tables.text(value)])
+
+  it("lets a row of text break, as Word does unless told not to", () => {
+    expect(splittable(tables.node("tableRow", null, [cell(text("a")), cell(text("b"), text("c"))]))).toBe(true)
+  })
+
+  it("keeps a row whole when it may not break or holds more than text", () => {
+    expect(splittable(tables.node("tableRow", { cantSplit: true }, [cell(text("a"))]))).toBe(false)
+    expect(splittable(tables.node("tableRow", null, [cell(tables.node("image"))]))).toBe(false)
+    const nested = tables.node("table", null, [tables.node("tableRow", null, [cell(text("x"))])])
+    expect(splittable(tables.node("tableRow", null, [cell(nested)]))).toBe(false)
   })
 })

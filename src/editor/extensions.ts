@@ -50,6 +50,7 @@ import { SectionBreak } from "@/editor/section-break"
 import { SheetBlock } from "@/editor/sheet-block"
 import { SmartArt } from "@/editor/smartart"
 import { InactiveSelection } from "@/editor/inactive-selection"
+import { TableFitText } from "@/editor/table-fit-text"
 import { Grammar } from "@/editor/grammar"
 import { Spellcheck } from "@/editor/spellcheck"
 import { TripleClickSelectAll } from "@/editor/triple-click-select"
@@ -125,6 +126,7 @@ export function createExtensions() {
     TableOfContents.configure(),
     PlaceholderHighlight.configure(),
     InactiveSelection,
+    TableFitText,
     FormattingMarks.configure(),
     Spellcheck.configure(),
     Grammar.configure(),
