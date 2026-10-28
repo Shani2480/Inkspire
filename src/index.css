@@ -3537,6 +3537,8 @@ button.line-menu-row:focus-visible {
   height: 9px;
   background: #fff;
   border: 1px solid #1d4ed8;
+  /* A finger dragging a handle resizes; without this the browser takes the drag over as a scroll part way. */
+  touch-action: none;
 }
 
 .ProseMirror-selectednode > .image-resize {
@@ -4095,6 +4097,8 @@ button.line-menu-row:focus-visible {
 .object-frame.ProseMirror-selectednode {
   outline: 1px solid #1d4ed8;
   outline-offset: 1px;
+  /* A selected object moves under a finger; an unselected one still lets a swipe scroll the page. */
+  touch-action: none;
 }
 
 .object-handle {
@@ -11714,6 +11718,7 @@ textarea.text-prompt-field {
   display: none;
   box-sizing: border-box;
   background: transparent;
+  touch-action: none;
 }
 
 .is-cropping > .image-crop-handle {
