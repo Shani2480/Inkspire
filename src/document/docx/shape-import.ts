@@ -1,4 +1,5 @@
 import { readDash, readEffects, readGradient } from "@/document/docx/shape-effects"
+import { presetAdjust, presetSegments } from "@/document/docx/preset-geometry"
 import { pathString, pointsFromCustGeom } from "@/editor/shape-points"
 /**
  * Word's drawn shapes (21.35): a `wps:wsp` with a preset geometry, read into the values the app's shape object takes
@@ -188,6 +189,14 @@ function unescapeText(value: string) {
     .replace(/&amp;/g, "&")
 }
 
+/** The shape's size in EMU: its own `a:xfrm`, else the drawing's extent, else a square. */
+function shapeExtent(shape: string, xml: string): [number, number] {
+  const own = /<a:ext cx="(\d+)" cy="(\d+)"/.exec(shape) ?? /<wp:extent cx="(\d+)" cy="(\d+)"/.exec(xml)
+  const cx = Number(own?.[1])
+  const cy = Number(own?.[2])
+  return cx > 0 && cy > 0 ? [cx, cy] : [914400, 914400]
+}
+
 /** The shape a `wps:wsp` drawing holds, or null when it is not a shape the app draws (a text box, a freeform). */
 export function readWordShape(xml: string, themeXml: string | null): WordShape | null {
   if (!xml.includes("wordprocessingShape")) {
@@ -200,8 +209,17 @@ export function readWordShape(xml: string, themeXml: string | null): WordShape |
   }
   // A freeform (Word's custom geometry) opens as a shape drawn from its points, which Edit Points can change.
   const custom = /<a:prstGeom\b/.test(shape) ? null : pointsFromCustGeom(shape)
-  const points = custom ? pathString(custom) : ""
-  const preset = points ? "custom" : /<a:prstGeom prst="(\w+)"/.exec(shape)?.[1]
+  const named = /<a:prstGeom prst="(\w+)"/.exec(shape)?.[1]
+  // A preset the app has no drawing of, or one whose handles Word moved (its own adjust values), opens drawn from
+  // Word's own geometry at the shape's size.
+  const adjust = named ? presetAdjust(shape) : {}
+  const drawn =
+    named && (!VARIANT_OF_PRESET[named] || Object.keys(adjust).length > 0)
+      ? presetSegments(named, ...shapeExtent(shape, xml), adjust)
+      : null
+  const outline = custom ?? drawn
+  const points = outline ? pathString(outline) : ""
+  const preset = custom ? "custom" : named
   const variant = points ? "rect" : preset ? VARIANT_OF_PRESET[preset] : undefined
   if (!preset || !variant) {
     return null

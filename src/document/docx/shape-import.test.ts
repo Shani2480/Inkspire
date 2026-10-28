@@ -3,7 +3,8 @@ import path from "node:path"
 import { describe, expect, it } from "vitest"
 import { Editor } from "@tiptap/core"
 import { openDocxBytes, saveDocxBytes } from "@/document/docx/io"
-import { findPart, openPackage } from "@/document/docx/opc"
+import { findPart, openPackage, writePackage } from "@/document/docx/opc"
+import { restoreObjects } from "@/document/object-pictures"
 import { decodeXml } from "@/document/docx/xml"
 import { createExtensions } from "@/editor/extensions"
 import { readWordShape } from "@/document/docx/shape-import"
@@ -63,7 +64,12 @@ describe("Word's drawn shapes (21.35)", () => {
       .replace("<wps:wsp>", '<wps:wsp><wps:cNvSpPr txBox="1"/>')
       .replace("</wps:wsp>", "<wps:txbx><w:txbxContent/></wps:txbx></wps:wsp>")
     expect(readWordShape(box, THEME)).toBeNull()
-    expect(readWordShape(own.replace('prst="ellipse"', 'prst="mathMultiply"'), THEME)).toBeNull()
+    // A preset the app has no drawing of opens drawn from Word's own geometry.
+    expect(readWordShape(own.replace('prst="ellipse"', 'prst="mathMultiply"'), THEME)).toMatchObject({
+      preset: "mathMultiply",
+      variant: "rect",
+    })
+    expect(readWordShape(own.replace('prst="ellipse"', 'prst="noSuchShape"'), THEME)).toBeNull()
   })
 
   it("reads Explosion: 8 Points with a theme gradient and a theme glow as Word writes them", () => {
@@ -110,6 +116,73 @@ describe("Word's drawn shapes (21.35)", () => {
       expect(xml).toContain('prst="frame"')
       expect(xml).toContain('prst="heart"')
       expect(xml).not.toContain("<pic:pic")
+    } finally {
+      editor.destroy()
+    }
+  })
+
+  it("opens a floating shape among a paragraph's text and saves it back there, the paragraph whole", async () => {
+    const bytes = new Uint8Array(readFileSync(path.join(AUTHORED, "f20_word_shapes.docx")))
+    const pkg = await openPackage(bytes, "f20_word_shapes.docx")
+    const part = findPart(pkg, "/word/document.xml")!
+    // Text before and after the Frame, in the Frame's own paragraph.
+    const xml = decodeXml(part.data).replace(
+      /(<w:p[ >](?:(?!<\/w:p>)[\s\S])*?)(<w:r>(?:(?!<\/w:r>)[\s\S])*?prst="frame"[\s\S]*?<\/w:r>)/,
+      '$1<w:r><w:t xml:space="preserve">Before the frame </w:t></w:r>$2<w:r><w:t>and after it.</w:t></w:r>',
+    )
+    expect(xml).toContain("and after it.")
+    part.data = new TextEncoder().encode(xml)
+    const opened = await openDocxBytes(await writePackage(pkg), "text.docx")
+    expect(objects(opened.view.html).map((item) => item.figure.attrs.variant)).toEqual(["frame", "heart"])
+
+    const extensions = createExtensions().filter((extension) => extension.name !== "spellcheck")
+    const editor = new Editor({ extensions, content: opened.view.html })
+    try {
+      // Saved as opened (the app draws each object's picture first, which jsdom cannot).
+      const saved = await saveDocxBytes({
+        json: editor.getJSON(),
+        chrome: opened.view.chrome,
+        props: opened.view.props,
+        word: opened.word,
+        unchanged: false,
+        fileName: "edited.docx",
+      })
+      const out = decodeXml(findPart(await openPackage(saved.bytes, "edited.docx"), "/word/document.xml")!.data)
+      const paragraph = [...out.matchAll(/<w:p[ >][\s\S]*?<\/w:p>/g)].find((match) => match[0].includes("and after"))
+      expect(paragraph?.[0]).toMatch(/Before the frame [\s\S]*prst="frame"[\s\S]*and after it\./)
+      restoreObjects(editor)
+      const blocks = editor.getJSON().content ?? []
+      // The shape is the block before its paragraph, which keeps all its text.
+      const at = blocks.findIndex((block) => block.type === "figure")
+      expect(blocks[at + 1]?.content?.map((item) => item.text).join("")).toBe("Before the frame and after it.")
+    } finally {
+      editor.destroy()
+    }
+  })
+
+  it("opens a callout the app has no drawing of from Word's geometry and saves it back as Word's preset", async () => {
+    const bytes = new Uint8Array(readFileSync(path.join(AUTHORED, "f20_word_shapes.docx")))
+    const pkg = await openPackage(bytes, "f20_word_shapes.docx")
+    const part = findPart(pkg, "/word/document.xml")!
+    part.data = new TextEncoder().encode(decodeXml(part.data).replace('prst="heart"', 'prst="wedgeRoundRectCallout"'))
+    const opened = await openDocxBytes(await writePackage(pkg), "callout.docx")
+    const callout = objects(opened.view.html)[1]?.figure.attrs
+    expect(callout).toMatchObject({ kind: "shape", variant: "rect" })
+    expect(String(callout?.points)).toMatch(/^M/)
+    const extensions = createExtensions().filter((extension) => extension.name !== "spellcheck")
+    const editor = new Editor({ extensions, content: opened.view.html })
+    try {
+      const saved = await saveDocxBytes({
+        json: editor.getJSON(),
+        chrome: opened.view.chrome,
+        props: opened.view.props,
+        word: opened.word,
+        unchanged: false,
+        fileName: "edited.docx",
+      })
+      const xml = decodeXml(findPart(await openPackage(saved.bytes, "edited.docx"), "/word/document.xml")!.data)
+      expect(xml).toContain('prst="wedgeRoundRectCallout"')
+      expect(xml).not.toContain("<a:custGeom")
     } finally {
       editor.destroy()
     }

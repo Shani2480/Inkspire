@@ -628,8 +628,12 @@ export function diagramSvg(doc: WordDocument, drawing: Extract<RunContent, { kin
 function shapePictureHtml(run: Run, ctx: Projection) {
   const drawings = run.content.filter((item) => item.kind === "drawing")
   const drawing = drawings.length === 1 ? drawings[0] : undefined
-  // A floating shape opens as a block before its paragraph; beside text that would move it in the source.
-  if (ctx.textParagraph || drawing?.kind !== "drawing" || mediaFor(ctx.doc, drawing.relId)) {
+  if (drawing?.kind !== "drawing" || mediaFor(ctx.doc, drawing.relId)) {
+    return null
+  }
+  // A floating shape opens as a block before its paragraph and goes back to its place among the text on saving; one
+  // in line with text would split the paragraph.
+  if (ctx.textParagraph && !drawing.layout) {
     return null
   }
   const theme = ctx.doc.preserved?.parts.find((item) => item.name.toLowerCase() === "/word/theme/theme1.xml")
