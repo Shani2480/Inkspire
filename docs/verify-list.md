@@ -420,6 +420,12 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Cell Options → Fit text on a cell with one word: the letters spread across the cell; on a long sentence: it is
   narrowed onto one line inside the cell.
 
+## 3-D models in Word's pose (2026-10-28)
+
+- Open `123.docx`: the creature is turned and posed as in Word (legs apart, eye open), not square to the camera.
+- Turn it with the orbit handle, save, open in Word: still a 3-D model (Format 3D Model tab), at the new turn.
+- Save without turning it, open in Word: the same model as before.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

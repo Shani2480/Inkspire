@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  DEFAULT_CAMERA,
   MODEL_VIEWS,
   facingPose,
   matrixPose,
@@ -7,6 +8,8 @@ import {
   registerViewSource,
   viewPose,
   viewSourceFor,
+  wordModelPose,
+  wordModelRot,
 } from "@/editor/model-views"
 
 const ROUND = (value: number) => Math.round(value * 1000) / 1000 + 0
@@ -63,5 +66,29 @@ describe("model views", () => {
     registerViewSource(dom, null)
     expect(viewSourceFor(dom)).toBeNull()
     expect(viewSourceFor(null)).toBeNull()
+  })
+})
+
+describe("Word's turn of a 3-D model (am3d:rot, 21.38)", () => {
+  it("goes to the viewer's pose and back", () => {
+    for (const rot of [
+      { ax: 2013006, ay: 1710973, az: 1054029 },
+      { ax: 0, ay: 0, az: 0 },
+      { ax: 20000000, ay: 3000000, az: 600000 },
+    ]) {
+      const back = wordModelRot(wordModelPose(rot))
+      for (const axis of ["ax", "ay", "az"] as const) {
+        const difference = Math.abs(back[axis] - rot[axis]) % 21600000
+        expect(Math.min(difference, 21600000 - difference)).toBeLessThan(600)
+      }
+    }
+  })
+
+  it("is the model faced to the viewer's camera when Word has not turned it", () => {
+    const pose = wordModelPose({ ax: 0, ay: 0, az: 0 })
+    const facing = facingPose(DEFAULT_CAMERA)
+    expect(pose.yaw).toBeCloseTo(facing.yaw, 3)
+    expect(pose.pitch).toBeCloseTo(facing.pitch, 3)
+    expect(pose.roll).toBeCloseTo(0, 3)
   })
 })

@@ -7,6 +7,36 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### 3-D models from Word open in Word's pose and stay Word's models when turned
+
+- **What was wrong:**
+  - A Word 3-D model opened facing the app's camera in its rest pose, not as Word showed it. `am3d:rot` was not
+    read, and an animated model (the creature in `123.docx`) stood with its eyes shut and legs straight.
+  - Turned in the app, the model was saved as the app's picture with the `.glb` inside, so Word no longer saw a
+    3-D model.
+- **What changed:**
+  - `model-views.ts`: `wordModelPose` and `wordModelRot` turn Word's `am3d:rot` into the viewer's yaw, pitch and
+    roll and back. Word looks at the model from the front and turns it about x, then y, then z (`Rz·Ry·Rx`); the
+    front is then faced to the viewer's camera, as for the named views.
+    - Found by drawing the real model in all 48 orders and signs and comparing each outline with Word's own picture:
+      Rz·Ry·Rx with Word's signs overlaps 84%, the next best 77%.
+  - `inlines.ts`: a model opens at that pose. Turned in the app and saved, it goes back as Word's drawing with the
+    new `am3d:rot`, and the app's picture of it replaces Word's raster and fallback picture (`addPicture`, shared
+    with new pictures). Resized or moved, it is still saved as the app's picture.
+  - `three-d-viewer.ts`: a loaded model with animations stands as the first frame of its first one, as Word shows it.
+- **Tests:**
+  - `model-views.test.ts`: Word's turn to pose and back; no turn is the model faced to the camera.
+  - `model3d-import.test.ts`: opens at Word's pose; a turned save keeps `am3d:model3d` and the `.glb`, writes the
+    new turn and a new picture, and reopens at the same yaw.
+  - All 1141 tests pass.
+- **Checked:**
+  - The validator on `123.docx` with its model turned and saved: only the three chart errors Word's own file also has.
+  - In Chrome, `123.docx`: the creature opens turned and posed as in Word's picture, legs apart and eye open.
+- **Open:**
+  - Word frames the model a little larger (its camera distance and `objViewport` are not used).
+  - Word's lights (`am3d:ptLight`) are not used, and the animation is not played.
+  - Not opened in Word after a turn.
+
 ### Table rows break across pages, and Fit text is drawn
 
 - **What was wrong:**
