@@ -1764,6 +1764,11 @@ than a page; borders close and reopen at the cut and the grey between the pages 
 keep each paragraph on one line, spaced out or narrowed to the cell's width. Not done: the header row above a broken
 row's next part; vertically centred cells; rows with pictures or nested tables (still moved whole).
 
+**Done (2026-10-28, broken rows finished).** The header row is drawn again above a broken row's rest on each page
+(and above a row moved whole), a broken row's cells are drawn top-aligned, and rows with pictures or nested tables
+break around them (each object is one unbreakable piece). Not done: a short centred cell placed over the whole row as
+Word may; a nested table split inside itself.
+
 - Present and matching: all groups. Missing: Properties button (Table Properties dialog), Cell Size dialog launcher and Rows & Columns launcher, Height and Width spin boxes shown beside AutoFit in cm with a live value, 3×3 alignment grid sized as Word's (three-by-three, 22 px), Select menu items (Cell, Column, Row, Table).
 - The floating table toolbar (081826 shows Word's own) should be Font, Size, Grow/Shrink, bullets, numbering, Bold, Italic, alignment, highlight, font color, shading, borders, format painter, Insert, Delete, New Comment, Insert Below, Delete Rows, Merge Cells (21.7 covers dark mode only).
 

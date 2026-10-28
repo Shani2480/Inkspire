@@ -90,7 +90,11 @@ type PageBreak = {
   cells?: CellGap[]
 }
 
-type CellGap = { pos: number; height: number; keep: number }
+/**
+ * `header`: px of the table's header row drawn again at the top of the next page, above the row's rest (Repeat as
+ * header row); the first cell's gap (`draw`) draws it.
+ */
+type CellGap = { pos: number; height: number; keep: number; header?: number; draw?: boolean }
 
 type PaginationSnapshot = {
   decorations: DecorationSet
@@ -516,10 +520,10 @@ function decorationsFor(
     if (item.cells) {
       for (const cell of item.cells) {
         decorations.push(
-          Decoration.widget(cell.pos, () => createCellGap(cell), {
+          Decoration.widget(cell.pos, (view) => createCellGap(view, cell), {
             side: -1,
             ignoreSelection: true,
-            key: `cell-gap-${cell.pos}-${cell.height}-${cell.keep}`,
+            key: `cell-gap-${cell.pos}-${cell.height}-${cell.keep}-${cell.header ?? 0}-${cell.draw ? 1 : 0}`,
           }),
         )
       }
@@ -783,13 +787,68 @@ function repeatedHeader(view: EditorView, tablePos: number) {
 }
 
 /** The page gap inside a cell of a row broken across pages; the table is cut away from `keep` down (`cutSplitRows`). */
-function createCellGap(cell: CellGap) {
+function createCellGap(view: EditorView, cell: CellGap) {
   const gap = document.createElement("span")
   gap.className = "page-gap page-gap-cell"
   gap.style.height = `${cell.height}px`
   gap.dataset.keep = String(cell.keep)
   gap.contentEditable = "false"
+  if (cell.header) {
+    gap.dataset.header = String(cell.header)
+  }
+  if (cell.draw) {
+    const copy = headerCopy(view, cell.pos)
+    if (copy) {
+      copy.style.top = `${cell.height - (cell.header ?? 0)}px`
+      gap.append(copy)
+    }
+  }
   return gap
+}
+
+/**
+ * The header row of the table holding `pos`, as a table of its own with the table's look and width, for the top of a
+ * page a broken row goes on to; `cutSplitRows` lines it up with the table.
+ */
+function headerCopy(view: EditorView, pos: number) {
+  const at = view.state.doc.resolve(pos)
+  let depth = at.depth
+  while (depth > 0 && at.node(depth).type.name !== "table") {
+    depth -= 1
+  }
+  const dom = depth > 0 ? view.nodeDOM(at.before(depth)) : null
+  const table = dom instanceof HTMLElement ? (dom.matches("table") ? dom : dom.querySelector("table")) : null
+  const first = table
+    ? [...table.querySelectorAll<HTMLTableRowElement>("tr")].find(
+        (row) => row.closest("table") === table && !row.classList.contains("page-gap"),
+      )
+    : undefined
+  if (!table || !first) {
+    return null
+  }
+  const copy = table.cloneNode(false) as HTMLTableElement
+  copy.removeAttribute("data-row-cut")
+  copy.style.removeProperty("mask-image")
+  copy.style.removeProperty("-webkit-mask-image")
+  copy.classList.add("page-gap-header-copy")
+  copy.style.setProperty("width", `${table.offsetWidth}px`, "important")
+  const columns = table.querySelector(":scope > colgroup")
+  if (columns) {
+    copy.append(columns.cloneNode(true))
+  }
+  const body = document.createElement("tbody")
+  const row = first.cloneNode(true) as HTMLTableRowElement
+  row.querySelectorAll(".page-gap, .line-number").forEach((element) => element.remove())
+  row.querySelectorAll("[contenteditable]").forEach((element) => element.setAttribute("contenteditable", "false"))
+  row.querySelectorAll("[data-row-cut]").forEach((element) => {
+    element.removeAttribute("data-row-cut")
+    ;(element as HTMLElement).style.removeProperty("--row-cut")
+  })
+  body.append(row)
+  copy.append(body)
+  copy.contentEditable = "false"
+  copy.setAttribute("aria-hidden", "true")
+  return copy
 }
 
 function createGap(height: number, manual: boolean, lift = 0) {
@@ -1079,7 +1138,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       if (row.dom && !web && (used > 0 ? used + height - collapse : height) > contentHeight + 1) {
         // Where the row's top lands: below the table's top edge (border, caption) for its first row.
         const above = index === 0 ? (used > 0 ? top - collapse : top) + row.height - row.natural : 0
-        if (splitRow(row, used + above, index === 0 ? pos : row.pos)) {
+        if (splitRow(row, used + above, index === 0 ? pos : row.pos, index > 0 ? header : 0)) {
           used += index === rows.length - 1 ? bottom : 0
           trailing = 0
           return
@@ -1099,9 +1158,10 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   /**
    * Allow row to break across pages (Word's default): a row that runs past the page's foot breaks inside its cells,
    * each at its first line that does not fit, and goes on at the top of the next page (and the next, for a row
-   * taller than a page). A row none of whose first lines fit starts the next page. False when it can't be measured.
+   * taller than a page). A row none of whose first lines fit starts the next page. A table that repeats its header row
+   * (`header` px) draws it again above the row's rest on each new page. False when it can't be measured.
    */
-  const splitRow = (row: RowUnit, start: number, rowPos: number) => {
+  const splitRow = (row: RowUnit, start: number, rowPos: number, header: number) => {
     const cells = row.dom ? rowCellLines(view, row.dom) : null
     if (!cells) {
       return false
@@ -1126,9 +1186,13 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       const first = (cell: CellLines, index: number) => cell.lines.find((line) => line.top >= from[index]! - 0.5)
       if (top > 0 && !moved && cuts.every((cut, index) => !cut || cut === first(cells[index]!, index))) {
         // Not one line of the row fits under what is above it: the row starts the next page.
+        const count = breaks.length
         pushBreak(rowPos, false)
         moved = true
-        top = 0
+        top = header > 0 && breaks.length > count ? header : 0
+        if (top > 0) {
+          breaks[breaks.length - 1]!.header = true
+        }
         continue
       }
       const gaps: CellGap[] = []
@@ -1138,7 +1202,8 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
           return
         }
         const keep = Math.max(0, Math.round(room - (cut.top - from[index]!)))
-        gaps.push({ pos: cut.pos, keep, height: Math.ceil(keep + PAGE_GAP + metrics.marginTop + metrics.marginBottom) })
+        const height = Math.ceil(keep + PAGE_GAP + metrics.marginTop + metrics.marginBottom + header)
+        gaps.push({ pos: cut.pos, keep, height, ...(header > 0 ? { header, draw: gaps.length === 0 } : {}) })
         from[index] = cut.top
       })
       if (gaps.length === 0) {
@@ -1151,7 +1216,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       if (breaks.length > count) {
         breaks[breaks.length - 1]!.cells = gaps
       }
-      top = 0
+      top = header
       moved = true
     }
     return true
@@ -1531,7 +1596,10 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       cells.map((cell) => `${cell.pos}:${cell.column}:${cell.lift}:${cell.width ?? ""}`).join(","),
       breaks.map((item) => item.lift ?? 0).join(","),
       breaks
-        .map((item) => item.cells?.map((cell) => `${cell.pos}:${cell.height}:${cell.keep}`).join(";") ?? "")
+        .map(
+          (item) =>
+            item.cells?.map((cell) => `${cell.pos}:${cell.height}:${cell.keep}:${cell.header ?? 0}`).join(";") ?? "",
+        )
         .join(","),
     ].join("|"),
   }
@@ -1846,25 +1914,52 @@ function tableRows(node: ProseNode, pos: number, dom: HTMLElement, inner: number
 /** A table row as the page breaking places it; `dom` when it may break across pages inside its cells. */
 type RowUnit = { pos: number; height: number; natural: number; dom?: HTMLTableRowElement }
 
-/** A row may break inside its cells unless it says not to, and only when its cells hold text (no tables or objects). */
+/**
+ * A row may break inside its cells unless it says not to. A picture, nested table or other object in a cell is one
+ * piece the break goes before or after, as a line of text is (`rowCellLines`).
+ */
 export function splittable(row: ProseNode) {
-  if (row.attrs.cantSplit === true) {
-    return false
-  }
-  let text = true
-  row.descendants((child) => {
-    if (!text) {
-      return false
-    }
-    if (child.isBlock && !child.isTextblock && !isContainer(child) && !/^table(Cell|Header)$/.test(child.type.name)) {
-      text = false
-    }
-    return !child.isTextblock
-  })
-  return text && row.childCount > 0
+  return row.attrs.cantSplit !== true && row.childCount > 0
 }
 
 type CellLines = { lines: { pos: number; top: number; bottom: number }[]; end: number }
+
+/** The objects in a cell (pictures, nested tables, charts...) a row's page break goes around whole, with their DOM. */
+function cellObjects(view: EditorView, cell: HTMLTableCellElement) {
+  const objects: { pos: number; dom: HTMLElement }[] = []
+  let inside: number
+  try {
+    inside = view.posAtDOM(cell, 0)
+  } catch {
+    return objects
+  }
+  const at = view.state.doc.resolve(inside)
+  let depth = at.depth
+  while (depth > 0 && !/^table(Cell|Header)$/.test(at.node(depth).type.name)) {
+    depth -= 1
+  }
+  if (depth === 0) {
+    return objects
+  }
+  const start = at.start(depth)
+  at.node(depth).descendants((child, offset) => {
+    if (child.isTextblock) {
+      return false
+    }
+    if (isContainer(child)) {
+      return true
+    }
+    if (child.isBlock) {
+      const dom = view.nodeDOM(start + offset)
+      // A floating object is out of the cell's flow and goes with the paragraph it is anchored to.
+      if (dom instanceof HTMLElement && getComputedStyle(dom).position !== "absolute") {
+        objects.push({ pos: start + offset, dom })
+      }
+    }
+    return false
+  })
+  return objects
+}
 
 /**
  * Each cell's lines in the row, from the row's top, and where the cell's text ends (with its bottom padding), leaving
@@ -1877,10 +1972,14 @@ function rowCellLines(view: EditorView | null, row: HTMLTableRowElement): CellLi
   for (const cell of Array.from(row.cells)) {
     const at = (y: number) => (y - origin) / zoom - gapBetween(cell, origin, y)
     const lines: CellLines["lines"] = []
+    const objects = view ? cellObjects(view, cell) : []
     const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT)
     for (let current = view ? walker.nextNode() : null; current; current = walker.nextNode()) {
       const text = current as Text
-      if (text.parentElement?.closest(".page-gap, .line-number, .object-band, [contenteditable='false']")) {
+      if (
+        text.parentElement?.closest(".page-gap, .line-number, .object-band, [contenteditable='false']") ||
+        objects.some((object) => object.dom.contains(text))
+      ) {
         continue
       }
       for (const index of lineStarts(text)) {
@@ -1889,6 +1988,12 @@ function rowCellLines(view: EditorView | null, row: HTMLTableRowElement): CellLi
         if (rect && pos >= 0) {
           lines.push({ pos, top: at(rect.top), bottom: at(rect.top) + rect.height / zoom })
         }
+      }
+    }
+    for (const object of objects) {
+      const rect = object.dom.getBoundingClientRect()
+      if (rect.height > 0) {
+        lines.push({ pos: object.pos, top: at(rect.top), bottom: at(rect.top) + rect.height / zoom })
       }
     }
     lines.sort((a, b) => a.top - b.top || a.pos - b.pos)

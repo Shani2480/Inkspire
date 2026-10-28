@@ -433,6 +433,13 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
   changes; Add Shape After and Move Down keep its look with it.
 - Format → Size → Width: the graphic gets that width; Wrap Text → Square: text flows beside it.
 
+## Broken rows under a repeated header (2026-10-28)
+
+- A table with Repeat as header row whose second row breaks across pages: the header row is drawn again at the top
+  of the next page, full width, above the rest of the row; compare the same file in Word.
+- A cell holding a picture in that row: the break comes before or after the picture, never through it.
+- A vertically centred cell in a broken row: compare with Word where its text lands.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

@@ -13431,3 +13431,21 @@ textarea.tp-input {
 .smartart-children > .smartart-branch:last-child::after {
   border-top: none;
 }
+
+/* A row broken across pages under a repeated header row (pages.ts): the header drawn again in the first cell's gap. */
+.page-editor .page-gap-cell {
+  position: relative;
+}
+
+.page-editor .page-gap-cell > .page-gap-header-copy {
+  position: absolute;
+  z-index: 1;
+  margin: 0;
+  max-width: none !important;
+  table-layout: fixed;
+}
+
+/* A broken row's cells run from the top on each page, so the text a page shows is the text measured for it. */
+.page-editor tr:has(.page-gap-cell) > :is(td, th) {
+  vertical-align: top !important;
+}
