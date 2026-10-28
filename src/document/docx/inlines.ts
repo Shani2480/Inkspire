@@ -25,11 +25,26 @@ import {
 } from "@/document/docx/chartex-xml"
 import { MC_NS } from "@/document/docx/mce"
 import { decodeXml } from "@/document/docx/xml"
-import { readWordShape, shapeLook, wordShapeMark } from "@/document/docx/shape-import"
+import { readWordShape, schemeColors, shapeLook, wordShapeMark } from "@/document/docx/shape-import"
 import { wordShapeGraphic } from "@/document/docx/shape-write"
 import { boxLink, readWordTextBox, textBoxMark, wordTextBoxGraphic } from "@/document/docx/word-text-box"
 import { looseParagraphsXml } from "@/document/docx/wml-write"
 import { diagramDataRelId, diagramDrawingRelId, renderDiagramDrawing } from "@/document/docx/smartart-import"
+import {
+  DIAGRAM_NS,
+  DIAGRAM_PARTS,
+  appLayoutOf,
+  diagramColorsXml,
+  diagramDataXml,
+  diagramDrawingXml,
+  diagramGraphic,
+  diagramLayoutXml,
+  diagramRelIds,
+  diagramStyleXml,
+  readDiagramData,
+  type DiagramShape,
+} from "@/document/docx/smartart-write"
+import { readItems, writeItems } from "@/editor/smartart-model"
 import { pointsMarkup, shapeMarkup } from "@/editor/insert-blocks"
 import { hasPictureFormat } from "@/editor/picture-format"
 import { fontOf, fontStack, themeFontsOf, type ThemeFonts } from "@/document/docx/word-styles"
@@ -593,7 +608,13 @@ function diagramPictureHtml(run: Run, ctx: Projection) {
   if (drawing?.kind !== "drawing") {
     return null
   }
-  const svg = diagramSvg(ctx.doc, drawing)
+  const graphic = diagramGraphicObject(ctx.doc, drawing)
+  // A diagram saved without a drawing still opens, as the app's graphic, when its data model can be read.
+  const svg =
+    diagramSvg(ctx.doc, drawing) ??
+    (graphic
+      ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${drawing.cx ?? 1} ${drawing.cy ?? 1}"></svg>`
+      : null)
   if (!svg) {
     return null
   }
@@ -606,7 +627,56 @@ function diagramPictureHtml(run: Run, ctx: Projection) {
     data: new TextEncoder().encode(svg),
   }
   const layout = drawing.layout ? floatingLayout(drawing.layout, drawing.cx, ctx.doc.section, drawing.cy) : null
-  return imageHtml(picture, drawing.cx, drawing.cy, drawing.name, run.key, layout, drawing.rot)
+  return imageHtml(
+    picture,
+    drawing.cx,
+    drawing.cy,
+    drawing.name,
+    run.key,
+    layout,
+    drawing.rot,
+    graphic ? encodeObjectJson(graphic) : undefined,
+  )
+}
+
+/**
+ * The app's SmartArt graphic a diagram opens as, so it can be edited: the app's own graphic kept with a diagram it
+ * saved (with the text Word gave it, if Word changed it), or one made from Word's data model when its layout is one
+ * the app has. Null keeps it a picture.
+ */
+function diagramGraphicObject(doc: WordDocument, drawing: Extract<RunContent, { kind: "drawing" }>) {
+  const data = relatedPart(doc, "/word/document.xml", diagramDataRelId(drawing.xml))
+  const read = data ? readDiagramData(decodeXml(data.data)) : null
+  const saved = decodeObjectJson(drawing.object)
+  const own = saved?.type === "smartArt" ? saved : null
+  if (!read && !own) {
+    return null
+  }
+  const items = read?.items ?? []
+  if (own) {
+    const before = readItems(own.attrs?.labels, own.attrs?.levels, own.attrs?.pictures, own.attrs?.looks)
+    const same =
+      !read ||
+      (before.length === items.length &&
+        before.every((item, index) => item.text === items[index]!.text && item.level === items[index]!.level))
+    if (same) {
+      return own
+    }
+    // Word changed the text: its items, keeping each shape's own look and picture where the count still matches.
+    const kept = before.length === items.length ? items.map((item, index) => ({ ...before[index], ...item })) : items
+    return { ...own, attrs: { ...own.attrs, ...writeItems(kept) } }
+  }
+  const layout = read ? appLayoutOf(read.layoutId) : null
+  if (!read || !layout || items.length === 0) {
+    return null
+  }
+  const theme = doc.preserved?.parts.find((item) => item.name.toLowerCase() === "/word/theme/theme1.xml")
+  const scheme = schemeColors(theme ? decodeXml(theme.data) : null)
+  const slot = /colors\/(?:colorful\d|accent(\d))/.exec(read.colorsId)?.[1] ?? "1"
+  return {
+    type: "smartArt",
+    attrs: { layout, ...writeItems(items), accent: scheme.get(`accent${slot}`) ?? "#0f6cbd" },
+  }
 }
 
 /** The SVG of a SmartArt drawing from the pre-rendered drawing part, or null when the file has none. */
@@ -1663,7 +1733,13 @@ export function imageRun(node: JsonNode, build: InlineBuild, asPicture = false):
       return box
     }
   }
-  const diagram = diagramRun(node, build)
+  if (figure?.type === "smartArt" && !asPicture) {
+    const run = smartArtRun(node, figure, object, build)
+    if (run) {
+      return run
+    }
+  }
+  const diagram = figure?.type === "smartArt" ? null : diagramRun(node, build)
   if (diagram) {
     return diagram
   }
@@ -1862,6 +1938,99 @@ function diagramRun(node: JsonNode, build: InlineBuild): Run | null {
     return structuredClone(origin)
   }
   return null
+}
+
+/** A part the package kept whole that the main document points at by `relId`. */
+function keptDocumentPart(build: InlineBuild, relId: string | undefined) {
+  const group = build.preserved?.relationships.find((item) => item.source === "/word/document.xml")
+  const partName = relId ? group?.items.find((item) => item.id === relId)?.partName : undefined
+  return partName ? (build.preserved?.parts.find((item) => item.name === partName) ?? null) : null
+}
+
+/**
+ * A SmartArt graphic saved as Word's diagram (21.36), carrying the app's own graphic to open as itself again. One
+ * opened from Word keeps Word's drawing and parts while its text, size and place are as they were; with its text
+ * changed it gets a new data model and drawing but keeps Word's layout, quick style and colours.
+ */
+function smartArtRun(node: JsonNode, figure: JsonNode, object: string, build: InlineBuild): Run | null {
+  const attrs = figure.attrs ?? {}
+  const layout = typeof attrs.layout === "string" ? attrs.layout : "list"
+  const items = readItems(attrs.labels, attrs.levels)
+  const width = numberAttr(node.attrs?.width) ?? 320
+  const height = numberAttr(node.attrs?.height) ?? 240
+  const key = typeof node.attrs?.docxKey === "string" ? node.attrs.docxKey : undefined
+  const origin = key ? build.runs.get(key) : undefined
+  const drawing = origin?.content.find((item) => item.kind === "drawing")
+  const source = drawing?.kind === "drawing" && drawing.xml.includes(DIAGRAM_NS) ? drawing : null
+  const relIds = source ? diagramRelIds(source.xml) : null
+  const sourceData = relIds ? keptDocumentPart(build, relIds.data) : null
+  const read = sourceData ? readDiagramData(decodeXml(sourceData.data)) : null
+  const sameItems =
+    read !== null &&
+    read.items.length === items.length &&
+    read.items.every((item, index) => item.text === items[index]!.text && item.level === items[index]!.level)
+  if (source && sameItems && appLayoutOf(read.layoutId) === layout && diagramRun(node, build)) {
+    return structuredClone(origin!)
+  }
+  // Word's own layout, quick style and colours stay while the graphic keeps Word's layout.
+  const keepWord = relIds !== null && read !== null && appLayoutOf(read.layoutId) === layout
+  const kept = (relId: string | undefined) => (keepWord ? keptDocumentPart(build, relId)?.data : undefined)
+  const shapes = Array.isArray((figure as { shapes?: unknown }).shapes)
+    ? ((figure as { shapes: DiagramShape[] }).shapes ?? [])
+    : []
+  const add = (part: keyof typeof DIAGRAM_PARTS, data: Uint8Array) => {
+    const kind = DIAGRAM_PARTS[part]
+    const relId = `rId${20 + build.media.length}`
+    const name = freePartName(build, (index) => `/word/diagrams/${kind.file}${index}.xml`)
+    build.media.push({
+      relId,
+      type: kind.type,
+      target: name.slice("/word/".length),
+      name,
+      contentType: kind.contentType,
+      data,
+    })
+    return relId
+  }
+  const encode = (xml: string) => new TextEncoder().encode(xml)
+  const drawingRelId = shapes.length > 0 ? add("drawing", encode(diagramDrawingXml(shapes))) : undefined
+  const ids = {
+    data: add("data", encode(diagramDataXml(items, layout, drawingRelId, keepWord ? read!.layoutId : undefined))),
+    layout: add("layout", kept(relIds?.layout) ?? encode(diagramLayoutXml(layout))),
+    style: add("style", kept(relIds?.style) ?? encode(diagramStyleXml())),
+    colors: add("colors", kept(relIds?.colors) ?? encode(diagramColorsXml())),
+  }
+  const id = build.picture
+  build.picture += 1
+  const cx = Math.round(width * EMU_PER_PX)
+  const cy = Math.round(height * EMU_PER_PX)
+  const name = typeof attrs.alt === "string" && attrs.alt ? attrs.alt : `Diagram ${id}`
+  return {
+    kind: "run",
+    rPr: { noProof: true },
+    content: [
+      {
+        kind: "drawing",
+        xml: drawingXml(
+          id,
+          ids.data,
+          cx,
+          cy,
+          editorLayout(node),
+          rotationRot(numberAttr(node.attrs?.rotate) ?? 0),
+          build.section,
+          object,
+          { graphic: diagramGraphic(ids), name },
+        ),
+        text: "",
+        floating: editorLayout(node) !== null,
+        relId: ids.data,
+        name,
+        cx,
+        cy,
+      },
+    ],
+  }
 }
 
 /** A shape opened from Word and not formatted since goes back as Word's own drawing, in its place and size. */

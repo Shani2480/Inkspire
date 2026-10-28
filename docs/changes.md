@@ -7,6 +7,55 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### SmartArt saved as Word's own diagram, and Word's SmartArt opened editable
+
+- **What was wrong:**
+  - A SmartArt graphic went into a .docx as a picture with the app's graphic hidden inside it, so Word showed a
+    picture it could not edit.
+  - SmartArt Word made always opened as a picture here, even in a layout the app has.
+- **What changed:**
+  - `smartart-write.ts` (new) writes the five parts of a SmartArt diagram:
+    - The data model: one point per item, each joined to its parent by Word's `parOf` connection.
+    - A layout definition for each of the app's 14 layouts. Word's own layout id is used where the app's layout
+      matches one (Basic Block List, Vertical Bullet List, Basic Process, Basic Chevron Process, Step Up Process,
+      Basic Cycle, Hierarchy, Basic Radial, Basic Venn, Basic Pyramid); the other four use the app's own id.
+    - Word's own Simple Fill quick style and Colorful Accent 1 colours, copied from a file Word saved
+      (`smartart-defs.ts`).
+    - A drawing part with each shape where the app draws it. It is measured when saving
+      (`object-pictures.ts` `smartArtShapes`), so programs that show the saved drawing show the app's graphic.
+  - `readDiagramData` reads the items and their levels back.
+  - `inlines.ts` `smartArtRun` saves a SmartArt graphic this way, with the app's own graphic kept in `docPr`.
+  - A graphic opened from Word goes back as Word's own drawing and parts while its text, levels, size and place are
+    unchanged. With its text changed, it gets a new data model and drawing but keeps Word's layout, quick style and
+    colours.
+  - On opening, `diagramGraphicObject` decides what a diagram opens as:
+    - A diagram the app saved opens as the app's graphic, with Word's text if Word changed it.
+    - A Word diagram in a layout the app has opens as an editable graphic in the theme's accent colour.
+    - Other layouts (for example Circle Relationship) still open as a picture.
+- **Tests:** `smartart-write.test.ts`:
+  - Data model round trip: nested levels, `&`, a two-line item.
+  - Every layout has a definition under its own id.
+  - The drawing part reads back.
+  - The five parts are written with their relationships and content types, and the graphic reopens as the app's.
+  - Text Word changed is taken on opening.
+
+  All 1159 tests pass.
+- **Checked:**
+  - Saved the app's Process and Hierarchy graphics from headless Chrome through the app's own save path. The Open XML
+    validator finds 0 errors in them, and in a file holding all 14 layouts.
+  - LibreOffice draws the saved graphics with the same boxes, colours and text as the app.
+  - Reopened in the app, the Hierarchy graphic is editable again.
+- **Open:**
+  - Not opened in Word.
+  - The layout definitions are the app's own. They are written to the schema but not compared with Word's, so
+    Word may lay the graphic out differently from the app (it uses its own definition if it trusts Word's layout
+    ids).
+  - Not carried into Word's data model:
+    - Each shape's own look from the Format tab.
+    - Pictures in Picture layouts.
+    - The app's accent colour (Word uses the theme's Accent 1).
+  - The Process arrows are missing from the drawing part.
+
 ### Edit Wrap Points, and Word's wrap outline kept
 
 - **What was wrong:**
