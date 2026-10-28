@@ -757,7 +757,8 @@ pub async fn ensure_running(
         let existing = std::env::var("LD_LIBRARY_PATH").unwrap_or_default();
         command.env("LD_LIBRARY_PATH", format!("{}:{existing}", dir.display()));
     }
-    #[cfg(unix)]
+    // prctl is Linux's own (macOS is Unix but has no parent-death signal); the engine runs only on Linux.
+    #[cfg(any(target_os = "linux", target_os = "android"))]
     unsafe {
         // The engine must not outlive the app, even if the app is killed.
         command.pre_exec(|| {

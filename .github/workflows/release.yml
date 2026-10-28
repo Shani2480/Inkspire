@@ -2,7 +2,7 @@ name: Release
 
 # Builds the installers and attaches them to a GitHub release:
 # a .deb and an AppImage (built on Ubuntu 22.04 so they run on older distributions too),
-# a Flatpak made from that .deb, and a Windows setup .exe (NSIS).
+# a Flatpak made from that .deb, a Windows setup .exe (NSIS), and a macOS .dmg (Apple Silicon and Intel in one).
 # Push a tag such as v0.1.0, or run it by hand with the tag to publish.
 
 on:
@@ -114,9 +114,33 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$TAG" src-tauri/target/release/bundle/nsis/*.exe --clobber
 
+  macos:
+    name: macOS (.dmg)
+    needs: draft
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+      - run: npm ci
+      # One app for Apple Silicon and Intel, signed ad hoc (no Apple Developer ID yet, so not notarized).
+      - run: npm run tauri build -- --target universal-apple-darwin --bundles dmg
+      - name: Upload to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg --clobber
+
   publish:
     name: Publish the release
-    needs: [linux, flatpak, windows]
+    needs: [linux, flatpak, windows, macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
