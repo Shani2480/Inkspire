@@ -7,6 +7,17 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### README: screenshots and a feature tour for the public repository
+
+- **What was wrong:** the README had no pictures of the app and its feature list predated charts, SmartArt, shapes
+  with wrapping, and review.
+- **What changed:** eight screenshots in `docs/images/` (overview, charts, SmartArt, shapes and wrapping, review,
+  AI chat, File view, dark mode), taken from the web build at 1600x1000; the feature list is brought up to date and
+  a Tour section shows each screenshot.
+- **Tests:** none (documentation only).
+- **Checked:** each screenshot viewed before adding; the README renders the images by relative path.
+- **Open:** the screenshots come from the web build, so the native title bar of the desktop app is not shown.
+
 ### Verify-list run in Chrome: Paragraph dialog writes only what changed, chart sheet aligns like Excel
 
 - **What was wrong:**
