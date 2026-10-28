@@ -7,6 +7,28 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### Line Numbers: Restart Each Section and Suppress for Current Paragraph
+
+- **What was wrong:**
+  - Layout → Line Numbers had no Restart Each Section or Suppress for Current Paragraph, as Word's menu has.
+  - A Word section with `w:lnNumType w:restart="newSection"` opened as Continuous and was numbered straight on.
+- **What changed:**
+  - `PageSetup.lineNumberRestart` is now `"continuous" | "page" | "section"` (`lineNumberRestart()` normalizes
+    it). The app's file header writes `aiword-lines:section`.
+  - `.docx`: `newSection` opens as Restart Each Section and is written back as Word's `newSection`. Word's
+    unchanged element is still kept as it was.
+  - Drawing (`collectLineNumbers` in `pages.ts`): with Restart Each Section, numbering starts again at Start at
+    after each section break.
+  - The Line Numbers menu has Restart Each Section and Suppress for Current Paragraph. The latter toggles the
+    paragraph's `suppressLineNumbers` (Word's `w:suppressLineNumbers`, already read and written) and shows as on
+    when the paragraph at the cursor has it. The Line Numbers options dialog has a Restart Each Section choice.
+- **Tests:** `line-numbers.test.ts` (newSection written and read back; kept in the app's own file header). All 1137
+  tests pass.
+- **Checked in Chrome:** four lines with a continuous section break after the third. Restart Each Section numbered
+  them 1, 2, 3, 1, 2. Suppress for Current Paragraph on the first line dropped its number.
+- **Open:** Word restarts per section by each section's own `w:lnNumType`. The app has one setting for the whole
+  document, so a file where only some sections number lines opens with all of them numbered alike.
+
 ### Word's shapes: every preset opens as a shape, and floating shapes beside text open too
 
 - **What was wrong:**

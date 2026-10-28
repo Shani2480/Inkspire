@@ -243,45 +243,70 @@ export function LayoutTab() {
       />
     </div>
   )
-  const lineNumbersMenu = (close: () => void) => (
-    <div className="flex w-48 flex-col">
-      <MenuButton
-        selected={!setup.lineNumbers}
-        onClick={() => {
-          update({ lineNumbers: false })
-          close()
-        }}
-      >
-        None
-      </MenuButton>
-      <MenuButton
-        selected={setup.lineNumbers && setup.lineNumberRestart !== "page"}
-        onClick={() => {
-          update({ lineNumbers: true, lineNumberRestart: "continuous" })
-          close()
-        }}
-      >
-        Continuous
-      </MenuButton>
-      <MenuButton
-        selected={setup.lineNumbers && setup.lineNumberRestart === "page"}
-        onClick={() => {
-          update({ lineNumbers: true, lineNumberRestart: "page" })
-          close()
-        }}
-      >
-        Restart Each Page
-      </MenuButton>
-      <MenuButton
-        onClick={() => {
-          requestPageSetup("layout")
-          close()
-        }}
-      >
-        Line Numbering Options…
-      </MenuButton>
-    </div>
-  )
+  const lineNumbersMenu = (close: () => void) => {
+    // Suppress for Current Paragraph shows as on when the paragraph holding the cursor has its line numbers off.
+    const lineNumbersSuppressed = Boolean(editor?.state.selection.$from.parent.attrs.suppressLineNumbers)
+    return (
+      <div className="flex w-60 flex-col">
+        <MenuButton
+          selected={!setup.lineNumbers}
+          onClick={() => {
+            update({ lineNumbers: false })
+            close()
+          }}
+        >
+          None
+        </MenuButton>
+        <MenuButton
+          selected={setup.lineNumbers && setup.lineNumberRestart === "continuous"}
+          onClick={() => {
+            update({ lineNumbers: true, lineNumberRestart: "continuous" })
+            close()
+          }}
+        >
+          Continuous
+        </MenuButton>
+        <MenuButton
+          selected={setup.lineNumbers && setup.lineNumberRestart === "page"}
+          onClick={() => {
+            update({ lineNumbers: true, lineNumberRestart: "page" })
+            close()
+          }}
+        >
+          Restart Each Page
+        </MenuButton>
+        <MenuButton
+          selected={setup.lineNumbers && setup.lineNumberRestart === "section"}
+          onClick={() => {
+            update({ lineNumbers: true, lineNumberRestart: "section" })
+            close()
+          }}
+        >
+          Restart Each Section
+        </MenuButton>
+        <MenuButton
+          selected={lineNumbersSuppressed}
+          disabled={!editor}
+          onClick={() => {
+            if (editor) {
+              updateBlocks(editor, { suppressLineNumbers: !lineNumbersSuppressed })
+            }
+            close()
+          }}
+        >
+          Suppress for Current Paragraph
+        </MenuButton>
+        <MenuButton
+          onClick={() => {
+            requestPageSetup("layout")
+            close()
+          }}
+        >
+          Line Numbering Options…
+        </MenuButton>
+      </div>
+    )
+  }
   const hyphenationMenu = (close: () => void) => (
     <div className="flex w-40 flex-col">
       <MenuButton

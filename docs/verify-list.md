@@ -403,6 +403,14 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Save without touching them, open in Word: the same presets, the tail where it was, the shape among the same words.
 - Edit Points on the callout here, save, open in Word: the changed outline.
 
+## Line numbers per section (2026-10-28)
+
+- Layout → Line Numbers → Restart Each Section with a section break in the text: the numbers start at 1 again
+  after the break.
+- Cursor in a paragraph, Line Numbers → Suppress for Current Paragraph: that paragraph's lines have no numbers and
+  the item shows as on; again: the numbers come back.
+- In Word set Restart Each Section, open here: the menu shows Restart Each Section; save and open in Word: the same.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

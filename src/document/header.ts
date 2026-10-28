@@ -6,6 +6,7 @@ import {
   clipWatermark,
   columnCount,
   columnWidths,
+  lineNumberRestart,
   formatPageSetup,
   borderDisplay,
   borderLine,
@@ -77,7 +78,7 @@ export function packDocument(html: string, chrome: DocumentChrome) {
       ? `<!-- aiword-colwidths:${chrome.pageSetup.columnWidths.map((column) => `${column.width}/${column.space}`).join(",")} -->`
       : "",
     chrome.pageSetup.lineNumbers
-      ? `<!-- aiword-lines:${chrome.pageSetup.lineNumberRestart === "page" ? "page" : "1"} -->`
+      ? `<!-- aiword-lines:${chrome.pageSetup.lineNumberRestart === "continuous" ? "1" : chrome.pageSetup.lineNumberRestart} -->`
       : "",
     chrome.pageSetup.watermark ? `<!-- aiword-watermark:${encodeURIComponent(chrome.pageSetup.watermark)} -->` : "",
     chrome.pageSetup.border === "none"
@@ -183,8 +184,8 @@ export function unpackDocument(raw: string) {
     } else if (match[1] === "lines") {
       chrome.pageSetup = {
         ...chrome.pageSetup,
-        lineNumbers: value === "1" || value === "page",
-        lineNumberRestart: value === "page" ? "page" : "continuous",
+        lineNumbers: value === "1" || value === "page" || value === "section",
+        lineNumberRestart: lineNumberRestart(value),
       }
     } else if (match[1] === "watermark") {
       chrome.pageSetup = { ...chrome.pageSetup, watermark: clipWatermark(value) }
