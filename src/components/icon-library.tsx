@@ -1,6 +1,7 @@
 import { readCache, readCacheAsync, writeCache } from "@/lib/asset-cache"
 import type { Editor } from "@tiptap/core"
 import { useEffect, useMemo, useState } from "react"
+import { createPortal } from "react-dom"
 
 type IconHit = {
   prefix: string
@@ -107,7 +108,8 @@ export function IconLibrary({ editor, onClose }: { editor: Editor; onClose: () =
     onClose()
   }
 
-  return (
+  // On the page itself, not in the ribbon panel's layer (see DialogFrame).
+  return createPortal(
     <div className="asset-library-backdrop" onMouseDown={onClose}>
       <div
         role="dialog"
@@ -168,7 +170,8 @@ export function IconLibrary({ editor, onClose }: { editor: Editor; onClose: () =
           {busy ? "Loading…" : status || `${shown.length} icons`} · Powered by Iconify
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
