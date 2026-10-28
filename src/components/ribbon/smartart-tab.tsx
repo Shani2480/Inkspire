@@ -63,6 +63,7 @@ export function useSmartArtState() {
         labels: String(object.attrs.labels ?? "[]"),
         levels: String(object.attrs.levels ?? "[]"),
         pictures: String(object.attrs.pictures ?? "[]"),
+        looks: String(object.attrs.looks ?? "[]"),
         layout: String(object.attrs.layout || "list"),
         style: String(object.attrs.style || "flat"),
         rtl: object.attrs.rtl === true,
@@ -70,7 +71,7 @@ export function useSmartArtState() {
     },
   })
   const active = useSmartArtItem((state) => state.index)
-  const items = found ? readItems(found.labels, found.levels, found.pictures) : []
+  const items = found ? readItems(found.labels, found.levels, found.pictures, found.looks) : []
   return { editor, found, items, active: Math.min(active, Math.max(0, items.length - 1)) }
 }
 

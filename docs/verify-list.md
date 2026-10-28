@@ -426,6 +426,13 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Turn it with the orbit handle, save, open in Word: still a 3-D model (Format 3D Model tab), at the new turn.
 - Save without turning it, open in Word: the same model as before.
 
+## SmartArt Format tab and Hierarchy tree (2026-10-28)
+
+- Insert a Hierarchy, Demote two items under the second: they hang below it, joined by lines; Promote puts them back.
+- Click a shape, select the graphic, Format → Change Shape → Oval, Shape Fill, Text Fill, Larger: only that shape
+  changes; Add Shape After and Move Down keep its look with it.
+- Format → Size → Width: the graphic gets that width; Wrap Text → Square: text flows beside it.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

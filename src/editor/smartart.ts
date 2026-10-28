@@ -1,5 +1,5 @@
 import { objectBox, objectLayoutAttributes } from "@/editor/object-frame"
-import { readItems, writeItems } from "@/editor/smartart-model"
+import { blockEnd, readItems, writeItems, type SmartArtItem } from "@/editor/smartart-model"
 import { Node, mergeAttributes } from "@tiptap/core"
 import type { Node as ProseNode } from "@tiptap/pm/model"
 import { create } from "zustand"
@@ -81,11 +81,13 @@ function paintSmartArt(dom: HTMLElement, node: ProseNode) {
     labels = defaultLabels(layout)
   }
   const accent = String(node.attrs.accent || "#0f6cbd")
-  const items = readItems(JSON.stringify(labels), node.attrs.levels, node.attrs.pictures)
+  const items = readItems(JSON.stringify(labels), node.attrs.levels, node.attrs.pictures, node.attrs.looks)
   const levels = items.map((item) => item.level)
   const withPicture = PICTURE_LAYOUTS.includes(layout)
   dom.dataset.layout = layout
   dom.dataset.pictures = String(node.attrs.pictures || "[]")
+  dom.dataset.looks = String(node.attrs.looks || "[]")
+  dom.style.setProperty("--smartart-line", accent)
   dom.dataset.style = String(node.attrs.style || "flat")
   dom.dir = node.attrs.rtl === true ? "rtl" : "ltr"
   for (const name of [...dom.classList].filter((item) => item.startsWith("smartart-"))) {
@@ -93,6 +95,7 @@ function paintSmartArt(dom: HTMLElement, node: ProseNode) {
   }
   dom.classList.add("smartart", `smartart-${layout}`)
   dom.replaceChildren()
+  const cells: HTMLElement[] = []
   labels.forEach((label, index) => {
     const cell = document.createElement("div")
     cell.className = "smartart-cell"
@@ -125,8 +128,61 @@ function paintSmartArt(dom: HTMLElement, node: ProseNode) {
     if (layout === "process" && index < labels.length - 1) {
       cell.dataset.arrow = "1"
     }
-    dom.append(cell)
+    paintLook(cell, items[index])
+    cells.push(cell)
   })
+  if (layout === "hierarchy") {
+    // Hierarchy draws the outline as a tree: each item over a row of the items under it, joined by lines.
+    const tree = document.createElement("div")
+    tree.className = "smartart-tree"
+    growTree(items, cells, 0, cells.length, tree)
+    dom.append(tree)
+  } else {
+    dom.append(...cells)
+  }
+}
+
+/** The items from `start` to `end` as branches of `parent`, each holding its own block's items under it. */
+function growTree(items: SmartArtItem[], cells: HTMLElement[], start: number, end: number, parent: HTMLElement) {
+  let index = start
+  while (index < end) {
+    const stop = Math.min(end, blockEnd(items, index))
+    const branch = document.createElement("div")
+    branch.className = "smartart-branch"
+    branch.append(cells[index]!)
+    if (stop > index + 1) {
+      const children = document.createElement("div")
+      children.className = "smartart-children"
+      growTree(items, cells, index + 1, stop, children)
+      branch.append(children)
+    }
+    parent.append(branch)
+    index = stop
+  }
+}
+
+/** A shape's own look from the SmartArt Format tab, over the graphic's colours and style. */
+function paintLook(cell: HTMLElement, item: SmartArtItem | undefined) {
+  const look = item?.look
+  if (!look) {
+    return
+  }
+  if (look.shape) {
+    cell.dataset.shape = look.shape
+  }
+  if (look.fill) {
+    cell.style.background = look.fill
+  }
+  if (look.line) {
+    cell.style.borderColor = look.line
+  }
+  if (look.text) {
+    cell.style.color = look.text
+  }
+  if (look.size) {
+    // Larger and Smaller: a tenth of the shape's size a step, as Word grows and shrinks a shape.
+    cell.style.setProperty("zoom", String(Math.round((1 + look.size / 10) * 100) / 100))
+  }
 }
 
 export const SmartArt = Node.create({
@@ -166,6 +222,13 @@ export const SmartArt = Node.create({
         default: "[]",
         parseHTML: (element) => element.getAttribute("data-pictures") || "[]",
         renderHTML: (attributes) => ({ "data-pictures": attributes.pictures || "[]" }),
+      },
+      /** Each shape's own look from the SmartArt Format tab (`SmartArtLook`), or [] when none has one. */
+      looks: {
+        default: "[]",
+        parseHTML: (element) => element.getAttribute("data-looks") || "[]",
+        renderHTML: (attributes) =>
+          attributes.looks && attributes.looks !== "[]" ? { "data-looks": attributes.looks } : {},
       },
       accent: {
         default: "#0f6cbd",
@@ -239,7 +302,7 @@ export const SmartArt = Node.create({
           }
           const reader = new FileReader()
           reader.addEventListener("load", () => {
-            const items = readItems(node.attrs.labels, node.attrs.levels, node.attrs.pictures)
+            const items = readItems(node.attrs.labels, node.attrs.levels, node.attrs.pictures, node.attrs.looks)
             if (items[index]) {
               items[index] = { ...items[index]!, picture: String(reader.result) }
               editor.chain().updateAttributes("smartArt", writeItems(items)).run()
@@ -279,6 +342,7 @@ export const SmartArt = Node.create({
             shown !== updated.attrs.labels ||
             levelsShown !== levelsNow ||
             picturesShown !== picturesNow ||
+            String(body.dataset.looks || "[]") !== String(updated.attrs.looks || "[]") ||
             body.dataset.layout !== updated.attrs.layout
           ) {
             paintSmartArt(body, updated)

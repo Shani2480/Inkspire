@@ -7,6 +7,33 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### SmartArt: a Format tab, and Hierarchy drawn as a tree
+
+- **What was wrong:**
+  - A SmartArt graphic brought only the SmartArt Design tab. Word also has a Format tab for the shape and the graphic.
+  - Hierarchy drew its outline levels as an indented column, not as a tree.
+- **What changed:**
+  - `smartart-format-tab.tsx` (new), shown as Format beside SmartArt Design. It acts on the shape the caret was
+    last in:
+    - Shapes: Change Shape (Rectangle, Rounded Rectangle, Oval, Hexagon, Diamond, Parallelogram), Larger, Smaller.
+    - Shape Styles: Shape Fill, Shape Outline. WordArt Styles: Text Fill. Automatic goes back to the graphic's
+      colours.
+    - Arrange (Position, Wrap Text, Bring Forward, Send Backward, Selection Pane, Align, Rotate) and Size (Height,
+      Width) act on the whole graphic, as for other objects. Both ribbon layouts.
+  - `smartart-model.ts`: each item can carry its own look (`SmartArtLook`, `withLook`). It is kept in a new `looks`
+    attribute and stays with its item through Add Shape, Promote, Demote and Move.
+  - `smartart.ts`: Hierarchy draws each item over a row of the items under it, joined by elbow lines in the
+    graphic's colour (`growTree`). The text order is unchanged, so typing and the Text Pane work as before.
+- **Tests:** `smartart-model.test.ts` (a look set, merged and cleared; Larger/Smaller steps; looks through save
+  attributes and moves). All 1144 tests pass.
+- **Checked in Chrome:** a Hierarchy of six items over three levels draws as a tree. Format → Change Shape → Oval,
+  Shape Fill and Larger twice on "Sales" made it a filled, larger oval, with the lines still meeting each shape.
+- **Open:**
+  - Shape Effects, WordArt quick styles and Text Outline are not on the tab.
+  - Only one shape is acted on at a time.
+  - The single line ribbon's Format tab was not looked at.
+  - SmartArt made in the app is still saved to `.docx` as a picture carrying the graphic.
+
 ### 3-D models from Word open in Word's pose and stay Word's models when turned
 
 - **What was wrong:**

@@ -1,9 +1,65 @@
 /** A SmartArt graphic's text as the Design tab edits it (22.1): items with an outline level, in reading order. */
-export type SmartArtItem = { text: string; level: number; picture?: string }
+export type SmartArtItem = { text: string; level: number; picture?: string; look?: SmartArtLook }
+
+/** The SmartArt Format tab's shapes (22.1): Change Shape's choices. */
+export const SMARTART_SHAPES = [
+  { id: "rect", label: "Rectangle" },
+  { id: "rounded", label: "Rounded Rectangle" },
+  { id: "ellipse", label: "Oval" },
+  { id: "hexagon", label: "Hexagon" },
+  { id: "diamond", label: "Diamond" },
+  { id: "parallelogram", label: "Parallelogram" },
+] as const
+
+export type SmartArtShape = (typeof SMARTART_SHAPES)[number]["id"]
+
+/**
+ * One shape's own look, set on the SmartArt Format tab over the graphic's colours and style: its outline, Shape
+ * Fill and Shape Outline, Text Fill, and Larger / Smaller steps.
+ */
+export type SmartArtLook = { shape?: SmartArtShape; fill?: string; line?: string; text?: string; size?: number }
+
+/** Larger and Smaller go up to this many steps either way, as Word's do. */
+export const MAX_SIZE_STEP = 5
+
+function readLook(value: unknown): SmartArtLook | undefined {
+  if (!value || typeof value !== "object") {
+    return undefined
+  }
+  const raw = value as Record<string, unknown>
+  const look: SmartArtLook = {}
+  if (SMARTART_SHAPES.some((shape) => shape.id === raw.shape)) {
+    look.shape = raw.shape as SmartArtShape
+  }
+  for (const key of ["fill", "line", "text"] as const) {
+    if (typeof raw[key] === "string" && /^#[0-9a-f]{6}$/i.test(raw[key] as string)) {
+      look[key] = raw[key] as string
+    }
+  }
+  const size = Number(raw.size)
+  if (Number.isInteger(size) && size !== 0) {
+    look.size = Math.max(-MAX_SIZE_STEP, Math.min(MAX_SIZE_STEP, size))
+  }
+  return Object.keys(look).length > 0 ? look : undefined
+}
+
+/** The item with its look changed; a key set to undefined goes back to the graphic's own. */
+export function withLook(item: SmartArtItem, change: Partial<Record<keyof SmartArtLook, unknown>>): SmartArtItem {
+  const merged: Record<string, unknown> = { ...item.look, ...change }
+  for (const key of Object.keys(merged)) {
+    if (merged[key] === undefined || merged[key] === "") {
+      delete merged[key]
+    }
+  }
+  const look = readLook(merged)
+  const next: SmartArtItem = { ...item }
+  delete next.look
+  return look ? { ...next, look } : next
+}
 
 export const MAX_LEVEL = 4
 
-export function readItems(labels: unknown, levels: unknown, pictures?: unknown): SmartArtItem[] {
+export function readItems(labels: unknown, levels: unknown, pictures?: unknown, looks?: unknown): SmartArtItem[] {
   const read = (value: unknown): unknown[] => {
     try {
       const parsed = typeof value === "string" ? JSON.parse(value) : value
@@ -15,13 +71,16 @@ export function readItems(labels: unknown, levels: unknown, pictures?: unknown):
   const texts = read(labels).map(String)
   const depth = read(levels)
   const images = read(pictures)
+  const shapes = read(looks)
   return texts.map((text, index) => {
     const level = Number(depth[index])
     const picture = typeof images[index] === "string" ? (images[index] as string) : ""
+    const look = readLook(shapes[index])
     return {
       text,
       level: Number.isInteger(level) ? Math.min(MAX_LEVEL, Math.max(0, level)) : 0,
       ...(picture ? { picture } : {}),
+      ...(look ? { look } : {}),
     }
   })
 }
@@ -31,6 +90,7 @@ export function writeItems(items: SmartArtItem[]) {
     labels: JSON.stringify(items.map((item) => item.text)),
     levels: JSON.stringify(items.map((item) => item.level)),
     pictures: JSON.stringify(items.map((item) => item.picture ?? "")),
+    looks: JSON.stringify(items.some((item) => item.look) ? items.map((item) => item.look ?? null) : []),
   }
 }
 
