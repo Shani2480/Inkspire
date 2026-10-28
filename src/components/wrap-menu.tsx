@@ -3,6 +3,7 @@ import { WrapGlyph } from "@/components/menu-icons"
 import { useObjectPreview } from "@/components/object-preview-hook"
 import { defaultPictureWrap, setDefaultPictureWrap, useLayoutDialog } from "@/document/object-layout"
 import type { ObjectRun } from "@/editor/object-preview"
+import { canEditWrapPoints, startEditWrapPoints } from "@/editor/edit-wrap-points"
 import { objectAnchoring, objectWrap, selectedObject, wrapChoicesFor } from "@/editor/objects"
 import { Check } from "lucide-react"
 import { useState, type ReactNode } from "react"
@@ -44,12 +45,22 @@ export function WrapTextMenu({ editor, close }: { editor: Editor | null; close: 
       })}
       <div className="layout-menu-separator" role="separator" />
       <Row
-        disabled
+        disabled={!canEditWrapPoints(editor)}
         title={
-          wrap === "tight" || wrap === "through" ? "The wrap follows the object's frame." : "For Tight and Through"
+          wrap === "tight" || wrap === "through"
+            ? object?.attrs.rotate
+              ? "Not for a turned object"
+              : undefined
+            : "For Tight and Through"
         }
         onEnter={() => preview?.restore()}
-        onClick={() => undefined}
+        onClick={() => {
+          preview?.restore()
+          close()
+          if (editor) {
+            startEditWrapPoints(editor)
+          }
+        }}
       >
         Edit Wrap Points
       </Row>

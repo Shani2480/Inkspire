@@ -934,6 +934,11 @@ function anchorLayout(anchor: MarkupNode | undefined): DrawingLayout | undefined
   const wrapText = wrapNode ? anyAttr(wrapNode, "wrapText") : undefined
   const allowOverlap = flag("allowOverlap")
   const locked = flag("locked")
+  const polygonNode = wrapNode?.children.find((child) => child.local === "wrapPolygon")
+  const polygonPoints = (polygonNode?.children ?? [])
+    .filter((child) => child.local === "start" || child.local === "lineTo")
+    .map((child): [number, number] => [readInt(anyAttr(child, "x")) ?? 0, readInt(anyAttr(child, "y")) ?? 0])
+  const polygonEdited = anyAttr(polygonNode, "edited")
   return {
     wrap: wrapNode ? WRAP_ELEMENTS[wrapNode.local]! : "none",
     behind: flag("behindDoc") === true,
@@ -944,6 +949,9 @@ function anchorLayout(anchor: MarkupNode | undefined): DrawingLayout | undefined
     dist: { t: dist("distT"), b: dist("distB"), l: dist("distL"), r: dist("distR") },
     ...(allowOverlap !== undefined ? { allowOverlap } : {}),
     ...(locked !== undefined ? { locked } : {}),
+    ...(polygonPoints.length >= 3
+      ? { polygon: { points: polygonPoints, edited: polygonEdited === "1" || polygonEdited === "true" } }
+      : {}),
   }
 }
 

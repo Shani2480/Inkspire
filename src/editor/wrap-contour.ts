@@ -84,6 +84,99 @@ export function contourPolygon(rows: ContourRows, box: ContourBox) {
   return `polygon(${points.map(([x, y]) => `${Math.round(x * 10) / 10}px ${Math.round(y * 10) / 10}px`).join(", ")})`
 }
 
+// --- Wrap points (Edit Wrap Points, Word's wp:wrapPolygon) ------------------------------------------------------
+
+/** Word's wrap outline box: points run from 0 to this across and down the object. */
+export const WRAP_BOX = 21600
+
+export type WrapPoint = [number, number]
+
+/** The points of a `wrapPoints` attribute ("x,y x,y …"); empty when there are fewer than three. */
+export function parseWrapPoints(value: unknown): WrapPoint[] {
+  const points = String(value ?? "")
+    .trim()
+    .split(/\s+/)
+    .map((pair) => pair.split(",").map(Number))
+    .filter((pair): pair is WrapPoint => pair.length === 2 && pair.every(Number.isFinite))
+  return points.length >= 3 ? points : []
+}
+
+export function wrapPointsString(points: WrapPoint[]) {
+  return points.map(([x, y]) => `${Math.round(x)},${Math.round(y)}`).join(" ")
+}
+
+/** The drawn extent of each band of a closed outline in Word's box, sampled at each band's top, middle and bottom. */
+export function rowsOfPolygon(points: WrapPoint[], rows = ROWS): ContourRows {
+  const result: ContourRows = []
+  for (let row = 0; row < rows; row += 1) {
+    let left = Infinity
+    let right = -Infinity
+    for (const part of [0.02, 0.5, 0.98]) {
+      const y = ((row + part) / rows) * WRAP_BOX
+      points.forEach((from, index) => {
+        const to = points[(index + 1) % points.length]!
+        if ((from[1] <= y && to[1] > y) || (to[1] <= y && from[1] > y)) {
+          const x = from[0] + ((y - from[1]) / (to[1] - from[1])) * (to[0] - from[0])
+          left = Math.min(left, x)
+          right = Math.max(right, x)
+        }
+      })
+    }
+    result.push(right < left ? null : [left / WRAP_BOX, right / WRAP_BOX])
+  }
+  return result
+}
+
+/** Drops the points that lie within `tolerance` of the line between their neighbours (Douglas–Peucker). */
+function simplify(points: WrapPoint[], tolerance: number): WrapPoint[] {
+  if (points.length <= 2) {
+    return points
+  }
+  const [a, b] = [points[0]!, points[points.length - 1]!]
+  const length = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
+  let far = 0
+  let at = 0
+  points.forEach((point, index) => {
+    const distance = Math.abs((b[0] - a[0]) * (a[1] - point[1]) - (a[0] - point[0]) * (b[1] - a[1])) / length
+    if (distance > far) {
+      far = distance
+      at = index
+    }
+  })
+  if (far <= tolerance) {
+    return [a, b]
+  }
+  return [...simplify(points.slice(0, at + 1), tolerance).slice(0, -1), ...simplify(points.slice(at), tolerance)]
+}
+
+/**
+ * The outline as wrap points to start Edit Wrap Points from: down the left edge of what is drawn and back up the
+ * right, with the points that add nothing dropped; the object's box when it has no outline of its own.
+ */
+export function polygonOfRows(rows: ContourRows | null): WrapPoint[] {
+  const box: WrapPoint[] = [
+    [0, 0],
+    [0, WRAP_BOX],
+    [WRAP_BOX, WRAP_BOX],
+    [WRAP_BOX, 0],
+  ]
+  const drawn = (rows ?? []).map((row, index) => ({ row, index })).filter((item) => item.row !== null)
+  if (drawn.length === 0) {
+    return box
+  }
+  const band = WRAP_BOX / rows!.length
+  const left: WrapPoint[] = []
+  const right: WrapPoint[] = []
+  for (const { row, index } of drawn) {
+    const [from, to] = row!
+    left.push([from * WRAP_BOX, index * band], [from * WRAP_BOX, (index + 1) * band])
+    right.push([to * WRAP_BOX, index * band], [to * WRAP_BOX, (index + 1) * band])
+  }
+  const tolerance = WRAP_BOX * 0.012
+  const outline = [...simplify(left, tolerance), ...simplify(right.reverse(), tolerance)]
+  return outline.map(([x, y]) => [Math.round(x), Math.round(y)])
+}
+
 // --- Reading an object's outline ----------------------------------------------------------------------------------
 
 const cache = new Map<string, ContourRows | null>()
@@ -178,6 +271,19 @@ function sourceOf(node: ProseNode): Source | null {
  * ready), or for an object that wraps by its box (a text box, a chart, a picture with no transparency).
  */
 export function contourOf(node: ProseNode): ContourRows | null {
+  const own = parseWrapPoints(node.attrs.wrapPoints)
+  if (own.length > 0) {
+    const key = `points:${String(node.attrs.wrapPoints)}`
+    if (!cache.has(key)) {
+      cache.set(key, rowsOfPolygon(own))
+    }
+    return cache.get(key) ?? null
+  }
+  return autoContourOf(node)
+}
+
+/** The outline read from the object's drawing, leaving out wrap points it was given. */
+export function autoContourOf(node: ProseNode): ContourRows | null {
   const found = typeof document === "undefined" ? null : sourceOf(node)
   if (!found) {
     return null

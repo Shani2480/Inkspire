@@ -221,6 +221,14 @@ export function floatingAttributes(defaultWrap: ObjectWrap = "inline") {
       parseHTML: (element: HTMLElement) => element.getAttribute("data-lock-anchor") === "1",
       renderHTML: (attributes: Record<string, unknown>) => (attributes.lockAnchor ? { "data-lock-anchor": "1" } : {}),
     },
+    // Tight and Through: the outline text wraps around as "x,y x,y …" in Word's 21600 box over the object (empty:
+    // found from the object's drawing), and whether Edit Wrap Points set it.
+    wrapPoints: textAttr("wrapPoints", "data-wrap-points", ""),
+    wrapEdited: {
+      default: false,
+      parseHTML: (element: HTMLElement) => element.getAttribute("data-wrap-edited") === "1",
+      renderHTML: (attributes: Record<string, unknown>) => (attributes.wrapEdited ? { "data-wrap-edited": "1" } : {}),
+    },
   }
 }
 
@@ -681,7 +689,7 @@ function numberAttr(key: string, name: string, fallback: number) {
   }
 }
 
-function findObject(state: EditorState) {
+export function findObject(state: EditorState) {
   const { selection } = state
   if (selection instanceof NodeSelection && isObjectNode(selection.node)) {
     return { pos: selection.from, node: selection.node }

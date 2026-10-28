@@ -7,6 +7,38 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### Edit Wrap Points, and Word's wrap outline kept
+
+- **What was wrong:**
+  - Wrap Text → Edit Wrap Points was always greyed out.
+  - Word's own wrap outline (`wp:wrapPolygon`) was neither read nor written: a Tight picture from Word wrapped by the
+    outline the app found, and every Tight or Through object was saved with its rectangle.
+- **What changed:**
+  - `objects.ts`: floating objects have `wrapPoints` (the outline as points in Word's 21600 box over the object) and
+    `wrapEdited`.
+  - `wrap-contour.ts`: an object with wrap points wraps by them (`rowsOfPolygon`), else by its drawing as before;
+    `polygonOfRows` turns the found outline into a few points to start editing from.
+  - `edit-wrap-points.ts` (new): Edit Wrap Points for a floating object with Tight or Through wrap (not turned).
+    It draws the outline as a red dashed line with black handles over the object. Drag a handle to move its point;
+    drag the line to add a point there; Ctrl+click a handle to delete its point (three stay). Each change is one undo
+    step and reflows the text; Escape or a click away ends it. The Wrap Text menu (every ribbon and the floating
+    toolbar) starts it.
+  - `wml-read.ts`, `inlines.ts`: `wp:wrapPolygon` is read with its `edited` flag (Word's closing point dropped) and
+    written back closed, edited="1" after Edit Wrap Points; an object with no outline of its own still gets its
+    rectangle. A changed outline counts as a changed layout, so the drawing is written anew.
+- **Tests:** `wrap-contour.test.ts` (polygon bands, outline to points and back, parsing, add and delete),
+  `floating.test.ts` (outline written closed and read back; the rectangle by default). All 1154 tests pass.
+- **Checked:**
+  - Headless Chrome: a 200 px square picture with Tight wrap. Wrap Text → Edit Wrap Points showed four handles.
+    Dragging the bottom-right one in made the outline a triangle, and the text moved in along the diagonal (seen
+    with the picture faded). Escape ended it.
+  - The Open XML validator finds no errors in a saved file with an edited outline.
+- **Open:**
+  - Not for turned objects; the menu says so.
+  - The outline isn't checked in Word.
+  - Word may scale picture outlines differently from the plain 21600 box assumed here.
+  - Text still flows on one side of the object only.
+
 ### Shape text: italic, underline, highlight, alignment, and Word's theme fonts and colours
 
 - **What was wrong:**
