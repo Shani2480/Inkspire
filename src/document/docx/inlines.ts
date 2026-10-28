@@ -901,6 +901,9 @@ export type FloatingLayout = {
   alignH?: string
   alignV?: string
   fromH?: "margin" | "page"
+  /** Tight and Through: the wrap outline as "x,y x,y …" in Word's 21600 box, and whether it was edited. */
+  wrapPoints?: string
+  wrapEdited?: boolean
 }
 
 const SIDE_FROM_WORD: Record<string, NonNullable<FloatingLayout["side"]>> = {
@@ -1008,6 +1011,14 @@ export function floatingLayout(
   if (onPage) {
     result.fromH = "page"
   }
+  if (layout.polygon && (layout.wrap === "tight" || layout.wrap === "through")) {
+    // Word closes the outline back to its start; the editor keeps each point once.
+    const points = layout.polygon.points
+    const [first, last] = [points[0]!, points[points.length - 1]!]
+    const open = points.length > 3 && first[0] === last[0] && first[1] === last[1] ? points.slice(0, -1) : points
+    result.wrapPoints = open.map(([px, py]) => `${px},${py}`).join(" ")
+    result.wrapEdited = layout.polygon.edited
+  }
   return result
 }
 
@@ -1071,6 +1082,9 @@ function floatingHtml(layout: FloatingLayout) {
   }
   if (layout.fromH === "page") {
     html += ` data-from-h="page"`
+  }
+  if (layout.wrapPoints) {
+    html += ` data-wrap-points="${layout.wrapPoints}"${layout.wrapEdited ? ` data-wrap-edited="1"` : ""}`
   }
   return html
 }
@@ -2268,6 +2282,14 @@ function editorLayout(node: JsonNode) {
   if (attrs.fromH === "page") {
     layout.fromH = "page"
   }
+  if (
+    (layout.wrap === "tight" || layout.wrap === "through") &&
+    typeof attrs.wrapPoints === "string" &&
+    attrs.wrapPoints
+  ) {
+    layout.wrapPoints = attrs.wrapPoints
+    layout.wrapEdited = attrs.wrapEdited === true
+  }
   return layout
 }
 
@@ -2301,7 +2323,8 @@ function sameLayout(
     (now.allowOverlap ?? true) === (was.allowOverlap ?? true) &&
     (now.locked ?? false) === (was.locked ?? false) &&
     (now.alignH ?? "") === (was.alignH ?? "") &&
-    (now.alignV ?? "") === (was.alignV ?? "")
+    (now.alignV ?? "") === (was.alignV ?? "") &&
+    (now.wrapPoints ?? "") === (was.wrapPoints ?? "")
   )
 }
 
@@ -2311,9 +2334,9 @@ function wrapXml(layout: FloatingLayout) {
     case "square":
       return `<wp:wrapSquare wrapText="${sides}"/>`
     case "tight":
-      return `<wp:wrapTight wrapText="${sides}">${wrapPolygon()}</wp:wrapTight>`
+      return `<wp:wrapTight wrapText="${sides}">${wrapPolygon(layout)}</wp:wrapTight>`
     case "through":
-      return `<wp:wrapThrough wrapText="${sides}">${wrapPolygon()}</wp:wrapThrough>`
+      return `<wp:wrapThrough wrapText="${sides}">${wrapPolygon(layout)}</wp:wrapThrough>`
     case "topBottom":
       return `<wp:wrapTopAndBottom/>`
     default:
@@ -2321,11 +2344,30 @@ function wrapXml(layout: FloatingLayout) {
   }
 }
 
-/** The picture's own rectangle, which Word wants as the outline Tight and Through wrap around. */
-function wrapPolygon() {
+/**
+ * The outline Tight and Through wrap around, in Word's 21600 box: the object's own (from Word or Edit Wrap Points),
+ * closed back to its start as Word writes it, else the object's rectangle.
+ */
+function wrapPolygon(layout: FloatingLayout) {
+  const points = (layout.wrapPoints ?? "")
+    .trim()
+    .split(/\s+/)
+    .map((pair) => pair.split(",").map(Number))
+    .filter((pair): pair is [number, number] => pair.length === 2 && pair.every(Number.isFinite))
+    .map(([x, y]) => [Math.round(x), Math.round(y)] as [number, number])
+  if (points.length < 3) {
+    return (
+      `<wp:wrapPolygon edited="0"><wp:start x="0" y="0"/><wp:lineTo x="0" y="21600"/>` +
+      `<wp:lineTo x="21600" y="21600"/><wp:lineTo x="21600" y="0"/><wp:lineTo x="0" y="0"/></wp:wrapPolygon>`
+    )
+  }
+  const [first, last] = [points[0]!, points[points.length - 1]!]
+  const closed = first[0] === last[0] && first[1] === last[1] ? points : [...points, first]
+  const [start, ...rest] = closed
   return (
-    `<wp:wrapPolygon edited="0"><wp:start x="0" y="0"/><wp:lineTo x="0" y="21600"/>` +
-    `<wp:lineTo x="21600" y="21600"/><wp:lineTo x="21600" y="0"/><wp:lineTo x="0" y="0"/></wp:wrapPolygon>`
+    `<wp:wrapPolygon edited="${layout.wrapEdited ? 1 : 0}"><wp:start x="${start![0]}" y="${start![1]}"/>` +
+    rest.map(([x, y]) => `<wp:lineTo x="${x}" y="${y}"/>`).join("") +
+    `</wp:wrapPolygon>`
   )
 }
 

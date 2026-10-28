@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest"
-import { contourPolygon, flipRows, isFullBox, rowsOfPixels } from "@/editor/wrap-contour"
+import {
+  WRAP_BOX,
+  contourPolygon,
+  flipRows,
+  isFullBox,
+  parseWrapPoints,
+  polygonOfRows,
+  rowsOfPixels,
+  rowsOfPolygon,
+} from "@/editor/wrap-contour"
+import { deleteWrapPoint, insertWrapPoint } from "@/editor/edit-wrap-points"
 
 /** A 4×4 image with a diamond-ish blob: opaque where `shape` has a 1. */
 function pixels(shape: string[]) {
@@ -57,5 +67,56 @@ describe("tight wrap outlines", () => {
     )
     expect(right).toContain("50px 0px")
     expect(right).toContain("0px 20px")
+  })
+})
+
+describe("wrap points", () => {
+  it("reads a polygon's extent band by band", () => {
+    // A triangle: its point at the top middle, its base across the bottom.
+    const rows = rowsOfPolygon(
+      [
+        [WRAP_BOX / 2, 0],
+        [WRAP_BOX, WRAP_BOX],
+        [0, WRAP_BOX],
+      ],
+      4,
+    )
+    expect(rows[0]![0]).toBeGreaterThan(0.35)
+    expect(rows[0]![1]).toBeLessThan(0.65)
+    expect(rows[3]![0]).toBeLessThan(0.15)
+    expect(rows[3]![1]).toBeGreaterThan(0.85)
+  })
+
+  it("turns an outline into a few points and back", () => {
+    const rows = rowsOfPixels(pixels(["0110", "0110", "1111", "1111"]), 4)
+    const points = polygonOfRows(rows)
+    expect(points.length).toBeLessThanOrEqual(8)
+    expect(rowsOfPolygon(points, 4).map((row) => row!.map((value) => Math.round(value * 4) / 4))).toEqual(rows)
+    expect(polygonOfRows(null)).toHaveLength(4)
+  })
+
+  it("parses only outlines of three points or more", () => {
+    expect(parseWrapPoints("0,0 10,10")).toEqual([])
+    expect(parseWrapPoints(" 0,0 10,10  5,20 ")).toEqual([
+      [0, 0],
+      [10, 10],
+      [5, 20],
+    ])
+  })
+
+  it("adds a point on the nearest line and deletes down to three", () => {
+    const square: [number, number][] = [
+      [0, 0],
+      [0, 100],
+      [100, 100],
+      [100, 0],
+    ]
+    const added = insertWrapPoint(square, [50, 98], 5)
+    expect(added?.index).toBe(2)
+    expect(added?.points[2]).toEqual([50, 98])
+    expect(insertWrapPoint(square, [50, 50], 5)).toBeNull()
+    const three = deleteWrapPoint(square, 0)
+    expect(three).toHaveLength(3)
+    expect(deleteWrapPoint(three, 0)).toBe(three)
   })
 })

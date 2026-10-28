@@ -32,6 +32,7 @@ import { ColumnSection } from "@/editor/columns"
 import { DrawingCanvas } from "@/editor/drawing"
 import { TableDrawing } from "@/editor/table-draw"
 import { EditPoints } from "@/editor/edit-points"
+import { EditWrapPoints } from "@/editor/edit-wrap-points"
 import { TextBoxFlow } from "@/editor/text-box-link"
 import { ObjectGrouping } from "@/editor/object-group"
 import {
@@ -141,6 +142,7 @@ export function createExtensions() {
     DrawingCanvas.configure(),
     TableDrawing,
     EditPoints,
+    EditWrapPoints,
     ColumnSection.configure(),
     ColumnBreak.configure(),
     ObjectGrouping.configure(),

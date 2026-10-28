@@ -361,6 +361,11 @@ export type DrawingLayout = {
   dist?: { t: number; b: number; l: number; r: number }
   allowOverlap?: boolean
   locked?: boolean
+  /**
+   * Tight and Through: the outline text wraps around (`wp:wrapPolygon`), in Word's 21600 by 21600 box over the
+   * object, and whether it was edited (Edit Wrap Points) rather than found by Word.
+   */
+  polygon?: { points: [number, number][]; edited: boolean }
 }
 
 export type Run = {

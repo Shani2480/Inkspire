@@ -447,6 +447,13 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - In Word give a shape's text a theme colour (Accent 2, Lighter 40%) and the Headings font; open here: the same
   colour and font.
 
+## Edit Wrap Points (2026-10-28)
+
+- A floating picture with Tight wrap, Wrap Text → Edit Wrap Points: a red dashed outline with black handles. Drag a
+  corner in: the text follows the new outline. Drag the line: a new point. Ctrl+click a point: it goes. Esc ends.
+- Save, open in Word, Wrap Text → Edit Wrap Points: Word shows the same outline, and the text wraps the same.
+- In Word edit a picture's wrap points, open here: the text wraps by Word's outline; save and reopen in Word: kept.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

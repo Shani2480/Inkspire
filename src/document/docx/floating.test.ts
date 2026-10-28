@@ -25,6 +25,28 @@ async function save(content: unknown[]) {
   return { bytes: saved.bytes, xml: decodeXml(findPart(pkg, pkg.mainPartName)!.data) }
 }
 
+describe("wrap points (Edit Wrap Points, wp:wrapPolygon)", () => {
+  it("writes the edited outline, closed, and reads it back", async () => {
+    const points = "0,0 4000,21600 21600,18000 15000,2000"
+    const { xml, bytes } = await save([
+      picture({ wrap: "tight", anchoring: "move", wrapPoints: points, wrapEdited: true }),
+      { type: "paragraph", content: [{ type: "text", text: "Around the outline" }] },
+    ])
+    expect(xml).toContain(
+      '<wp:wrapPolygon edited="1"><wp:start x="0" y="0"/><wp:lineTo x="4000" y="21600"/>' +
+        '<wp:lineTo x="21600" y="18000"/><wp:lineTo x="15000" y="2000"/><wp:lineTo x="0" y="0"/></wp:wrapPolygon>',
+    )
+    const opened = await openDocxBytes(bytes, "f.docx")
+    expect(opened.view.html).toContain(`data-wrap-points="${points}"`)
+    expect(opened.view.html).toContain('data-wrap-edited="1"')
+  })
+
+  it("writes the box when the object has no outline of its own", async () => {
+    const { xml } = await save([picture({ wrap: "through", anchoring: "move" }), { type: "paragraph" }])
+    expect(xml).toContain('<wp:wrapPolygon edited="0"><wp:start x="0" y="0"/><wp:lineTo x="0" y="21600"/>')
+  })
+})
+
 describe("floating pictures", () => {
   it("writes a picture that moves with text into the paragraph it is anchored to", async () => {
     const { xml } = await save([
