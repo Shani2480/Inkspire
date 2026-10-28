@@ -7,6 +7,24 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### v0.1.1: a macOS .dmg, and the installers carry the content security policy fix
+
+- **What was wrong:** no Mac build; the v0.1.0 installers blocked runtime styles and the spell-check dictionaries.
+- **What changed:**
+  - `release.yml`: a `macos` job on `macos-latest` builds `--target universal-apple-darwin --bundles dmg` (Apple
+    Silicon and Intel in one app) and uploads it; publishing waits for it.
+  - `tauri.conf.json`: `bundle.macOS` with ad-hoc signing (`signingIdentity: "-"`, no Developer ID yet, so not
+    notarized) and macOS 11 as the minimum.
+  - Version 0.1.1 in `package.json`, `package-lock.json`, `Cargo.toml`, `Cargo.lock`, `tauri.conf.json` and the
+    Flatpak metainfo.
+  - README and release notes: a macOS row and steps (drag to Applications; right-click Open, or Open Anyway in
+    Privacy & Security, the first time).
+- **Tests:** none new; CI green.
+- **Checked:** `cargo check` for `aarch64-apple-darwin` cannot run here (objc2 needs Apple's SDK); the release
+  run on GitHub's macOS runner is the build check.
+- **Open:** a Developer ID and notarization (removes the first-start block); nobody has started the .dmg on a Mac
+  yet.
+
 ### Installed builds: inline styles and the spell-check dictionaries were blocked by the content security policy
 
 - **What was wrong:** only in built apps (the .deb, AppImage, Flatpak, Windows installer and Android), not in
