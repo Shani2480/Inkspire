@@ -7,6 +7,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react"
+import { createPortal } from "react-dom"
 import { useHelp } from "@/document/help"
 
 /**
@@ -312,7 +313,9 @@ export function DialogFrame({
   const body = `word-dialog-body${tabs ? " is-tabbed" : ""} ${bodyClassName}`
   const bodyStyle = bodyHeight ? { height: bodyHeight, flex: "none" } : undefined
 
-  return (
+  // On the page itself: a dialog opened from the ribbon would otherwise sit in the ribbon panel's layer (its
+  // `will-change`), under the document.
+  return createPortal(
     <div className={`app-overlay fixed inset-0 ${className}`} style={{ zIndex: level }} role="presentation">
       <div
         ref={dialogRef}
@@ -365,7 +368,8 @@ export function DialogFrame({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
