@@ -21,6 +21,7 @@ in Word, Chrome or the desktop app.
 - **Checked:** on the Android tablet emulator, before and after: the CSP errors in the console are gone and the
   dictionary loads. The desktop builds use the same configuration.
 - **Open:** a v0.1.1 release would carry this to the installers.
+
 ### Install instructions for the v0.1.0 installers
 
 - **What was wrong:** the README's Download section was one paragraph; it did not say how to install each file.
