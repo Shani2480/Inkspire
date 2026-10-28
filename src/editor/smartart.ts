@@ -49,10 +49,28 @@ export const SMARTART_STYLES: { id: SmartArtStyle; label: string }[] = [
 ]
 
 /** The item the Design tab acts on: the last one the caret was in (22.1). */
-export const useSmartArtItem = create<{ index: number; set: (index: number) => void }>((set) => ({
+export const useSmartArtItem = create<{
+  index: number
+  /** Shapes picked besides the active one with Ctrl+click: the Format tab changes them all. */
+  more: number[]
+  set: (index: number) => void
+  toggle: (index: number) => void
+}>((set) => ({
   index: 0,
-  set: (index) => set({ index }),
+  more: [],
+  set: (index) => set({ index, more: [] }),
+  toggle: (index) =>
+    set((state) =>
+      index === state.index
+        ? state
+        : { more: state.more.includes(index) ? state.more.filter((at) => at !== index) : [...state.more, index] },
+    ),
 }))
+
+/** The shapes the Format tab acts on: the active one and any picked with it. */
+export function pickedItems(index: number, more: number[], count: number) {
+  return [...new Set([index, ...more])].filter((at) => at >= 0 && at < count)
+}
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -179,6 +197,12 @@ function paintLook(cell: HTMLElement, item: SmartArtItem | undefined) {
   if (look.text) {
     cell.style.color = look.text
   }
+  if (look.outline) {
+    cell.style.setProperty("-webkit-text-stroke", `0.6px ${look.outline}`)
+  }
+  if (look.effect) {
+    cell.dataset.effect = look.effect
+  }
   if (look.size) {
     // Larger and Smaller: a tenth of the shape's size a step, as Word grows and shrinks a shape.
     cell.style.setProperty("zoom", String(Math.round((1 + look.size / 10) * 100) / 100))
@@ -276,15 +300,35 @@ export const SmartArt = Node.create({
       }
       const onFocusIn = (event: FocusEvent) => {
         const cell = (event.target as HTMLElement).closest<HTMLElement>(".smartart-cell")
-        if (cell) {
+        if (cell && !picking) {
           useSmartArtItem.getState().set(Number(cell.dataset.index) || 0)
         }
       }
+      // Ctrl+click (or Shift+click) adds a shape to those the Format tab changes, as in Word.
+      let picking = false
       const onMouseDown = (event: MouseEvent) => {
-        if ((event.target as HTMLElement).closest(".smartart-cell")) {
-          event.stopPropagation()
+        const cell = (event.target as HTMLElement).closest<HTMLElement>(".smartart-cell")
+        if (!cell) {
+          return
+        }
+        event.stopPropagation()
+        if (event.ctrlKey || event.metaKey || event.shiftKey) {
+          event.preventDefault()
+          picking = true
+          useSmartArtItem.getState().toggle(Number(cell.dataset.index) || 0)
+          queueMicrotask(() => {
+            picking = false
+          })
         }
       }
+      const markPicked = () => {
+        const { index, more } = useSmartArtItem.getState()
+        const picked = more.length > 0 ? new Set([index, ...more]) : new Set<number>()
+        body.querySelectorAll<HTMLElement>(".smartart-cell").forEach((cell) => {
+          cell.toggleAttribute("data-picked", picked.has(Number(cell.dataset.index)))
+        })
+      }
+      const unsubscribe = useSmartArtItem.subscribe(markPicked)
       const onPick = (event: MouseEvent) => {
         const slot = (event.target as HTMLElement).closest<HTMLElement>(".smartart-picture")
         const pos = position()
@@ -346,6 +390,7 @@ export const SmartArt = Node.create({
             body.dataset.layout !== updated.attrs.layout
           ) {
             paintSmartArt(body, updated)
+            markPicked()
           }
           node = updated
           return true
@@ -355,6 +400,7 @@ export const SmartArt = Node.create({
           body.removeEventListener("focusin", onFocusIn)
           body.removeEventListener("mousedown", onMouseDown)
           body.removeEventListener("click", onPick)
+          unsubscribe()
           box.destroy()
         },
         ignoreMutation: () => true,

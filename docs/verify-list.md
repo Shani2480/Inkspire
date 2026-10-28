@@ -463,6 +463,16 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
   Word's Basic Block List, with the change.
 - Open a saved file in LibreOffice: the graphic is drawn as in the app.
 
+## SmartArt Format: effects, text outline, several shapes (2026-10-28)
+
+- [ ] Insert a Hierarchy, click a shape, Ctrl+click two more: all three show the selection outline.
+- [ ] Format > Shape Effects > Shadow, Glow and Soft Edges each change only the picked shapes; No Effect clears it.
+- [ ] Format > Text Outline gives the picked shapes' text an outline; No Outline clears it.
+- [ ] Larger twice on three picked shapes of different sizes grows each from its own size.
+- [ ] A plain click on another shape drops the picks.
+- [ ] Single-line ribbon: Shape Effects and Text Outline are there and work the same.
+- [ ] Save and reopen in the app: the effects and outline come back.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

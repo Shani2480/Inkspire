@@ -7,6 +7,27 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### SmartArt Format: Shape Effects, Text Outline and several shapes at once
+
+- **What was wrong:** the SmartArt Format tab changed one shape at a time and had no Shape Effects or Text
+  Outline.
+- **What changed:**
+  - `smartart-model.ts`: a shape's look takes `effect` (Shadow, Glow, Soft Edges, `SMARTART_EFFECTS`) and
+    `outline` (a text outline colour); an effect the app does not know is dropped on reading.
+  - `smartart.ts`: Ctrl+click or Shift+click on a shape adds it to (or takes it from) the shapes the Format tab
+    changes; they show a selection outline (`data-picked`). A plain click starts over with one shape.
+    `pickedItems` lists the active shape and those picked with it.
+  - `smartart-format-tab.tsx`: Shape Effects in Shape Styles and Text Outline in WordArt Styles, on both ribbon
+    layouts. Every change (Change Shape, Larger, Smaller, the fills, outlines and effects) goes to all picked
+    shapes; Larger and Smaller step each shape from its own size. The picks stay for the next change.
+  - `index.css`: the effects drawn on a shape, and the picked outline.
+- **Tests:** `smartart-model.test.ts`: effect and outline set, saved and read back, an unknown effect dropped;
+  `pickedItems` keeps the active shape first and drops repeats and indexes past the end.
+- **Checked:** in Chrome (headless): Ctrl+clicked North and South with Sales; all three took Shadow, then Glow,
+  and a text outline; the others stayed as they were.
+- **Open:** the effects and text outline stay in the app's own attributes; the Word diagram's drawing part does not
+  carry them yet, so Word shows those shapes without them.
+
 ### SmartArt saved as Word's own diagram, and Word's SmartArt opened editable
 
 - **What was wrong:**
@@ -40,6 +61,7 @@ in Word, Chrome or the desktop app.
   - Text Word changed is taken on opening.
 
   All 1159 tests pass.
+
 - **Checked:**
   - Saved the app's Process and Hierarchy graphics from headless Chrome through the app's own save path. The Open XML
     validator finds 0 errors in them, and in a file holding all 14 layouts.

@@ -3695,7 +3695,7 @@ button.line-menu-row:focus-visible {
 }
 
 .object-bar .object-bar-button:focus-visible {
-  outline: 2px solid var(--app-accent, #0f6cbd);
+  outline: 2px solid var(--app-theme-primary);
   outline-offset: -2px;
 }
 
@@ -13448,4 +13448,22 @@ textarea.tp-input {
 /* A broken row's cells run from the top on each page, so the text a page shows is the text measured for it. */
 .page-editor tr:has(.page-gap-cell) > :is(td, th) {
   vertical-align: top !important;
+}
+
+/* SmartArt Format > Shape Effects on one shape, and the shapes Ctrl+clicked to change together. */
+.smartart .smartart-cell[data-effect="shadow"] {
+  box-shadow: 2px 3px 6px rgb(0 0 0 / 0.35);
+}
+.smartart .smartart-cell[data-effect="glow"] {
+  box-shadow: 0 0 10px 4px color-mix(in oklch, var(--smartart-accent, #0f6cbd) 60%, transparent);
+}
+.smartart .smartart-cell[data-effect="soft"] {
+  mask-image:
+    linear-gradient(to right, transparent, #000 8px, #000 calc(100% - 8px), transparent),
+    linear-gradient(to bottom, transparent, #000 8px, #000 calc(100% - 8px), transparent);
+  mask-composite: intersect;
+}
+.smartart .smartart-cell[data-picked] {
+  outline: 2px solid var(--app-theme-primary);
+  outline-offset: 2px;
 }
