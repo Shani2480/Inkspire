@@ -1,5 +1,6 @@
 import { AlignObjectsMenu, BringForwardMenu, RotateObjectMenu, SendBackwardMenu } from "@/components/arrange-menus"
 import { ColorMenu } from "@/components/color-menu"
+import { ContextGlyph } from "@/components/ribbon/context-icons"
 import { CurrentPositionIcon, CurrentWrapIcon } from "@/components/object-layout-icons"
 import { PositionMenu } from "@/components/position-menu"
 import {
@@ -17,11 +18,19 @@ import {
 import { MenuButton, RibbonCommand, RibbonGroup } from "@/components/ribbon/ribbon-button"
 import { SizeSpinner, SmallSplit } from "@/components/ribbon/shape-format-tab"
 import { SingleLineBar, type LineGroup } from "@/components/ribbon/single-line"
-import { setItems, useSmartArtState } from "@/components/ribbon/smartart-tab"
+import { useSmartArtState } from "@/components/ribbon/smartart-tab"
 import { WrapTextMenu } from "@/components/wrap-menu"
 import { useViewStore } from "@/document/view"
 import { selectedObject } from "@/editor/objects"
-import { MAX_SIZE_STEP, SMARTART_SHAPES, withLook, type SmartArtLook } from "@/editor/smartart-model"
+import { pickedItems, useSmartArtItem } from "@/editor/smartart"
+import {
+  MAX_SIZE_STEP,
+  SMARTART_EFFECTS,
+  SMARTART_SHAPES,
+  withLook,
+  writeItems,
+  type SmartArtLook,
+} from "@/editor/smartart-model"
 import { PX_PER_CM } from "@/editor/table-props"
 import type { Editor } from "@tiptap/core"
 import { useEditorState } from "@tiptap/react"
@@ -56,18 +65,21 @@ export function SmartArtFormatTab() {
     selector: ({ editor: current }) => graphicSize(current),
     equalityFn: (left, right) => left?.width === right?.width && left?.height === right?.height,
   })
+  const more = useSmartArtItem((state) => state.more)
   const item = items[active]
   const look = item?.look ?? {}
   const ready = Boolean(editor && found && item)
-  const restyle = (change: Partial<Record<keyof SmartArtLook, unknown>>) => {
-    setItems(
-      editor,
-      items.map((entry, index) => (index === active ? withLook(entry, change) : entry)),
-      active,
+  // The active shape and any picked with it (Ctrl+click) change together; the picks stay for the next change.
+  const picked = pickedItems(active, more, items.length)
+  const restyle = (change: (look: SmartArtLook) => Partial<Record<keyof SmartArtLook, unknown>>) => {
+    const next = items.map((entry, index) =>
+      picked.includes(index) ? withLook(entry, change(entry.look ?? {})) : entry,
     )
+    editor?.chain().updateAttributes("smartArt", writeItems(next)).run()
   }
   const steps = look.size ?? 0
-  const grow = (delta: number) => restyle({ size: Math.max(-MAX_SIZE_STEP, Math.min(MAX_SIZE_STEP, steps + delta)) })
+  const grow = (delta: number) =>
+    restyle((own) => ({ size: Math.max(-MAX_SIZE_STEP, Math.min(MAX_SIZE_STEP, (own.size ?? 0) + delta)) }))
   const resize = (axis: "width" | "height", cm: number) => {
     if (cm > 0) {
       editor
@@ -89,7 +101,7 @@ export function SmartArtFormatTab() {
           key={shape.id}
           selected={(look.shape ?? "") === shape.id}
           onClick={() => {
-            restyle({ shape: shape.id })
+            restyle(() => ({ shape: shape.id }))
             close()
           }}
         >
@@ -98,19 +110,44 @@ export function SmartArtFormatTab() {
       ))}
     </div>
   )
-  const colorMenu = (key: "fill" | "line" | "text") => (close: () => void) => (
+  const colorMenu = (key: "fill" | "line" | "text" | "outline") => (close: () => void) => (
     <ColorMenu
       active={look[key] ?? ""}
-      clearLabel="Automatic"
+      clearLabel={key === "outline" ? "No Outline" : "Automatic"}
       onClear={() => {
-        restyle({ [key]: undefined })
+        restyle(() => ({ [key]: undefined }))
         close()
       }}
       onSelect={(color) => {
-        restyle({ [key]: color })
+        restyle(() => ({ [key]: color }))
         close()
       }}
     />
+  )
+  const effectsMenu = (close: () => void) => (
+    <div className="flex w-44 flex-col">
+      <MenuButton
+        selected={!look.effect}
+        onClick={() => {
+          restyle(() => ({ effect: undefined }))
+          close()
+        }}
+      >
+        No Effect
+      </MenuButton>
+      {SMARTART_EFFECTS.map((effect) => (
+        <MenuButton
+          key={effect.id}
+          selected={look.effect === effect.id}
+          onClick={() => {
+            restyle(() => ({ effect: effect.id }))
+            close()
+          }}
+        >
+          {effect.label}
+        </MenuButton>
+      ))}
+    </div>
   )
   const heightField = (
     <SizeSpinner
@@ -170,7 +207,21 @@ export function SmartArtFormatTab() {
             disabled: !ready,
             menu: colorMenu("line"),
           },
+          {
+            id: "effects",
+            label: "Shape Effects",
+            icon: <ContextGlyph label="Shape Effects" />,
+            disabled: !ready,
+            menu: effectsMenu,
+          },
           { id: "text-fill", label: "Text Fill", icon: <LineWordArtIcon />, disabled: !ready, menu: colorMenu("text") },
+          {
+            id: "text-outline",
+            label: "Text Outline",
+            icon: <LineShapeOutlineIcon color={look.outline ?? "#242424"} />,
+            disabled: !ready,
+            menu: colorMenu("outline"),
+          },
         ],
       },
       {
@@ -255,12 +306,20 @@ export function SmartArtFormatTab() {
           <RibbonCommand size="small" label="Shape Outline" disabled={!ready} menu={colorMenu("line")}>
             <LineShapeOutlineIcon color={look.line ?? "#0f6cbd"} />
           </RibbonCommand>
+          <RibbonCommand size="small" label="Shape Effects" disabled={!ready} menu={effectsMenu}>
+            <ContextGlyph label="Shape Effects" />
+          </RibbonCommand>
         </div>
       </RibbonGroup>
       <RibbonGroup label="WordArt Styles">
-        <RibbonCommand size="small" label="Text Fill" disabled={!ready} menu={colorMenu("text")}>
-          <LineWordArtIcon />
-        </RibbonCommand>
+        <div className="flex flex-col py-0.5">
+          <RibbonCommand size="small" label="Text Fill" disabled={!ready} menu={colorMenu("text")}>
+            <LineWordArtIcon />
+          </RibbonCommand>
+          <RibbonCommand size="small" label="Text Outline" disabled={!ready} menu={colorMenu("outline")}>
+            <LineShapeOutlineIcon color={look.outline ?? "#242424"} />
+          </RibbonCommand>
+        </div>
       </RibbonGroup>
       <RibbonGroup label="Arrange">
         <RibbonCommand

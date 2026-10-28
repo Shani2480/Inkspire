@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { pickedItems } from "@/editor/smartart"
 import {
   addBullet,
   addShape,
@@ -102,5 +103,17 @@ describe("SmartArt Format: a shape's own look (22.1)", () => {
     const moved = moveItem(read, 1, "down")
     expect(moved.items[2]!.look).toEqual({ fill: "#123456" })
     expect(writeItems(base).looks).toBe("[]")
+  })
+  it("takes Shape Effects and Text Outline, and drops an effect it does not know", () => {
+    const styled = withLook(base[0]!, { effect: "glow", outline: "#ff0000" })
+    expect(styled.look).toEqual({ effect: "glow", outline: "#ff0000" })
+    const saved = writeItems([styled])
+    expect(readItems(saved.labels, saved.levels, saved.pictures, saved.looks)[0]!.look).toEqual(styled.look)
+    expect(withLook(base[0]!, { effect: "sparkle" }).look).toBeUndefined()
+  })
+
+  it("changes the active shape and those Ctrl+clicked with it", () => {
+    expect(pickedItems(1, [], 3)).toEqual([1])
+    expect(pickedItems(1, [2, 1, 7], 3)).toEqual([1, 2])
   })
 })

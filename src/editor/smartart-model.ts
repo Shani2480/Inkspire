@@ -17,7 +17,26 @@ export type SmartArtShape = (typeof SMARTART_SHAPES)[number]["id"]
  * One shape's own look, set on the SmartArt Format tab over the graphic's colours and style: its outline, Shape
  * Fill and Shape Outline, Text Fill, and Larger / Smaller steps.
  */
-export type SmartArtLook = { shape?: SmartArtShape; fill?: string; line?: string; text?: string; size?: number }
+export type SmartArtLook = {
+  shape?: SmartArtShape
+  fill?: string
+  line?: string
+  text?: string
+  /** Text Outline: the colour of a line round the text's letters. */
+  outline?: string
+  size?: number
+  /** Shape Effects: a shadow below and right, a glow round the shape, or soft edges. */
+  effect?: SmartArtEffect
+}
+
+/** The SmartArt Format tab's Shape Effects. */
+export const SMARTART_EFFECTS = [
+  { id: "shadow", label: "Shadow" },
+  { id: "glow", label: "Glow" },
+  { id: "soft", label: "Soft Edges" },
+] as const
+
+export type SmartArtEffect = (typeof SMARTART_EFFECTS)[number]["id"]
 
 /** Larger and Smaller go up to this many steps either way, as Word's do. */
 export const MAX_SIZE_STEP = 5
@@ -31,7 +50,10 @@ function readLook(value: unknown): SmartArtLook | undefined {
   if (SMARTART_SHAPES.some((shape) => shape.id === raw.shape)) {
     look.shape = raw.shape as SmartArtShape
   }
-  for (const key of ["fill", "line", "text"] as const) {
+  if (SMARTART_EFFECTS.some((effect) => effect.id === raw.effect)) {
+    look.effect = raw.effect as SmartArtEffect
+  }
+  for (const key of ["fill", "line", "text", "outline"] as const) {
     if (typeof raw[key] === "string" && /^#[0-9a-f]{6}$/i.test(raw[key] as string)) {
       look[key] = raw[key] as string
     }
