@@ -6505,12 +6505,12 @@ li[data-drop-cap="margin"]::first-letter {
   background: transparent;
   padding: 0 4px;
   font: inherit;
-  text-align: right;
+  text-align: left;
 }
 
-.chart-sheet td:first-of-type input,
-.chart-sheet tbody tr:first-child input {
-  text-align: left;
+/* As in Excel: numbers to the right of their cell, text to the left. */
+.chart-sheet input[data-number] {
+  text-align: right;
 }
 
 .object-menu {

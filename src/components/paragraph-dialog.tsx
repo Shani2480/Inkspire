@@ -23,7 +23,7 @@ type LineRule = "multiple" | "exact" | "at-least"
 type LineSpacing = "single" | "1.5" | "double" | "at-least" | "exact" | "multiple"
 type TabName = "spacing" | "breaks"
 
-type ParagraphDraft = {
+export type ParagraphDraft = {
   align: Align
   outline: string
   collapsed: boolean
@@ -186,16 +186,49 @@ async function saveDefault(editor: Editor, draft: ParagraphDraft, onClose: () =>
   onClose()
 }
 
-function applyDraft(editor: Editor, draft: ParagraphDraft) {
+/** The dialog fields each paragraph attribute is set from. */
+const SOURCES: Record<string, (keyof ParagraphDraft)[]> = {
+  textAlign: ["align"],
+  outlineLevel: ["outline"],
+  collapsed: ["outline", "collapsed"],
+  indent: ["leftCm"],
+  indentRight: ["rightCm"],
+  specialIndent: ["special", "specialBy"],
+  mirrorIndents: ["mirror"],
+  spaceBefore: ["before"],
+  spaceAfter: ["after"],
+  lineRule: ["lineSpacing", "lineAt"],
+  lineHeight: ["lineSpacing", "lineAt"],
+  contextualSpacing: ["contextual"],
+  widowControl: ["widow"],
+  keepNext: ["keepNext"],
+  keepLines: ["keepLines"],
+  pageBreakBefore: ["pageBreakBefore"],
+  suppressLineNumbers: ["suppressLines"],
+  dontHyphenate: ["dontHyphenate"],
+  tightWrap: ["tightWrap"],
+}
+
+/**
+ * Applies what the dialog changed, as Word does: a field left as the dialog opened with it is not written, so the
+ * paragraphs keep what they had (their style's spacing, or each its own when several are selected).
+ */
+export function changedAttrs(attrs: Record<string, unknown>, draft: ParagraphDraft, initial: ParagraphDraft) {
+  return Object.fromEntries(
+    Object.entries(attrs).filter(([name]) => (SOURCES[name] ?? []).some((field) => draft[field] !== initial[field])),
+  )
+}
+
+function applyDraft(editor: Editor, draft: ParagraphDraft, initial: ParagraphDraft) {
   restoreSelection(editor)
   const outline = Number(draft.outline)
-  if (draft.outline !== "body" && outline >= 1 && outline <= 6) {
+  if (draft.outline !== initial.outline && draft.outline !== "body" && outline >= 1 && outline <= 6) {
     editor
       .chain()
       .focus()
       .setHeading({ level: outline as 1 | 2 | 3 | 4 | 5 | 6 })
       .run()
-  } else if (editor.isActive("heading") && draft.outline === "body") {
+  } else if (draft.outline !== initial.outline && editor.isActive("heading") && draft.outline === "body") {
     editor.chain().focus().setParagraph().run()
   }
   const left = Number(draft.leftCm)
@@ -204,7 +237,7 @@ function applyDraft(editor: Editor, draft: ParagraphDraft) {
   const after = Number(draft.after)
   const specialBy = Number(draft.specialBy)
   const lineAt = NAMED_MULTIPLES[draft.lineSpacing] ?? draft.lineAt.trim()
-  updateBlocks(editor, {
+  const attrs = {
     textAlign: draft.align,
     outlineLevel: draft.outline === "body" ? "" : draft.outline,
     collapsed: draft.outline !== "body" && draft.collapsed,
@@ -225,7 +258,11 @@ function applyDraft(editor: Editor, draft: ParagraphDraft) {
     suppressLineNumbers: draft.suppressLines,
     dontHyphenate: draft.dontHyphenate,
     tightWrap: draft.tightWrap,
-  })
+  }
+  const changed = changedAttrs(attrs, draft, initial)
+  if (Object.keys(changed).length > 0) {
+    updateBlocks(editor, changed)
+  }
 }
 
 /** Alt+letter shortcuts, as Word's dialogs have: the letter each label underlines, and the control it focuses. */
@@ -266,13 +303,16 @@ const TABS = [
 export function ParagraphDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const editor = useDocumentEditor()
   const [draft, setDraft] = useState<ParagraphDraft>(EMPTY)
+  const [initial, setInitial] = useState<ParagraphDraft>(EMPTY)
   const [tab, setTab] = useState<TabName>("spacing")
   const [tabsOpen, setTabsOpen] = useState(false)
   const [inTextBox, setInTextBox] = useState(false)
 
   useEffect(() => {
     if (open && editor) {
-      setDraft(readDraft(editor))
+      const read = readDraft(editor)
+      setDraft(read)
+      setInitial(read)
       setInTextBox(editor.isActive("textBox"))
       setTab("spacing")
       setTabsOpen(false)
@@ -299,7 +339,7 @@ export function ParagraphDialog({ open, onClose }: { open: boolean; onClose: () 
       initialFocus="pd-align"
       suspended={tabsOpen}
       onAccept={() => {
-        applyDraft(editor, draft)
+        applyDraft(editor, draft, initial)
         onClose()
       }}
       onCancel={onClose}

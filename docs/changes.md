@@ -7,6 +7,42 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### Verify-list run in Chrome: Paragraph dialog writes only what changed, chart sheet aligns like Excel
+
+- **What was wrong:**
+  - Paragraph dialog: OK wrote every field, not only those changed. Ticking Keep with next alone also set Line
+    Spacing 1.15, which is tighter than the editor's default line, and spacing after 8 pt; the paragraph's lines
+    shrank and, at a page foot, Keep with next then left it behind.
+  - Chart data sheet: every cell but column A and row 1 was right-aligned, so text (a treemap's stems and leaves)
+    sat to the right like numbers.
+- **What changed:**
+  - `paragraph-dialog.tsx`: the dialog remembers the values it opened with; `changedAttrs` keeps only the
+    attributes whose fields changed (both line spacing attributes when either line field changed), and the outline
+    level is only set when it changed.
+  - `chart-sheet-dialog.tsx` and `index.css`: a cell holding a number is marked `data-number` and right-aligned;
+    the rest are left-aligned, as in Excel.
+- **Tests:** `paragraph-dialog.test.ts` (Keep with next alone writes only `keepNext`; a line spacing change writes
+  both line attributes; nothing changed writes nothing).
+- **Checked:** in headless Chrome:
+  - Keep with next on the last paragraph of page 1 moves it to page 2 with the next one; the paragraph's other
+    attributes are as before.
+  - Page break before works.
+  - The treemap sheet shows text left and sizes right; retyping a stem regroups the data.
+  - Also run through, with no change needed:
+    - Chart side buttons, the Chart Elements items (Error Bars, Lines, Up/Down Bars), and long axis labels.
+    - The chart sheet in dark mode.
+    - The right-click text menu.
+    - Compress Pictures with Delete cropped areas.
+    - Align Right, Center and Bottom on two picked shapes.
+    - The Shape Format tab's states.
+- **Open:**
+  - The Paragraph dialog shows 1.15 as the line spacing of a paragraph that has none, while the editor draws
+    those at 1.65.
+  - A shape with text keeps the WordArt row off.
+  - Shapes have no yellow adjustment handles.
+  - Only the last of several picked objects shows handles.
+  - (All in `next-todo.md`.)
+
 ### SmartArt Format: Shape Effects, Text Outline and several shapes at once
 
 - **What was wrong:** the SmartArt Format tab changed one shape at a time and had no Shape Effects or Text

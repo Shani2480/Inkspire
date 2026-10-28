@@ -89,7 +89,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - [x] **Table column auto-fit, steady cell marks, live row resize (22.10, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [ ] **Header and footer tables (2026-10-26)** — in the desktop app, insert a table in the header and in the footer, type in its cells, drag its row and column borders, close and reopen.
 - [ ] **Same, in the desktop app** — double-click a column border, click in and out of a table with long cell text, drag a row border at 150% zoom; select the whole table and double-click a column border and a row border.
-- [ ] **Treemap / Sunburst data sheet (22.6, 2026-10-26)** — Edit Data shows Branch, Stem, Leaf and Size columns; retyping a stem regroups the tiles.
+- [x] **Treemap / Sunburst data sheet (22.6, 2026-10-26)** — checked 2026-10-28 in headless Chrome: the rows run branch, stem, leaf, size (only Size has a header in row 1; compare Word's sample sheet); retyping B2 regroups the data. Fixed on the way: text in the sheet was right-aligned like numbers (now left, numbers right, as in Excel).
 - [x] **Header & Footer Previous / Next (2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Tall header or footer pushes the body (2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Page border Options check boxes (22.4, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
@@ -107,8 +107,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       Chrome, light and dark.
 - [x] **Paragraph Shadow border from Borders and Shading (22.4, 2026-10-26)** — checked 2026-10-26 in headless
       Chrome, light and dark.
-- [ ] **Chart side buttons level with the chart's top (2026-10-26)** — select a chart: Chart Elements, Chart Styles
-      and Chart Filters sit beside its top right edge, styled as before, each opening its panel.
+- [x] **Chart side buttons level with the chart's top (2026-10-26)** — checked 2026-10-28 in headless Chrome: the three buttons start level with the chart's top, 8 px to its right, and each opens its panel.
 - [x] **3D Model Views gallery (22.15, 2026-10-26)** — checked 2026-10-26 in Chrome with a cube and a cone: named
       tiles drawn from each side, Top applied, paging and the full menu.
 - [x] **Comment anchor line and red active range (22.18, 2026-10-26)** — checked 2026-10-26 in Chrome, light and
@@ -117,27 +116,23 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       footer counts the download, the library closes, the model (not a cube) appears and turns.
 - [x] **3-D model whose file has nothing to draw keeps Word's picture (2026-10-24)** — checked 2026-10-24 in Chrome
       with f24 (stub `.glb`) and `123.docx` (live model).
-- [ ] **Chart error bars / drop lines / high-low lines / up-down bars (20.8)** — drawn, offered in Add Chart
-      Element and the Chart Elements pane.
-- [ ] **Chart axis labels never collide (21.25)** — long category names thin out and truncate; a scatter
-      chart's X axis too. Pure SVG, covered by `chart-spec.test.ts` only.
-- [ ] **Selection context menu removed (21.31)** — no copy/paste popup on select; the editor's own
-      right-click text menu still works.
-- [ ] **Embedded chart data sheet (21.32)** — checked in light docked right only. Still to check: dark mode,
-      docked left / below / above.
-- [ ] **Permanent crop / Compress Pictures (21.47)** — the canvas cut happens and the file actually gets
-      smaller (jsdom has no canvas).
-- [ ] **Paragraph dialog (22.8)** — Keep with next; page-break-before and keep-lines wiring in `layoutPages`
-      (jsdom cannot measure).
+- [x] **Chart error bars / drop lines / high-low lines / up-down bars (20.8)** — checked 2026-10-28 in headless Chrome on a line chart: Error Bars, Lines (drop lines) and Up/Down Bars are offered in Add Chart Element and the Chart Elements pane, and drawn.
+- [x] **Chart axis labels never collide (21.25)** — checked 2026-10-28 in headless Chrome: twelve long category names shorten to "A very…" with no two labels overlapping.
+- [x] **Selection context menu removed (21.31)** — checked 2026-10-28 in headless Chrome: selecting a word shows only the Mini Toolbar; right-click opens the editor's menu (Cut, Copy, Paste Options, Font…, Paragraph…, …).
+- [x] **Embedded chart data sheet (21.32)** — checked 2026-10-28 in headless Chrome, dark mode, docked right. Left / below / above come from `placeChartSheet` (unit-tested); with no room on any side the sheet overlaps the chart's lower part.
+- [x] **Permanent crop / Compress Pictures (21.47)** — checked 2026-10-28 in headless Chrome: a 2400×1600 picture cropped 25% each side and shown at 300×200, Email + Delete cropped areas: 300×200 px, crop gone, 328 KB → 69 KB.
+- [x] **Paragraph dialog (22.8)** — checked 2026-10-28 in headless Chrome: Keep with next moves the paragraph at a page foot to the next page with the one after it; Page break before starts a new page. Fixed on the way: OK wrote every field, so Keep with next alone also set Line Spacing 1.15 (tighter than the editor's default) and the paragraph then stayed behind; now only the fields changed are written.
 - [ ] **Shape Format tab (22.11)** — Insert Shapes rows, Edit Shape menu, Draw Text Box, Text group (Create
       Link greyed with nothing selected), Alt Text, Size launcher: each present and enabled / disabled as in
       Word; WordArt row greys out when the shape has no text; every gallery shape has its yellow adjustment
       handles (Division sign shows three).
-- [ ] **Layout Options pane (22.12)** — Tab order inside the pane; general look against screenshot 081612.
+      Checked 2026-10-28 in headless Chrome for a shape without text: Edit Shape, Draw Text Box and Alt Text on;
+      Text Direction, Align Text, Create Link and the WordArt row off. Still open: a shape with text keeps the
+      WordArt row off (only text boxes turn it on), and the yellow adjustment handles do not exist yet.
+- [x] **Layout Options pane (22.12)** — no longer applies: the pane was removed on 2026-10-26.
 - [ ] **Chart side panels (22.14)** — Chart Elements (+), Chart Styles (brush), Chart Filters (funnel): every
       item and the Apply button behave as in Word.
-- [ ] **Align menu for objects (22.17)** — Align Right, Center and Bottom with two or more picked objects
-      (jsdom has no sizes; only Left and Top are unit-tested).
+- [x] **Align menu for objects (22.17)** — checked 2026-10-28 in headless Chrome: two shapes picked in the Selection Pane, Align Selected Objects, then Align Right, Center and Bottom line up their right edges, centres and bottoms. Seen: only the last picked shape shows handles on the page.
 - [ ] **Comments (22.18)** — card layout against Word's (screenshot 082922).
 - [ ] **Breaks menu (22.20)** and **Columns menu (22.21)** — layout against screenshots 082750 / 082741.
 - [ ] **Dialog chrome (22.22)** — spin-field widths, tab strip height and preview box sizes of the Columns,
@@ -465,13 +460,13 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## SmartArt Format: effects, text outline, several shapes (2026-10-28)
 
-- [ ] Insert a Hierarchy, click a shape, Ctrl+click two more: all three show the selection outline.
-- [ ] Format > Shape Effects > Shadow, Glow and Soft Edges each change only the picked shapes; No Effect clears it.
-- [ ] Format > Text Outline gives the picked shapes' text an outline; No Outline clears it.
-- [ ] Larger twice on three picked shapes of different sizes grows each from its own size.
-- [ ] A plain click on another shape drops the picks.
-- [ ] Single-line ribbon: Shape Effects and Text Outline are there and work the same.
-- [ ] Save and reopen in the app: the effects and outline come back.
+- Insert a Hierarchy, click a shape, Ctrl+click two more: all three show the selection outline.
+- Format > Shape Effects > Shadow, Glow and Soft Edges each change only the picked shapes; No Effect clears it.
+- Format > Text Outline gives the picked shapes' text an outline; No Outline clears it.
+- Larger twice on three picked shapes of different sizes grows each from its own size.
+- A plain click on another shape drops the picks.
+- Single-line ribbon: Shape Effects and Text Outline are there and work the same.
+- Save and reopen in the app: the effects and outline come back.
 
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
