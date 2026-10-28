@@ -185,6 +185,13 @@ export function mountViewer(
         // The model centred on its own middle and, when its units are far from the viewer's (a model made in
         // centimetres or metres), fitted to the view; it turns about that middle. A file with nothing to draw (no
         // scene, or one without extent) is treated as a failed load: the stand-in and the picture stay.
+        // A model with animations stands as the first frame of its first one, as Word shows it (its poster frame).
+        const [clip] = gltf.animations
+        if (clip) {
+          const mixer = new THREE.AnimationMixer(gltf.scene)
+          mixer.clipAction(clip).play()
+          mixer.update(0)
+        }
         const fit = fitLoadedModel(gltf.scene)
         if (!fit) {
           console.error("The 3D model has nothing to draw", src)

@@ -79,6 +79,38 @@ export function viewPose(view: ModelView, camera = DEFAULT_CAMERA): Pose {
   return matrixPose(times(poseMatrix(facingPose(camera)), own))
 }
 
+/** Word's turn of a 3-D model (`am3d:rot`): angles about x, y and z in 60000ths of a degree. */
+export type WordModelRot = { ax: number; ay: number; az: number }
+
+const WORD_ANGLE = 60000
+const transpose = (m: Matrix): Matrix => [0, 1, 2].map((row) => [0, 1, 2].map((column) => m[column][row]))
+
+/**
+ * Word's turn as the viewer's pose. Word looks at the model square on from the front and turns it about x, then y,
+ * then z (`Rz·Ry·Rx`, as its picture of a model shows); the viewer's camera looks from above and to the side, so the
+ * front is faced to it first, as for the named views.
+ */
+export function wordModelPose(rot: WordModelRot, camera = DEFAULT_CAMERA): Pose {
+  const angle = (value: number) => ((value / WORD_ANGLE) * Math.PI) / 180
+  const word = times(times(turnZ(angle(rot.az)), turnY(angle(rot.ay))), turnX(angle(rot.ax)))
+  const pose = matrixPose(times(poseMatrix(facingPose(camera)), word))
+  const round = (value: number) => Math.round(value * 10000) / 10000
+  return { yaw: round(pose.yaw), pitch: round(pose.pitch), roll: round(pose.roll) }
+}
+
+/** The viewer's pose as Word's turn (`wordModelPose` the other way), each angle from 0 to a full turn. */
+export function wordModelRot(pose: Pose, camera = DEFAULT_CAMERA): WordModelRot {
+  const m = times(transpose(poseMatrix(facingPose(camera))), poseMatrix(pose))
+  const y = Math.asin(-Math.min(1, Math.max(-1, m[2][0])))
+  const x = Math.atan2(m[2][1], m[2][2])
+  const z = Math.atan2(m[1][0], m[0][0])
+  const word = (radians: number) => {
+    const value = Math.round(((radians * 180) / Math.PI) * WORD_ANGLE)
+    return ((value % 21600000) + 21600000) % 21600000
+  }
+  return { ax: word(x), ay: word(y), az: word(z) }
+}
+
 /** A running viewer, as the views gallery sees it: where its camera is, and the model drawn in each view. */
 export type ViewSource = { camera: () => typeof DEFAULT_CAMERA; pictures: () => string[] | null }
 

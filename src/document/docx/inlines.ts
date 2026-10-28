@@ -37,6 +37,7 @@ import { runBoxOf, textBoxAttributes, textBoxOfRun, type TextBox } from "@/docum
 import { expandSpec } from "@/editor/chart-expand"
 import { chartSpecOf, renderChart, serializeChartSpec, variantOf, type ChartSpec } from "@/editor/chart-spec"
 import { DATE_PICTURES, dateFormat, formatDate } from "@/editor/formula"
+import { wordModelPose, wordModelRot, type WordModelRot } from "@/editor/model-views"
 import {
   INKSPIRE_OBJECT_NS,
   paragraphsIn,
@@ -504,6 +505,13 @@ function modelRelId(xml: string) {
   return /<(?:\w+:)?model3d\b[^>]*\br:embed="([^"]+)"/.exec(xml)?.[1]
 }
 
+/** Word's turn of the model in a 3-D model drawing (`am3d:rot`), none turned when it has none. */
+function modelRot(xml: string): WordModelRot {
+  const element = /<(?:\w+:)?rot\b[^>]*\bax="[^>]*>/.exec(xml)?.[0] ?? ""
+  const angle = (name: string) => Number(new RegExp(`\\b${name}="(-?\\d+)"`).exec(element)?.[1]) || 0
+  return { ax: angle("ax"), ay: angle("ay"), az: angle("az") }
+}
+
 const modelUrls = new WeakMap<Uint8Array, string>()
 
 /**
@@ -530,6 +538,8 @@ function modelPictureHtml(run: Run, ctx: Projection) {
   const width = Math.max(1, Math.round((drawing.cx ?? 0) / EMU_PER_PX))
   const height = Math.max(1, Math.round((drawing.cy ?? 0) / EMU_PER_PX))
   const alt = /<wp:docPr\b[^>]*\bdescr="([^"]*)"/.exec(drawing.xml)?.[1] ?? ""
+  // Word's turn of the model, so the first view is Word's (`wordModelPose`).
+  const pose = wordModelPose(modelRot(drawing.xml))
   const figure = {
     type: "threeDModel",
     attrs: {
@@ -538,15 +548,15 @@ function modelPictureHtml(run: Run, ctx: Projection) {
       snapshot: `data:${picture.contentType || "image/png"};base64,${encodeBase64(picture.data)}`,
       width,
       height,
-      yaw: 0,
-      pitch: 0,
-      roll: 0,
+      yaw: pose.yaw,
+      pitch: pose.pitch,
+      roll: pose.roll,
       alt: alt
         .replace(/&quot;/g, '"')
         .replace(/&lt;/g, "<")
         .replace(/&gt;/g, ">")
         .replace(/&amp;/g, "&"),
-      wordModel: "0,0",
+      wordModel: `${pose.yaw},${pose.pitch}`,
     },
     shown: [width, height],
   }
@@ -1693,28 +1703,9 @@ export function imageRun(node: JsonNode, build: InlineBuild, asPicture = false):
   if (!decoded) {
     return null
   }
-  const relId = `rId${20 + build.media.length}`
+  const { relId, id } = addPicture(build, decoded)
   const cx = Math.round(width * EMU_PER_PX)
   const cy = Math.round(height * EMU_PER_PX)
-  const fileExtension = decoded.type === "jpg" ? "jpg" : decoded.type
-  // The next free picture number: Word's own may skip some (image1 gone, image2 kept).
-  const taken = (number: number) => {
-    const name = `/word/media/image${number}.${fileExtension}`.toLowerCase()
-    return build.usedParts?.has(name) || build.media.some((item) => item.name.toLowerCase() === name)
-  }
-  while (taken(build.picture)) {
-    build.picture += 1
-  }
-  const id = build.picture
-  build.picture += 1
-  build.media.push({
-    relId,
-    type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
-    target: `media/image${id}.${fileExtension}`,
-    name: `/word/media/image${id}.${fileExtension}`,
-    contentType: decoded.type === "jpg" ? "image/jpeg" : `image/${decoded.type}`,
-    data: decoded.data,
-  })
   return {
     kind: "run",
     rPr: { noProof: true },
@@ -1744,6 +1735,31 @@ export function imageRun(node: JsonNode, build: InlineBuild, asPicture = false):
   }
 }
 
+/** A new picture part for the saved file, with the relationship that points to it. */
+function addPicture(build: InlineBuild, decoded: NonNullable<ReturnType<typeof decodeDataUrl>>) {
+  const relId = `rId${20 + build.media.length}`
+  const fileExtension = decoded.type === "jpg" ? "jpg" : decoded.type
+  // The next free picture number: Word's own may skip some (image1 gone, image2 kept).
+  const taken = (number: number) => {
+    const name = `/word/media/image${number}.${fileExtension}`.toLowerCase()
+    return build.usedParts?.has(name) || build.media.some((item) => item.name.toLowerCase() === name)
+  }
+  while (taken(build.picture)) {
+    build.picture += 1
+  }
+  const id = build.picture
+  build.picture += 1
+  build.media.push({
+    relId,
+    type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
+    target: `media/image${id}.${fileExtension}`,
+    name: `/word/media/image${id}.${fileExtension}`,
+    contentType: decoded.type === "jpg" ? "image/jpeg" : `image/${decoded.type}`,
+    data: decoded.data,
+  })
+  return { relId, id }
+}
+
 /** The `.glb` of the 3-D model drawing a picture node was opened from, from the parts kept whole. */
 function modelPart(node: JsonNode, build: InlineBuild) {
   const key = typeof node.attrs?.docxKey === "string" ? node.attrs.docxKey : undefined
@@ -1757,12 +1773,13 @@ function modelPart(node: JsonNode, build: InlineBuild) {
   return (partName ? build.preserved?.parts.find((item) => item.name === partName)?.data : undefined) ?? null
 }
 
-/** A 3-D model not turned since Word's file goes back as Word's own drawing and model part. */
+/**
+ * A 3-D model from Word goes back as Word's own drawing and model part while it keeps its size and place. Turned in
+ * the app, the drawing takes the new turn (`am3d:rot`) and the app's picture of it in place of Word's.
+ */
 function modelRun(node: JsonNode, figure: JsonNode, build: InlineBuild): Run | null {
   const attrs = figure.attrs ?? {}
-  if (`${attrs.yaw},${attrs.pitch}` !== attrs.wordModel) {
-    return null
-  }
+  const turned = `${attrs.yaw},${attrs.pitch}` !== attrs.wordModel
   const key = typeof node.attrs?.docxKey === "string" ? node.attrs.docxKey : undefined
   const origin = key ? build.runs.get(key) : undefined
   const drawing = origin?.content.find((item) => item.kind === "drawing")
@@ -1774,13 +1791,37 @@ function modelRun(node: JsonNode, figure: JsonNode, build: InlineBuild): Run | n
   const sameSize =
     Math.round((drawing.cx ?? 0) / EMU_PER_PX) === width && Math.round((drawing.cy ?? 0) / EMU_PER_PX) === height
   if (
-    sameSize &&
-    sameLayout(node, drawing.layout, drawing.cx, build.section, drawing.cy) &&
-    rotationDegrees(drawing.rot) === (numberAttr(node.attrs?.rotate) ?? 0)
+    !sameSize ||
+    !sameLayout(node, drawing.layout, drawing.cx, build.section, drawing.cy) ||
+    rotationDegrees(drawing.rot) !== (numberAttr(node.attrs?.rotate) ?? 0)
   ) {
+    return null
+  }
+  if (!turned) {
     return structuredClone(origin)
   }
-  return null
+  const shown = typeof node.attrs?.src === "string" && node.attrs.src.startsWith("data:") ? node.attrs.src : ""
+  const picture = decodeDataUrl(shown || (typeof attrs.snapshot === "string" ? attrs.snapshot : ""))
+  if (!picture || !/<(?:\w+:)?rot\b[^>]*\bax="/.test(drawing.xml)) {
+    return null
+  }
+  const rot = wordModelRot({
+    yaw: Number(attrs.yaw) || 0,
+    pitch: Number(attrs.pitch) || 0,
+    roll: Number(attrs.roll) || 0,
+  })
+  const { relId } = addPicture(build, picture)
+  // Word's picture of the model (its raster and the fallback for older Word) becomes the app's picture of the turn.
+  const xml = drawing.xml
+    .replace(
+      /(<(?:\w+:)?rot\b)(?=[^>]*\bax=")[^>]*?(\/?>)/,
+      (_match, open: string, close: string) => `${open} ax="${rot.ax}" ay="${rot.ay}" az="${rot.az}"${close}`,
+    )
+    .split(`r:embed="${drawing.relId}"`)
+    .join(`r:embed="${relId}"`)
+  const run = structuredClone(origin)
+  run.content[origin.content.indexOf(drawing)] = { ...drawing, xml, relId }
+  return run
 }
 
 /** A SmartArt graphic shown as a picture goes back as Word's own drawing while it keeps its size and place. */
