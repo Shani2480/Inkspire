@@ -1900,6 +1900,12 @@ Suggestions, not started:
 
 **Done (partly).** Five new layouts: Basic Block List, Step Up Process, Basic Venn, Picture Caption List and Vertical Picture List. The gallery's Picture category now works (each shape has a picture slot; click it to choose an image, kept per item as `pictures` and carried through Add Shape, Move and Promote/Demote). Not done: Picture layouts do not crop or resize to the slot beyond cover-fit; the new layouts are not saved as Word diagram layouts (same as the others, kept as the picture with the graphic inside). Checked in Chrome: Picture category lists both, inserting Picture Caption List shows three picture slots with captions; the other three new layouts and picking an image were not clicked through.
 
+**Done (2026-10-28, saved as Word's diagram).** A SmartArt graphic is saved as Word's own diagram: data model, a
+layout definition per layout (Word's layout id where one matches), Word's Simple Fill quick style and Colorful colours,
+and a drawing of the shapes as the app draws them (`docx/smartart-write.ts`). A Word diagram in a layout the app has
+opens editable and keeps Word's parts while unchanged, or Word's layout, style and colours when its text changes. Not
+done: checking in Word; per-shape looks, pictures and the accent colour in Word's model; arrows in the drawing.
+
 ### Options: settings with real effects
 
 **Done (partly).** `editing-options.ts` now holds more switches (kept in this browser): Enable Live Preview (General; off stops object previews while the pointer is over a choice), Proofing's Ignore words in UPPERCASE, Ignore words that contain numbers, Ignore Internet and file addresses and Flag repeated words (all drawn from the spelling check, on by default as in Word), and Save's "Save recovery copy every" 5 s to 5 min (drives the AutoSave timer). Tests: `spelling-options.test.ts`, `options-pages.test.tsx`. Checked in Chrome: a repeated word and a misspelt one are underlined; a capitalised word, a word with digits and a web address are not. Not done: Live Preview does not yet gate the Themes and style gallery hovers (only object previews); ScreenTip style, per-mark formatting marks, embed fonts, paste defaults, Suggest from main dictionary only, grammar, readability statistics and the Advanced editing, print and compatibility options are still listed off.

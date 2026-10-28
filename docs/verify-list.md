@@ -454,6 +454,15 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Save, open in Word, Wrap Text → Edit Wrap Points: Word shows the same outline, and the text wraps the same.
 - In Word edit a picture's wrap points, open here: the text wraps by Word's outline; save and reopen in Word: kept.
 
+## SmartArt as Word's diagram (2026-10-28)
+
+- Insert a Basic Process and a Hierarchy with a demoted item, save, open in Word: each is SmartArt (the SmartArt
+  Design tab and Text Pane work), with the same text and levels; note how Word lays each out.
+- In Word change a word of the graphic's text, save, open here: the graphic shows the changed word and can be edited.
+- A Word file with a Basic Block List: opens here as an editable graphic; change a word, save, open in Word: still
+  Word's Basic Block List, with the change.
+- Open a saved file in LibreOffice: the graphic is drawn as in the app.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

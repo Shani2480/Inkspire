@@ -38,9 +38,12 @@ type Paint =
   | { kind: "text"; x: number; y: number; text: string; font: string; color: string }
   | { kind: "image"; x: number; y: number; w: number; h: number; src: string }
 
-/** The object as JSON, with the size its picture was saved at (`shown`), to tell whether Word resized it. */
-function encodeObject(node: ProseNode, shown: [number, number]) {
-  const bytes = new TextEncoder().encode(JSON.stringify({ ...node.toJSON(), shown }))
+/**
+ * The object as JSON, with the size its picture was saved at (`shown`), to tell whether Word resized it, and
+ * anything else the saved file draws it from (a SmartArt graphic's `shapes`).
+ */
+function encodeObject(node: ProseNode, shown: [number, number], extra: Record<string, unknown> = {}) {
+  const bytes = new TextEncoder().encode(JSON.stringify({ ...node.toJSON(), shown, ...extra }))
   let binary = ""
   for (let index = 0; index < bytes.length; index += 0x8000) {
     binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000))
@@ -310,11 +313,73 @@ export async function documentWithObjectPictures(editor: Editor): Promise<JSONCo
       height,
       // A text box always floats, as its picture does.
       ...(node.type.name === "textBox" && attrs.wrap === "inline" ? { wrap: "front" } : {}),
-      objectNode: encodeObject(saved.get(pos) ?? node, [width, height]),
+      objectNode: encodeObject(
+        saved.get(pos) ?? node,
+        [width, height],
+        node.type.name === "smartArt" ? { shapes: smartArtShapes(found[index]!.dom) } : {},
+      ),
     })
     tr.replaceWith(pos, pos + node.nodeSize, picturedNode)
   }
   return tr.doc.toJSON() as JSONContent
+}
+
+const SHAPE_PRESETS: Record<string, string> = {
+  rect: "rect",
+  rounded: "roundRect",
+  ellipse: "ellipse",
+  hexagon: "hexagon",
+  diamond: "diamond",
+  parallelogram: "parallelogram",
+}
+
+let swatch: CanvasRenderingContext2D | null | undefined
+
+/** A computed colour, in any CSS form (`rgb()`, `oklch()`…), as #rrggbb; "" for transparent. */
+function hexColor(value: string) {
+  swatch ??= document.createElement("canvas").getContext("2d", { willReadFrequently: true })
+  if (!swatch || !value || value === "transparent") {
+    return ""
+  }
+  swatch.clearRect(0, 0, 1, 1)
+  swatch.fillStyle = "#000"
+  swatch.fillStyle = value
+  swatch.fillRect(0, 0, 1, 1)
+  const [r, g, b, a] = swatch.getImageData(0, 0, 1, 1).data
+  if (!a) {
+    return ""
+  }
+  return `#${[r, g, b].map((part) => (part ?? 0).toString(16).padStart(2, "0")).join("")}`
+}
+
+/**
+ * The shapes of a SmartArt graphic as it is drawn, for the drawing Word keeps with the diagram: each shape's box in
+ * px from the graphic's corner, its outline, colours and text.
+ */
+function smartArtShapes(dom: HTMLElement) {
+  const frame = dom.getBoundingClientRect()
+  const zoom = dom.offsetWidth > 0 ? frame.width / dom.offsetWidth || 1 : 1
+  return [...dom.querySelectorAll<HTMLElement>(".smartart-cell")].map((cell) => {
+    const box = cell.getBoundingClientRect()
+    const style = getComputedStyle(cell)
+    const text = cell.querySelector<HTMLElement>(".smartart-text") ?? cell
+    const rounded = parseFloat(style.borderTopLeftRadius) > 0
+    const preset =
+      SHAPE_PRESETS[cell.dataset.shape ?? ""] ??
+      (style.borderTopLeftRadius === "50%" ? "ellipse" : rounded ? "roundRect" : "rect")
+    return {
+      x: Math.round(((box.left - frame.left) / zoom) * 100) / 100,
+      y: Math.round(((box.top - frame.top) / zoom) * 100) / 100,
+      w: Math.round((box.width / zoom) * 100) / 100,
+      h: Math.round((box.height / zoom) * 100) / 100,
+      text: text.innerText ?? text.textContent ?? "",
+      preset,
+      fill: hexColor(style.backgroundColor),
+      line: parseFloat(style.borderTopWidth) > 0 ? hexColor(style.borderTopColor) : "",
+      color: hexColor(getComputedStyle(text).color),
+      size: Math.round((parseFloat(getComputedStyle(text).fontSize) || 16) * 0.75 * 10) / 10,
+    }
+  })
 }
 
 /** The object a picture carries; a Word text box's text comes as HTML, read as the editor reads pasted text. */
