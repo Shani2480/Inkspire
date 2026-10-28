@@ -22,6 +22,8 @@ in Word, Chrome or the desktop app.
 - **Tests:** none new; CI green.
 - **Checked:** `cargo check` for `aarch64-apple-darwin` cannot run here (objc2 needs Apple's SDK); the release
   run on GitHub's macOS runner is the build check.
+- **Fixed on the first run:** the macOS build stopped at `libc::prctl` in `local_ai.rs` (Linux only, guarded by
+  `cfg(unix)`); now `cfg(any(target_os = "linux", target_os = "android"))`.
 - **Open:** a Developer ID and notarization (removes the first-start block); nobody has started the .dmg on a Mac
   yet.
 
