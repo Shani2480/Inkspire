@@ -9,35 +9,13 @@ import {
 } from "@/editor/model-format"
 import { modelScene, scenePose, type ModelScene } from "@/editor/model-scenes"
 import { MODEL_VIEWS, viewPose } from "@/editor/model-views"
+import { disposeModel, stockModel } from "@/editor/model-stock"
 import { fitLoadedModel } from "@/editor/three-d-fit"
 import type { Node as ProseNode } from "@tiptap/pm/model"
 import * as THREE from "three"
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js"
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js"
-
-function geometryFor(preset: string): THREE.BufferGeometry {
-  switch (preset) {
-    case "sphere":
-      return new THREE.SphereGeometry(1, 32, 24)
-    case "cylinder":
-      return new THREE.CylinderGeometry(0.7, 0.7, 1.4, 32)
-    case "cone":
-      return new THREE.ConeGeometry(0.9, 1.5, 32)
-    case "torus":
-      return new THREE.TorusGeometry(0.7, 0.28, 16, 48)
-    case "electronics":
-      return new THREE.BoxGeometry(1.6, 0.15, 1)
-    case "anatomy":
-      return new THREE.CapsuleGeometry(0.45, 0.9, 8, 16)
-    case "furniture":
-      return new THREE.BoxGeometry(1.2, 1.1, 1.2)
-    case "symbol":
-      return new THREE.OctahedronGeometry(1)
-    default:
-      return new THREE.BoxGeometry(1.2, 1.2, 1.2)
-  }
-}
 
 export function mountViewer(
   dom: HTMLElement,
@@ -89,11 +67,8 @@ export function mountViewer(
   const ambient = new THREE.AmbientLight(0xffffff, 0.55)
   scene.add(light, fill, ambient)
 
-  const material = new THREE.MeshStandardMaterial({ color: PRIMITIVE_COLOR, metalness: 0.2, roughness: 0.45 })
   // A model with a file shows its last picture while the file loads, not the stand-in shape it would replace.
-  let mesh: THREE.Object3D = src
-    ? new THREE.Group()
-    : new THREE.Mesh(geometryFor(String(node.attrs.preset || "cube")), material)
+  let mesh: THREE.Object3D = src ? new THREE.Group() : stockModel(String(node.attrs.preset || "cube"))
   scene.add(mesh)
   // Until the file has loaded there is nothing in the view, so no picture is taken of it: the one the model has
   // stays (Word's, for a model from Word), in the page, in print and in the saved file.
@@ -149,9 +124,12 @@ export function mountViewer(
         const base = (standard.userData.baseColor ??= standard.color.clone()) as THREE.Color
         const plain = map ? new THREE.Color(0xffffff) : base
         standard.color.copy(tint ? (next.colorMode === "replace" ? tint : plain.clone().multiply(tint)) : plain)
-        standard.roughness = surface.roughness
-        standard.metalness = surface.metalness
-        standard.envMapIntensity = surface.reflection * Math.max(0.2, next.intensity / 100)
+        // A stock model's parts keep their own surfaces (glass, metal, fabric) while the format is Standard.
+        const own = standard.userData.ownSurface as typeof surface | undefined
+        const kept = own && next.material === "standard" ? own : surface
+        standard.roughness = kept.roughness
+        standard.metalness = kept.metalness
+        standard.envMapIntensity = kept.reflection * Math.max(0.2, next.intensity / 100)
         if (map || standard.userData.formatMap) {
           // The model's own texture, kept once: a missing one is null, which `??=` would not keep.
           if (!("baseMap" in standard.userData)) {
@@ -370,6 +348,7 @@ export function mountViewer(
       cancelAnimationFrame(frame)
       window.clearTimeout(idleTimer)
       controls.dispose()
+      disposeModel(mesh)
       scene.environment?.dispose()
       texture?.dispose()
       renderer.dispose()
@@ -401,7 +380,6 @@ export function mountViewer(
   }
 }
 
-const PRIMITIVE_COLOR = 0x0f6cbd
 /**
  * The model turns about the upright first (`yaw`) and then tips toward or away from the viewer (`pitch`), so a
  * named view (`model-views.ts`) faces the camera square on.

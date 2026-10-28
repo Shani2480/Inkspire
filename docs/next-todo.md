@@ -595,6 +595,9 @@ Poly Haven glTF with its `.bin` and textures, packs them into one `.glb` (`edito
 `editor/polyhaven.ts`) and inserts that model. Open: a model inserted from the library or a local file is saved to
 `.docx` as its picture only.
 
+**2026-10-28:** the Electronics, Anatomy, Furniture and Symbols stock grew from one placeholder each to 10–12
+modelled, coloured models (`editor/model-stock.ts`), with tiles drawn from the models.
+
 ## Phase 17 — Single line ribbon
 
 Word for the web's two ribbon layouts. Reference: `screenshots/ribbon/` (seven single line shots, then the same seven tabs in the classic layout). Classic stays the default; the choice is remembered. Each sub-phase lands on its own and is started only when requested.
