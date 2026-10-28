@@ -35,7 +35,9 @@ describe("Customize Ribbon: New Tab, New Group, Rename (22.5)", () => {
   })
 
   it("renames tabs and groups; a blank name gives a main tab its own back", () => {
-    let { layout, target } = newTab(emptyLayout(), "home")
+    const created = newTab(emptyLayout(), "home")
+    let layout = created.layout
+    const target = created.target
     layout = renameItem(layout, { tab: target.tab }, "  Mine ")
     layout = renameItem(layout, target, "Tools")
     expect(tabName(layout, target.tab)).toBe("Mine")
@@ -48,7 +50,9 @@ describe("Customize Ribbon: New Tab, New Group, Rename (22.5)", () => {
   })
 
   it("adds commands once to a group, and moves them within it and into the next group", () => {
-    let { layout, target } = newTab(emptyLayout(), "home")
+    const created = newTab(emptyLayout(), "home")
+    let layout = created.layout
+    const target = created.target
     const tab = target.tab
     const firstGroup = target.group!
     layout = addToGroup(layout, target, "save")!.layout
@@ -90,7 +94,9 @@ describe("Customize Ribbon: New Tab, New Group, Rename (22.5)", () => {
   })
 
   it("is saved, exported and read back, dropping what is wrong and commands that are gone", () => {
-    let { layout, target } = newTab(emptyLayout(), "layout")
+    const created = newTab(emptyLayout(), "layout")
+    let layout = created.layout
+    const target = created.target
     layout = addToGroup(layout, target, "save")!.layout
     layout = addToGroup(layout, target, "ribbon:home:Bold")!.layout
     layout = newGroup(layout, { tab: "home" }).layout
@@ -130,7 +136,9 @@ describe("Customize Ribbon: New Tab, New Group, Rename (22.5)", () => {
   it("removes and moves a main tab's own groups among the user's, and Reset puts the tab back", () => {
     const own = ["clipboard", "font", "paragraph"]
     // New Group with Font selected: straight after it.
-    let { layout, target } = newGroup(emptyLayout(), { tab: "home", group: "own:font" }, own)
+    const created = newGroup(emptyLayout(), { tab: "home", group: "own:font" }, own)
+    let layout = created.layout
+    const target = created.target
     const mine = target.group!
     expect(groupKeys(layout, "home", own)).toEqual(["own:clipboard", "own:font", mine, "own:paragraph"])
     // Moved up past Font and Clipboard; no further.
