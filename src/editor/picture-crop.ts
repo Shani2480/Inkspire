@@ -124,10 +124,18 @@ export function aspectRatioCrop(width: number, height: number, crop: Crop, ratio
   const whole = wholeSize(width, height, crop)
   if (whole.width / whole.height > ratio) {
     const side = (1 - (whole.height * ratio) / whole.width) / 2
-    return { crop: { l: side, t: 0, r: side, b: 0 }, width: Math.round(whole.height * ratio), height: Math.round(whole.height) }
+    return {
+      crop: { l: side, t: 0, r: side, b: 0 },
+      width: Math.round(whole.height * ratio),
+      height: Math.round(whole.height),
+    }
   }
   const side = (1 - whole.width / ratio / whole.height) / 2
-  return { crop: { l: 0, t: side, r: 0, b: side }, width: Math.round(whole.width), height: Math.round(whole.width / ratio) }
+  return {
+    crop: { l: 0, t: side, r: 0, b: side },
+    width: Math.round(whole.width),
+    height: Math.round(whole.width / ratio),
+  }
 }
 
 /**
@@ -227,7 +235,11 @@ export function cancelCrop() {
  * Aspect Ratio, Fill and Fit on the selected picture: the new crop is shown in crop mode, to be adjusted, applied or
  * cancelled like a dragged one.
  */
-export function cropPicture(view: EditorView, pos: number, change: (width: number, height: number, crop: Crop) => Cropped) {
+export function cropPicture(
+  view: EditorView,
+  pos: number,
+  change: (width: number, height: number, crop: Crop) => Cropped,
+) {
   const node = view.state.doc.nodeAt(pos)
   if (node?.type.name !== "image") {
     return false

@@ -123,7 +123,11 @@ describe("point kinds, curve handles and paths", () => {
     expect(pointKind(path("M0 50 C0 20 40 0 50 0 C80 0 100 20 100 50"), 1)).toBe("straight")
     expect(pointKind(path("M0 50 C0 20 40 10 50 0 C80 0 100 20 100 50"), 1)).toBe("corner")
     expect(pointKind(SQUARE, 1)).toBe("corner")
-    expect(handlesAt(smooth, 1)).toEqual({ at: [50, 0], in: { segment: 1, at: [20, 0] }, out: { segment: 2, at: [80, 0] } })
+    expect(handlesAt(smooth, 1)).toEqual({
+      at: [50, 0],
+      in: { segment: 1, at: [20, 0] },
+      out: { segment: 2, at: [80, 0] },
+    })
     // Into a closed figure's first point comes its last line back; out of its last point, the close (a line).
     const closed = path("M50 0 C80 0 100 20 100 50 C100 80 80 100 50 100 C20 100 0 80 0 50 C0 20 20 0 50 0 Z")
     expect(handlesAt(closed, 0).in).toEqual({ segment: 4, at: [20, 0] })
@@ -181,7 +185,11 @@ describe("point kinds, curve handles and paths", () => {
       const from = (segments[index - 1] as { to: [number, number] }).to
       const u = 1 - t
       return [0, 1].map(
-        (axis) => u * u * u * from[axis]! + 3 * u * u * t * curve.c1[axis]! + 3 * u * t * t * curve.c2[axis]! + t * t * t * curve.to[axis]!,
+        (axis) =>
+          u * u * u * from[axis]! +
+          3 * u * u * t * curve.c1[axis]! +
+          3 * u * t * t * curve.c2[axis]! +
+          t * t * t * curve.to[axis]!,
       )
     }
     // A line becomes a curve through the dragged point, its ends where they were.
@@ -227,7 +235,11 @@ describe("Word's custom geometry", () => {
     expect((points.at(-2) as { to: number[] }).to).toEqual([0, 50])
     expect(points.at(-1)).toEqual({ kind: "Z" })
     // A point given by a guide's name cannot be drawn here.
-    expect(pointsFromCustGeom('<a:custGeom><a:pathLst><a:path w="10" h="10"><a:moveTo><a:pt x="l" y="t"/></a:moveTo></a:path></a:pathLst></a:custGeom>')).toBeNull()
+    expect(
+      pointsFromCustGeom(
+        '<a:custGeom><a:pathLst><a:path w="10" h="10"><a:moveTo><a:pt x="l" y="t"/></a:moveTo></a:path></a:pathLst></a:custGeom>',
+      ),
+    ).toBeNull()
   })
 })
 

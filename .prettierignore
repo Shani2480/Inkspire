@@ -14,3 +14,6 @@ docs/docx
 tools/docx-validate/bin
 tools/docx-validate/obj
 .cursor
+# Generated data, kept minified
+src/document/docx/preset-geometry.json
+src/editor/map-regions.json
