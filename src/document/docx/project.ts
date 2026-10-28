@@ -700,6 +700,13 @@ function pageSetupFromSection(section: SectionProps): PageSetup {
       ? Math.round((section.columnSpace / 1440) * 254) / 100
       : DEFAULT_PAGE_SETUP.columnGap,
     columnLine: columns > 1 && section.columnSeparator === true,
+    columnWidths:
+      columns > 1 && section.columnWidths?.length === columns
+        ? section.columnWidths.map((column, index) => ({
+            width: twipsToCm(column.width),
+            space: index < columns - 1 ? twipsToCm(column.space ?? 0) : 0,
+          }))
+        : undefined,
     sectionStart: sectionStartFrom(section.type),
     ...pageBorderSetup(section.pageBorders),
   }
@@ -887,6 +894,7 @@ function sectionFromChrome(chrome: DocumentChrome, base: SectionProps | null): S
         : (base?.columnSpace ?? DEFAULT_SECTION.columnSpace),
     columnSeparator:
       setup.columns > 1 && setup.columnLine ? true : base?.columnSeparator === undefined ? undefined : false,
+    columnWidths: columnWidthsFrom(setup, base?.columnWidths),
     linePitch: base?.linePitch ?? DEFAULT_SECTION.linePitch,
     lineNumbers: lineNumberingFrom(setup, base?.lineNumbers),
     pageBorders: pageBordersFrom(setup, base?.pageBorders),
@@ -894,6 +902,33 @@ function sectionFromChrome(chrome: DocumentChrome, base: SectionProps | null): S
     type: sectionTypeFrom(setup.sectionStart) ?? base?.type,
   }
   return section
+}
+
+function twipsToCm(twips: number) {
+  return Math.round((twips / 1440) * 254) / 100
+}
+
+/** Unequal columns as Word's w:col list (twips); what Word wrote stays when the widths are still the same. */
+function columnWidthsFrom(setup: PageSetup, base: SectionProps["columnWidths"]): SectionProps["columnWidths"] {
+  const widths = setup.columns > 1 ? setup.columnWidths : undefined
+  if (!widths) {
+    return undefined
+  }
+  const same =
+    base?.length === widths.length &&
+    base.every(
+      (column, index) =>
+        twipsToCm(column.width) === widths[index].width &&
+        (index === widths.length - 1 || twipsToCm(column.space ?? 0) === widths[index].space),
+    )
+  if (same) {
+    return base
+  }
+  return widths.map((column, index) =>
+    index < widths.length - 1
+      ? { width: mmToTwips(column.width * 10), space: mmToTwips(column.space * 10) }
+      : { width: mmToTwips(column.width * 10) },
+  )
 }
 
 /**

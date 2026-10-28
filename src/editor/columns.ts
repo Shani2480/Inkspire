@@ -1,3 +1,4 @@
+import { MAX_COLUMNS, columnBoxes, type ColumnWidth } from "@/document/column-widths"
 import { COLUMN_GAP_CM } from "@/document/page-setup"
 import { restoreSelection } from "@/editor/selection-memory"
 import { Node, mergeAttributes, type Editor } from "@tiptap/core"
@@ -39,6 +40,18 @@ export function columnMarks(contentPx: number, count: number, gapCm: number) {
   return marks
 }
 
+/** The ruler's marks for columns of their own widths (unequal columns, 22.7), in the shape `columnMarks` gives. */
+export function columnMarksFrom(columns: readonly ColumnWidth[]) {
+  return columnBoxes(columns, CM_TO_PX).map((box, index) => ({
+    index,
+    left: box.x,
+    width: box.width,
+    gapLeft: box.x + box.width,
+    gapWidth: index < columns.length - 1 ? columns[index].space * CM_TO_PX : 0,
+    edge: box.x + box.width,
+  }))
+}
+
 export function gapFromBoundary(contentPx: number, count: number, index: number, edgePx: number) {
   const rest = count - (index + 1)
   const minColumn = MIN_COLUMN_CM * CM_TO_PX
@@ -58,10 +71,9 @@ export function findColumnSection(state: EditorState) {
   for (let depth = $from.depth; depth > 0; depth -= 1) {
     const node = $from.node(depth)
     if (node.type.name === "columnSection") {
-      const columns = node.attrs.columns === 3 ? 3 : 2
       return {
         pos: $from.before(depth),
-        columns: columns as 2 | 3,
+        columns: columnCountAttr(node.attrs.columns),
         gap: clampColumnGap(Number(node.attrs.gap) || COLUMN_GAP_CM),
         line: node.attrs.line === true,
       }
@@ -70,7 +82,7 @@ export function findColumnSection(state: EditorState) {
   return null
 }
 
-export function applyColumnSection(editor: Editor, columns: 2 | 3) {
+export function applyColumnSection(editor: Editor, columns: number) {
   restoreSelection(editor)
   const existing = findColumnSection(editor.state)
   if (existing) {
@@ -96,6 +108,36 @@ export function applyColumnSection(editor: Editor, columns: 2 | 3) {
   const tr = state.tr.replaceWith(range.start, range.end, section)
   // Keep the cursor inside the new section so it can be found (a select-all would otherwise stay on the document).
   editor.view.dispatch(tr.setSelection(TextSelection.near(tr.doc.resolve(range.start + 1))).scrollIntoView())
+  return true
+}
+
+/**
+ * Columns dialog, Apply to: This point forward. Word starts a new section there; here the blocks from the cursor's
+ * to the end of the document become a block of columns, after a column break when "Start new column" is ticked
+ * (which, in one column, starts a new page, as Word's new-column section does).
+ */
+export function applyColumnsFromHere(editor: Editor, columns: number, newColumn = false) {
+  restoreSelection(editor)
+  const { state } = editor
+  const type = state.schema.nodes.columnSection
+  const $from = state.selection.$from
+  if (!type || $from.depth < 1) {
+    return false
+  }
+  const start = $from.before(1)
+  const end = state.doc.content.size
+  const content = state.doc.slice(start, end).content
+  if (content.size === 0 || !state.doc.canReplaceWith($from.index(0), state.doc.childCount, type)) {
+    return false
+  }
+  const tr = state.tr.replaceWith(start, end, type.create({ columns, gap: COLUMN_GAP_CM }, content))
+  let inside = start + 1
+  const columnBreak = state.schema.nodes.columnBreak
+  if (newColumn && columnBreak) {
+    tr.insert(start, columnBreak.create())
+    inside += columnBreak.create().nodeSize
+  }
+  editor.view.dispatch(tr.setSelection(TextSelection.near(tr.doc.resolve(inside))).scrollIntoView())
   return true
 }
 
@@ -135,8 +177,10 @@ export function setColumnSectionLine(editor: Editor, pos: number, line: boolean)
   editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, line }))
 }
 
+/** A selected-text section's columns: 2 to `MAX_COLUMNS`, always equal. */
 function columnCountAttr(value: unknown) {
-  return value === 3 || value === "3" ? 3 : 2
+  const count = Math.round(Number(value))
+  return Number.isFinite(count) ? Math.max(2, Math.min(MAX_COLUMNS, count)) : 2
 }
 
 export const ColumnSection = Node.create({

@@ -1,9 +1,11 @@
 import { useChromeExtent } from "@/document/chrome-extent"
+import { MAX_COLUMNS, pageColumns, type ColumnWidth } from "@/document/column-widths"
 import { useViewStore } from "@/document/view"
 
 export type PaperSize = "letter" | "a4" | "legal"
 export type PageOrientation = "portrait" | "landscape"
-export type ColumnCount = 1 | 2 | 3
+/** 1 to `MAX_COLUMNS`. */
+export type ColumnCount = number
 export type PageBorder = "none" | "single" | "double"
 export type BorderLine = "solid" | "dashed" | "dotted" | "groove" | "ridge"
 /** Which pages of the section show the page border (Borders and Shading > Page Border > Apply to). */
@@ -49,6 +51,11 @@ export type PageSetup = {
   columnGap: number
   /** A vertical line between the columns (Columns dialog: Line between). */
   columnLine: boolean
+  /**
+   * Each column's width and the space after it (cm) when the columns are not equal (Left, Right, or Equal column
+   * width cleared in the Columns dialog; Word's `w:cols w:equalWidth="0"`). Absent for equal columns.
+   */
+  columnWidths?: ColumnWidth[]
   lineNumbers: boolean
   /** When line numbers are on, restart numbering at the top of each page. */
   lineNumberRestart: "continuous" | "page"
@@ -217,7 +224,9 @@ export function normalizePageSetup(setup: Partial<PageSetup> | null | undefined)
     lineNumberStart: Math.max(1, Math.round(Number(setup?.lineNumberStart) || 1)),
     lineNumberCountBy: Math.max(1, Math.min(100, Math.round(Number(setup?.lineNumberCountBy) || 1))),
     lineNumberDistance: clampNonNeg(setup?.lineNumberDistance, 0),
+    columns: columnCount(setup?.columns ?? DEFAULT_PAGE_SETUP.columns),
     columnLine: Boolean(setup?.columnLine),
+    columnWidths: columnWidths(setup?.columnWidths, columnCount(setup?.columns ?? DEFAULT_PAGE_SETUP.columns)),
     borderDisplay: borderDisplay(setup?.borderDisplay),
     borderFrom: setup?.borderFrom === "text" ? "text" : "page",
     borderSpace: borderSpace(setup?.borderSpace) ?? DEFAULT_PAGE_SETUP.borderSpace,
@@ -253,6 +262,7 @@ export function samePageSetup(left: PageSetup, right: PageSetup) {
     left.columns === right.columns &&
     left.columnGap === right.columnGap &&
     left.columnLine === right.columnLine &&
+    JSON.stringify(left.columnWidths ?? null) === JSON.stringify(right.columnWidths ?? null) &&
     left.lineNumbers === right.lineNumbers &&
     left.lineNumberRestart === right.lineNumberRestart &&
     left.lineNumberStart === right.lineNumberStart &&
@@ -371,6 +381,17 @@ export function pageMetrics(setup: PageSetup, paper = false): PageMetrics {
     marginLeft,
     contentHeight: Math.max(1, height - marginTop - marginBottom),
   }
+}
+
+/** The text width between the margins, in cm. */
+export function contentWidthCm(setup: PageSetup) {
+  const metrics = pageMetrics(setup, true)
+  return (metrics.width - metrics.marginLeft - metrics.marginRight) / (MM_TO_PX * 10)
+}
+
+/** The page's columns (cm): Word's own widths when they are not equal, fitted to the text width. */
+export function setupColumns(setup: PageSetup) {
+  return pageColumns(setup.columns, setup.columnGap, setup.columnWidths, contentWidthCm(setup))
 }
 
 export function clampMargin(value: number) {
@@ -534,8 +555,20 @@ export function pageBorderStyle(setup: PageSetup, placed = true) {
 }
 
 export function columnCount(value: unknown): ColumnCount {
-  const count = Number(value)
-  return count === 2 || count === 3 ? count : 1
+  const count = Math.round(Number(value))
+  return Number.isFinite(count) ? Math.max(1, Math.min(MAX_COLUMNS, count)) : 1
+}
+
+/** Unequal column widths, kept only when there is one for each of two or more columns. */
+export function columnWidths(value: unknown, count: number): ColumnWidth[] | undefined {
+  if (count < 2 || !Array.isArray(value) || value.length !== count) {
+    return undefined
+  }
+  const widths = value.map((item) => ({
+    width: Number((item as ColumnWidth)?.width),
+    space: Number((item as ColumnWidth)?.space) || 0,
+  }))
+  return widths.every((item) => Number.isFinite(item.width) && item.width > 0 && item.space >= 0) ? widths : undefined
 }
 
 export function pageBorder(value: unknown): PageBorder {

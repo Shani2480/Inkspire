@@ -1,6 +1,6 @@
 import { defaultPictureWrap } from "@/document/object-layout"
 import { PX_PER_CM, PX_PER_MM } from "@/document/measure"
-import { pageMetrics } from "@/document/page-setup"
+import { pageMetrics, setupColumns } from "@/document/page-setup"
 import { useDocumentStore } from "@/document/store"
 import { clampColumnGap } from "@/editor/columns"
 import { INDENT_STEP_PX, clampIndent } from "@/editor/indent"
@@ -123,13 +123,22 @@ function measureColumnWidth(editor: Editor, $pos: ResolvedPos, contentWidth: num
     if (node.type.name !== "columnSection") {
       continue
     }
-    const columns = node.attrs.columns === 3 ? 3 : 2
+    const columns = Math.max(2, Number(node.attrs.columns) || 2)
     const gapCm = clampColumnGap(Number(node.attrs.gap) || 1.25)
     const gapPx = gapCm * PX_PER_CM
     return Math.max(MIN_SIZE, (contentWidth - gapPx * (columns - 1)) / columns)
   }
 
   const setup = useDocumentStore.getState().pageSetup
+  if (setup.columns > 1 && setup.columnWidths) {
+    // Unequal columns: the column the picture's block is drawn in, else the narrowest.
+    const top = $pos.depth > 0 ? editor.view.nodeDOM($pos.before(1)) : null
+    const drawn = top instanceof HTMLElement ? parseFloat(top.style.getPropertyValue("--col-w")) : NaN
+    if (Number.isFinite(drawn) && drawn > 0) {
+      return Math.max(MIN_SIZE, drawn)
+    }
+    return Math.max(MIN_SIZE, Math.min(...setupColumns(setup).map((column) => column.width * PX_PER_CM)))
+  }
   if (setup.columns > 1) {
     const columns = setup.columns
     const gapPx = (setup.columnGap || 1.25) * PX_PER_CM

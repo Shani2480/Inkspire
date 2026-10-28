@@ -20,8 +20,15 @@ import {
 } from "@/document/measure"
 import { pageGridColumns, pageGridRows } from "@/document/page-grid"
 import { PAGE_GAP } from "@/editor/pages"
-import { marginAlongEdge, pageMetrics, type PageMarginEdge, type PageMetrics } from "@/document/page-setup"
-import { columnMarks, findColumnSection, gapFromBoundary, setColumnSectionGap } from "@/editor/columns"
+import {
+  marginAlongEdge,
+  pageMetrics,
+  setupColumns,
+  type PageMarginEdge,
+  type PageMetrics,
+} from "@/document/page-setup"
+import { columnMarks, columnMarksFrom, findColumnSection, gapFromBoundary, setColumnSectionGap } from "@/editor/columns"
+import { moveColumnEdge } from "@/document/column-widths"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
 import { ZOOM_PREVIEW_EVENT } from "@/document/zoom-gesture"
@@ -216,7 +223,12 @@ export function DocumentRulers({ children }: DocumentRulersProps) {
   const columnCount = sectionColumns > 1 ? sectionColumns : pageSetup.columns
   const columnGap = sectionColumns > 1 ? (sectionGapPreview ?? sectionGap) : pageSetup.columnGap
   const contentPx = metrics.width - metrics.marginLeft - metrics.marginRight
-  const columnsOnRuler = columnCount > 1 ? columnMarks(contentPx, columnCount, columnGap) : []
+  const columnsOnRuler =
+    sectionColumns < 2 && pageSetup.columns > 1 && pageSetup.columnWidths
+      ? columnMarksFrom(setupColumns(pageSetup))
+      : columnCount > 1
+        ? columnMarks(contentPx, columnCount, columnGap)
+        : []
   const system = measureSystemFor(locale)
   const ticks = "metric" as const
   const pageWidth = metrics.width * zoom
@@ -288,7 +300,20 @@ export function DocumentRulers({ children }: DocumentRulersProps) {
       const edge = (pointer.clientX - rect.left) / currentZoom - current.marginLeft
       return gapFromBoundary(content, count, index, edge)
     }
+    const unequal = !sectionNow && useDocumentStore.getState().pageSetup.columnWidths !== undefined
     const move = (pointer: MouseEvent) => {
+      if (unequal) {
+        // Unequal columns: the column grows or shrinks and the next one gives or takes the difference.
+        const setup = useDocumentStore.getState().pageSetup
+        const rect = ruler.getBoundingClientRect()
+        const current = pageMetrics(setup)
+        const edge = ((pointer.clientX - rect.left) / (zoomRef.current || 1) - current.marginLeft) / PX_PER_CM
+        const widths = moveColumnEdge(setupColumns(setup), index, edge)
+        if (JSON.stringify(widths) !== JSON.stringify(setup.columnWidths)) {
+          useDocumentStore.getState().setPageSetup({ ...setup, columnWidths: widths })
+        }
+        return
+      }
       const gap = gapAt(pointer)
       if (sectionNow) {
         setSectionGapPreview(gap)

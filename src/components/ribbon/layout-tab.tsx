@@ -26,7 +26,15 @@ import { SingleLineBar, type LineCommand, type LineGroup } from "@/components/ri
 import { MenuButton, RibbonCommand, RibbonGroup, RibbonHover } from "@/components/ribbon/ribbon-button"
 import { requestPageBorders, requestPageSetup } from "@/components/design-dialogs"
 import { requestFormatDialog } from "@/components/format-dialogs"
-import { MARGIN_PRESETS, PAPER_SIZES, clampMargin, marginPresetId, type PageSetup } from "@/document/page-setup"
+import {
+  MARGIN_PRESETS,
+  PAPER_SIZES,
+  clampMargin,
+  contentWidthCm,
+  marginPresetId,
+  type PageSetup,
+} from "@/document/page-setup"
+import { COLUMN_PRESET_NAMES, columnPreset, presetColumns } from "@/document/column-widths"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
 import { useDocumentEditor } from "@/editor/document-editor"
@@ -136,19 +144,22 @@ export function LayoutTab() {
       ))}
     </div>
   )
+  const textCm = contentWidthCm(setup)
+  const preset = columnPreset(setup.columns, setup.columnWidths, textCm, setup.columnGap)
   const columnsMenu = (close: () => void) => (
     <div className="flex w-52 flex-col">
-      {([1, 2, 3] as const).map((count) => (
+      {(["one", "two", "three", "left", "right"] as const).map((choice) => (
         <MenuButton
-          key={count}
-          selected={setup.columns === count}
+          key={choice}
+          selected={preset === choice}
           onClick={() => {
-            update({ columns: count })
+            const picked = presetColumns(choice, textCm, setup.columnGap)
+            update({ columns: picked.count, columnWidths: picked.widths })
             close()
           }}
         >
-          <MenuGlyph kind={`columns-${count}`} />
-          {count === 1 ? "One" : count === 2 ? "Two" : "Three"}
+          <MenuGlyph kind={`columns-${choice}`} />
+          {COLUMN_PRESET_NAMES[choice]}
         </MenuButton>
       ))}
       <div className="mx-2 my-1 border-t border-black/10" />
@@ -910,28 +921,30 @@ function RotateIcon() {
   )
 }
 
+/** The columns a Columns menu glyph draws, as shares of the text width (Left and Right: a third and two thirds). */
+const GLYPH_COLUMNS: Record<string, number[]> = {
+  "columns-one": [1],
+  "columns-two": [1, 1],
+  "columns-three": [1, 1, 1],
+  "columns-left": [1, 2],
+  "columns-right": [2, 1],
+}
+
 /** The small page glyph beside a Breaks or Columns menu row (22.20, 22.21). */
 function MenuGlyph({ kind }: { kind: string }) {
-  const columns = kind.startsWith("columns-") ? Number(kind.slice(8)) || 0 : 0
+  const shares = GLYPH_COLUMNS[kind] ?? []
+  const total = shares.reduce((sum, share) => sum + share, 0)
+  let x = 8
+  const columns = shares.length
   return (
     <svg className="menu-glyph" viewBox="0 0 24 24" width={24} height={24} aria-hidden>
       <rect x="6" y="3" width="12" height="18" rx="1" fill="none" stroke="currentColor" />
-      {columns > 0
-        ? Array.from({ length: columns }, (_, index) => {
-            const width = 8 / columns
-            return (
-              <rect
-                key={index}
-                x={8 + index * (8 / columns)}
-                y="6"
-                width={width - 1}
-                height="12"
-                fill="currentColor"
-                opacity="0.35"
-              />
-            )
-          })
-        : null}
+      {shares.map((share, index) => {
+        const width = (8 * share) / total
+        const left = x
+        x += width
+        return <rect key={index} x={left} y="6" width={width - 1} height="12" fill="currentColor" opacity="0.35" />
+      })}
       {kind === "columns-more" ? <path d="M9 12h6M12 9v6" stroke="currentColor" /> : null}
       {columns === 0 && kind !== "columns-more" ? (
         <path

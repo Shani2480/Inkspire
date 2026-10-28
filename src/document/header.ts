@@ -5,6 +5,7 @@ import {
   DEFAULT_PAGE_SETUP,
   clipWatermark,
   columnCount,
+  columnWidths,
   formatPageSetup,
   borderDisplay,
   borderLine,
@@ -19,7 +20,7 @@ import {
 } from "@/document/page-setup"
 
 const CHROME_MARK =
-  /^<!-- aiword-(header|footer|first-header|first-footer|even-header|even-footer|first|oddeven|page|columns|colgap|colline|lines|watermark|border|borderwidth|borderline|borderplace|pagecolor|pagenum|hyphens|language|fonts|spacing|headerstyle|footerstyle|colors|effects):([^\n>]*) -->\n?/
+  /^<!-- aiword-(header|footer|first-header|first-footer|even-header|even-footer|first|oddeven|page|columns|colgap|colline|colwidths|lines|watermark|border|borderwidth|borderline|borderplace|pagecolor|pagenum|hyphens|language|fonts|spacing|headerstyle|footerstyle|colors|effects):([^\n>]*) -->\n?/
 
 export type DocumentChrome = {
   /** The header and footer of each kind of page, as editor HTML. */
@@ -72,6 +73,9 @@ export function packDocument(html: string, chrome: DocumentChrome) {
       ? `<!-- aiword-colgap:${chrome.pageSetup.columnGap} -->`
       : "",
     chrome.pageSetup.columns > 1 && chrome.pageSetup.columnLine ? "<!-- aiword-colline:1 -->" : "",
+    chrome.pageSetup.columns > 1 && chrome.pageSetup.columnWidths
+      ? `<!-- aiword-colwidths:${chrome.pageSetup.columnWidths.map((column) => `${column.width}/${column.space}`).join(",")} -->`
+      : "",
     chrome.pageSetup.lineNumbers
       ? `<!-- aiword-lines:${chrome.pageSetup.lineNumberRestart === "page" ? "page" : "1"} -->`
       : "",
@@ -157,6 +161,15 @@ export function unpackDocument(raw: string) {
       chrome.pageSetup = { ...chrome.pageSetup, differentOddEven: value === "1" }
     } else if (match[1] === "columns") {
       chrome.pageSetup = { ...chrome.pageSetup, columns: columnCount(value) }
+    } else if (match[1] === "colwidths") {
+      const widths = value.split(",").map((item) => {
+        const [width, space] = item.split("/").map(Number)
+        return { width, space }
+      })
+      chrome.pageSetup = {
+        ...chrome.pageSetup,
+        columnWidths: columnWidths(widths, chrome.pageSetup.columns),
+      }
     } else if (match[1] === "colline") {
       chrome.pageSetup = { ...chrome.pageSetup, columnLine: value === "1" }
     } else if (match[1] === "colgap") {

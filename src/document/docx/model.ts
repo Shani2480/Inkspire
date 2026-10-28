@@ -274,6 +274,8 @@ export type SectionProps = {
   columnSpace?: number
   /** w:cols/@w:sep: a line between the columns. */
   columnSeparator?: boolean
+  /** w:cols/@w:equalWidth="0" with its w:col children: each column's width and the space after it (twips). */
+  columnWidths?: { width: number; space?: number }[]
   titlePg?: boolean
   linePitch?: number
   /** w:lnNumType: the section's line numbers (21.37). */

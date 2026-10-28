@@ -1587,6 +1587,20 @@ function readSectionModel(node: MarkupNode): SectionProps {
     if (separator !== undefined) {
       section.columnSeparator = separator === "1" || separator === "true" || separator === "on"
     }
+    const equal = attr(columns, "equalWidth")
+    const widths = wordChildren(columns, "col").map((column) => ({
+      width: readUMeasure(attr(column, "w")) ?? 0,
+      space: readUMeasure(attr(column, "space")),
+    }))
+    if (
+      (equal === "0" || equal === "false" || equal === "off") &&
+      widths.length > 0 &&
+      widths.every((column) => column.width > 0)
+    ) {
+      section.columnWidths = widths.map((column) =>
+        column.space === undefined ? { width: column.width } : { width: column.width, space: column.space },
+      )
+    }
   }
   if (wordChild(node, "titlePg")) {
     section.titlePg = readOnOff(wordChild(node, "titlePg")) ?? true

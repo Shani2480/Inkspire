@@ -1393,12 +1393,18 @@ button.line-menu-row:focus-visible {
 /* Table Layout → Draw: the pencil and eraser stay on until clicked again or Escape. */
 .page-editor.table-draw-pen,
 .page-editor.table-draw-pen * {
-  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'><path d='M1 19l1.5-5L14 2.5l3.5 3.5L6 17.5z' fill='white' stroke='black' stroke-width='1.2' stroke-linejoin='round'/><path d='M2.5 14l3.5 3.5' stroke='black' stroke-width='1.2'/></svg>") 1 19, crosshair;
+  cursor:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'><path d='M1 19l1.5-5L14 2.5l3.5 3.5L6 17.5z' fill='white' stroke='black' stroke-width='1.2' stroke-linejoin='round'/><path d='M2.5 14l3.5 3.5' stroke='black' stroke-width='1.2'/></svg>")
+      1 19,
+    crosshair;
 }
 
 .page-editor.table-draw-eraser,
 .page-editor.table-draw-eraser * {
-  cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'><path d='M2 13l8-8 7 7-5 5H6z' fill='white' stroke='black' stroke-width='1.2' stroke-linejoin='round'/><path d='M5.5 9.5l7 7' stroke='black' stroke-width='1.2'/><path d='M2 19h16' stroke='black' stroke-width='1.2'/></svg>") 3 17, cell;
+  cursor:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'><path d='M2 13l8-8 7 7-5 5H6z' fill='white' stroke='black' stroke-width='1.2' stroke-linejoin='round'/><path d='M5.5 9.5l7 7' stroke='black' stroke-width='1.2'/><path d='M2 19h16' stroke='black' stroke-width='1.2'/></svg>")
+      3 17,
+    cell;
 }
 
 .table-draw-preview {
@@ -3244,18 +3250,22 @@ button.line-menu-row:focus-visible {
   position: relative;
 }
 
-.page-editor[data-columns="2"],
-.page-editor[data-columns="3"] {
+.page-editor[data-columns] {
+  column-count: var(--page-cols, 2);
   column-gap: var(--column-gap, 1.25cm);
   column-fill: balance;
 }
 
-.page-editor[data-columns="2"] {
-  column-count: 2;
+/* Unequal columns (22.7): each top-level block is drawn across in its column and up to the column's top. */
+.page-editor[data-unequal] > .column-cell {
+  position: relative;
+  left: var(--col-x, 0);
+  top: var(--col-top, 0);
 }
 
-.page-editor[data-columns="3"] {
-  column-count: 3;
+.page-editor[data-unequal] > .column-cell[style*="--col-w"] {
+  width: var(--col-w);
+  max-width: none;
 }
 
 .page-editor[data-columns] .column-section,
@@ -12155,6 +12165,74 @@ textarea.text-prompt-field {
   border-left-color: var(--dlg-text);
 }
 
+.columns-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--dlg-text);
+  font-size: 12px;
+}
+
+.columns-dialog fieldset {
+  margin: 0;
+  padding: 4px 8px 8px;
+  border: 1px solid var(--dlg-control-border);
+}
+
+.columns-dialog legend {
+  padding: 0 4px;
+}
+
+.columns-count-row,
+.columns-apply-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.columns-count-row .word-dialog-spin {
+  width: 64px;
+}
+
+.columns-count-row .word-dialog-check,
+.columns-apply-row .word-dialog-check {
+  margin-left: auto;
+}
+
+.columns-body {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.columns-widths {
+  flex: 1;
+  min-width: 0;
+}
+
+.columns-widths-grid {
+  display: grid;
+  grid-template-columns: 36px 1fr 1fr;
+  gap: 4px 8px;
+  max-height: 104px;
+  overflow-y: auto;
+  margin-bottom: 6px;
+}
+
+.columns-widths-row {
+  display: contents;
+}
+
+.columns-widths-row > [role="cell"] {
+  align-self: center;
+}
+
+.columns-preview-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 fieldset.columns-presets {
   justify-content: flex-start;
   gap: 18px;
@@ -12164,11 +12242,6 @@ fieldset.columns-presets {
 
 fieldset.columns-presets input {
   width: auto;
-}
-
-.columns-preview-row {
-  align-items: flex-start;
-  margin-top: 4px;
 }
 
 /* Table Properties (22.10), laid out as Word's. */
