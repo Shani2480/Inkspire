@@ -156,6 +156,8 @@ The same app builds for Android tablets with Tauri's Android target (the `androi
 
 Not on Android: Pandoc and Typst (ODT, RTF and PDF), the built-in AI engine, separate windows and Open Containing Folder.
 
+Install: download `Inkspire_*_android.apk` from the [latest release](https://github.com/Shani2480/Inkspire/releases/latest) on the tablet, open it and allow installing from that source when asked (Android 7 or newer, arm64 or x86_64).
+
 Build a debug APK for the emulator or a device (Android SDK, NDK 30 and the Rust Android targets installed):
 
 ```bash
