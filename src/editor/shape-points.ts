@@ -7,10 +7,7 @@
 
 export type Point = [number, number]
 export type Segment =
-  | { kind: "M"; to: Point }
-  | { kind: "L"; to: Point }
-  | { kind: "C"; c1: Point; c2: Point; to: Point }
-  | { kind: "Z" }
+  { kind: "M"; to: Point } | { kind: "L"; to: Point } | { kind: "C"; c1: Point; c2: Point; to: Point } | { kind: "Z" }
 
 /** The size of the box the points are in. */
 export const POINTS_BOX = 100
@@ -285,7 +282,14 @@ export function pointsFromMarkup(markup: string, viewBox: string): Segment[] | n
     const tag = /^<(\w+)/.exec(element)![1]
     if (tag === "rect") {
       segments.push(
-        ...rectPath(num(element, "x"), num(element, "y"), num(element, "width"), num(element, "height"), num(element, "rx"), num(element, "ry")),
+        ...rectPath(
+          num(element, "x"),
+          num(element, "y"),
+          num(element, "width"),
+          num(element, "height"),
+          num(element, "rx"),
+          num(element, "ry"),
+        ),
       )
     } else if (tag === "ellipse") {
       segments.push(...ellipsePath(num(element, "cx"), num(element, "cy"), num(element, "rx"), num(element, "ry")))
@@ -312,7 +316,10 @@ export function pointsFromMarkup(markup: string, viewBox: string): Segment[] | n
     return null
   }
   const [vx, vy, vw, vh] = viewBox.split(/[\s,]+/).map(Number) as [number, number, number, number]
-  const map = ([x, y]: Point): Point => [round(((x - vx) / (vw || 1)) * POINTS_BOX), round(((y - vy) / (vh || 1)) * POINTS_BOX)]
+  const map = ([x, y]: Point): Point => [
+    round(((x - vx) / (vw || 1)) * POINTS_BOX),
+    round(((y - vy) / (vh || 1)) * POINTS_BOX),
+  ]
   return segments.map((segment) =>
     segment.kind === "Z"
       ? segment
@@ -386,7 +393,11 @@ function twinOf(segments: Segment[], index: number) {
     }
     if (segment.kind === "Z") {
       const before = segments[at - 1]
-      return before && before.kind !== "Z" && before.kind !== "M" && before.to[0] === start[0] && before.to[1] === start[1]
+      return before &&
+        before.kind !== "Z" &&
+        before.kind !== "M" &&
+        before.to[0] === start[0] &&
+        before.to[1] === start[1]
         ? at - 1
         : -1
     }
@@ -422,7 +433,10 @@ export function movePoint(segments: Segment[], index: number, dx: number, dy: nu
 
 /** Deletes a point, joining its neighbours; a figure keeps at least two points. */
 export function deletePoint(segments: Segment[], index: number): Segment[] {
-  const figureStart = segments.slice(0, index + 1).map((segment) => segment.kind).lastIndexOf("M")
+  const figureStart = segments
+    .slice(0, index + 1)
+    .map((segment) => segment.kind)
+    .lastIndexOf("M")
   let figureEnd = segments.findIndex((segment, at) => at > index && segment.kind === "M")
   figureEnd = figureEnd < 0 ? segments.length : figureEnd
   const drawn = segments.slice(figureStart, figureEnd).filter((segment) => segment.kind !== "Z").length
@@ -603,7 +617,7 @@ function neighbours(segments: Segment[], index: number) {
   // The point after the figure's last one is its first again when it closes.
   const out = index === last && index !== start ? (closed ? start : -1) : index + 1
   const prev = into >= 0 ? startOf(segments, into) : null
-  const next = out >= 0 && out < end ? (segments[out] as { to?: Point }).to ?? null : null
+  const next = out >= 0 && out < end ? ((segments[out] as { to?: Point }).to ?? null) : null
   return { into, out: out >= 0 && out < end ? out : -1, prev, next }
 }
 
@@ -690,7 +704,10 @@ export function moveHandle(
  */
 export function bendSegment(segments: Segment[], index: number, t: number, dx: number, dy: number) {
   // A close's line becomes a curve at the close's place, so the index stays the bent curve's.
-  const next = segments[index]?.kind === "L" || segments[index]?.kind === "Z" ? setSegmentKind(segments, index, "curved") : segments
+  const next =
+    segments[index]?.kind === "L" || segments[index]?.kind === "Z"
+      ? setSegmentKind(segments, index, "curved")
+      : segments
   const curve = next[index]
   if (curve?.kind !== "C") {
     return segments
@@ -709,7 +726,10 @@ export function bendSegment(segments: Segment[], index: number, t: number, dx: n
 
 /** A line as a curve that draws the same, its handles a third of the way along. */
 function curveOf(from: Point, to: Point): Segment {
-  const third = (share: number): Point => [round(from[0] + (to[0] - from[0]) * share), round(from[1] + (to[1] - from[1]) * share)]
+  const third = (share: number): Point => [
+    round(from[0] + (to[0] - from[0]) * share),
+    round(from[1] + (to[1] - from[1]) * share),
+  ]
   return { kind: "C", c1: third(1 / 3), c2: third(2 / 3), to }
 }
 
@@ -800,7 +820,9 @@ export function setPointKind(segments: Segment[], index: number, kind: PointKind
 /** The figure's lines and curves in order, the line back to its start written out where the close drew it. */
 function loopOf(segments: Segment[], start: number, end: number): Exclude<Segment, { kind: "M" } | { kind: "Z" }>[] {
   const first = (segments[start] as { to: Point }).to
-  const drawn = segments.slice(start + 1, end).filter((segment) => segment.kind === "L" || segment.kind === "C") as Exclude<
+  const drawn = segments
+    .slice(start + 1, end)
+    .filter((segment) => segment.kind === "L" || segment.kind === "C") as Exclude<
     Segment,
     { kind: "M" } | { kind: "Z" }
   >[]
@@ -1028,9 +1050,13 @@ export function pointsFromCustGeom(xml: string): Segment[] | null {
     }
     let current: Point = [0, 0]
     let start: Point = [0, 0]
-    for (const command of path.match(/<a:(moveTo|lnTo|cubicBezTo|quadBezTo|arcTo|close)\b[^>]*?(?:\/>|>[\s\S]*?<\/a:\1>)/g) ?? []) {
+    for (const command of path.match(
+      /<a:(moveTo|lnTo|cubicBezTo|quadBezTo|arcTo|close)\b[^>]*?(?:\/>|>[\s\S]*?<\/a:\1>)/g,
+    ) ?? []) {
       const name = /^<a:(\w+)/.exec(command)![1]
-      const points = [...command.matchAll(/<a:pt x="([^"]+)" y="([^"]+)"\s*\/>/g)].map((match) => map(match[1]!, match[2]!))
+      const points = [...command.matchAll(/<a:pt x="([^"]+)" y="([^"]+)"\s*\/>/g)].map((match) =>
+        map(match[1]!, match[2]!),
+      )
       if (points.some((point) => point === null)) {
         return null
       }
@@ -1058,7 +1084,10 @@ export function pointsFromCustGeom(xml: string): Segment[] | null {
         }
         const cx = current[0] - wr * Math.cos(startAngle)
         const cy = current[1] - hr * Math.sin(startAngle)
-        const end: Point = [round(cx + wr * Math.cos(startAngle + swing)), round(cy + hr * Math.sin(startAngle + swing))]
+        const end: Point = [
+          round(cx + wr * Math.cos(startAngle + swing)),
+          round(cy + hr * Math.sin(startAngle + swing)),
+        ]
         segments.push(...arcToCubics(current, wr, hr, 0, Math.abs(swing) > Math.PI, swing > 0, end))
         current = end
       } else if (name === "close") {

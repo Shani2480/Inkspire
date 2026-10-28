@@ -270,7 +270,9 @@ export function ShapesList({
   only?: (name: string) => boolean
 }) {
   const recent = recentShapes()
-  const categories = (recent.length ? [{ label: "Recently Used Shapes", shapes: recent }, ...SHAPE_CATEGORIES] : SHAPE_CATEGORIES)
+  const categories = (
+    recent.length ? [{ label: "Recently Used Shapes", shapes: recent }, ...SHAPE_CATEGORIES] : SHAPE_CATEGORIES
+  )
     .map((category) => ({ ...category, shapes: only ? category.shapes.filter(only) : category.shapes }))
     .filter((category) => category.shapes.length > 0)
   return (
