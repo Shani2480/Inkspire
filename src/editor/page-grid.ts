@@ -251,7 +251,8 @@ export function cutSplitRows(view: EditorView) {
     rows.add(row)
     const top = (gap.getBoundingClientRect().top - table.getBoundingClientRect().top) / zoom
     const from = Math.round((top + (Number(gap.dataset.keep) || 0)) * 10) / 10
-    const to = Math.round((top + gap.offsetHeight) * 10) / 10
+    // A header row drawn again at the next page's top (`data-header`) stays in view: the cut ends above it.
+    const to = Math.round((top + gap.offsetHeight - (Number(gap.dataset.header) || 0)) * 10) / 10
     // The cells of one row share their cut: keep the widest.
     const list = cuts.get(table) ?? new Map<number, number>()
     const key = Math.round(to)
@@ -296,6 +297,14 @@ export function cutSplitRows(view: EditorView) {
       if (!lines.has(cell)) {
         cell.removeAttribute("data-row-cut")
         cell.style.removeProperty("--row-cut")
+      }
+    })
+    dom.querySelectorAll<HTMLElement>(".page-gap-cell > .page-gap-header-copy").forEach((copy) => {
+      const table = copy.parentElement!.closest<HTMLElement>("table")
+      if (table) {
+        const left = (table.getBoundingClientRect().left - copy.parentElement!.getBoundingClientRect().left) / zoom
+        copy.style.left = `${Math.round(left * 10) / 10}px`
+        copy.style.setProperty("width", `${table.offsetWidth}px`, "important")
       }
     })
     lines.forEach((gradient, cell) => {

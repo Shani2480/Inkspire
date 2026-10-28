@@ -181,10 +181,13 @@ describe("splittable (Allow row to break across pages, 22.10)", () => {
     expect(splittable(tables.node("tableRow", null, [cell(text("a")), cell(text("b"), text("c"))]))).toBe(true)
   })
 
-  it("keeps a row whole when it may not break or holds more than text", () => {
+  it("keeps a row whole only when it may not break", () => {
     expect(splittable(tables.node("tableRow", { cantSplit: true }, [cell(text("a"))]))).toBe(false)
-    expect(splittable(tables.node("tableRow", null, [cell(tables.node("image"))]))).toBe(false)
+  })
+
+  it("lets a row holding a picture or a nested table break around them", () => {
+    expect(splittable(tables.node("tableRow", null, [cell(text("a"), tables.node("image"), text("b"))]))).toBe(true)
     const nested = tables.node("table", null, [tables.node("tableRow", null, [cell(text("x"))])])
-    expect(splittable(tables.node("tableRow", null, [cell(nested)]))).toBe(false)
+    expect(splittable(tables.node("tableRow", null, [cell(nested)]))).toBe(true)
   })
 })

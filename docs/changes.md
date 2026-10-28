@@ -7,6 +7,32 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### Broken table rows: header row repeated, centred cells, pictures and nested tables
+
+- **What was wrong:**
+  - A row that broke across pages went on at the next page's top without the table's header row, though the table
+    repeats it (Repeat as header row); a row that moved whole to the next page that way also lost it.
+  - A vertically centred cell in a broken row moved its text as the gaps grew, so the page showed other lines than
+    those measured.
+  - A row holding a picture, a nested table or another object never broke; it moved whole.
+- **What changed:**
+  - `pages.ts`: `splitRow` takes the header row's height. On each page the row goes on to, every cell's gap is that
+    much taller and the first cell's gap draws a copy of the header row (`headerCopy`: the table's own attributes,
+    column widths and first row, read-only); a row moved whole gets the header row as other rows do.
+  - `page-grid.ts` `cutSplitRows`: the table's cut ends above the copy, which is lined up with the table's left edge
+    and width.
+  - `index.css`: a broken row's cells are drawn top-aligned while broken.
+  - `splittable` no longer refuses rows with objects: `rowCellLines` counts each picture, nested table or other block
+    object in a cell (not floating ones) as one line the break goes before, never through.
+- **Tests:** `pages.test.ts` (rows with a picture or nested table may break; Allow row to break off keeps them
+  whole). All 1145 tests pass.
+- **Checked in headless Chrome:** a two-column table with Header Row on, its second row broken from page 2 to 3:
+  Head A / Head B drawn across the full width at the top of page 3, the row's rest under it; a 160-line row over four
+  pages has the header on each; a cell with text, a picture and more text breaks before the picture, which starts the
+  next page under the header.
+- **Open:** Word may centre a short cell of a broken row over the whole row; here it is drawn at the top. The header
+  copy is not clickable (as Word's repeated header). A nested table taller than a page is not split inside itself.
+
 ### SmartArt: a Format tab, and Hierarchy drawn as a tree
 
 - **What was wrong:**
