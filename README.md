@@ -4,9 +4,57 @@ Inkspire is a local, AI-first desktop word processor. It looks and behaves like 
 
 ![Inkspire editing a report with headings, a styled table and an equation](docs/images/overview.png)
 
-## Download
+## Download and install
 
-Installers are on the [Releases page](https://github.com/Shani2480/Inkspire/releases/latest): a setup `.exe` for Windows, and a `.deb`, Flatpak and AppImage for Linux (x86_64). The Windows installer is not code-signed yet, so SmartScreen asks you to confirm before it runs.
+Get the latest installers from the [Releases page](https://github.com/Shani2480/Inkspire/releases/latest). All builds are for x86_64 (64-bit Intel/AMD).
+
+| System                               | File                                |                                            |
+| ------------------------------------ | ----------------------------------- | ------------------------------------------ |
+| Windows 10 / 11                      | `Inkspire_<version>_x64-setup.exe`  | [Windows](#windows)                        |
+| Debian, Ubuntu, Linux Mint, Pop!\_OS | `Inkspire_<version>_amd64.deb`      | [.deb](#debian-ubuntu-and-derivatives-deb) |
+| Any Linux with Flatpak               | `Inkspire_<version>_x86_64.flatpak` | [Flatpak](#flatpak)                        |
+| Any Linux                            | `Inkspire_<version>_amd64.AppImage` | [AppImage](#appimage)                      |
+
+### Windows
+
+1. Download `Inkspire_<version>_x64-setup.exe` and run it.
+2. The installer is not code-signed yet, so Windows SmartScreen shows "Windows protected your PC". Click **More info**, then **Run anyway**.
+3. Inkspire installs for your user (no administrator rights needed) and adds a Start menu entry. Uninstall it from **Settings → Apps**.
+
+Inkspire uses the WebView2 runtime, which Windows 10 and 11 already have; the installer fetches it if it is missing.
+
+### Debian, Ubuntu and derivatives (.deb)
+
+```bash
+sudo apt install ./Inkspire_<version>_amd64.deb
+```
+
+`apt` pulls in the libraries it needs (WebKitGTK 4.1, GTK 3). Start Inkspire from the applications menu or run `inkspire`. Remove it with `sudo apt remove inkspire`. Ubuntu 22.04 or newer (or Debian 12 or newer) is needed.
+
+### Flatpak
+
+The Flatpak runs on the GNOME 50 runtime from Flathub. Add Flathub once if you have not:
+
+```bash
+flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+flatpak install --user ./Inkspire_<version>_x86_64.flatpak
+flatpak run com.aiword.app
+```
+
+The app can open and save documents anywhere in your home folder, reach the network for AI providers, and keep API keys in your desktop keyring. Remove it with `flatpak uninstall com.aiword.app`.
+
+### AppImage
+
+```bash
+chmod +x Inkspire_<version>_amd64.AppImage
+./Inkspire_<version>_amd64.AppImage
+```
+
+Nothing is installed; delete the file to remove it. If it does not start, install FUSE 2 (`sudo apt install libfuse2` on Ubuntu, `fuse2` on Arch).
+
+### After installing
+
+On first start Inkspire asks for your name and regional formats, and offers optional downloads: Pandoc (ODT and RTF), Typst (PDF) and the built-in AI engine. Each is unticked; you can add them later. To use OpenAI or Anthropic, open **AI Tools → AI Settings** and paste a key; for Ollama, point it at your local server.
 
 ## Features
 
@@ -71,7 +119,7 @@ The File view opens recent documents and starts new ones from templates.
 - Platform webview: WebKitGTK (Linux), WebView2 (Windows), or system WebView (macOS)
 - Optional, downloaded by the app when you choose: Pandoc (ODT/RTF, PDF) and Typst (PDF), plus the built-in AI engine
 
-## Setup
+## Build from source
 
 On Windows, follow [WINDOWS.md](WINDOWS.md) (tools to install, cloning with LF line endings, the desktop build and installers, and what does not travel with the repository).
 
