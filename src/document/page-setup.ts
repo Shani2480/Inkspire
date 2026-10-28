@@ -6,6 +6,8 @@ export type PaperSize = "letter" | "a4" | "legal"
 export type PageOrientation = "portrait" | "landscape"
 /** 1 to `MAX_COLUMNS`. */
 export type ColumnCount = number
+/** Layout → Line Numbers: Continuous, Restart Each Page, Restart Each Section (Word's `w:lnNumType/@w:restart`). */
+export type LineNumberRestart = "continuous" | "page" | "section"
 export type PageBorder = "none" | "single" | "double"
 export type BorderLine = "solid" | "dashed" | "dotted" | "groove" | "ridge"
 /** Which pages of the section show the page border (Borders and Shading > Page Border > Apply to). */
@@ -57,8 +59,8 @@ export type PageSetup = {
    */
   columnWidths?: ColumnWidth[]
   lineNumbers: boolean
-  /** When line numbers are on, restart numbering at the top of each page. */
-  lineNumberRestart: "continuous" | "page"
+  /** When line numbers are on, restart numbering at the top of each page or after each section break. */
+  lineNumberRestart: LineNumberRestart
   /** Line Numbers dialog: the first line's number, every how many lines a number shows, and how far from the text
    * (mm; 0 is Auto). */
   lineNumberStart: number
@@ -220,7 +222,7 @@ export function normalizePageSetup(setup: Partial<PageSetup> | null | undefined)
     headerFromEdge: clampNonNeg(setup?.headerFromEdge, DEFAULT_PAGE_SETUP.headerFromEdge),
     footerFromEdge: clampNonNeg(setup?.footerFromEdge, DEFAULT_PAGE_SETUP.footerFromEdge),
     verticalAlign: verticalAlign(setup?.verticalAlign),
-    lineNumberRestart: setup?.lineNumberRestart === "page" ? "page" : "continuous",
+    lineNumberRestart: lineNumberRestart(setup?.lineNumberRestart),
     lineNumberStart: Math.max(1, Math.round(Number(setup?.lineNumberStart) || 1)),
     lineNumberCountBy: Math.max(1, Math.min(100, Math.round(Number(setup?.lineNumberCountBy) || 1))),
     lineNumberDistance: clampNonNeg(setup?.lineNumberDistance, 0),
@@ -552,6 +554,10 @@ export function pageBorderStyle(setup: PageSetup, placed = true) {
     ]),
   )
   return { borderColor: setup.borderColor, ...(placed ? pageBorderInset(setup) : {}), ...off }
+}
+
+export function lineNumberRestart(value: unknown): LineNumberRestart {
+  return value === "page" || value === "section" ? value : "continuous"
 }
 
 export function columnCount(value: unknown): ColumnCount {

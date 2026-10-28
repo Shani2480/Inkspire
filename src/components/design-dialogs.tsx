@@ -14,6 +14,7 @@ import {
   type PageSide,
   type PageSetup,
   type PaperSize,
+  type LineNumberRestart,
 } from "@/document/page-setup"
 import { useDocumentStore } from "@/document/store"
 import { printDocument } from "@/document/commands"
@@ -858,9 +859,7 @@ function LineNumbersDialog({
   onClose: () => void
   onApply: (next: Partial<PageSetup>) => void
 }) {
-  const [mode, setMode] = useState<"none" | "continuous" | "page">(
-    !setup.lineNumbers ? "none" : setup.lineNumberRestart === "page" ? "page" : "continuous",
-  )
+  const [mode, setMode] = useState<"none" | LineNumberRestart>(!setup.lineNumbers ? "none" : setup.lineNumberRestart)
   const [start, setStart] = useState(setup.lineNumberStart)
   const [countBy, setCountBy] = useState(setup.lineNumberCountBy)
   // From text in centimetres, as Word's dialog shows it; 0 is Auto.
@@ -878,6 +877,9 @@ function LineNumbersDialog({
         </label>
         <label className="flex items-center gap-2">
           <input type="radio" checked={mode === "page"} onChange={() => setMode("page")} /> Restart Each Page
+        </label>
+        <label className="flex items-center gap-2">
+          <input type="radio" checked={mode === "section"} onChange={() => setMode("section")} /> Restart Each Section
         </label>
       </fieldset>
       <div className="mt-3 grid grid-cols-[auto_auto] items-center gap-x-3 gap-y-2 text-sm text-neutral-800">
@@ -921,7 +923,7 @@ function LineNumbersDialog({
         onOk={() =>
           onApply({
             lineNumbers: mode !== "none",
-            lineNumberRestart: mode === "page" ? "page" : "continuous",
+            lineNumberRestart: mode === "none" ? setup.lineNumberRestart : mode,
             lineNumberStart: start,
             lineNumberCountBy: countBy,
             lineNumberDistance: distance * 10,

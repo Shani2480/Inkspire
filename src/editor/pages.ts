@@ -1,7 +1,7 @@
 import { contourOf, contourPolygon, onContourReady } from "@/editor/wrap-contour"
 import { keepWithNextMustMove, linesOnPage } from "@/editor/page-breaking"
 import { useChromeExtent } from "@/document/chrome-extent"
-import { pageMetrics, setupColumns } from "@/document/page-setup"
+import { pageMetrics, setupColumns, type LineNumberRestart } from "@/document/page-setup"
 import { columnBoxes } from "@/document/column-widths"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
@@ -277,7 +277,7 @@ function paginationPlugin(storage: PaginationStorage) {
                   : `${Math.max(0, Math.round(laid.contentHeight - laid.lastUsed))}px`
               }
               const lines = pageSetup.lineNumbers
-                ? collectLineNumbers(view, pageSetup.lineNumberRestart === "page", metrics.contentHeight, {
+                ? collectLineNumbers(view, pageSetup.lineNumberRestart, metrics.contentHeight, {
                     start: pageSetup.lineNumberStart,
                     countBy: pageSetup.lineNumberCountBy,
                   })
@@ -631,7 +631,7 @@ function createLineNumber(n: number, top: number) {
  */
 function collectLineNumbers(
   view: EditorView,
-  restartEachPage = false,
+  restart: LineNumberRestart = "continuous",
   pageContentHeight = 0,
   { start = 1, countBy = 1 } = {},
 ): LineMark[] {
@@ -640,8 +640,14 @@ function collectLineNumbers(
   let currentPage = -1
   const editorTop = view.dom.getBoundingClientRect().top
   const zoom = zoomOf(view.dom)
+  const restartEachPage = restart === "page"
   view.state.doc.descendants((node, pos) => {
     if (node.type.name === "textBox") {
+      return false
+    }
+    // Restart Each Section: numbering starts again after each section break.
+    if (node.type.name === "sectionBreak" && restart === "section") {
+      n = start - 1
       return false
     }
     if (!node.isTextblock) {

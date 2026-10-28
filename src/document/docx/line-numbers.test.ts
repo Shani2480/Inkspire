@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest"
 import { openDocxBytes, saveDocxBytes } from "@/document/docx/io"
 import { findPart, openPackage } from "@/document/docx/opc"
 import { decodeXml } from "@/document/docx/xml"
-import type { PageSetup } from "@/document/page-setup"
+import { emptyChrome, packDocument, unpackDocument } from "@/document/header"
+import { DEFAULT_PAGE_SETUP, type PageSetup } from "@/document/page-setup"
 
 const AUTHORED = path.resolve(process.cwd(), "tests/docx-fixtures/authored")
 // Frame and Heart from a Word file whose section has <w:lnNumType w:countBy="1" w:restart="continuous"/>.
@@ -70,5 +71,29 @@ describe("line numbering (21.37)", () => {
     })
     const setup = (await openDocxBytes(bytes.bytes, "edited.docx")).view.chrome.pageSetup
     expect(setup).toMatchObject({ lineNumberStart: 5, lineNumberCountBy: 5, lineNumberDistance: 12.7 })
+  })
+
+  it("restarts each section as Word's newSection and reads it back", async () => {
+    const opened = await open()
+    const result = await saveDocxBytes({
+      json: { type: "doc", content: [{ type: "paragraph" }] },
+      chrome: { ...opened.view.chrome, pageSetup: { ...opened.view.chrome.pageSetup, lineNumberRestart: "section" } },
+      props: opened.view.props,
+      word: opened.word,
+      unchanged: false,
+      fileName: "edited.docx",
+    })
+    const pkg = await openPackage(result.bytes, "edited.docx")
+    expect(decodeXml(findPart(pkg, "/word/document.xml")!.data)).toContain('w:restart="newSection"')
+    const setup = (await openDocxBytes(result.bytes, "edited.docx")).view.chrome.pageSetup
+    expect(setup).toMatchObject({ lineNumbers: true, lineNumberRestart: "section" })
+  })
+
+  it("keeps Restart Each Section in the app's own file header", () => {
+    const packed = packDocument("<p>x</p>", {
+      ...emptyChrome(),
+      pageSetup: { ...DEFAULT_PAGE_SETUP, lineNumbers: true, lineNumberRestart: "section" },
+    })
+    expect(unpackDocument(packed).pageSetup).toMatchObject({ lineNumbers: true, lineNumberRestart: "section" })
   })
 })
