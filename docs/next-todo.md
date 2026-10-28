@@ -6,7 +6,7 @@ Where a simpler version already exists, the note says so. The item is still open
 
 ## Android tablet (branch `android`, 2026-10-28)
 
-- Release APK/AAB: a signing key (kept out of git, a GitHub secret in CI) and a job in `release.yml`.
+- Release APK: done (signed, built by `release.yml` from this branch). An AAB for Google Play if it goes there.
 - Save As on Android uses the dialog plugin's `ACTION_CREATE_DOCUMENT`; check its access lasts across restarts
   as Open's now does.
 - PDF without Typst: Android's print service (`window.print()` in the WebView does nothing; a print adapter in

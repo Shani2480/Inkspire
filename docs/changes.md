@@ -7,6 +7,23 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### Android: a signed release APK, attached to v0.1.1 and built by the release workflow
+
+- **What was wrong:** only a debug APK existed (x86_64, about 200 MB, debug-signed), and nothing on GitHub.
+- **What changed:**
+  - A release signing key (RSA 4096, alias `inkspire`, SHA-256 `A5:F7:0B:1D:…:EF:AB`), kept outside the repository
+    in `~/.config/inkspire-android/` and stored as the repository secrets `ANDROID_KEY_BASE64` and
+    `ANDROID_KEY_PASSWORD`. Every later APK must be signed with this key, so it needs a backup.
+  - `src-tauri/gen/android/app/build.gradle.kts`: the release build is signed when `keystore.properties` (password,
+    keyAlias, storeFile; gitignored) is present, and unsigned otherwise.
+  - `release.yml`: an Android job checks out the `android` branch, writes the key from the secrets, builds arm64 and
+    x86_64 and uploads `Inkspire_<version>_android.apk`; publish waits for it. `release-notes.md` has an Android row.
+- **Tests:** none (build configuration).
+- **Checked:** `apksigner verify` shows the new certificate; the APK is 32 MB with arm64-v8a and x86_64 libraries,
+  version 0.1.1 (code 1001); R8 kept `AndroidFiles.displayName`/`openDocument`. Installed on the Pixel Tablet
+  emulator, it opens to first-run setup and the start screen. Uploaded to the v0.1.1 release by hand.
+- **Open:** the workflow job runs first on the next tag; tag only after merging main into `android` so versions match.
+
 ### Android tablet port (branch `android`)
 
 - **What was wrong:** the app built for desktop only.
