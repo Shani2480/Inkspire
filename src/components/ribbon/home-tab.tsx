@@ -1,5 +1,12 @@
 import { AddInsMenu } from "@/components/addins"
-import { applyFontColor, toggleBold } from "@/editor/shape-text"
+import {
+  applyAlign,
+  applyFontColor,
+  applyHighlight,
+  toggleBold,
+  toggleItalic,
+  toggleUnderline,
+} from "@/editor/shape-text"
 import { openFontMenu } from "@/components/font-menu"
 import { ListDialogs, BulletLibrary, MultilevelLibrary, NumberingLibrary } from "@/components/list-library"
 import { requestFormatDialog } from "@/components/format-dialogs"
@@ -340,7 +347,7 @@ function ClassicHome() {
               className="ribbon-tool"
               pressed={marks.italic}
               disabled={!editor}
-              onClick={() => run(() => chainWithSelection(editor!).toggleItalic().run())}
+              onClick={() => run(() => toggleItalic(editor!))}
             >
               <LetterGlyph>
                 <span className="italic">I</span>
@@ -352,13 +359,7 @@ function ClassicHome() {
               className="ribbon-tool w-auto px-0.5"
               active={marks.underline}
               disabled={!editor}
-              onClick={() =>
-                run(() =>
-                  marks.underline
-                    ? chainWithSelection(editor!).unsetUnderline().run()
-                    : chainWithSelection(editor!).setMark("underline", { style: "solid" }).run(),
-                )
-              }
+              onClick={() => run(() => toggleUnderline(editor!))}
               menu={(close) => <UnderlineMenu editor={editor} marks={marks} close={close} />}
             >
               <LetterGlyph>
@@ -414,13 +415,7 @@ function ClassicHome() {
               className="ribbon-tool w-auto flex-col gap-0 px-0.5"
               active={Boolean(marks.highlight)}
               disabled={!editor}
-              onClick={() =>
-                run(() =>
-                  chainWithSelection(editor!)
-                    .setHighlight({ color: marks.highlight || highlightColor })
-                    .run(),
-                )
-              }
+              onClick={() => run(() => applyHighlight(editor!, marks.highlight || highlightColor))}
               menu={(close) => <HighlightMenu editor={editor} marks={marks} onPick={setHighlightColor} close={close} />}
             >
               <span className="text-[13px] leading-none font-semibold text-[var(--app-ribbon-text)]">ab</span>
@@ -583,7 +578,7 @@ function ClassicHome() {
               className="ribbon-tool"
               pressed={marks.align === "left"}
               disabled={!editor}
-              onClick={() => run(() => chainWithSelection(editor!).setTextAlign("left").run())}
+              onClick={() => run(() => applyAlign(editor!, "left"))}
             >
               <AlignLeftIcon />
             </Pressable>
@@ -592,7 +587,7 @@ function ClassicHome() {
               className="ribbon-tool"
               pressed={marks.align === "center"}
               disabled={!editor}
-              onClick={() => run(() => chainWithSelection(editor!).setTextAlign("center").run())}
+              onClick={() => run(() => applyAlign(editor!, "center"))}
             >
               <AlignCenterIcon />
             </Pressable>
@@ -601,7 +596,7 @@ function ClassicHome() {
               className="ribbon-tool"
               pressed={marks.align === "right"}
               disabled={!editor}
-              onClick={() => run(() => chainWithSelection(editor!).setTextAlign("right").run())}
+              onClick={() => run(() => applyAlign(editor!, "right"))}
             >
               <AlignRightIcon />
             </Pressable>
@@ -610,7 +605,7 @@ function ClassicHome() {
               className="ribbon-tool"
               pressed={marks.align === "justify"}
               disabled={!editor}
-              onClick={() => run(() => chainWithSelection(editor!).setTextAlign("justify").run())}
+              onClick={() => run(() => applyAlign(editor!, "justify"))}
             >
               <AlignJustifyIcon />
             </Pressable>

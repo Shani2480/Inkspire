@@ -1,6 +1,6 @@
 import { useAskAi } from "@/ai/ask-ai"
 import { AiSpark } from "@/components/ai-spark"
-import { toggleBold } from "@/editor/shape-text"
+import { toggleBold, toggleItalic, toggleUnderline } from "@/editor/shape-text"
 import { saveDocument } from "@/document/commands"
 import { useBackstage } from "@/document/backstage"
 import { registerKnownCommands } from "@/document/customize"
@@ -44,12 +44,12 @@ export const QUICK_COMMANDS: QuickCommand[] = [
     enabled: ({ editor, redo }) => Boolean(editor) && redo,
   },
   { id: "bold", label: "Bold", icon: <Bold />, run: (editor) => (editor ? toggleBold(editor) : undefined) },
-  { id: "italic", label: "Italic", icon: <Italic />, run: (editor) => editor?.chain().focus().toggleItalic().run() },
+  { id: "italic", label: "Italic", icon: <Italic />, run: (editor) => (editor ? toggleItalic(editor) : undefined) },
   {
     id: "underline",
     label: "Underline",
     icon: <Underline />,
-    run: (editor) => editor?.chain().focus().toggleUnderline().run(),
+    run: (editor) => (editor ? toggleUnderline(editor) : undefined),
   },
   {
     id: "ai",

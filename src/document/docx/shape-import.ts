@@ -72,6 +72,12 @@ export type WordShape = {
   textFont: string
   textSize: number
   textBold: boolean
+  textItalic: boolean
+  /** The app's underline style (solid, double, dotted, dashed, wavy), empty for none. */
+  textUnderline: string
+  textHighlight: string
+  /** left, right or justify; empty is centred. */
+  textAlign: string
   dash: string
   gradient: string
   shadow: string
@@ -233,9 +239,8 @@ export function readWordShape(xml: string, themeXml: string | null): WordShape |
         .join(""),
     )
     .join("\n")
-  const textFont = /<w:rFonts\b[^>]*\bw:ascii="([^"]+)"/.exec(body)?.[1]
-  const textColor = /<w:color w:val="([0-9A-Fa-f]{6})"/.exec(body)?.[1]
   const textSize = Number(/<w:sz w:val="(\d+)"/.exec(body)?.[1])
+  const textLook = readShapeTextLook(body, themeXml)
   return {
     preset,
     variant,
@@ -244,10 +249,8 @@ export function readWordShape(xml: string, themeXml: string | null): WordShape |
     stroke: look.stroke,
     strokeWidth: look.strokeWidth,
     text,
-    textFont: textFont ? unescapeText(textFont) : "",
-    textColor: textColor ? `#${textColor.toLowerCase()}` : "",
     textSize: Number.isFinite(textSize) && textSize > 0 ? textSize / 2 : 0,
-    textBold: /<w:b\/>|<w:b w:val="(?:1|true)"\/>/.test(body),
+    ...textLook,
     dash: look.dash,
     gradient: look.gradient,
     ...look.effects,
@@ -332,5 +335,100 @@ export function shapeLook(look: Record<string, unknown>) {
     look.textFont || "",
     Number(look.textSize) || 0,
     Boolean(look.textBold),
+    // Added later: only when set, so a mark taken before they existed still matches.
+    ...(look.textItalic || look.textUnderline || look.textHighlight || look.textAlign
+      ? [Boolean(look.textItalic), look.textUnderline || "", look.textHighlight || "", look.textAlign || ""]
+      : []),
   ])
+}
+
+/** Word's highlight colours (`w:highlight`) as hex. */
+export const WORD_HIGHLIGHTS: Record<string, string> = {
+  yellow: "#ffff00",
+  green: "#00ff00",
+  cyan: "#00ffff",
+  magenta: "#ff00ff",
+  blue: "#0000ff",
+  red: "#ff0000",
+  darkBlue: "#000080",
+  darkCyan: "#008080",
+  darkGreen: "#008000",
+  darkMagenta: "#800080",
+  darkRed: "#800000",
+  darkYellow: "#808000",
+  darkGray: "#808080",
+  lightGray: "#c0c0c0",
+  black: "#000000",
+  white: "#ffffff",
+}
+
+/** The app's underline styles and Word's `w:u` values for them. */
+export const WORD_UNDERLINES: Record<string, string> = {
+  solid: "single",
+  double: "double",
+  dotted: "dotted",
+  dashed: "dash",
+  wavy: "wave",
+}
+
+const THEME_COLOR_SLOTS: Record<string, string> = {
+  text1: "dk1",
+  text2: "dk2",
+  background1: "lt1",
+  background2: "lt2",
+  dark1: "dk1",
+  dark2: "dk2",
+  light1: "lt1",
+  light2: "lt2",
+  hyperlink: "hlink",
+  followedHyperlink: "folHlink",
+}
+
+const isOn = (body: string, name: string) => new RegExp(`<w:${name}/>|<w:${name} w:val="(?:1|true|on)"/>`).test(body)
+
+/**
+ * The look of the text in a shape (`w:txbxContent`), from its first run's properties: font and colour (a theme font
+ * or colour through the theme), bold, italic, underline, highlight (or run shading) and the first paragraph's
+ * alignment.
+ */
+export function readShapeTextLook(body: string, themeXml: string | null) {
+  const run = /<w:r(?:\s[^>]*)?>\s*<w:rPr>([\s\S]*?)<\/w:rPr>/.exec(body)?.[1] ?? body
+  let font = /<w:rFonts\b[^>]*\bw:ascii="([^"]+)"/.exec(run)?.[1] ?? ""
+  const themeFont = /<w:rFonts\b[^>]*\bw:asciiTheme="(major|minor)\w*"/.exec(run)?.[1]
+  if (!font && themeFont && themeXml) {
+    const block = new RegExp(`<a:${themeFont}Font>([\\s\\S]*?)</a:${themeFont}Font>`).exec(themeXml)?.[1] ?? ""
+    font = /<a:latin\b[^>]*typeface="([^"]*)"/.exec(block)?.[1] ?? ""
+  }
+  const color = /<w:color\b([^>]*)\/>/.exec(run)?.[1] ?? ""
+  const own = /w:val="([0-9A-Fa-f]{6})"/.exec(color)?.[1]
+  let textColor = own ? `#${own.toLowerCase()}` : ""
+  const slot = /w:themeColor="(\w+)"/.exec(color)?.[1]
+  if (!textColor && slot) {
+    const base = schemeColors(themeXml).get(THEME_COLOR_SLOTS[slot] ?? slot)
+    if (base) {
+      const tint = Number.parseInt(/w:themeTint="([0-9A-Fa-f]{2})"/.exec(color)?.[1] ?? "", 16)
+      const shade = Number.parseInt(/w:themeShade="([0-9A-Fa-f]{2})"/.exec(color)?.[1] ?? "", 16)
+      textColor = toHex(
+        channels(base).map((value) =>
+          tint >= 0 ? 255 - (255 - value) * (tint / 255) : shade >= 0 ? value * (shade / 255) : value,
+        ),
+      )
+    }
+  }
+  const underline = /<w:u w:val="(\w+)"/.exec(run)?.[1] ?? ""
+  const highlight = /<w:highlight w:val="(\w+)"/.exec(run)?.[1] ?? ""
+  const shading = /<w:shd\b[^>]*\bw:fill="([0-9A-Fa-f]{6})"/.exec(run)?.[1]
+  const jc = /<w:jc w:val="(\w+)"/.exec(body)?.[1] ?? "left"
+  return {
+    textFont: font ? unescapeText(font) : "",
+    textColor,
+    textBold: isOn(run, "b"),
+    textItalic: isOn(run, "i"),
+    textUnderline:
+      underline && underline !== "none"
+        ? (Object.keys(WORD_UNDERLINES).find((key) => WORD_UNDERLINES[key] === underline) ?? "solid")
+        : "",
+    textHighlight: WORD_HIGHLIGHTS[highlight] ?? (shading ? `#${shading.toLowerCase()}` : ""),
+    textAlign: jc === "center" ? "" : jc === "right" || jc === "end" ? "right" : jc === "both" ? "justify" : "left",
+  }
 }

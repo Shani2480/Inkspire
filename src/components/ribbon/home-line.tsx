@@ -1,5 +1,12 @@
 import { AddInsMenu } from "@/components/addins"
-import { applyFontColor, toggleBold } from "@/editor/shape-text"
+import {
+  applyAlign,
+  applyFontColor,
+  applyHighlight,
+  toggleBold,
+  toggleItalic,
+  toggleUnderline,
+} from "@/editor/shape-text"
 import { useEditorPane } from "@/editor/grammar"
 import { openFontMenu } from "@/components/font-menu"
 import { requestFormatDialog } from "@/components/format-dialogs"
@@ -257,7 +264,7 @@ export function HomeLine() {
       priority: 3,
       active: marks.italic,
       disabled: off,
-      onClick: () => chain().toggleItalic().run(),
+      onClick: () => editor && toggleItalic(editor),
     },
     {
       id: "underline",
@@ -270,8 +277,7 @@ export function HomeLine() {
       priority: 3,
       active: marks.underline,
       disabled: off,
-      onClick: () =>
-        marks.underline ? chain().unsetUnderline().run() : chain().setMark("underline", { style: "solid" }).run(),
+      onClick: () => editor && toggleUnderline(editor),
       menu: (close) => <UnderlineMenu editor={editor} marks={marks} close={close} />,
     },
     {
@@ -281,10 +287,7 @@ export function HomeLine() {
       priority: 2,
       active: Boolean(marks.highlight),
       disabled: off,
-      onClick: () =>
-        chain()
-          .setHighlight({ color: marks.highlight || highlightColor })
-          .run(),
+      onClick: () => editor && applyHighlight(editor, marks.highlight || highlightColor),
       menu: (close) => <HighlightMenu editor={editor} marks={marks} onPick={setHighlightColor} close={close} />,
     },
     {
@@ -471,7 +474,9 @@ export function HomeLine() {
               key={align.id}
               selected={marks.align === align.id}
               onClick={() => {
-                chain().setTextAlign(align.id).run()
+                if (editor) {
+                  applyAlign(editor, align.id)
+                }
                 close()
               }}
             >

@@ -1937,6 +1937,12 @@ hand-drawn approximations of Word's geometry, so they differ from Word in detail
 
 **Follow-up (shape text colour and font).** With a shape selected, Home's Font Color (button, menu, Automatic) and Font name list act on its text too: new `textFont` attribute (with `textColor`, which was already there), drawn on the text, written as `w:rFonts` and `w:color` and read back (`applyFontColor`, `applyFontFamily` in `editor/shape-text.ts`; the boxes show the shape's own colour and font). Tests: `shape-text.test.ts`, `shape-write.test.ts`. Checked in Chrome: the colour menu set a red, the font list set Georgia, both on the text. Not done: italic, underline, alignment and highlight for shape text, the Font dialog, the Mini Toolbar's colour and font for a selected shape (it shows with text selections, not shapes), and theme fonts and colours Word wrote (`w:themeColor`, `w:asciiTheme`) are not read, so such text opens in the default colour and font.
 
+**Follow-up (2026-10-28, italic, underline, highlight, alignment).** Home's Italic, Underline (with its styles), Text
+Highlight Color and Align Left / Center / Right / Justify, the Mini Toolbar, the Quick Access Toolbar and Ctrl+B/I/U act
+on a selected shape's text (`textItalic`, `textUnderline`, `textHighlight`, `textAlign`), saved as `w:i`, `w:u`,
+`w:highlight` or `w:shd`, `w:jc` and read back; theme fonts and colours Word wrote are now read through the theme.
+Not done: the Font dialog, strikethrough, sub/superscript and spacing; formatting part of a shape's text.
+
 **Follow-up (discard all recovered drafts).** The Unsaved Documents rail now has "Discard all (N)" when two or more drafts are listed; it asks once ("Discard all N drafts? They cannot be brought back.") and then clears every draft. Tests: `recovery-dialog.test.tsx`. Not Chrome-checked. Not done: no undo after discarding.
 
 ### Read Mode and Web Layout

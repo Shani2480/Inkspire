@@ -306,12 +306,33 @@ function paintShapeText(dom: HTMLElement, node: ProseNode) {
   const holder = document.createElement("div")
   holder.className = "figure-text"
   holder.contentEditable = "false"
-  holder.textContent = text
+  const highlight = String(node.attrs.textHighlight || "")
+  if (highlight) {
+    // Highlight marks the text's lines, not the box, as on a page.
+    const run = document.createElement("span")
+    run.className = "figure-text-run"
+    run.style.backgroundColor = highlight
+    run.textContent = text
+    holder.append(run)
+  } else {
+    holder.textContent = text
+  }
+  styleShapeText(holder, node)
+  dom.append(holder)
+}
+
+/** The look of a shape's text from the figure's attributes: colour, size, font, bold, italic, underline, alignment. */
+function styleShapeText(holder: HTMLElement, node: ProseNode) {
   holder.style.color = String(node.attrs.textColor || "") || autoTextColor(node)
   holder.style.fontSize = `${(Number(node.attrs.textSize) || 14) * (4 / 3)}px`
   holder.style.fontWeight = node.attrs.textBold ? "700" : ""
+  holder.style.fontStyle = node.attrs.textItalic ? "italic" : ""
+  holder.style.textDecorationLine = node.attrs.textUnderline ? "underline" : ""
+  holder.style.textDecorationStyle = node.attrs.textUnderline ? String(node.attrs.textUnderline) : ""
   holder.style.fontFamily = String(node.attrs.textFont || "")
-  dom.append(holder)
+  const align = String(node.attrs.textAlign || "center")
+  holder.style.textAlign = align
+  holder.style.justifyContent = align === "center" ? "" : align === "right" ? "flex-end" : "flex-start"
 }
 
 function paintFigure(dom: HTMLElement, node: ProseNode) {
@@ -513,6 +534,31 @@ export const Figure = Node.create({
         parseHTML: (element) => element.getAttribute("data-text-bold") === "1",
         renderHTML: (attributes) => (attributes.textBold ? { "data-text-bold": "1" } : {}),
       },
+      textItalic: {
+        default: false,
+        parseHTML: (element) => element.getAttribute("data-text-italic") === "1",
+        renderHTML: (attributes) => (attributes.textItalic ? { "data-text-italic": "1" } : {}),
+      },
+      /** The shape text's underline style (solid, double, dotted, dashed, wavy; empty for none). */
+      textUnderline: {
+        default: "",
+        parseHTML: (element) => element.getAttribute("data-text-underline") || "",
+        renderHTML: (attributes) =>
+          attributes.textUnderline ? { "data-text-underline": attributes.textUnderline } : {},
+      },
+      /** The shape text's highlight (a hex; empty for none). */
+      textHighlight: {
+        default: "",
+        parseHTML: (element) => element.getAttribute("data-text-highlight") || "",
+        renderHTML: (attributes) =>
+          attributes.textHighlight ? { "data-text-highlight": attributes.textHighlight } : {},
+      },
+      /** left, right or justify; empty is centred, the app's default for shape text. */
+      textAlign: {
+        default: "",
+        parseHTML: (element) => element.getAttribute("data-text-align") || "",
+        renderHTML: (attributes) => (attributes.textAlign ? { "data-text-align": attributes.textAlign } : {}),
+      },
       alt: {
         default: "",
         parseHTML: (element) => element.getAttribute("data-alt") || "",
@@ -570,9 +616,7 @@ export const Figure = Node.create({
         if (!holder) {
           holder = document.createElement("div")
           holder.className = "figure-text"
-          holder.style.color = String(current.attrs.textColor || "") || autoTextColor(current)
-          holder.style.fontSize = `${(Number(current.attrs.textSize) || 14) * (4 / 3)}px`
-          holder.style.fontFamily = String(current.attrs.textFont || "")
+          styleShapeText(holder, current)
           dom.append(holder)
         }
         const field = holder
