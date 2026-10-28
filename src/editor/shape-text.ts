@@ -17,11 +17,20 @@ export function selectedShapeText(editor: Editor | null) {
   return attrs.kind === "shape" && holdsText(String(attrs.variant)) ? { pos: selection.from, attrs } : null
 }
 
-/** Changes the selected shape's text look (`textSize`, `textBold`, `textColor`); false when no shape is selected. */
-export function setShapeText(
-  editor: Editor,
-  patch: { textSize?: number; textBold?: boolean; textColor?: string; textFont?: string },
-) {
+/** The look of a shape's text the Home tab sets, as the figure's attributes. */
+export type ShapeTextPatch = {
+  textSize?: number
+  textBold?: boolean
+  textItalic?: boolean
+  textUnderline?: string
+  textColor?: string
+  textFont?: string
+  textHighlight?: string
+  textAlign?: string
+}
+
+/** Changes the selected shape's text look; false when no shape is selected. */
+export function setShapeText(editor: Editor, patch: ShapeTextPatch) {
   const target = selectedShapeText(editor)
   if (!target) {
     return false
@@ -69,4 +78,47 @@ export function applyFontFamily(editor: Editor, family: string) {
   }
   const chain = chainWithSelection(editor)
   void (family ? chain.setFontFamily(family).run() : chain.unsetFontFamily().run())
+}
+
+/** Italic for the Home tab, the Mini Toolbar, the Quick Access Toolbar and Ctrl+I. */
+export function toggleItalic(editor: Editor) {
+  const shape = selectedShapeText(editor)
+  if (shape) {
+    setShapeText(editor, { textItalic: !shape.attrs.textItalic })
+    return
+  }
+  chainWithSelection(editor).toggleItalic().run()
+}
+
+/** Underline for the Home tab, the Mini Toolbar, the Quick Access Toolbar and Ctrl+U: on as a single line, or off. */
+export function toggleUnderline(editor: Editor) {
+  const shape = selectedShapeText(editor)
+  const on = shape ? !shape.attrs.textUnderline : !editor.isActive("underline")
+  applyUnderline(editor, on ? "solid" : "")
+}
+
+/** An underline style from the Underline menu (empty for none): a selected shape's text, else the selection's. */
+export function applyUnderline(editor: Editor, style: string) {
+  if (setShapeText(editor, { textUnderline: style })) {
+    return
+  }
+  const chain = chainWithSelection(editor)
+  void (style ? chain.setMark("underline", { style }).run() : chain.unsetUnderline().run())
+}
+
+/** Text Highlight Color: a selected shape's text (empty for none), else the selection's. */
+export function applyHighlight(editor: Editor, color: string) {
+  if (setShapeText(editor, { textHighlight: color })) {
+    return
+  }
+  const chain = chainWithSelection(editor)
+  void (color ? chain.setHighlight({ color }).run() : chain.unsetHighlight().run())
+}
+
+/** Align Left, Center, Align Right and Justify: a selected shape's text, else the paragraphs'. */
+export function applyAlign(editor: Editor, align: "left" | "center" | "right" | "justify") {
+  if (setShapeText(editor, { textAlign: align === "center" ? "" : align })) {
+    return
+  }
+  chainWithSelection(editor).setTextAlign(align).run()
 }

@@ -1,4 +1,4 @@
-import { VARIANT_OF_PRESET } from "@/document/docx/shape-import"
+import { VARIANT_OF_PRESET, WORD_HIGHLIGHTS, WORD_UNDERLINES } from "@/document/docx/shape-import"
 import { escapeXml, escapeXmlText } from "@/document/docx/xml"
 import { shapeMarkup } from "@/editor/insert-blocks"
 import { PRESET_DASH, effectListXml, plainEffects } from "@/document/docx/shape-effects"
@@ -76,7 +76,7 @@ export function gradientFill(fill: string, gradient: string) {
 
 export const solid = (hex: string) => `<a:solidFill><a:srgbClr val="${hex.slice(1).toUpperCase()}"/></a:solidFill>`
 
-/** The text a shape holds as Word's `wps:txbx`, one paragraph per line, centred, and the body that centres it. */
+/** The text a shape holds as Word's `wps:txbx`, one paragraph per line in its alignment, and the body that centres it. */
 function textBody(attrs: Attrs) {
   const text = String(attrs.text ?? "")
   if (!text) {
@@ -91,12 +91,21 @@ function textBody(attrs: Attrs) {
   const fonts = font
     ? `<w:rFonts w:ascii="${escapeXml(font)}" w:hAnsi="${escapeXml(font)}" w:cs="${escapeXml(font)}"/>`
     : ""
-  const run = `<w:rPr>${fonts}${attrs.textBold ? "<w:b/>" : ""}${color ? `<w:color w:val="${color}"/>` : ""}<w:sz w:val="${size}"/><w:szCs w:val="${size}"/></w:rPr>`
+  // A highlight in one of Word's highlight colours is written as one; any other colour as the run's shading.
+  const mark = String(attrs.textHighlight ?? "").toLowerCase()
+  const named = Object.keys(WORD_HIGHLIGHTS).find((name) => WORD_HIGHLIGHTS[name] === mark)
+  const highlight = named ? `<w:highlight w:val="${named}"/>` : ""
+  const shading =
+    !named && HEX.test(mark) ? `<w:shd w:val="clear" w:color="auto" w:fill="${mark.slice(1).toUpperCase()}"/>` : ""
+  const underline = WORD_UNDERLINES[String(attrs.textUnderline ?? "")]
+  const run = `<w:rPr>${fonts}${attrs.textBold ? "<w:b/>" : ""}${attrs.textItalic ? "<w:i/>" : ""}${color ? `<w:color w:val="${color}"/>` : ""}<w:sz w:val="${size}"/><w:szCs w:val="${size}"/>${highlight}${underline ? `<w:u w:val="${underline}"/>` : ""}${shading}</w:rPr>`
+  const align = String(attrs.textAlign ?? "")
+  const jc = align === "left" || align === "right" ? align : align === "justify" ? "both" : "center"
   const paragraphs = text
     .split("\n")
     .map(
       (line) =>
-        `<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r>${run}<w:t xml:space="preserve">${escapeXmlText(line)}</w:t></w:r></w:p>`,
+        `<w:p><w:pPr><w:jc w:val="${jc}"/></w:pPr><w:r>${run}<w:t xml:space="preserve">${escapeXmlText(line)}</w:t></w:r></w:p>`,
     )
     .join("")
   return `<wps:txbx><w:txbxContent>${paragraphs}</w:txbxContent></wps:txbx><wps:bodyPr anchor="ctr"/>`
@@ -122,7 +131,9 @@ export function wordShapeGraphic(attrs: Attrs, cx: number, cy: number, rot = 0):
   return (
     `<a:graphicData uri="${WPS_URI}"><wps:wsp xmlns:wps="${WPS_URI}"><wps:cNvSpPr/><wps:spPr>` +
     `<a:xfrm${rot ? ` rot="${rot}"` : ""}${flips}><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>` +
-    (preset === CUSTOM ? custGeomXml(parsePath(String(attrs.points))) : `<a:prstGeom prst="${preset}"><a:avLst/></a:prstGeom>`) +
+    (preset === CUSTOM
+      ? custGeomXml(parsePath(String(attrs.points)))
+      : `<a:prstGeom prst="${preset}"><a:avLst/></a:prstGeom>`) +
     `${gradient ? gradientFill(fill, gradient) : fill === "none" ? "<a:noFill/>" : solid(fill)}${line}${effectListXml(attrs)}</wps:spPr>${textBody(attrs)}</wps:wsp></a:graphicData>`
   )
 }

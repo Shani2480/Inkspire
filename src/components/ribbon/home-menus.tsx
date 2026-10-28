@@ -1,4 +1,4 @@
-import { applyFontColor, applyFontFamily, setShapeText } from "@/editor/shape-text"
+import { applyFontColor, applyFontFamily, applyHighlight, applyUnderline, setShapeText } from "@/editor/shape-text"
 import { openBordersAndShading } from "@/components/borders-shading-dialog"
 import { ColorMenu } from "@/components/color-menu"
 import { FontMenuList } from "@/components/font-menu"
@@ -282,7 +282,7 @@ export function UnderlineMenu({ editor, marks, close }: { editor: Editor | null;
           selected={marks.underlineStyle === style.id}
           onClick={() => {
             if (editor) {
-              chainWithSelection(editor).setMark("underline", { style: style.id }).run()
+              applyUnderline(editor, style.id)
             }
             close()
           }}
@@ -300,7 +300,7 @@ export function UnderlineMenu({ editor, marks, close }: { editor: Editor | null;
       <MenuButton
         onClick={() => {
           if (editor) {
-            chainWithSelection(editor).unsetUnderline().run()
+            applyUnderline(editor, "")
           }
           close()
         }}
@@ -329,14 +329,14 @@ export function HighlightMenu({
       clearLabel="No Color"
       onClear={() => {
         if (editor) {
-          chainWithSelection(editor).unsetHighlight().run()
+          applyHighlight(editor, "")
         }
         close()
       }}
       onSelect={(color) => {
         onPick(color)
         if (editor) {
-          chainWithSelection(editor).setHighlight({ color }).run()
+          applyHighlight(editor, color)
         }
         close()
       }}

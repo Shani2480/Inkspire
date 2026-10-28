@@ -440,6 +440,13 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - A cell holding a picture in that row: the break comes before or after the picture, never through it.
 - A vertically centred cell in a broken row: compare with Word where its text lands.
 
+## Shape text look (2026-10-28)
+
+- Select a shape with text, Ctrl+I, Ctrl+U, Home → Underline menu → Double, Text Highlight Color → Yellow, Align
+  Right: each shows on the text; save, open in Word: italic, double underline, yellow highlight, right-aligned.
+- In Word give a shape's text a theme colour (Accent 2, Lighter 40%) and the Headings font; open here: the same
+  colour and font.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

@@ -112,13 +112,13 @@ export function useActiveMarks(editor: Editor | null) {
       const shape = selectedShapeText(current)
       return {
         bold: shape ? Boolean(shape.attrs.textBold) : current.isActive("bold"),
-        italic: current.isActive("italic"),
-        underline: current.isActive("underline"),
+        italic: shape ? Boolean(shape.attrs.textItalic) : current.isActive("italic"),
+        underline: shape ? Boolean(shape.attrs.textUnderline) : current.isActive("underline"),
         strike: current.isActive("strike"),
         bulletList: current.isActive("bulletList"),
         orderedList: current.isActive("orderedList"),
         link: current.isActive("link"),
-        align: readAlign(current),
+        align: shape ? (String(shape.attrs.textAlign || "center") as TextAlignValue) : readAlign(current),
         fontFamily: shape
           ? String(shape.attrs.textFont || "")
           : typeof textStyle.fontFamily === "string"
@@ -130,13 +130,21 @@ export function useActiveMarks(editor: Editor | null) {
             ? textStyle.fontSize
             : "",
         color: shape ? String(shape.attrs.textColor || "") : typeof textStyle.color === "string" ? textStyle.color : "",
-        highlight: typeof highlight.color === "string" ? highlight.color : "",
+        highlight: shape
+          ? String(shape.attrs.textHighlight || "")
+          : typeof highlight.color === "string"
+            ? highlight.color
+            : "",
         lineHeight: readLineHeight(current),
         headingLevel: readHeadingLevel(current),
         href: typeof current.getAttributes("link").href === "string" ? current.getAttributes("link").href : "",
         subscript: current.isActive("subscript"),
         superscript: current.isActive("superscript"),
-        underlineStyle: current.isActive("underline") && typeof underline.style === "string" ? underline.style : "",
+        underlineStyle: shape
+          ? String(shape.attrs.textUnderline || "")
+          : current.isActive("underline") && typeof underline.style === "string"
+            ? underline.style
+            : "",
         effect: typeof textStyle.effect === "string" ? textStyle.effect : "",
         namedStyle: typeof block.namedStyle === "string" ? block.namedStyle : "",
         wordStyle: typeof block.wordStyle === "string" ? block.wordStyle : "",

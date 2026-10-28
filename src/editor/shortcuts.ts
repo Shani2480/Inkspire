@@ -1,3 +1,4 @@
+import { applyAlign, selectedShapeText, toggleBold, toggleItalic, toggleUnderline } from "@/editor/shape-text"
 import { askText } from "@/components/text-prompt"
 import { requestFormatDialog } from "@/components/format-dialogs"
 import { useEditorPane } from "@/editor/grammar"
@@ -29,8 +30,19 @@ export type ShortcutDef = {
   native?: string[]
 }
 
-const align = (kind: "left" | "center" | "right" | "justify") => (editor: Editor) =>
-  editor.chain().focus().setTextAlign(kind).run()
+const align = (kind: "left" | "center" | "right" | "justify") => (editor: Editor) => {
+  applyAlign(editor, kind)
+  return true
+}
+
+/** A text command that also acts on a selected shape's text (`shape-text.ts`). */
+const shapeAware = (shape: (editor: Editor) => void, text: (editor: Editor) => boolean) => (editor: Editor) => {
+  if (selectedShapeText(editor)) {
+    shape(editor)
+    return true
+  }
+  return text(editor)
+}
 
 const spacing = (value: string) => (editor: Editor) => {
   setLineSpacing(editor, value)
@@ -158,7 +170,7 @@ export const SHORTCUTS: ShortcutDef[] = [
     group: "Text",
     keys: ["Mod+B"],
     native: ["Mod+B"],
-    run: (e) => e.chain().focus().toggleBold().run(),
+    run: shapeAware(toggleBold, (e) => e.chain().focus().toggleBold().run()),
   },
   {
     id: "italic",
@@ -166,7 +178,7 @@ export const SHORTCUTS: ShortcutDef[] = [
     group: "Text",
     keys: ["Mod+I"],
     native: ["Mod+I"],
-    run: (e) => e.chain().focus().toggleItalic().run(),
+    run: shapeAware(toggleItalic, (e) => e.chain().focus().toggleItalic().run()),
   },
   {
     id: "underline",
@@ -174,7 +186,7 @@ export const SHORTCUTS: ShortcutDef[] = [
     group: "Text",
     keys: ["Mod+U"],
     native: ["Mod+U"],
-    run: (e) => e.chain().focus().toggleUnderline().run(),
+    run: shapeAware(toggleUnderline, (e) => e.chain().focus().toggleUnderline().run()),
   },
   {
     id: "subscript",

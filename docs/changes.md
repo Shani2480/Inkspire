@@ -7,6 +7,32 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### Shape text: italic, underline, highlight, alignment, and Word's theme fonts and colours
+
+- **What was wrong:**
+  - With a shape selected, Home's Italic, Underline, Text Highlight Color and the alignment buttons acted on nothing;
+    only size, bold, colour and font reached the shape's text. Ctrl+B, Ctrl+I and Ctrl+U did not reach it either.
+  - Text Word wrote in a theme font or colour (`w:asciiTheme`, `w:themeColor`) opened in the default font and
+    colour, and its italic, underline, highlight and alignment were dropped.
+- **What changed:**
+  - `insert-blocks.ts`: new figure attributes `textItalic`, `textUnderline` (a style: solid, double, dotted,
+    dashed, wavy), `textHighlight` and `textAlign` (empty is centred), drawn by `styleShapeText`; a highlight marks
+    the text's lines, not the box.
+  - `shape-text.ts`: `toggleItalic`, `toggleUnderline`, `applyUnderline`, `applyHighlight`, `applyAlign` act on a
+    selected shape's text, else on the selection. The Home tab (both layouts), the Underline and Highlight menus,
+    the Mini Toolbar, the Quick Access Toolbar and the keyboard shortcuts use them; `use-active-marks.ts` shows the
+    shape's state on the buttons.
+  - `shape-write.ts`: `w:i`, `w:u` with Word's style, `w:highlight` for Word's highlight colours (other colours as
+    the run's `w:shd`), and `w:jc` from the alignment.
+  - `shape-import.ts` `readShapeTextLook`: reads them back from the first run, and resolves a theme font through the
+    theme's major or minor latin face and a theme colour through the colour scheme with its tint or shade.
+- **Tests:** `shape-text.test.ts` (set and clear each), `shape-write.test.ts` (written and read back; shading for
+  other colours; theme font, theme colour, tint, Word's own value first). All 1148 tests pass.
+- **Checked in headless Chrome:** a rectangle with text, Ctrl+I, Ctrl+U, Home → Align Right and Text Highlight
+  Color: the text is italic, underlined, highlighted and at the right, and Italic and Align Right show as on.
+- **Open:** the Font dialog, strikethrough, sub/superscript and character spacing for shape text; formatting part of
+  the text (the look is the whole text's); not checked in Word.
+
 ### Broken table rows: header row repeated, centred cells, pictures and nested tables
 
 - **What was wrong:**

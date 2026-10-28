@@ -195,6 +195,57 @@ describe("text in a shape", () => {
     })
   })
 
+  it("writes italic, underline, highlight and alignment, and reads them back", () => {
+    const wsp = (attrs: Record<string, unknown>) => {
+      const xml = wordShapeGraphic({ variant: "ellipse", text: "Hi", ...attrs }, 1000, 500)!
+      return {
+        xml,
+        read: readWordShape(
+          `<wps:wsp>${xml.slice(xml.indexOf("<wps:cNvSpPr/>"))}</wps:wsp><a:graphicData uri="${WPS_URI}">`,
+          null,
+        )!,
+      }
+    }
+    const named = wsp({ textItalic: true, textUnderline: "double", textHighlight: "#ffff00", textAlign: "right" })
+    expect(named.xml).toContain("<w:i/>")
+    expect(named.xml).toContain('<w:u w:val="double"/>')
+    expect(named.xml).toContain('<w:highlight w:val="yellow"/>')
+    expect(named.xml).toContain('<w:jc w:val="right"/>')
+    expect(named.read).toMatchObject({
+      textItalic: true,
+      textUnderline: "double",
+      textHighlight: "#ffff00",
+      textAlign: "right",
+    })
+    // A colour Word has no highlight for is the run's shading; centred text stays the default.
+    const other = wsp({ textHighlight: "#fff2cc" })
+    expect(other.xml).toContain('<w:shd w:val="clear" w:color="auto" w:fill="FFF2CC"/>')
+    expect(other.xml).toContain('<w:jc w:val="center"/>')
+    expect(other.read).toMatchObject({ textHighlight: "#fff2cc", textAlign: "", textItalic: false, textUnderline: "" })
+  })
+
+  it("reads a theme colour and theme font Word gave the text", () => {
+    const theme =
+      `<a:theme><a:clrScheme name="t"><a:dk1><a:sysClr val="windowText" lastClr="000000"/></a:dk1>` +
+      `<a:accent2><a:srgbClr val="E97132"/></a:accent2></a:clrScheme><a:fontScheme name="f">` +
+      `<a:majorFont><a:latin typeface="Aptos Display"/></a:majorFont><a:minorFont><a:latin typeface="Aptos"/></a:minorFont>` +
+      `</a:fontScheme></a:theme>`
+    const shape = (rPr: string) =>
+      `<wps:wsp><wps:spPr><a:prstGeom prst="ellipse"><a:avLst/></a:prstGeom></wps:spPr><wps:txbx><w:txbxContent>` +
+      `<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr>${rPr}</w:rPr><w:t>x</w:t></w:r></w:p>` +
+      `</w:txbxContent></wps:txbx><wps:bodyPr/></wps:wsp><a:graphicData uri="${WPS_URI}">`
+    expect(
+      readWordShape(
+        shape('<w:rFonts w:asciiTheme="majorHAnsi" w:hAnsiTheme="majorHAnsi"/><w:color w:themeColor="accent2"/>'),
+        theme,
+      ),
+    ).toMatchObject({ textFont: "Aptos Display", textColor: "#e97132", textAlign: "" })
+    // A tint lightens the theme colour toward white, as Word draws it.
+    expect(readWordShape(shape('<w:color w:themeColor="text1" w:themeTint="80"/>'), theme)?.textColor).toBe("#7f7f7f")
+    // Word's own value wins when it wrote one.
+    expect(readWordShape(shape('<w:color w:val="FF0000" w:themeColor="accent2"/>'), theme)?.textColor).toBe("#ff0000")
+  })
+
   it("keeps a real text box whole", () => {
     const box = `<wps:wsp><wps:cNvSpPr txBox="1"/><wps:spPr><a:prstGeom prst="rect"/></wps:spPr><wps:txbx><w:txbxContent><w:p><w:r><w:t>x</w:t></w:r></w:p></w:txbxContent></wps:txbx></wps:wsp><a:graphicData uri="${WPS_URI}">`
     expect(readWordShape(box, null)).toBeNull()

@@ -1,4 +1,4 @@
-import { toggleBold } from "@/editor/shape-text"
+import { applyAlign, applyHighlight, toggleBold, toggleItalic, toggleUnderline } from "@/editor/shape-text"
 import { ColorMenu } from "@/components/color-menu"
 import { FontMenuList, openFontMenu } from "@/components/font-menu"
 import { RibbonHover } from "@/components/ribbon/ribbon-button"
@@ -330,7 +330,7 @@ function MiniToolbarBody({ editor }: { editor: Editor }) {
             className="mini-tool"
             aria-label="Italic"
             aria-pressed={marks.italic}
-            onClick={() => chainWithSelection(editor).toggleItalic().run()}
+            onClick={() => toggleItalic(editor)}
           >
             <span className="italic">I</span>
           </button>
@@ -341,7 +341,7 @@ function MiniToolbarBody({ editor }: { editor: Editor }) {
             className="mini-tool"
             aria-label="Underline"
             aria-pressed={marks.underline}
-            onClick={() => chainWithSelection(editor).toggleUnderline().run()}
+            onClick={() => toggleUnderline(editor)}
           >
             <span className="underline">U</span>
           </button>
@@ -356,14 +356,14 @@ function MiniToolbarBody({ editor }: { editor: Editor }) {
           active={marks.highlight}
           clearLabel="No Color"
           onOpen={() => toggleMenu("highlight")}
-          onApply={() => chainWithSelection(editor).setHighlight({ color: highlight }).run()}
+          onApply={() => applyHighlight(editor, highlight)}
           onClear={() => {
-            chainWithSelection(editor).unsetHighlight().run()
+            applyHighlight(editor, "")
             setMenu(null)
           }}
           onSelect={(next) => {
             setHighlight(next)
-            chainWithSelection(editor).setHighlight({ color: next }).run()
+            applyHighlight(editor, next)
             setMenu(null)
           }}
         />
@@ -405,12 +405,7 @@ function MiniToolbarBody({ editor }: { editor: Editor }) {
         </MiniTool>
         <span className="mini-sep" aria-hidden />
         {ALIGNMENTS.map(({ align, label, Icon }) => (
-          <MiniTool
-            key={align}
-            label={label}
-            pressed={marks.align === align}
-            onClick={() => chainWithSelection(editor).setTextAlign(align).run()}
-          >
+          <MiniTool key={align} label={label} pressed={marks.align === align} onClick={() => applyAlign(editor, align)}>
             <Icon />
           </MiniTool>
         ))}

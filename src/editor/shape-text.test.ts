@@ -4,8 +4,13 @@ import { NodeSelection } from "@tiptap/pm/state"
 import { describe, expect, it } from "vitest"
 import { Figure } from "@/editor/insert-blocks"
 import {
+  applyAlign,
   applyFontColor,
   applyFontFamily,
+  applyHighlight,
+  applyUnderline,
+  toggleItalic,
+  toggleUnderline,
   selectedShapeText,
   setShapeText,
   stepShapeTextSize,
@@ -57,6 +62,35 @@ describe("font colour and name on a shape's text", () => {
     applyFontColor(editor, "")
     applyFontFamily(editor, "")
     expect(editor.state.doc.nodeAt(pos)?.attrs).toMatchObject({ textColor: "", textFont: "" })
+    editor.destroy()
+  })
+})
+
+describe("italic, underline, highlight and alignment on a shape's text", () => {
+  it("set the shape's own look and clear it", () => {
+    const { editor, pos } = make()
+    toggleItalic(editor)
+    toggleUnderline(editor)
+    applyHighlight(editor, "#ffff00")
+    applyAlign(editor, "right")
+    expect(editor.state.doc.nodeAt(pos)?.attrs).toMatchObject({
+      textItalic: true,
+      textUnderline: "solid",
+      textHighlight: "#ffff00",
+      textAlign: "right",
+    })
+    applyUnderline(editor, "wavy")
+    expect(editor.state.doc.nodeAt(pos)?.attrs.textUnderline).toBe("wavy")
+    toggleItalic(editor)
+    toggleUnderline(editor)
+    applyHighlight(editor, "")
+    applyAlign(editor, "center")
+    expect(editor.state.doc.nodeAt(pos)?.attrs).toMatchObject({
+      textItalic: false,
+      textUnderline: "",
+      textHighlight: "",
+      textAlign: "",
+    })
     editor.destroy()
   })
 })
