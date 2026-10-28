@@ -12,7 +12,7 @@ Where a simpler version already exists, the note says so. The item is still open
 - PDF without Typst: Android's print service (`window.print()` in the WebView does nothing; a print adapter in
   `MainActivity`).
 - Touch editing: long-press selection handles and the Android text toolbar over the editor, dragging pictures and
-  shapes with a finger, Edit Wrap Points and crop handles at finger size, pinch to zoom the page.
+  shapes with a finger, Edit Wrap Points and crop handles at finger size. (Pinch zooms the document: done.)
 - A phone layout (out of scope for the tablet build).
 - Test on a real tablet with Gboard and a hardware keyboard (shortcuts, IME composition in tables and headers).
 

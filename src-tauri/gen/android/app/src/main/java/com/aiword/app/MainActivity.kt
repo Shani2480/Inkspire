@@ -61,6 +61,10 @@ class MainActivity : TauriActivity() {
   override fun onWebViewCreate(webView: WebView) {
     this.webView = webView
     webView.addJavascriptInterface(AndroidFiles(this), "InkspireFiles")
+    // Pinching zooms the document (the page handles two fingers), never the whole interface.
+    webView.settings.setSupportZoom(false)
+    webView.settings.builtInZoomControls = false
+    webView.settings.displayZoomControls = false
   }
 
   fun pickDocument(mimeTypes: Array<String>) {
