@@ -99,6 +99,8 @@ export function bindObjectResize(
     if (pos == null || !original || !options.types.includes(original.type.name)) {
       return
     }
+    // The handle keeps the finger once it slides off the small square.
+    handle.setPointerCapture?.(event.pointerId)
     const edge = (handle.dataset.resize || "se") as ResizeEdge
     const zoom = useViewStore.getState().zoom || 1
     const from = options.start(original, dom)
@@ -175,7 +177,8 @@ export function bindObjectResize(
       paint()
       finish(true)
     }
-    const cancel = () => finish(false)
+    // A drag the system interrupts keeps the size reached so far; only Esc puts the original back.
+    const cancel = () => finish(true)
     const onKey = (ev: KeyboardEvent) => {
       if (ev.key === "Escape") {
         ev.preventDefault()

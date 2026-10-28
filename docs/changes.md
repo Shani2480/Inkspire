@@ -7,6 +7,20 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### Resizing pictures with a finger no longer turns into a scroll (Android tablet)
+
+- **What was wrong:** on the tablet, dragging a resize handle worked for a moment and then the page scrolled and the
+  picture went back to its old size. The handles had the default `touch-action`, so Chrome took the drag over as a
+  pan once the finger had moved far enough and sent `pointercancel`, which the resize treated as Esc.
+- **What changed:** `index.css` sets `touch-action: none` on `.image-resize`, `.image-crop-handle` and a selected
+  `.object-frame` (an unselected picture still scrolls under a swipe). `object-resize.ts` and `picture-crop.ts`
+  capture the pointer on the handle, and a `pointercancel` now keeps the size or crop reached so far; only Esc
+  puts the original back.
+- **Tests:** 178 files, 1179 tests pass; typecheck and lint clean.
+- **Checked:** not on a touch device; see the verify list.
+- **Open:** table column resizing comes from prosemirror-tables, which listens for mouse events, so a finger may
+  not resize columns at all; not looked at.
+
 ### v0.1.3: Word covers open as written, with the Android APK built from the android branch
 
 - **What was wrong:** v0.1.2 opened a centred cover picture at the left, drew footer pictures placed relative to

@@ -471,6 +471,12 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Single-line ribbon: Shape Effects and Text Outline are there and work the same.
 - Save and reopen in the app: the effects and outline come back.
 
+## Needs the Android tablet (the APK on a touch screen)
+
+- [ ] **Resize and crop with a finger (2026-10-28)** — dragging a picture's or shape's resize handle, a crop handle,
+      or a selected object itself follows the finger to the end without the page scrolling, and the size is kept on
+      release; a swipe that starts on an unselected picture still scrolls the page.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and
