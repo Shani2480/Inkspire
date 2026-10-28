@@ -6,11 +6,12 @@ Inkspire is a local, AI-first desktop word processor. It looks and behaves like 
 
 ## Download and install
 
-Get the latest installers from the [Releases page](https://github.com/Shani2480/Inkspire/releases/latest). All builds are for x86_64 (64-bit Intel/AMD).
+Get the latest installers from the [Releases page](https://github.com/Shani2480/Inkspire/releases/latest). The Windows and Linux builds are for x86_64 (64-bit Intel/AMD); the macOS build runs natively on Apple Silicon and Intel.
 
 | System                               | File                                |                                            |
 | ------------------------------------ | ----------------------------------- | ------------------------------------------ |
 | Windows 10 / 11                      | `Inkspire_<version>_x64-setup.exe`  | [Windows](#windows)                        |
+| macOS 11 or newer                    | `Inkspire_<version>_universal.dmg`  | [macOS](#macos)                            |
 | Debian, Ubuntu, Linux Mint, Pop!\_OS | `Inkspire_<version>_amd64.deb`      | [.deb](#debian-ubuntu-and-derivatives-deb) |
 | Any Linux with Flatpak               | `Inkspire_<version>_x86_64.flatpak` | [Flatpak](#flatpak)                        |
 | Any Linux                            | `Inkspire_<version>_amd64.AppImage` | [AppImage](#appimage)                      |
@@ -22,6 +23,14 @@ Get the latest installers from the [Releases page](https://github.com/Shani2480/
 3. Inkspire installs for your user (no administrator rights needed) and adds a Start menu entry. Uninstall it from **Settings → Apps**.
 
 Inkspire uses the WebView2 runtime, which Windows 10 and 11 already have; the installer fetches it if it is missing.
+
+### macOS
+
+1. Open `Inkspire_<version>_universal.dmg` and drag **Inkspire** into **Applications**.
+2. The app is not notarized by Apple yet, so the first start is blocked ("Inkspire can't be opened"). In **Applications**, right-click (or Control-click) Inkspire, choose **Open**, then **Open** again. On macOS 15 and later, if there is no Open button, go to **System Settings → Privacy & Security**, scroll to Security and click **Open Anyway**.
+3. After that it starts normally. API keys are kept in your Keychain. Remove it by dragging it from Applications to the Bin.
+
+The built-in AI engine is Linux-only for now; on a Mac use Ollama, OpenAI or Anthropic.
 
 ### Debian, Ubuntu and derivatives (.deb)
 
