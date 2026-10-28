@@ -3,6 +3,7 @@ import { THREED_STOCK, type ThreeDPreset } from "@/editor/three-d-model"
 import { readCache, writeCache } from "@/lib/asset-cache"
 import type { Editor } from "@tiptap/core"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 
 type OnlineAsset = {
   id: string
@@ -136,7 +137,8 @@ export function ModelLibrary({ editor, onClose }: { editor: Editor; onClose: () 
     onClose()
   }
 
-  return (
+  // On the page itself, not in the ribbon panel's layer (see DialogFrame).
+  return createPortal(
     <div className="asset-library-backdrop" onMouseDown={onClose}>
       <div
         role="dialog"
@@ -233,7 +235,8 @@ export function ModelLibrary({ editor, onClose }: { editor: Editor; onClose: () 
             : `${stock.length} stock models`}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
