@@ -7,6 +7,22 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### Dialogs opened from the ribbon were hidden under the document (3D Models showed as a strip in the ribbon)
+
+- **What was wrong:** Insert > 3D Models (and Icons, SmartArt, Bookmark, Online Video, Symbol, Equation, and any
+  dialog a ribbon tab opens) drew inside the ribbon's tab panel, whose `will-change: opacity` (kept against the
+  WebKitGTK fade blink) makes it a layer of its own: the document painted over the dialog, leaving at most the
+  part over the ribbon visible.
+- **What changed:** `DialogFrame` (`word-dialog.tsx`) and the Icons, 3D Models and SmartArt libraries render
+  through `createPortal` into `document.body`.
+- **Tests:** `word-dialog.test.tsx` (a dialog opened inside a tab panel lands on the page; fails without the fix).
+  175 files pass.
+- **Checked:** in Chrome against the dev server, a script clicked every ribbon button and every "…" menu item on
+  each tab and tested that the dialog's centre and title bar are topmost: all 13 Insert dialogs and 45 on the
+  other tabs open over the document.
+- **Open:** that sweep logged `Cannot read properties of null (reading 'nodeSize')` from some ribbon action, not yet
+  traced.
+
 ### v0.1.1: a macOS .dmg, and the installers carry the content security policy fix
 
 - **What was wrong:** no Mac build; the v0.1.0 installers blocked runtime styles and the spell-check dictionaries.

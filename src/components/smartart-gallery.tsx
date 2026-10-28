@@ -1,6 +1,7 @@
 import { SMARTART_LAYOUTS, type SmartArtLayout } from "@/editor/smartart"
 import type { Editor } from "@tiptap/core"
 import { useState } from "react"
+import { createPortal } from "react-dom"
 
 type Category = {
   id: string
@@ -126,7 +127,8 @@ export function SmartArtDialog({ editor, onClose }: { editor: Editor; onClose: (
   const current = shown[picked] ?? shown[0]
   const layout: SmartArtLayout = current?.id ?? "list"
 
-  return (
+  // On the page itself, not in the ribbon panel's layer (see DialogFrame).
+  return createPortal(
     <div className="asset-library-backdrop" onMouseDown={onClose}>
       <div
         role="dialog"
@@ -198,7 +200,8 @@ export function SmartArtDialog({ editor, onClose }: { editor: Editor; onClose: (
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
