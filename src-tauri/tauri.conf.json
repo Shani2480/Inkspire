@@ -29,9 +29,11 @@
       }
     ],
     "security": {
+      "dangerousDisableAssetCspModification": ["style-src"],
       "csp": {
         "default-src": "'self'",
         "connect-src": [
+          "'self'",
           "ipc:",
           "http://ipc.localhost",
           "https://cdn.jsdelivr.net",
@@ -39,7 +41,8 @@
           "https://api.iconify.design",
           "https://api.polyhaven.com",
           "https://dl.polyhaven.org",
-          "blob:"
+          "blob:",
+          "data:"
         ],
         "img-src": [
           "'self'",
