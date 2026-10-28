@@ -4,6 +4,10 @@ Inkspire is a local, AI-first desktop word processor. It looks and behaves like 
 
 ![Inkspire editing a report with headings, a styled table and an equation](docs/images/overview.png)
 
+## Download
+
+Installers are on the [Releases page](https://github.com/Shani2480/Inkspire/releases/latest): a setup `.exe` for Windows, and a `.deb`, Flatpak and AppImage for Linux (x86_64). The Windows installer is not code-signed yet, so SmartScreen asks you to confirm before it runs.
+
 ## Features
 
 - Page-oriented editing with rulers, zoom, headers/footers, and custom pagination (keep with next, page break before, table rows that split across pages under a repeated header row)
@@ -115,3 +119,5 @@ Useful scripts:
 ## CI
 
 GitHub Actions (`.github/workflows/ci.yml`) runs lint, Vitest, `npm run build`, and `cargo test --lib` on push/PR.
+
+Pushing a `v*` tag runs `.github/workflows/release.yml`, which builds the `.deb` and AppImage on Ubuntu 22.04, a Flatpak from that `.deb` (`packaging/flatpak/`), and the Windows setup `.exe`, and publishes them as a GitHub release.

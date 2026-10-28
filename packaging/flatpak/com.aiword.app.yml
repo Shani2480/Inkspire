@@ -1,0 +1,39 @@
+# Flatpak of Inkspire, repackaged from the release .deb (the release workflow puts it beside this file as inkspire.deb).
+# Local build: copy a .deb here as inkspire.deb, then
+#   flatpak-builder --user --force-clean --repo=repo build com.aiword.app.yml
+#   flatpak build-bundle repo Inkspire.flatpak com.aiword.app
+id: com.aiword.app
+runtime: org.gnome.Platform
+runtime-version: "50"
+sdk: org.gnome.Sdk
+command: inkspire
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --device=dri
+  # AI providers, and the optional Pandoc, Typst and engine downloads.
+  - --share=network
+  # Documents are opened and saved anywhere in the home folder, as in the other builds.
+  - --filesystem=home
+  # API keys are kept in the desktop keyring (Secret Service).
+  - --talk-name=org.freedesktop.secrets
+  - --talk-name=org.freedesktop.Notifications
+modules:
+  - name: inkspire
+    buildsystem: simple
+    sources:
+      - type: file
+        path: inkspire.deb
+      - type: file
+        path: com.aiword.app.metainfo.xml
+    build-commands:
+      - ar -x inkspire.deb
+      - tar -xf data.tar.gz
+      - install -Dm755 usr/bin/inkspire /app/bin/inkspire
+      - install -Dm644 usr/share/applications/Inkspire.desktop /app/share/applications/com.aiword.app.desktop
+      - desktop-file-edit --set-icon=com.aiword.app --set-key=StartupWMClass --set-value=inkspire /app/share/applications/com.aiword.app.desktop
+      - install -Dm644 usr/share/icons/hicolor/32x32/apps/inkspire.png /app/share/icons/hicolor/32x32/apps/com.aiword.app.png
+      - install -Dm644 usr/share/icons/hicolor/128x128/apps/inkspire.png /app/share/icons/hicolor/128x128/apps/com.aiword.app.png
+      - install -Dm644 "usr/share/icons/hicolor/256x256@2/apps/inkspire.png" /app/share/icons/hicolor/256x256/apps/com.aiword.app.png
+      - install -Dm644 com.aiword.app.metainfo.xml /app/share/metainfo/com.aiword.app.metainfo.xml

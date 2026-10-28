@@ -7,6 +7,24 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### Installers: .deb, AppImage, Flatpak and Windows setup .exe published from a release workflow
+
+- **What was wrong:** there were no downloadable builds; `npm run tauri build` also stopped at once because the npm
+  `@tauri-apps/plugin-fs` (2.6) did not match the Rust crate (2.7), and the binary was named `tauri-app`.
+- **What changed:**
+  - `package.json`: `@tauri-apps/plugin-fs` ^2.7.1.
+  - `tauri.conf.json`: `mainBinaryName` `inkspire`; bundle category, descriptions, publisher, licence and homepage.
+  - `.github/workflows/release.yml`: on a `v*` tag, a draft release; .deb and AppImage built on Ubuntu 22.04;
+    a Flatpak built from that .deb in the GNOME 50 flatpak-builder container; an NSIS setup .exe on Windows; then
+    the release is published. `.github/release-notes.md` holds the install table.
+  - `packaging/flatpak/`: the manifest (GNOME 50 runtime, Wayland/X11, network, home folder, Secret Service for
+    the keys) and AppStream metainfo.
+  - README: Download section and the release workflow under CI. GitHub About: description and topics.
+- **Tests:** typecheck clean.
+- **Checked:** local `tauri build` of the .deb (10 MB) and AppImage (117 MB); the Flatpak built from the local
+  .deb (9.5 MB), installed, started and stayed running, then uninstalled.
+- **Open:** the Windows installer is not code-signed (SmartScreen warns); x86_64 only, no macOS or ARM builds.
+
 ### README: screenshots and a feature tour for the public repository
 
 - **What was wrong:** the README had no pictures of the app and its feature list predated charts, SmartArt, shapes
