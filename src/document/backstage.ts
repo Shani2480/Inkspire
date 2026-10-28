@@ -1,3 +1,4 @@
+import { isAndroid } from "@/lib/platform"
 import { hasWindowRequest } from "@/document/windows"
 import { create } from "zustand"
 
@@ -35,7 +36,13 @@ export const useBackstage = create<BackstageState>((set) => ({
   open: !hasWindowRequest(),
   tab: "home",
   closed: false,
-  openBackstage: (tab = "home") => set({ open: true, tab }),
+  openBackstage: (tab = "home") => {
+    // The File view covers the document: on Android let go of the editor so the on-screen keyboard closes.
+    if (isAndroid && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
+    set({ open: true, tab })
+  },
   closeBackstage: () => set((state) => (state.closed ? state : { open: false })),
   setTab: (tab) => set({ tab }),
   setClosed: (closed) => set({ closed }),

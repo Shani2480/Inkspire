@@ -4,7 +4,7 @@ import { useBackstage } from "@/document/backstage"
 import { documentTitle, useDocumentStore } from "@/document/store"
 import { themeBackgroundStyle } from "@/document/theme"
 import { useViewStore } from "@/document/view"
-import { isMacPlatform, isTauriRuntime } from "@/lib/platform"
+import { isAndroid, isMacPlatform, isTauriRuntime } from "@/lib/platform"
 import { TellMeSearch } from "@/tell-me/tell-me-search"
 import { getCurrentWindow } from "@tauri-apps/api/window"
 import { Minus, Share2, Square, SquareSquare, User, X } from "lucide-react"
@@ -275,7 +275,7 @@ export function TitleBar() {
             <TitleBarActions />
           </>
         )}
-        {isMacPlatform ? (
+        {isMacPlatform || isAndroid ? (
           <span className="w-2" />
         ) : (
           <WindowControls maximized={maximized} onMaximize={toggleMaximize} />

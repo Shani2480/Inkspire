@@ -1,6 +1,10 @@
 import { isTauriRuntime } from "@/lib/platform"
 import { open as tauriOpen, save as tauriSave } from "@tauri-apps/plugin-dialog"
 import { invoke } from "@tauri-apps/api/core"
+import { readFile as fsReadFile, writeFile as fsWriteFile } from "@tauri-apps/plugin-fs"
+import { isContentUri, pathBaseName, sniffExtension } from "@/lib/paths"
+
+export { isContentUri, pathBaseName } from "@/lib/paths"
 
 export type FileFilter = { name: string; extensions: string[] }
 
@@ -40,7 +44,34 @@ function acceptFromFilters(filters: FileFilter[]) {
   return accept
 }
 
+type AndroidPicker = { openDocument(mimeTypesJson: string): void }
+
+/**
+ * Android's document picker, through MainActivity: it grants read and write access that lasts, where the dialog
+ * plugin's picker grants a read-only copy, so Save can write back to the file.
+ */
+function pickAndroidDocument(filters: FileFilter[]): Promise<string | null> | null {
+  const files = (globalThis as { InkspireFiles?: Partial<AndroidPicker> }).InkspireFiles
+  if (!files?.openDocument) {
+    return null
+  }
+  const mimeTypes = [...new Set(filters.flatMap((filter) => filter.extensions.map((ext) => ACCEPT_MAP[ext] ?? "")))]
+  const openDocument = files.openDocument.bind(files)
+  return new Promise((resolve) => {
+    const host = globalThis as { __inkspirePicked?: (uri: string | null) => void }
+    host.__inkspirePicked = (uri) => {
+      delete host.__inkspirePicked
+      resolve(uri)
+    }
+    openDocument(JSON.stringify(mimeTypes.filter(Boolean)))
+  })
+}
+
 export async function pickOpenPath(filters: FileFilter[], title = "Open"): Promise<string | null> {
+  const android = pickAndroidDocument(filters)
+  if (android) {
+    return android
+  }
   if (isTauriRuntime()) {
     const selected = await tauriOpen({ title, multiple: false, filters })
     return typeof selected === "string" ? selected : null
@@ -93,13 +124,29 @@ export async function pickSavePath(
   return defaultPath
 }
 
+/** A name to open a file under: its own, or with the extension its bytes show when the name has none we read. */
+export function namedForOpening(path: string, bytes: Uint8Array) {
+  const name = pathBaseName(path)
+  return KNOWN_EXTENSIONS.has(extOf(name)) ? name : `${name}.${sniffExtension(bytes)}`
+}
+
+const KNOWN_EXTENSIONS = new Set([...Object.keys(ACCEPT_MAP), "doc", "docm", "dotx"])
+
 // The fs plugin is scoped to app data. User documents go through Rust commands
-// that check the path and extension (src-tauri/src/lib.rs read_document / write_document).
+// that check the path and extension (src-tauri/src/lib.rs read_document / write_document);
+// Android's content links go through the fs plugin, which opens them with the content resolver.
 async function readDocumentBytes(path: string): Promise<Uint8Array> {
+  if (isContentUri(path)) {
+    return fsReadFile(path)
+  }
   return new Uint8Array(await invoke<ArrayBuffer>("read_document", { path }))
 }
 
 async function writeDocumentBytes(path: string, data: Uint8Array): Promise<void> {
+  if (isContentUri(path)) {
+    await fsWriteFile(path, data)
+    return
+  }
   await invoke("write_document", data, { headers: { "x-document-path": encodeURIComponent(path) } })
 }
 
@@ -142,7 +189,7 @@ export async function openLocalFile(filters: FileFilter[], title = "Open"): Prom
       return null
     }
     const bytes = await readDocumentBytes(path)
-    const name = path.split(/[/\\]/).pop() ?? path
+    const name = namedForOpening(path, bytes)
     const textExt = new Set(["html", "htm", "md", "txt", "rtf"])
     const text = textExt.has(extOf(name)) ? new TextDecoder().decode(bytes) : undefined
     return { path, name, bytes, text }
@@ -191,8 +238,9 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url)
 }
 
+/** A file's extension; for an Android content link, that of the name the link stands for. */
 export function fileExtension(path: string) {
-  return extOf(path)
+  return extOf(isContentUri(path) ? pathBaseName(path) : path)
 }
 
 const SETTINGS_FILTERS: FileFilter[] = [{ name: "Customizations", extensions: ["json"] }]
@@ -207,7 +255,11 @@ export async function saveSettingsFile(name: string, text: string, title: string
     if (!path) {
       return false
     }
-    await invoke("write_settings_file", { path, text })
+    if (isContentUri(path)) {
+      await fsWriteFile(path, new TextEncoder().encode(text))
+    } else {
+      await invoke("write_settings_file", { path, text })
+    }
     return true
   }
   downloadBlob(new Blob([text], { type: "application/json;charset=utf-8" }), name)
@@ -218,6 +270,9 @@ export async function saveSettingsFile(name: string, text: string, title: string
 export async function openSettingsFile(title: string): Promise<string | null> {
   if (isTauriRuntime()) {
     const path = await pickOpenPath(SETTINGS_FILTERS, title)
+    if (path && isContentUri(path)) {
+      return new TextDecoder().decode(await fsReadFile(path))
+    }
     return path ? invoke<string>("read_settings_file", { path }) : null
   }
   const opened = await openLocalFile(SETTINGS_FILTERS, title)

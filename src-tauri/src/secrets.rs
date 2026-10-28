@@ -65,6 +65,20 @@ pub trait Vault {
 
 pub struct Keyring;
 
+/// Android has no keyring the `keyring` crate can reach (without a backend it would keep keys in memory only), so keys
+/// go to the owner-only file, which sits in the app's private storage there.
+#[cfg(target_os = "android")]
+impl Vault for Keyring {
+    fn read(&self, _field: &str) -> Result<Option<String>, String> {
+        Err("No keyring on Android.".into())
+    }
+
+    fn write(&self, _field: &str, _value: &str) -> Result<(), String> {
+        Err("No keyring on Android.".into())
+    }
+}
+
+#[cfg(not(target_os = "android"))]
 impl Vault for Keyring {
     fn read(&self, field: &str) -> Result<Option<String>, String> {
         let entry = keyring::Entry::new(SERVICE, field).map_err(|err| err.to_string())?;

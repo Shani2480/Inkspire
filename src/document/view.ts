@@ -1,3 +1,4 @@
+import { isAndroid } from "@/lib/platform"
 import type { PageView } from "@/document/page-grid"
 import { DEFAULT_THEME_BACKGROUND, THEME_OPTIONS } from "@/document/theme"
 import { create } from "zustand"
@@ -27,11 +28,14 @@ function readThemeBackground(): string {
   }
 }
 
+/** The ribbon until one is chosen: the single line on Android, as Word's tablet app shows it, the classic one elsewhere. */
 export function readRibbonLayout(): RibbonLayout {
+  const fallback: RibbonLayout = isAndroid ? "single" : "classic"
   try {
-    return localStorage.getItem(RIBBON_LAYOUT_KEY) === "single" ? "single" : "classic"
+    const stored = localStorage.getItem(RIBBON_LAYOUT_KEY)
+    return stored === "single" || stored === "classic" ? stored : fallback
   } catch {
-    return "classic"
+    return fallback
   }
 }
 

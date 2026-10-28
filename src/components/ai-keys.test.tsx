@@ -5,7 +5,7 @@ import { AiKeysDialog } from "@/components/ai-keys"
 
 const invoke = vi.fn()
 
-vi.mock("@/lib/platform", () => ({ isTauriRuntime: () => true }))
+vi.mock("@/lib/platform", () => ({ isAndroid: false, isTauriRuntime: () => true }))
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...args: unknown[]) => invoke(...args) }))
 vi.mock("@tauri-apps/api/event", () => ({ listen: async () => () => undefined }))
 

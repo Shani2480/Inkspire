@@ -5,6 +5,7 @@ import type { DocumentChrome } from "@/document/header"
 import { pageSetupForNewDocument } from "@/document/design-format"
 import { DEFAULT_PAGE_SETUP, normalizePageSetup, samePageSetup, type PageSetup } from "@/document/page-setup"
 import { create } from "zustand"
+import { pathBaseName } from "@/lib/paths"
 
 type ChromeState = {
   documentHTML: string
@@ -541,9 +542,7 @@ export function documentName(path: string | null) {
     return useDocumentStore.getState().fileName || "Untitled"
   }
 
-  const normalized = path.replace(/\\/g, "/")
-  const base = normalized.slice(normalized.lastIndexOf("/") + 1)
-  return base || "Untitled"
+  return pathBaseName(path) || "Untitled"
 }
 
 export type SaveStateLabel = "Saved" | "Saving…" | "Unsaved"

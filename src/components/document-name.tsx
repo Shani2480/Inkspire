@@ -1,7 +1,7 @@
 import { useBackstage } from "@/document/backstage"
 import { documentName, saveStateLabel, useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
-import { isTauriRuntime } from "@/lib/platform"
+import { isAndroid, isTauriRuntime } from "@/lib/platform"
 import { invoke } from "@tauri-apps/api/core"
 import { ChevronDown, Copy, History } from "lucide-react"
 import { useEffect, useId, useRef, useState, type FormEvent } from "react"
@@ -17,7 +17,11 @@ export function saveStateText(path: string | null, isDirty: boolean, saving: boo
     return ""
   }
   const label = saveStateLabel(isDirty, saving)
-  return label === "Saved" && path && isTauriRuntime() ? "Saved to this PC" : label
+  return label === "Saved" && path && isTauriRuntime()
+    ? isAndroid
+      ? "Saved to this device"
+      : "Saved to this PC"
+    : label
 }
 
 /**

@@ -1,4 +1,5 @@
 import { create } from "zustand"
+import { pathBaseName } from "@/lib/paths"
 
 /** What went wrong, in the terms the dialog explains it in. */
 export type FileProblemKind =
@@ -48,7 +49,7 @@ function isCompoundFile(bytes: Uint8Array | undefined) {
 }
 
 function baseName(file: string | null | undefined) {
-  return (file ?? "").split(/[/\\]/).pop() || "this document"
+  return pathBaseName(file ?? "") || "this document"
 }
 
 function extensionOf(name: string) {

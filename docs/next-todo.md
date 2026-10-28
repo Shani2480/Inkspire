@@ -4,6 +4,18 @@ The next work is the **Next** list below. Do not start a later phase until it is
 
 Where a simpler version already exists, the note says so. The item is still open until it matches the control written here. Names, groups, and dialog fields are the ones visible in `screenshots/`. A dropdown whose menu is closed in those shots stays a dropdown with that label. Do not add menu entries that are not on screen.
 
+## Android tablet (branch `android`, 2026-10-28)
+
+- Release APK/AAB: a signing key (kept out of git, a GitHub secret in CI) and a job in `release.yml`.
+- Save As on Android uses the dialog plugin's `ACTION_CREATE_DOCUMENT`; check its access lasts across restarts
+  as Open's now does.
+- PDF without Typst: Android's print service (`window.print()` in the WebView does nothing; a print adapter in
+  `MainActivity`).
+- Touch editing: long-press selection handles and the Android text toolbar over the editor, dragging pictures and
+  shapes with a finger, Edit Wrap Points and crop handles at finger size, pinch to zoom the page.
+- A phone layout (out of scope for the tablet build).
+- Test on a real tablet with Gboard and a hardware keyboard (shortcuts, IME composition in tables and headers).
+
 ## Next — open items
 
 Items built but not yet checked in Word, Chrome or the desktop app are collected in `verify-list.md`; tick them there, do not re-check them here.

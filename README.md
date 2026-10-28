@@ -93,6 +93,23 @@ Nothing is bundled. The first-run setup offers Pandoc 3.12.1 (~35 MB) and Typst 
 
 Keys are stored by the Rust side under the app config directory with owner-only permissions. They are never written into document HTML.
 
+## Android tablet (preview)
+
+The same app builds for Android tablets with Tauri's Android target (the `android` branch). It opens on the single-line ribbon with finger-sized targets, keeps the document above the on-screen keyboard, and opens and saves documents through Android's file picker, saving back to the same file and reopening from Recent after a restart. AI works with OpenAI, Anthropic, or an Ollama server on your network; keys are kept in the app's private storage.
+
+Not on Android: Pandoc and Typst (ODT, RTF and PDF), the built-in AI engine, separate windows and Open Containing Folder.
+
+Build a debug APK for the emulator or a device (Android SDK, NDK 30 and the Rust Android targets installed):
+
+```bash
+export ANDROID_HOME=~/Android/Sdk NDK_HOME=~/Android/Sdk/ndk/30.0.16248370
+npm run tauri android build -- --debug --apk                   # every ABI
+npm run tauri android build -- --debug --target x86_64 --apk   # emulator only, faster
+adb install -r src-tauri/gen/android/app/build/outputs/apk/universal/debug/app-universal-debug.apk
+```
+
+`src-tauri/gen/android/` is the generated Android Studio project; `MainActivity.kt` there holds the Android-only parts (system-bar and keyboard insets, the read/write document picker, file names for content links).
+
 ## Develop
 
 Web UI only (no native shell / no AI key IPC):
