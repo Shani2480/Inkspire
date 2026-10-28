@@ -396,6 +396,13 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Make Left columns in Word, open here: drawn narrow and wide; save untouched and reopen in Word: unchanged.
 - This point forward with Start new column: the rest of the document starts on a new page in columns.
 
+## Word's shapes, every preset (2026-10-28)
+
+- In Word insert a Cloud callout, a Rounded Rectangular callout with its tail dragged, a Divide sign, a Scroll and a
+  Gear, one of them floating in a paragraph with text; open here: each shape as in Word, the paragraph whole.
+- Save without touching them, open in Word: the same presets, the tail where it was, the shape among the same words.
+- Edit Points on the callout here, save, open in Word: the changed outline.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

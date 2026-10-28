@@ -7,6 +7,45 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### Word's shapes: every preset opens as a shape, and floating shapes beside text open too
+
+- **What was wrong:**
+  - A Word shape whose preset the app has no drawing of opened as nothing but its text. About 140 of Word's 186
+    presets are like that, among them callouts, math signs, flowchart symbols, ribbons, scrolls and gears.
+  - A preset whose handles were moved in Word (a rounder corner, a callout's tail elsewhere) was drawn with the
+    app's defaults.
+  - A floating shape in a paragraph that had text did not open as a shape at all.
+- **What changed:**
+  - `src/document/docx/preset-geometry.json` (150 KB, 26 KB gzipped, in the lazily loaded `.docx` code) holds
+    every preset's adjust values, guide formulas and paths from ECMA-376's presetShapeDefinitions. It is built by
+    `docs/shapes/build-preset-geometry.mjs` from Apache OpenOffice's copy (Apache License 2.0).
+  - `preset-geometry.ts` evaluates them at the shape's size:
+    - all of DrawingML's formula operators and built-in guides;
+    - arcs from visual angles, as Word draws them, turned into cubic curves;
+    - paths with their own coordinate size;
+    - the shape's own `a:avLst` values.
+      The result is the app's freeform points.
+  - `readWordShape`: such a shape opens as a freeform drawn from that outline, keeping its fill, outline, effects
+    and text. Saved without changes it goes back as Word's own preset. After Edit Points or a resize it is Word's
+    `a:custGeom`.
+  - `shapePictureHtml`: a floating shape among a paragraph's text opens as the block before the paragraph, as
+    floating pictures do. On saving it goes back to its place among the text. One in line with text still stays
+    text.
+- **Tests:**
+  - `preset-geometry.test.ts`: guides, adjust values, arcs, a callout's tail, reading `a:avLst`, opening
+    `cloudCallout`, an adjusted `roundRect`.
+  - `shape-import.test.ts`: a Frame among text keeps its paragraph whole and saves back between the same words; a
+    `wedgeRoundRectCallout` opens from its geometry and saves back as `prst="wedgeRoundRectCallout"`.
+- **Checked in Chrome:**
+  - All 186 presets drawn in a grid look as Word's.
+  - A file with a Divide sign among text and an oval callout opens with both shapes and the paragraph whole.
+- **Open:**
+  - Not compared with Word side by side.
+  - A shape drawn this way is a freeform in the app (Edit Points), not a preset with handles. Resizing stretches
+    it instead of working out the guides again.
+  - Parts Word only outlines (an arc, a connector's line) or only fills are drawn as the rest of the shape is.
+  - A shape in line with text in a paragraph with text still opens as its text.
+
 ### Columns as in Word: Left and Right, a width and spacing per column, more than three columns, This point forward
 
 - **What was wrong:**
