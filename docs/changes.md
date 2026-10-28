@@ -7,6 +7,17 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### v0.1.2: the ribbon dialog fix, the Index crash fix and touch pinch, with the Android APK built by the workflow
+
+- **What was wrong:** v0.1.1's installers had dialogs from the ribbon hidden under the document, Insert Index and
+  Insert Table of Authorities crashing, and a pinch zooming the whole interface on touch screens.
+- **What changed:** version 0.1.2 in `package.json`, `package-lock.json`, `Cargo.toml`, `Cargo.lock`,
+  `tauri.conf.json` and the Flatpak metainfo; tagged `v0.1.2`. The release workflow's Android job runs for the
+  first time.
+- **Tests:** 177 files, 1171 tests pass on main.
+- **Checked:** the release workflow's jobs and the assets on the release (see the session's report).
+- **Open:** none.
+
 ### Insert Index and Insert Table of Authorities crashed with the cursor in a paragraph
 
 - **What was wrong:** both commands inserted their block at the cursor and then selected the node at that
