@@ -387,6 +387,15 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
   the new colours and values.
 - Same file, add a region Word did not have, save, open in Word: a picture of the map.
 
+## Columns as in Word (2026-10-28)
+
+- Layout → Columns → Left on a page of text: a narrow column at the left, a wide one beside it, both starting at the
+  top of each page; Right the other way round. Type in each column and select across them.
+- Columns dialog: clear Equal column width, change column 1's width: column 2 gives the room. Save, open in Word:
+  Word's Columns dialog shows the same widths and spacing.
+- Make Left columns in Word, open here: drawn narrow and wide; save untouched and reopen in Word: unchanged.
+- This point forward with Start new column: the rest of the document starts on a new page in columns.
+
 ## Known gaps noted alongside (not checks, listed so they are not mistaken for ones)
 
 - Native shapes: a gradient's transparency per stop, path gradients other than a circle (shown as radial) and

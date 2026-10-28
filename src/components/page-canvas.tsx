@@ -15,7 +15,7 @@ import { chromeHasContent, chromeHasPageField } from "@/document/chrome-html"
 import { useActiveChromeEditor } from "@/document/chrome-editing"
 import { chromeText } from "@/document/chrome-html"
 import { useChromeExtent } from "@/document/chrome-extent"
-import { applyPageChrome, pageBorderStyle, pageMetrics, showsPageBorder } from "@/document/page-setup"
+import { applyPageChrome, pageBorderStyle, pageMetrics, setupColumns, showsPageBorder } from "@/document/page-setup"
 import { useDocumentStore } from "@/document/store"
 import { clampZoom, useViewStore } from "@/document/view"
 import { useBodyEditor } from "@/editor/document-editor"
@@ -506,12 +506,18 @@ export function PageCanvas() {
                 right: `${pageSetup.marginRight}mm`,
                 bottom: metrics.marginBottom,
                 left: `${pageSetup.marginLeft}mm`,
-                gap: `${pageSetup.columnGap}cm`,
-                ["--column-gap" as string]: `${pageSetup.columnGap}cm`,
               }}
             >
-              {Array.from({ length: pageSetup.columns }, (_, index) => (
-                <span key={index} />
+              {setupColumns(pageSetup).map((column, index) => (
+                <span
+                  key={index}
+                  style={{
+                    flex: "none",
+                    width: `${column.width}cm`,
+                    marginRight: `${column.space}cm`,
+                    ["--column-gap" as string]: `${column.space}cm`,
+                  }}
+                />
               ))}
             </div>
           ) : null}

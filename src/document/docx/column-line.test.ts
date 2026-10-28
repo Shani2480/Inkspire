@@ -62,6 +62,75 @@ describe("column breaks in .docx", () => {
     const xml = decodeXml(findPart(pkg, pkg.mainPartName)!.data)
     expect(xml).toContain('<w:p><w:r><w:br w:type="column"/></w:r></w:p>')
     const { view } = await openDocxBytes(saved.bytes, "c.docx")
-    expect(view.html).toMatch(/one<\/span><\/p><div data-column-break="" class="column-break"><\/div><p[^>]*><span[^>]*>two/)
+    expect(view.html).toMatch(
+      /one<\/span><\/p><div data-column-break="" class="column-break"><\/div><p[^>]*><span[^>]*>two/,
+    )
+  })
+})
+
+describe("Unequal column widths (22.7)", () => {
+  const left = [
+    { width: 4.66, space: 1.27 },
+    { width: 10.58, space: 0 },
+  ]
+
+  it("are written as Word's w:col list and read back", async () => {
+    const { xml, setup } = await roundTrip({ columns: 2, columnGap: 1.27, columnWidths: left })
+    expect(xml).toMatch(
+      /<w:cols [^>]*w:equalWidth="0"[^>]*><w:col w:w="\d+" w:space="720"\/><w:col w:w="\d+"\/><\/w:cols>/,
+    )
+    expect(setup.columns).toBe(2)
+    expect(setup.columnWidths).toEqual(left)
+  })
+
+  it("are left out for equal columns", async () => {
+    const { xml, setup } = await roundTrip({ columns: 2, columnWidths: undefined })
+    expect(xml).not.toContain("equalWidth")
+    expect(setup.columnWidths).toBeUndefined()
+  })
+
+  it("open from Word's own section and save back as Word wrote them", async () => {
+    const paragraph = { type: "paragraph", content: [{ type: "text", text: "x" }] }
+    const first = await saveDocxBytes({
+      json: { type: "doc", content: [paragraph] },
+      chrome: {
+        ...emptyChrome(),
+        pageSetup: {
+          ...DEFAULT_PAGE_SETUP,
+          columns: 3,
+          columnWidths: [
+            { width: 3, space: 1 },
+            { width: 5, space: 1.5 },
+            { width: 6.01, space: 0 },
+          ],
+        },
+      },
+      word: null,
+      unchanged: false,
+      fileName: "u.docx",
+    })
+    const opened = await openDocxBytes(first.bytes, "u.docx")
+    expect(opened.view.chrome.pageSetup.columnWidths?.map((column) => column.width)).toEqual([3, 5, 6.01])
+    const again = await saveDocxBytes({
+      json: { type: "doc", content: [paragraph] },
+      chrome: opened.view.chrome,
+      props: opened.view.props,
+      word: opened.word,
+      unchanged: false,
+      fileName: "u2.docx",
+    })
+    const read = async (bytes: Uint8Array, name: string) => {
+      const pkg = await openPackage(bytes, name)
+      return decodeXml(findPart(pkg, pkg.mainPartName)!.data).match(/<w:cols[\s\S]*?<\/w:cols>/)?.[0]
+    }
+    expect(await read(again.bytes, "u2.docx")).toBe(await read(first.bytes, "u.docx"))
+  })
+
+  it("survive the app's own file header", () => {
+    const packed = packDocument("<p>x</p>", {
+      ...emptyChrome(),
+      pageSetup: { ...DEFAULT_PAGE_SETUP, columns: 2, columnWidths: left },
+    })
+    expect(unpackDocument(packed).pageSetup.columnWidths).toEqual(left)
   })
 })

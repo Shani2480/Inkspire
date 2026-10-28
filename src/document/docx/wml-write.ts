@@ -1120,7 +1120,15 @@ function generateSection(section: SectionProps) {
   if (section.columnSeparator !== undefined) {
     columns.push(`w:sep="${section.columnSeparator ? 1 : 0}"`)
   }
-  if (columns.length > 0) {
+  if (section.columnWidths?.length) {
+    columns.push('w:equalWidth="0"')
+    const each = section.columnWidths
+      .map(
+        (column) => `<w:col w:w="${column.width}"${column.space === undefined ? "" : ` w:space="${column.space}"`}/>`,
+      )
+      .join("")
+    parts.push(`<w:cols ${columns.join(" ")}>${each}</w:cols>`)
+  } else if (columns.length > 0) {
     parts.push(`<w:cols ${columns.join(" ")}/>`)
   }
   if (section.titlePg) {

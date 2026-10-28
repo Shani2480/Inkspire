@@ -5,6 +5,56 @@ wrong or missing, what changed, where (files, tests), how it was checked, and wh
 story of each feature stays in `next-todo.md` under its section; `verify-list.md` holds what still needs a check
 in Word, Chrome or the desktop app.
 
+## 2026-10-28
+
+### Columns as in Word: Left and Right, a width and spacing per column, more than three columns, This point forward
+
+- **What was wrong:**
+  - Layout → Columns had One, Two and Three only, and the Columns dialog took one spacing for every column, up to
+    three columns. Word's Left and Right presets, a width per column and "Equal column width" were missing.
+  - A Word document with unequal columns (`w:cols w:equalWidth="0"` and its `w:col` widths) opened with equal
+    columns and was saved back with them: the widths were lost.
+  - The browser's columns are always equal, so unequal ones could not be drawn.
+  - Apply to had no "This point forward" and "Start new column" was missing.
+- **What changed:**
+  - `src/document/column-widths.ts` (new): Word's presets (Left and Right: the narrow column is one of three equal
+    columns, the wide one the other two and the space between, 1.83" and 4.17" on Letter), the most half-inch
+    columns that fit (up to 12), page columns fitted to a changed text width, and editing one column's width or
+    spacing (the next column gives or takes the difference; with equal columns the spacing gives way).
+  - Page setup: `columns` is now 1–12 and `columnWidths` holds each column's width and the space after it when
+    they are not equal. `.docx`: read from and written as `w:cols w:equalWidth="0"` with its `w:col` list (what
+    Word wrote stays when the widths are unchanged); the app's own files keep it as `aiword-colwidths`.
+  - Drawing (`pages.ts`): equal columns are still the browser's columns. Unequal ones are drawn block by block:
+    the page layout picks each top-level block's column, measuring it at that column's width (with the DOM
+    observer held), and the block is drawn across to its column and up to the column's top (`--col-x`,
+    `--col-top`, `--col-w` on a `column-cell` decoration). The page gap after a page starts higher by as much. A
+    paragraph or list that does not fit the rest of a column goes whole to the next one.
+  - Columns dialog (`columns-dialog.tsx`) as Word's: the five presets as tiles, Number of columns, Line between,
+    Width and spacing with a row per column, Equal column width, Apply to (Whole document, This point forward,
+    Selected text), Start new column, and a preview at the columns' widths. This point forward puts the rest of the
+    document into a block of columns, after a column break when Start new column is ticked.
+  - Layout → Columns lists One, Two, Three, Left and Right with their glyphs and highlights the one in use.
+  - The ruler shows unequal columns, and dragging a column marker resizes that column and the next. The page's
+    column guides and Line between follow the widths, and a picture fits the column it is in.
+- **Tests:** `column-widths.test.ts` (presets, fitting, resizing, ruler drag), `column-line.test.ts` (`w:col` written,
+  read back, Word's widths kept, the app's header), `columns-dialog.test.tsx` (Left, unequal width edit, five
+  columns, This point forward with Start new column), `page-setup.test.ts` (up to 12 columns).
+- **Checked:**
+  - In Chrome: Left, Right and equal Two on a 40-paragraph document. Each column starts at the page's top, page 2
+    starts at its margin, and equal columns look as before.
+  - The dialog and menu were looked at.
+  - A saved Left file has 0 errors in the Open XML validator, and LibreOffice draws it with a narrow and a wide
+    column and the line between.
+- **Open:**
+  - Not opened in Word.
+  - In unequal columns a paragraph is never split between columns (Word splits it). One taller than a whole
+    column runs on to the next page in the same column.
+  - Tables keep their own width there. Blocks are measured afresh on every layout (no cache), which is slower on
+    long documents.
+  - Selected text and This point forward give equal columns only, and they are still not written to `.docx`.
+  - Multiple Pages view draws any page columns wrongly: equal ones already did before this change.
+  - Already happening before this change: React reports "an error during concurrent rendering" on every load.
+
 ## 2026-10-27
 
 ### Maps round 3: states and provinces of nine more countries, Best Fit on the mainland, Word's own Map kept
@@ -1329,6 +1379,7 @@ in Word, Chrome or the desktop app.
     around it.
 
   840 tests pass.
+
 - **Open:**
   - Word also puts text on the narrower side of a table placed in the middle of the page; here text takes only the
     roomier side, as for floating pictures, because the page's lines can't run on both sides of one object.
