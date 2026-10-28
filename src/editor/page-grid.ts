@@ -230,3 +230,86 @@ export function cutShadedBlocks(view: EditorView) {
     })
   })
 }
+
+/**
+ * A table row broken across pages (Allow row to break across pages) runs on through the grey between the pages: each
+ * gap in its cells is cut out of the table from where the page's foot is (the gap's `keep`) to the next page's top,
+ * so its borders and shading end at one page's foot and start again at the next one's top, as Word draws them. The
+ * row's cells get their bottom border drawn at the foot and again at the top of the next page (`--row-cut` lines).
+ */
+export function cutSplitRows(view: EditorView) {
+  const dom = view.dom
+  const zoom = dom.offsetHeight > 0 ? dom.getBoundingClientRect().height / dom.offsetHeight || 1 : 1
+  const cuts = new Map<HTMLElement, Map<number, number>>()
+  const rows = new Set<HTMLTableRowElement>()
+  dom.querySelectorAll<HTMLElement>(".page-gap-cell").forEach((gap) => {
+    const table = gap.closest<HTMLElement>("table")
+    const row = gap.closest("tr")
+    if (!table || !row) {
+      return
+    }
+    rows.add(row)
+    const top = (gap.getBoundingClientRect().top - table.getBoundingClientRect().top) / zoom
+    const from = Math.round((top + (Number(gap.dataset.keep) || 0)) * 10) / 10
+    const to = Math.round((top + gap.offsetHeight) * 10) / 10
+    // The cells of one row share their cut: keep the widest.
+    const list = cuts.get(table) ?? new Map<number, number>()
+    const key = Math.round(to)
+    list.set(key, Math.min(list.get(key) ?? from, from))
+    cuts.set(table, list)
+  })
+  // The lines each cell of a broken row draws at the cuts, from the cell's top.
+  const lines = new Map<HTMLElement, string>()
+  rows.forEach((row) => {
+    const table = row.closest<HTMLElement>("table")!
+    const tableTop = table.getBoundingClientRect().top
+    for (const cell of Array.from(row.cells)) {
+      const style = getComputedStyle(cell)
+      const width = parseFloat(style.borderBottomWidth) || 0
+      if (width <= 0 || style.borderBottomStyle === "none") {
+        continue
+      }
+      const offset = (cell.getBoundingClientRect().top - tableTop) / zoom
+      const color = style.borderBottomColor
+      const stops = [...(cuts.get(table) ?? [])].flatMap(([to, from]) => {
+        const foot = Math.round((from - offset) * 10) / 10
+        const head = Math.round((to - offset) * 10) / 10
+        return [
+          `transparent ${foot - width}px, ${color} ${foot - width}px, ${color} ${foot}px, transparent ${foot}px`,
+          `transparent ${head}px, ${color} ${head}px, ${color} ${head + width}px, transparent ${head + width}px`,
+        ]
+      })
+      if (stops.length > 0) {
+        lines.set(cell, `linear-gradient(to bottom, ${stops.join(", ")})`)
+      }
+    }
+  })
+  holdObserver(view, () => {
+    dom.querySelectorAll<HTMLElement>("table[data-row-cut]").forEach((table) => {
+      if (!cuts.has(table)) {
+        table.removeAttribute("data-row-cut")
+        table.style.removeProperty("mask-image")
+        table.style.removeProperty("-webkit-mask-image")
+      }
+    })
+    dom.querySelectorAll<HTMLElement>(":is(td, th)[data-row-cut]").forEach((cell) => {
+      if (!lines.has(cell)) {
+        cell.removeAttribute("data-row-cut")
+        cell.style.removeProperty("--row-cut")
+      }
+    })
+    lines.forEach((gradient, cell) => {
+      cell.dataset.rowCut = ""
+      cell.style.setProperty("--row-cut", gradient)
+    })
+    cuts.forEach((list, table) => {
+      const stops = [...list]
+        .sort((a, b) => a[0] - b[0])
+        .map(([to, from]) => `#000 ${from}px, transparent ${from}px, transparent ${to}px, #000 ${to}px`)
+      const mask = `linear-gradient(to bottom, ${stops.join(", ")})`
+      table.dataset.rowCut = ""
+      table.style.setProperty("mask-image", mask)
+      table.style.setProperty("-webkit-mask-image", mask)
+    })
+  })
+}

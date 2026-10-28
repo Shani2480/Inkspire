@@ -7,6 +7,41 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### Table rows break across pages, and Fit text is drawn
+
+- **What was wrong:**
+  - A table row never broke across pages. A row that did not fit moved whole to the next page, and a row taller
+    than a page ran off its foot. Word breaks a row inside its cells unless Allow row to break across pages is off.
+  - Fit text (Table Properties → Cell → Options…) was saved to .docx but not drawn.
+- **What changed:**
+  - `pages.ts`: a row that runs past the page's foot and may break (`splittable`: not "cant split", cells holding
+    only text and lists) is broken inside its cells (`splitRow`). Each cell breaks at its first line that does not
+    fit and goes on at the top of the next page, and again for a row taller than a page. A row none of whose first
+    lines fit starts the next page.
+    - The break is one page break carrying a gap per cell (`PageBreak.cells`, drawn as `.page-gap-cell`).
+    - Later layouts leave those gaps out when measuring rows (`rowStretch`, `outerHeight`).
+    - A table that is a single row now breaks too.
+  - `page-grid.ts` `cutSplitRows`: the band between the pages is cut out of the table with a mask, so its borders
+    and shading stop at one page's foot. The row's cells draw their bottom border at the foot and again at the next
+    page's top (`--row-cut`).
+  - `table-fit-text.ts` (new): in a Fit text cell each paragraph stays on one line. Short text has its letter
+    spacing widened to run the cell's width; long text is narrowed (`scaleX`) so its characters don't run into
+    each other.
+- **Tests:** `pages.test.ts` (`splittable`: text rows break; "cant split", pictures and nested tables don't). The
+  layout needs a real browser. All 1139 tests pass.
+- **Checked in Chrome:**
+  - A two-cell row across pages 2 and 3: the long cell goes on at the top of page 3, the borders close and reopen,
+    and the grey band is clear.
+  - The same row with Allow row to break off: it moves whole to page 3.
+  - A 160-line cell runs over five pages.
+  - Typing in the broken cell keeps the layout steady.
+  - Fit text: "Short" spaced across the cell, a long sentence narrowed into it.
+- **Open:**
+  - The header row is not drawn again above the part of a broken row on the next page.
+  - A cell whose text is vertically centred or at the bottom is broken as if it were at the top.
+  - Rows holding pictures or nested tables still move whole.
+  - Not compared against Word.
+
 ### Line Numbers: Restart Each Section and Suppress for Current Paragraph
 
 - **What was wrong:**

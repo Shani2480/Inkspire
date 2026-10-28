@@ -27,7 +27,14 @@ import {
   wrapsBeside,
 } from "@/editor/objects"
 import { rotatedBounds } from "@/editor/object-rotate"
-import { cutShadedBlocks, finishPageGrid, holdObserver, preparePageMeasure, regridNow } from "@/editor/page-grid"
+import {
+  cutShadedBlocks,
+  cutSplitRows,
+  finishPageGrid,
+  holdObserver,
+  preparePageMeasure,
+  regridNow,
+} from "@/editor/page-grid"
 import { Extension } from "@tiptap/core"
 
 declare module "@tiptap/core" {
@@ -76,7 +83,14 @@ type PageBreak = {
   lift?: number
   /** A break between a table's rows that draws the table's header row again at the top of the next page. */
   header?: boolean
+  /**
+   * A break inside a table row (Allow row to break across pages): a gap in each cell that goes on, at the line that
+   * starts the next page, the first `keep` px of it still on this page (the cell runs on to the page's foot).
+   */
+  cells?: CellGap[]
 }
+
+type CellGap = { pos: number; height: number; keep: number }
 
 type PaginationSnapshot = {
   decorations: DecorationSet
@@ -295,7 +309,10 @@ function paginationPlugin(storage: PaginationStorage) {
               storage.lines = lines
               const lineSignature = lines.map((line) => `${line.n}:${line.pos}:${line.top}`).join(",")
               const signature = `${laid.signature}|${lineSignature}`
-              const expected = laid.breaks.length + laid.bands.length + lines.length
+              const expected =
+                laid.breaks.reduce((count, item) => count + (item.cells?.length ?? 1), 0) +
+                laid.bands.length +
+                lines.length
               const stableNow = signature === applied && gapsMatch(view, expected)
               stable = stableNow
               if (!stableNow && retries <= 5) {
@@ -325,6 +342,7 @@ function paginationPlugin(storage: PaginationStorage) {
               if (stableNow || retries > 5) {
                 finishPageGrid(view, pageView, metrics)
                 cutShadedBlocks(view)
+                cutSplitRows(view)
                 view.dom.dataset.pageGridKey = `${pageView}|${Math.round(metrics.width)}|${Math.round(metrics.height)}|${applied}`
                 view.dom.dataset.pageGridGaps = String(expected)
                 placedDoc = view.state.doc
@@ -495,6 +513,18 @@ function decorationsFor(
 ) {
   const decorations: Decoration[] = []
   for (const item of breaks) {
+    if (item.cells) {
+      for (const cell of item.cells) {
+        decorations.push(
+          Decoration.widget(cell.pos, () => createCellGap(cell), {
+            side: -1,
+            ignoreSelection: true,
+            key: `cell-gap-${cell.pos}-${cell.height}-${cell.keep}`,
+          }),
+        )
+      }
+      continue
+    }
     const height = item.height
     const manual = item.manual
     const at = doc.resolve(item.pos)
@@ -750,6 +780,16 @@ function repeatedHeader(view: EditorView, tablePos: number) {
   copy.contentEditable = "false"
   copy.querySelectorAll("[contenteditable]").forEach((element) => element.setAttribute("contenteditable", "false"))
   return copy
+}
+
+/** The page gap inside a cell of a row broken across pages; the table is cut away from `keep` down (`cutSplitRows`). */
+function createCellGap(cell: CellGap) {
+  const gap = document.createElement("span")
+  gap.className = "page-gap page-gap-cell"
+  gap.style.height = `${cell.height}px`
+  gap.dataset.keep = String(cell.keep)
+  gap.contentEditable = "false"
+  return gap
 }
 
 function createGap(height: number, manual: boolean, lift = 0) {
@@ -1028,20 +1068,24 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
 
   /**
    * A table taller than the room left on the page goes on row by row, as Word breaks it: a row that does not fit
-   * starts the next page (after the header row again, if the table repeats it). Rows a merged cell spans stay
-   * together, and a row taller than a page is not split.
+   * starts the next page (after the header row again, if the table repeats it). A row that may break across pages
+   * (`splitRow`) breaks inside its cells instead; rows a merged cell spans stay together.
    */
-  const placeRows = (
-    rows: { pos: number; height: number }[],
-    pos: number,
-    top: number,
-    bottom: number,
-    header: number,
-  ) => {
+  const placeRows = (rows: RowUnit[], pos: number, top: number, bottom: number, header: number) => {
     rows.forEach((row, index) => {
       const pages = breaks.length
       const height = row.height + (index === 0 ? top : 0) + (index === rows.length - 1 ? bottom : 0)
-      place(index === 0 ? pos : row.pos, height, index === 0 ? Math.min(trailing, top) : 0)
+      const collapse = index === 0 ? Math.min(trailing, top) : 0
+      if (row.dom && !web && (used > 0 ? used + height - collapse : height) > contentHeight + 1) {
+        // Where the row's top lands: below the table's top edge (border, caption) for its first row.
+        const above = index === 0 ? (used > 0 ? top - collapse : top) + row.height - row.natural : 0
+        if (splitRow(row, used + above, index === 0 ? pos : row.pos)) {
+          used += index === rows.length - 1 ? bottom : 0
+          trailing = 0
+          return
+        }
+      }
+      place(index === 0 ? pos : row.pos, height, collapse)
       trailing = 0
       const turned = breaks[breaks.length - 1]
       if (index > 0 && header > 0 && breaks.length > pages && turned?.pos === row.pos) {
@@ -1050,6 +1094,67 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       }
     })
     trailing = bottom
+  }
+
+  /**
+   * Allow row to break across pages (Word's default): a row that runs past the page's foot breaks inside its cells,
+   * each at its first line that does not fit, and goes on at the top of the next page (and the next, for a row
+   * taller than a page). A row none of whose first lines fit starts the next page. False when it can't be measured.
+   */
+  const splitRow = (row: RowUnit, start: number, rowPos: number) => {
+    const cells = row.dom ? rowCellLines(view, row.dom) : null
+    if (!cells) {
+      return false
+    }
+    const from = cells.map(() => 0)
+    let top = start
+    let moved = false
+    for (let turns = 0; turns < 200; turns += 1) {
+      const room = contentHeight - top
+      const remaining = Math.max(0, ...cells.map((cell, index) => cell.end - from[index]!))
+      if (remaining <= room + 1) {
+        used = top + remaining
+        return true
+      }
+      const cuts = cells.map((cell, index) => {
+        const at = from[index]!
+        const lines = cell.lines.filter((line) => line.top >= at - 0.5)
+        const cut = lines.findIndex((line) => line.bottom - at > room + 1)
+        // A line taller than a whole page still goes on that page, or the row would never end.
+        return cut < 0 ? null : (lines[cut === 0 && top === 0 ? 1 : cut] ?? null)
+      })
+      const first = (cell: CellLines, index: number) => cell.lines.find((line) => line.top >= from[index]! - 0.5)
+      if (top > 0 && !moved && cuts.every((cut, index) => !cut || cut === first(cells[index]!, index))) {
+        // Not one line of the row fits under what is above it: the row starts the next page.
+        pushBreak(rowPos, false)
+        moved = true
+        top = 0
+        continue
+      }
+      const gaps: CellGap[] = []
+      cuts.forEach((cut, index) => {
+        if (!cut) {
+          from[index] = cells[index]!.end
+          return
+        }
+        const keep = Math.max(0, Math.round(room - (cut.top - from[index]!)))
+        gaps.push({ pos: cut.pos, keep, height: Math.ceil(keep + PAGE_GAP + metrics.marginTop + metrics.marginBottom) })
+        from[index] = cut.top
+      })
+      if (gaps.length === 0) {
+        used = top + remaining
+        return true
+      }
+      used = contentHeight
+      const count = breaks.length
+      pushBreak(Math.min(...gaps.map((gap) => gap.pos)), false)
+      if (breaks.length > count) {
+        breaks[breaks.length - 1]!.cells = gaps
+      }
+      top = 0
+      moved = true
+    }
+    return true
   }
 
   /** Adds a split container's top or bottom edge, collapsing its margin with the neighbouring one as CSS does. */
@@ -1349,7 +1454,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     remember(pos, { kind: "block", node, height, top, bottom })
     if (node.type.name === "table" && overruns(height, top)) {
       const rows = tableRows(node, pos, dom, height - top - bottom)
-      if (rows) {
+      if (rows && (rows.units.length > 1 || rows.units[0]?.dom)) {
         measureCount += 1
         placeRows(rows.units, pos, top, bottom, node.attrs.headerRow === true ? rows.header : 0)
         return
@@ -1425,6 +1530,9 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       `${Math.round(metrics.marginTop)}:${Math.round(metrics.marginBottom)}`,
       cells.map((cell) => `${cell.pos}:${cell.column}:${cell.lift}:${cell.width ?? ""}`).join(","),
       breaks.map((item) => item.lift ?? 0).join(","),
+      breaks
+        .map((item) => item.cells?.map((cell) => `${cell.pos}:${cell.height}:${cell.keep}`).join(";") ?? "")
+        .join(","),
     ].join("|"),
   }
 }
@@ -1694,7 +1802,7 @@ function tableRows(node: ProseNode, pos: number, dom: HTMLElement, inner: number
   if (shown.length !== node.childCount) {
     return null
   }
-  // Each row's top inside the table, leaving out the page gaps a previous layout put between the rows.
+  // Each row's top inside the table, leaving out the page gaps a previous layout put between and inside the rows.
   let gaps = 0
   const tops: number[] = []
   for (const row of table.querySelectorAll<HTMLTableRowElement>("tr")) {
@@ -1706,26 +1814,105 @@ function tableRows(node: ProseNode, pos: number, dom: HTMLElement, inner: number
       continue
     }
     tops.push(row.offsetTop - gaps)
+    gaps += rowStretch(row)
   }
   const ends = [...tops.slice(1), Math.max(tops[tops.length - 1]!, inner)]
-  const units: { pos: number; height: number }[] = []
+  const units: RowUnit[] = []
   let spanned = 0
   node.forEach((row, offset, index) => {
     const height = Math.max(0, ends[index]! - tops[index]!)
     if (index > 0 && index <= spanned) {
-      units[units.length - 1]!.height += height
+      const unit = units[units.length - 1]!
+      unit.height += height
+      unit.natural += height
+      unit.dom = undefined
     } else {
-      units.push({ pos: pos + 1 + offset, height })
+      units.push({ pos: pos + 1 + offset, height, natural: height, dom: splittable(row) ? shown[index] : undefined })
     }
     row.forEach((cell) => {
       spanned = Math.max(spanned, index + Math.max(1, Number(cell.attrs.rowspan) || 1) - 1)
     })
+    if (spanned > index && units[units.length - 1]) {
+      units[units.length - 1]!.dom = undefined
+    }
   })
   // Anything in the table above its first row (a border, a caption) goes with the first piece.
   if (units[0]) {
     units[0].height += Math.max(0, inner - (ends[ends.length - 1]! - tops[0]!))
   }
-  return units.length > 1 ? { units, header: Math.max(0, (ends[0] ?? 0) - (tops[0] ?? 0)) } : null
+  return units.length > 1 || units[0]?.dom ? { units, header: Math.max(0, (ends[0] ?? 0) - (tops[0] ?? 0)) } : null
+}
+
+/** A table row as the page breaking places it; `dom` when it may break across pages inside its cells. */
+type RowUnit = { pos: number; height: number; natural: number; dom?: HTMLTableRowElement }
+
+/** A row may break inside its cells unless it says not to, and only when its cells hold text (no tables or objects). */
+export function splittable(row: ProseNode) {
+  if (row.attrs.cantSplit === true) {
+    return false
+  }
+  let text = true
+  row.descendants((child) => {
+    if (!text) {
+      return false
+    }
+    if (child.isBlock && !child.isTextblock && !isContainer(child) && !/^table(Cell|Header)$/.test(child.type.name)) {
+      text = false
+    }
+    return !child.isTextblock
+  })
+  return text && row.childCount > 0
+}
+
+type CellLines = { lines: { pos: number; top: number; bottom: number }[]; end: number }
+
+/**
+ * Each cell's lines in the row, from the row's top, and where the cell's text ends (with its bottom padding), leaving
+ * out the page gaps a previous layout put in the cells. Null when a cell can't be measured.
+ */
+function rowCellLines(view: EditorView | null, row: HTMLTableRowElement): CellLines[] | null {
+  const zoom = zoomOf(row)
+  const origin = row.getBoundingClientRect().top
+  const cells: CellLines[] = []
+  for (const cell of Array.from(row.cells)) {
+    const at = (y: number) => (y - origin) / zoom - gapBetween(cell, origin, y)
+    const lines: CellLines["lines"] = []
+    const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT)
+    for (let current = view ? walker.nextNode() : null; current; current = walker.nextNode()) {
+      const text = current as Text
+      if (text.parentElement?.closest(".page-gap, .line-number, .object-band, [contenteditable='false']")) {
+        continue
+      }
+      for (const index of lineStarts(text)) {
+        const rect = charRect(text, index)
+        const pos = rect ? view!.posAtDOM(text, index) : -1
+        if (rect && pos >= 0) {
+          lines.push({ pos, top: at(rect.top), bottom: at(rect.top) + rect.height / zoom })
+        }
+      }
+    }
+    lines.sort((a, b) => a.top - b.top || a.pos - b.pos)
+    const kept = lines.filter((line, index) => index === 0 || line.top - lines[index - 1]!.top >= 1)
+    const style = getComputedStyle(cell)
+    const last = cell.lastElementChild
+    const bottom = last
+      ? at(last.getBoundingClientRect().bottom) + (parseFloat(getComputedStyle(last).marginBottom) || 0)
+      : 0
+    cells.push({
+      lines: kept,
+      end: bottom + (parseFloat(style.paddingBottom) || 0) + (parseFloat(style.borderBottomWidth) || 0),
+    })
+  }
+  return cells.length > 0 ? cells : null
+}
+
+/** How much the page gaps inside a row's cells (a row broken across pages) add to its height. */
+function rowStretch(row: HTMLTableRowElement) {
+  if (!row.querySelector(".page-gap-cell")) {
+    return 0
+  }
+  const cells = rowCellLines(null, row)
+  return cells ? Math.max(0, row.offsetHeight - Math.max(...cells.map((cell) => cell.end))) : 0
 }
 
 function containsPageBreak(node: ProseNode) {
@@ -1752,7 +1939,13 @@ function isContainer(node: ProseNode) {
 function outerHeight(dom: HTMLElement) {
   let gaps = 0
   dom.querySelectorAll(".page-gap, .object-band").forEach((gap) => {
-    gaps += (gap as HTMLElement).offsetHeight
+    if (!gap.classList.contains("page-gap-cell")) {
+      gaps += (gap as HTMLElement).offsetHeight
+    }
+  })
+  // A row broken across pages is as much taller as its tallest cell's gaps make it.
+  dom.querySelectorAll<HTMLTableRowElement>("tr:has(.page-gap-cell)").forEach((row) => {
+    gaps += rowStretch(row)
   })
   return Math.max(0, dom.offsetHeight - gaps + edgeMargin(dom, "top") + edgeMargin(dom, "bottom"))
 }

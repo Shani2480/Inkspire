@@ -2216,6 +2216,19 @@ button.line-menu-row:focus-visible {
   white-space: nowrap;
 }
 
+/* A row broken across pages: its bottom border at the page's foot and again at the next page's top (page-grid.ts). */
+.page-editor :is(td, th)[data-row-cut] {
+  background-image: var(--row-cut);
+  background-origin: border-box;
+  background-repeat: no-repeat;
+}
+
+/* Cell Options: Fit text. Each paragraph stays on one line; its letter spacing fills the cell (table-fit-text.ts). */
+.page-editor :is(td, th)[data-fit-text="1"] > :is(p, h1, h2, h3, h4, h5, h6) {
+  white-space: nowrap;
+  transform-origin: left;
+}
+
 /* A table text wraps around (Around) is drawn at its place on the page; its wrapper takes no room in the text. */
 .page-editor .tableWrapper:has(> table[data-float="1"]) {
   height: 0;

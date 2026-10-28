@@ -1758,6 +1758,12 @@ table with Allow overlap off moves down past the floating tables it would cover.
 the backlog (Future features). Not done: a row taller than a page is not split inside; "Allow row to break across
 pages" is not honoured (rows never split); the text beside a floating table's first part, as Word keeps it.
 
+**Done (2026-10-28, rows break across pages; Fit text drawn).** A row that may break (Allow row to break across pages,
+cells of text) breaks inside its cells at the page's foot and goes on at the next page's top, also for a row taller
+than a page; borders close and reopen at the cut and the grey between the pages is clear of the table. Fit text cells
+keep each paragraph on one line, spaced out or narrowed to the cell's width. Not done: the header row above a broken
+row's next part; vertically centred cells; rows with pictures or nested tables (still moved whole).
+
 - Present and matching: all groups. Missing: Properties button (Table Properties dialog), Cell Size dialog launcher and Rows & Columns launcher, Height and Width spin boxes shown beside AutoFit in cm with a live value, 3×3 alignment grid sized as Word's (three-by-three, 22 px), Select menu items (Cell, Column, Row, Table).
 - The floating table toolbar (081826 shows Word's own) should be Font, Size, Grow/Shrink, bullets, numbering, Bold, Italic, alignment, highlight, font color, shading, borders, format painter, Insert, Delete, New Comment, Insert Below, Delete Rows, Merge Cells (21.7 covers dark mode only).
 
