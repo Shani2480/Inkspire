@@ -144,6 +144,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **Stock 3D models (2026-10-28)** — each of the 42 models in Electronics, Anatomy, Furniture and Symbols draws in
+      the WebKitGTK webview as in Chrome (lit screens, see-through cornea and bulb glass); Format › Matte / Metal and a
+      colour tint change a stock model; one saved to .docx and opened again is the same model.
 - [ ] **Built-in engine on a discrete GPU (21.26, 2026-10-26)** — on a computer with an NVIDIA card or a Radeon with
       4 GB or more, AI Settings says the engine uses the graphics card, and a Hebrew translation is real text that
       ends (not "????"). On integrated graphics it says "Uses your processor".
@@ -473,6 +476,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the Android tablet (the APK on a touch screen)
 
+- [ ] **Stock 3D models (2026-10-28)** — the 3D Models library's Electronics, Anatomy, Furniture and Symbols tiles
+      show their pictures on the tablet; an inserted model turns smoothly with a finger.
 - [ ] **Resize and crop with a finger (2026-10-28)** — dragging a picture's or shape's resize handle, a crop handle,
       or a selected object itself follows the finger to the end without the page scrolling, and the size is kept on
       release; a swipe that starts on an unselected picture still scrolls the page.
