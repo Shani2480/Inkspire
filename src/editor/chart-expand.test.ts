@@ -95,8 +95,20 @@ describe("Histogram, Waterfall and Funnel (22.6)", () => {
     expect(low[0]).toMatchObject({ base: 0, downBelow: -10 })
     expect(low[1]).toMatchObject({ base: -10, downBelow: -5, down: 0 })
     expect(low[2]).toMatchObject({ base: 0, up: 5, upBelow: -15 })
-    const expanded = expandSpec({ ...defaultChartSpec("waterfall"), categories: ["A", "B", "C"], series: [{ name: "x", values: [-10, -5, 20] }], waterfallTotals: [] })
-    expect(expanded.series.map((serie) => serie.name)).toEqual(["Base", "Increase", "Decrease", "Total", "Increase", "Decrease"])
+    const expanded = expandSpec({
+      ...defaultChartSpec("waterfall"),
+      categories: ["A", "B", "C"],
+      series: [{ name: "x", values: [-10, -5, 20] }],
+      waterfallTotals: [],
+    })
+    expect(expanded.series.map((serie) => serie.name)).toEqual([
+      "Base",
+      "Increase",
+      "Decrease",
+      "Total",
+      "Increase",
+      "Decrease",
+    ])
     expect(expanded.format["series:5"]).toEqual({ fill: "#c62828" })
     const spec = defaultChartSpec("waterfall")
     expect(spec.waterfallTotals).toEqual([5])
@@ -220,7 +232,9 @@ describe("Stock (22.6)", () => {
     for (const id of ["stock-vhlc", "stock-vohlc"]) {
       const spec = defaultChartSpec(id)
       const xml = chartSpaceXml(spec)
-      expect(xml).toMatch(/<c:barChart>.*<c:axId val="1"\/><c:axId val="2"\/><\/c:barChart><c:stockChart>.*<c:axId val="3"\/><c:axId val="4"\/><\/c:stockChart>/)
+      expect(xml).toMatch(
+        /<c:barChart>.*<c:axId val="1"\/><c:axId val="2"\/><\/c:barChart><c:stockChart>.*<c:axId val="3"\/><c:axId val="4"\/><\/c:stockChart>/,
+      )
       expect(xml.includes("<c:upDownBars>")).toBe(id === "stock-vohlc")
       const back = readChartSpace(xml)!
       expect(back.type).toBe("stock")
@@ -260,7 +274,9 @@ describe("Box & Whisker (22.6)", () => {
     const marks = (svg: string) => (svg.match(/l6 6m0 -6l-6 6/g) ?? []).length
     expect(marks(plain)).toBeGreaterThan(0)
     expect(marks(renderChart({ ...spec, box: { meanMarkers: false } }, 400, 300))).toBe(0)
-    expect(renderChart({ ...spec, box: { meanLine: true } }, 400, 300)).toMatch(/<path data-chart-part="series:0" d="M[\d.]+ [\d.]+L/)
+    expect(renderChart({ ...spec, box: { meanLine: true } }, 400, 300)).toMatch(
+      /<path data-chart-part="series:0" d="M[\d.]+ [\d.]+L/,
+    )
     const quartiles = boxGroups({ ...spec, box: { quartiles: "inclusive" } })
     expect(quartiles).toHaveLength(boxGroups(spec).length)
   })

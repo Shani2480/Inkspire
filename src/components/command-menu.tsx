@@ -59,7 +59,10 @@ export function CommandMenuHost() {
       <div
         role="menu"
         aria-label={label}
-        style={{ top: Math.max(0, Math.min(at.y, window.innerHeight - rows)), left: Math.min(at.x, window.innerWidth - 300) }}
+        style={{
+          top: Math.max(0, Math.min(at.y, window.innerHeight - rows)),
+          left: Math.min(at.x, window.innerWidth - 300),
+        }}
         className="command-menu quick-menu fixed z-[91] flex min-w-56 flex-col rounded-md border border-[var(--app-popover-border,#e1dfdd)] bg-[var(--app-popover-bg,#fff)] py-1 text-[12px] text-[var(--app-ribbon-text)] shadow-lg"
         onMouseDown={(event) => event.preventDefault()}
       >

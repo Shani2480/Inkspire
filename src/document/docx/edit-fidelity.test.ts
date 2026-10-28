@@ -219,7 +219,9 @@ describe("Word features survive the editor", () => {
       return found as unknown as { pos: number; attrs: Record<string, unknown> }
     }
     expect(equation().attrs).toMatchObject({ tex: "x=\\frac{a+b}{c}", display: true })
-    const original = /<m:oMathPara>.*<\/m:oMathPara>/.exec(partXml(await openPackage(bytes, "f17.docx"), "/word/document.xml")!)![0]
+    const original = /<m:oMathPara>.*<\/m:oMathPara>/.exec(
+      partXml(await openPackage(bytes, "f17.docx"), "/word/document.xml")!,
+    )![0]
     insertMarker(editor)
     let written = partXml(await openPackage(await saveBytes(opened, editor), "f17.docx"), "/word/document.xml")!
     expect(written).toContain(original)
@@ -250,7 +252,9 @@ describe("Word features survive the editor", () => {
     const saved = await saveBytes(opened, editor)
     const written = partXml(await openPackage(saved, "new.docx"), "/word/document.xml")!
     expect(written).toMatch(/Area <\/w:t><\/w:r><m:oMath xmlns:m="[^"]+"><m:r>/)
-    expect(written).toContain('<m:oMathPara xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><m:oMath><m:nary>')
+    expect(written).toContain(
+      '<m:oMathPara xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"><m:oMath><m:nary>',
+    )
     const html = (await openDocxBytes(saved, "new.docx")).view.html
     expect(html).toContain('data-tex="A=\\pi r^{2}"')
     expect(html).toMatch(/data-tex="\\sum_\{k=0\}\^\{n\}\{k\}" data-display="1"/)

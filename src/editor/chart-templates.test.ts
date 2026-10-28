@@ -28,7 +28,10 @@ describe("chart templates (Save as Template…)", () => {
   })
 
   it("ignores saved templates that are not the right shape", () => {
-    localStorage.setItem(TEMPLATES_KEY, JSON.stringify([{ id: 1 }, null, { id: "a", name: "A", spec: { type: "line" } }]))
+    localStorage.setItem(
+      TEMPLATES_KEY,
+      JSON.stringify([{ id: 1 }, null, { id: "a", name: "A", spec: { type: "line" } }]),
+    )
     expect(loadChartTemplates().map((item) => [item.id, item.spec.type])).toEqual([["a", "line"]])
     localStorage.setItem(TEMPLATES_KEY, "{")
     expect(loadChartTemplates()).toEqual([])

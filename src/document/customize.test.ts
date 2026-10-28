@@ -69,7 +69,13 @@ describe("customization (22.5)", () => {
   it("exports all customizations and imports them back, and refuses a file that is not one", () => {
     const look = { icon: "<svg/>", tab: "Home" }
     const id = ribbonCommandId("home", "Bold")
-    const value = { ...defaults(), qat: ["save", SEPARATOR, id], hiddenTabs: ["review"], qatBelow: true, ribbon: { [id]: look } }
+    const value = {
+      ...defaults(),
+      qat: ["save", SEPARATOR, id],
+      hiddenTabs: ["review"],
+      qatBelow: true,
+      ribbon: { [id]: look },
+    }
     const text = exportCustomization(value)
     expect(JSON.parse(text)).toMatchObject({ format: "inkspire-customizations", version: 2 })
     expect(importCustomization(text, known)).toEqual(value)

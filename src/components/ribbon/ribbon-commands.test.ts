@@ -53,9 +53,9 @@ describe("ribbon commands on the Quick Access Toolbar (22.5)", () => {
   })
 
   it("draws only plain SVG from saved settings", () => {
-    expect(cleanIcon('<svg xmlns="http://www.w3.org/2000/svg"><image href="x"/><path d="M0 0" onload="x()"/></svg>')).toBe(
-      '<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg>',
-    )
+    expect(
+      cleanIcon('<svg xmlns="http://www.w3.org/2000/svg"><image href="x"/><path d="M0 0" onload="x()"/></svg>'),
+    ).toBe('<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg>')
     expect(cleanIcon("<div>no</div>")).toBe("")
     expect(cleanIcon("")).toBe("")
   })
