@@ -1,5 +1,9 @@
 # Build and test Inkspire on Windows
 
+To just use Inkspire, download `Inkspire_<version>_x64-setup.exe` from the
+[Releases page](https://github.com/Shani2480/Inkspire/releases/latest) and run it (see the README's install
+section). This page is for building it yourself.
+
 Inkspire is a web app (Vite + React + TipTap) inside a Tauri 2 desktop shell. Nothing in it is Linux-only: the
 same source builds a native Windows app, and the Rust shell already has its Windows branches. You rebuild from
 source on the Windows machine; a build made on Linux does not run on Windows.
