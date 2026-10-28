@@ -7,6 +7,30 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### 3D Models: ten or more real models in Electronics, Anatomy, Furniture and Symbols
+
+- **What was wrong:** each of the four categories held one placeholder shape (a flat box called Device, a capsule
+  called Figure, a box called Chair, an octahedron called Star), all in the same blue, with hand-drawn SVG tiles.
+- **What changed:** `editor/model-stock.ts` builds 42 models from three.js shapes in coloured parts with their own
+  surfaces (glass, metal, fabric, lit screens):
+  - Electronics: Laptop, Smartphone, Tablet, Monitor, Keyboard, Headphones, Camera, Speaker, Smartwatch, Game
+    Controller.
+  - Anatomy: Human Figure, Heart, Brain, Eye, Tooth, Bone, Lungs, DNA, Cell (cut away), Neuron.
+  - Furniture: Chair, Armchair, Sofa, Table, Desk, Office Chair, Bed, Bookshelf, Floor Lamp, Bar Stool.
+  - Symbols: Star, Heart, Check Mark, Cross, Arrow, Question Mark, Exclamation, Lightning, Map Pin, Gear, Light
+    Bulb, Trophy.
+
+  Every model is centred and sized alike. The viewer keeps each part's own surface while the format is Standard;
+  Matte, Glossy, Metal and the colour tint still apply over it. The library's tiles are pictures of the models
+  themselves, drawn once per session with the viewer's light and pose. The old ids (`electronics`, `anatomy`,
+  `furniture`, `symbol`) still open, as the Tablet, Human Figure, Chair and Star; the primitives are unchanged.
+- **Tests:** `model-stock.test.ts` (48): every listed model builds, has its own surfaces, is centred and the same
+  size; primitives unchanged; old ids; unknown id is the cube; the same model every time. 179 files, 1227 tests
+  pass on android.
+- **Checked:** in Chrome (headless, SwiftShader): a sheet of all 42 models, each category in the library dialog,
+  and a Trophy inserted on the page.
+- **Open:** not looked at on the tablet or in the desktop app; models are shapes, not scanned meshes.
+
 ### v0.1.4: finger resizing on the Android tablet
 
 - **What was wrong:** in v0.1.3, dragging a resize or crop handle with a finger turned into a page scroll part way

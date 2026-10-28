@@ -6,20 +6,61 @@ import { DEFAULT_MODEL_FORMAT, modelFormat, type ModelFormat } from "@/editor/mo
 import { modelScene } from "@/editor/model-scenes"
 import { DEFAULT_CAMERA, registerViewSource } from "@/editor/model-views"
 
-export type ThreeDPreset =
-  "cube" | "sphere" | "cylinder" | "cone" | "torus" | "electronics" | "anatomy" | "furniture" | "symbol"
-
-export const THREED_STOCK: { id: ThreeDPreset; label: string; category: string }[] = [
+export const THREED_STOCK = [
   { id: "cube", label: "Cube", category: "Primitives" },
   { id: "sphere", label: "Sphere", category: "Primitives" },
   { id: "cylinder", label: "Cylinder", category: "Primitives" },
   { id: "cone", label: "Cone", category: "Primitives" },
   { id: "torus", label: "Torus", category: "Primitives" },
-  { id: "electronics", label: "Device", category: "Electronics" },
-  { id: "anatomy", label: "Figure", category: "Anatomy" },
-  { id: "furniture", label: "Chair", category: "Furniture" },
-  { id: "symbol", label: "Star", category: "Symbols" },
-]
+  { id: "laptop", label: "Laptop", category: "Electronics" },
+  { id: "phone", label: "Smartphone", category: "Electronics" },
+  { id: "tablet", label: "Tablet", category: "Electronics" },
+  { id: "monitor", label: "Monitor", category: "Electronics" },
+  { id: "keyboard", label: "Keyboard", category: "Electronics" },
+  { id: "headphones", label: "Headphones", category: "Electronics" },
+  { id: "camera", label: "Camera", category: "Electronics" },
+  { id: "speaker", label: "Speaker", category: "Electronics" },
+  { id: "watch", label: "Smartwatch", category: "Electronics" },
+  { id: "controller", label: "Game Controller", category: "Electronics" },
+  { id: "figure", label: "Human Figure", category: "Anatomy" },
+  { id: "heart", label: "Heart", category: "Anatomy" },
+  { id: "brain", label: "Brain", category: "Anatomy" },
+  { id: "eye", label: "Eye", category: "Anatomy" },
+  { id: "tooth", label: "Tooth", category: "Anatomy" },
+  { id: "bone", label: "Bone", category: "Anatomy" },
+  { id: "lungs", label: "Lungs", category: "Anatomy" },
+  { id: "dna", label: "DNA", category: "Anatomy" },
+  { id: "cell", label: "Cell", category: "Anatomy" },
+  { id: "neuron", label: "Neuron", category: "Anatomy" },
+  { id: "chair", label: "Chair", category: "Furniture" },
+  { id: "armchair", label: "Armchair", category: "Furniture" },
+  { id: "sofa", label: "Sofa", category: "Furniture" },
+  { id: "table", label: "Table", category: "Furniture" },
+  { id: "desk", label: "Desk", category: "Furniture" },
+  { id: "office-chair", label: "Office Chair", category: "Furniture" },
+  { id: "bed", label: "Bed", category: "Furniture" },
+  { id: "bookshelf", label: "Bookshelf", category: "Furniture" },
+  { id: "floor-lamp", label: "Floor Lamp", category: "Furniture" },
+  { id: "bar-stool", label: "Bar Stool", category: "Furniture" },
+  { id: "star", label: "Star", category: "Symbols" },
+  { id: "heart-symbol", label: "Heart", category: "Symbols" },
+  { id: "check", label: "Check Mark", category: "Symbols" },
+  { id: "cross", label: "Cross", category: "Symbols" },
+  { id: "arrow", label: "Arrow", category: "Symbols" },
+  { id: "question", label: "Question Mark", category: "Symbols" },
+  { id: "exclamation", label: "Exclamation", category: "Symbols" },
+  { id: "lightning", label: "Lightning", category: "Symbols" },
+  { id: "pin", label: "Map Pin", category: "Symbols" },
+  { id: "gear", label: "Gear", category: "Symbols" },
+  { id: "bulb", label: "Light Bulb", category: "Symbols" },
+  { id: "trophy", label: "Trophy", category: "Symbols" },
+] as const
+
+/**
+ * A stock model's id. The four ids of the earlier one-per-category stock ("electronics", "anatomy", "furniture",
+ * "symbol") still open, as the Tablet, Human Figure, Chair and Star.
+ */
+export type ThreeDPreset = (typeof THREED_STOCK)[number]["id"] | "electronics" | "anatomy" | "furniture" | "symbol"
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {

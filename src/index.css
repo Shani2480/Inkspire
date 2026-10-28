@@ -9423,9 +9423,12 @@ html.dark .asset-library .asset-library-icon {
   object-fit: cover;
   border-radius: 3px;
 }
-.model-thumb-svg {
-  width: 100%;
-  height: 64px;
+/* A stock model's picture is drawn with room around it: shown whole, not cropped as a photo is. */
+.model-thumb.is-stock {
+  height: 104px;
+  object-fit: contain;
+  /* The backdrop the model has on the page, so pale models (a tooth, a bone) show on a white tile. */
+  background: #f3f4f6;
 }
 
 /* SmartArt gallery */
