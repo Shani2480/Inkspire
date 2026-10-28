@@ -7,6 +7,21 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### Installed builds: inline styles and the spell-check dictionaries were blocked by the content security policy
+
+- **What was wrong:** only in built apps (the .deb, AppImage, Flatpak, Windows installer and Android), not in
+  `tauri dev`:
+  - `index.html` has an inline `<style>`, so Tauri added a nonce to `style-src`; with a nonce the webview ignores
+    `'unsafe-inline'`, and styles the app sets at runtime were refused ("Refused to apply inline style").
+  - `connect-src` had neither `'self'` nor `data:`, so the Hunspell dictionaries (bundled files, the small ones
+    inlined as `data:` URLs) could not be fetched: "Spell check dictionary failed to load", no red underlines.
+- **What changed:** `tauri.conf.json`: `dangerousDisableAssetCspModification: ["style-src"]`, and `'self'` and
+  `data:` in the production `connect-src`.
+- **Tests:** none (configuration); vitest and cargo tests pass.
+- **Checked:** on the Android tablet emulator, before and after: the CSP errors in the console are gone and the
+  dictionary loads. The desktop builds use the same configuration.
+- **Open:** a v0.1.1 release would carry this to the installers.
+
 ### Installers: .deb, AppImage, Flatpak and Windows setup .exe published from a release workflow
 
 - **What was wrong:** there were no downloadable builds; `npm run tauri build` also stopped at once because the npm
