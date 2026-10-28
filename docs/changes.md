@@ -7,6 +7,18 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### v0.1.3: Word covers open as written, with the Android APK built from the android branch
+
+- **What was wrong:** v0.1.2 opened a centred cover picture at the left, drew footer pictures placed relative to
+  the margin off the page, showed a TOC control without Word's gallery as run-together text, and rewrote table
+  cell widths on save (see the two entries below).
+- **What changed:** version 0.1.3 in `package.json`, `package-lock.json`, `Cargo.toml`, `Cargo.lock`,
+  `tauri.conf.json` and the Flatpak metainfo; tagged `v0.1.3`. The fix was cherry-picked onto main; the android
+  branch has it and merges main for the version.
+- **Tests:** 177 files, 1174 tests pass on main; 178 files, 1179 on android.
+- **Checked:** the release workflow's jobs and the assets on the release (see the session's report).
+- **Open:** none.
+
 ### Pictures centred by their paragraph style; table cell widths kept on save
 
 - **What was wrong:** (1) a picture alone in a paragraph took only the paragraph's own `w:jc`, so one centred by its
