@@ -18,6 +18,7 @@ import { THEME_OPTIONS, isGradientTheme, themeAccentColor } from "@/document/the
 import { clampZoom, useViewStore, type LayoutMode } from "@/document/view"
 import { useDocumentStore } from "@/document/store"
 import { WINDOW_ID, focusWindow, openWindow as openNewWindow, useOpenWindows } from "@/document/windows"
+import { isAndroid } from "@/lib/platform"
 import { useDocumentEditor } from "@/editor/document-editor"
 import { listNotes } from "@/editor/insert-blocks"
 import { useEditorState } from "@tiptap/react"
@@ -405,7 +406,9 @@ export function ViewTab() {
       {
         id: "window",
         commands: [
-          { id: "new-window", label: "New Window", icon: <NewWindowIcon />, onClick: openWindow },
+          ...(isAndroid
+            ? []
+            : [{ id: "new-window", label: "New Window", icon: <NewWindowIcon />, onClick: openWindow }]),
           {
             id: "arrange-all",
             label: "Arrange All",
@@ -569,9 +572,11 @@ export function ViewTab() {
       </RibbonGroup>
 
       <RibbonGroup label="Window" className="shrink-0">
-        <RibbonCommand label="New Window" onClick={openWindow}>
-          <NewWindowIcon />
-        </RibbonCommand>
+        {isAndroid ? null : (
+          <RibbonCommand label="New Window" onClick={openWindow}>
+            <NewWindowIcon />
+          </RibbonCommand>
+        )}
         <RibbonCommand label="Arrange All" active={sideBySide} onClick={() => setSideBySide(!sideBySide)}>
           <ArrangeIcon />
         </RibbonCommand>

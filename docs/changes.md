@@ -7,6 +7,35 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-28
 
+### Android tablet port (branch `android`)
+
+- **What was wrong:** the app built for desktop only.
+- **What changed:**
+  - `src-tauri/gen/android/`: the Tauri Android project. `MainActivity.kt` pads the content by the system-bar and
+    keyboard insets (Android 15 is edge to edge), with light bar icons over the title bar's blue; opens documents
+    with `ACTION_OPEN_DOCUMENT` and keeps read and write access (the dialog plugin's `ACTION_GET_CONTENT` grants a
+    read-only copy, so Save failed with "Permission Denial"); and gives the page `InkspireFiles.displayName` for a
+    content link's real name.
+  - Rust: `open_window` returns an error on mobile; the keyring reports itself unavailable on Android so keys go to
+    the owner-only file in app-private storage (the crate has no Android backend and would keep keys in memory);
+    `file_uri` allowed to go unused off Linux. Pandoc, Typst and the engine already report no download for Android.
+  - `src/lib/paths.ts` (new): `isContentUri`, `pathBaseName` (asks Android for the name, else decodes the link),
+    `sniffExtension`. `file-io.ts`: content links read and written through the fs plugin; Open uses the activity's
+    picker; `fileExtension` reads the resolved name (Save chose no format for `…/msf%3A1000000018`).
+  - `platform.ts` `isAndroid`: no window buttons or New Window, no Open Containing Folder, "This device", the
+    single-line ribbon by default, files open in this window (`openWindow` returns false), the editor lets go of
+    focus when the File view opens so the keyboard closes.
+  - `index.css`: under `(pointer: coarse)`, 32px ribbon and title-bar buttons, 40px menu rows, 36px tabs, and
+    invisible larger grab areas on resize, rotate, move and column handles.
+  - Capabilities: `fs:allow-read-file`, `fs:allow-write-file`.
+- **Tests:** `paths.test.ts` (5: desktop paths, a named content link, Android's display name, a bare id, sniffing);
+  platform mocks gained `isAndroid`. 175 files, 1168 tests pass; cargo 59 pass.
+- **Checked:** on a Pixel Tablet emulator (Android 15, 2560x1600): first-run setup, the start screen, typing on the
+  on-screen keyboard with the page above it, Open through the picker (name "Save-test"), editing, Ctrl+S writing
+  back (the pulled .docx has the new line and passes the Open XML validator), and reopening from Recent after a
+  restart. In Chrome with an Android tablet user agent and touch: no ribbon target under 32px.
+- **Open:** see next-todo "Android tablet".
+
 ### Installed builds: inline styles and the spell-check dictionaries were blocked by the content security policy
 
 - **What was wrong:** only in built apps (the .deb, AppImage, Flatpak, Windows installer and Android), not in

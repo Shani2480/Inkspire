@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 const invoke = vi.fn()
 let tauri = true
 vi.mock("@tauri-apps/api/core", () => ({ invoke: (...args: unknown[]) => invoke(...args) }))
-vi.mock("@/lib/platform", () => ({ isTauriRuntime: () => tauri }))
+vi.mock("@/lib/platform", () => ({ isAndroid: false, isTauriRuntime: () => tauri }))
 
 import { useFileError } from "@/document/file-errors"
 import { revealDocument, revealTitle } from "@/document/reveal"

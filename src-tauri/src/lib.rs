@@ -125,6 +125,7 @@ fn existing_file_path(path: &str) -> Result<PathBuf, String> {
 }
 
 /// `file:///…` for a path, with everything outside the unreserved set and `/` percent-encoded.
+#[cfg_attr(not(target_os = "linux"), allow(dead_code))]
 fn file_uri(path: &Path) -> String {
     let mut uri = String::from("file://");
     for byte in path.to_string_lossy().bytes() {
@@ -305,6 +306,7 @@ fn rename_document(from: String, to: String) -> Result<(), String> {
 /// Opens another document window, set up as the main one (no system frame, transparent corners, pinch to zoom).
 /// `request` is the JSON the frontend reads at launch (src/document/windows.ts): a path, a handoff or a blank.
 /// Async, as creating a window from a synchronous command can deadlock on Windows.
+#[cfg(desktop)]
 #[tauri::command]
 async fn open_window(app: tauri::AppHandle, request: String) -> Result<String, String> {
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -330,6 +332,13 @@ async fn open_window(app: tauri::AppHandle, request: String) -> Result<String, S
     let window = builder.build().map_err(|err| err.to_string())?;
     pinch::route_to_document(&window);
     Ok(label)
+}
+
+/// Android and iOS show one document at a time; the frontend offers no new window there.
+#[cfg(mobile)]
+#[tauri::command]
+async fn open_window(_app: tauri::AppHandle, _request: String) -> Result<String, String> {
+    Err("Separate windows are not available on this device.".into())
 }
 
 #[tauri::command]

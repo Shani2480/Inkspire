@@ -1,7 +1,7 @@
 import { openRecentDocument } from "@/document/commands"
 import { useBackstage } from "@/document/backstage"
 import { documentName, useDocumentStore } from "@/document/store"
-import { isTauriRuntime } from "@/lib/platform"
+import { isAndroid, isTauriRuntime } from "@/lib/platform"
 import { revealDocument, revealTitle } from "@/document/reveal"
 import { FileText, FolderOpen, Pin, PinOff, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
@@ -106,15 +106,17 @@ export function RecentTable({
                   >
                     {pinned ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
                   </button>
-                  <button
-                    type="button"
-                    title={revealTitle()}
-                    aria-label="Open containing folder"
-                    disabled={!isTauriRuntime()}
-                    onClick={() => void revealDocument(path, forgetRecent)}
-                  >
-                    <FolderOpen className="size-3.5" />
-                  </button>
+                  {isAndroid ? null : (
+                    <button
+                      type="button"
+                      title={revealTitle()}
+                      aria-label="Open containing folder"
+                      disabled={!isTauriRuntime()}
+                      onClick={() => void revealDocument(path, forgetRecent)}
+                    >
+                      <FolderOpen className="size-3.5" />
+                    </button>
+                  )}
                   <button
                     type="button"
                     title="Remove from list"

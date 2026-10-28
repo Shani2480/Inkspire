@@ -38,6 +38,8 @@ import {
   openDroppedFile,
   openLocalFile,
   pickOpenPath,
+  namedForOpening,
+  pathBaseName,
   readBytes,
   pickSavePath,
   writeBytes,
@@ -181,7 +183,7 @@ const TEXT_EXTENSIONS = new Set(["html", "htm", "md", "txt", "rtf"])
 
 async function openedFromPath(path: string): Promise<OpenedFile> {
   const bytes = await readBytes(path)
-  const name = path.split(/[/\\]/).pop() ?? path
+  const name = namedForOpening(path, bytes)
   return {
     path,
     name,
@@ -430,7 +432,10 @@ async function openPathInWindow(path: string) {
     await focusWindow(open).catch(() => undefined)
     return
   }
-  openWindow({ kind: "path", path })
+  // With no other window to open (Android), the file replaces this document after asking about unsaved changes.
+  if (!openWindow({ kind: "path", path }) && (await confirmCloseDocument())) {
+    await openWithRecovery(() => openedFromPath(path), path)
+  }
 }
 
 /** Opens a file from the Recent list. A missing one stays listed until the user removes it, as in Word. */
@@ -938,7 +943,7 @@ async function writeDocument(path: string, forceExt?: string, operation: FileOpe
         word,
         unchanged: Boolean(word) && !useDocumentStore.getState().isDirty,
         styles: useStyleStore.getState().styles,
-        fileName: path.split(/[/\\]/).pop() || "document.docx",
+        fileName: pathBaseName(path) || "document.docx",
       })
       rememberWordDocument(saved.word)
       await writeBytes(path, saved.bytes)

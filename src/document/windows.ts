@@ -3,7 +3,7 @@
  * Windows know of each other through a list in localStorage (for View > Switch Windows and for finding a file that
  * is already open); what a new window should show arrives with it, its file or template passed through IndexedDB.
  */
-import { isTauriRuntime } from "@/lib/platform"
+import { isAndroid, isTauriRuntime } from "@/lib/platform"
 import type { OpenedFile } from "@/lib/file-io"
 import { invoke } from "@tauri-apps/api/core"
 import { getAllWindows, getCurrentWindow, Window as DesktopWindow } from "@tauri-apps/api/window"
@@ -244,6 +244,10 @@ export async function closeThisWindow() {
  * is not blocked as a pop-up; whatever it needs is handed over afterwards. False when the browser blocked the tab.
  */
 export function openWindow(request: WindowRequest | { kind: "handoff"; handoff: Handoff }) {
+  // Android has one window: callers open the document here instead, as when a browser blocks the tab.
+  if (isAndroid) {
+    return false
+  }
   const sent: WindowRequest = request.kind === "handoff" && "handoff" in request ? newHandoff(request.handoff) : request
   if (isTauriRuntime()) {
     void invoke("open_window", { request: JSON.stringify(sent) }).catch((error) => console.error(error))

@@ -1,5 +1,8 @@
 export const isMacPlatform = typeof navigator !== "undefined" && /Mac|iPhone|iPad/i.test(navigator.userAgent)
 
+/** The Android build: one window, the system's file picker, a touch screen. */
+export const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent)
+
 export function isTauriRuntime() {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window
 }

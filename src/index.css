@@ -13467,3 +13467,43 @@ textarea.tp-input {
   outline: 2px solid var(--app-theme-primary);
   outline-offset: 2px;
 }
+
+/* Touch screens (the Android tablet build, or a touch laptop): finger-sized targets. Handles keep their look and get
+   a larger invisible area to grab; menu rows, tabs and the small split-button arrows grow. */
+@media (pointer: coarse) {
+  :is(.image-resize, .object-rotate, .column-resize-handle)::before {
+    content: "";
+    position: absolute;
+    inset: -12px;
+  }
+
+  .object-handle::before {
+    content: "";
+    position: absolute;
+    inset: -10px 0;
+  }
+
+  .menu-row,
+  .object-menu-item,
+  [role="menu"] [role="menuitem"],
+  [role="menu"] [role="menuitemcheckbox"],
+  [role="menu"] [role="menuitemradio"],
+  [role="listbox"] [role="option"] {
+    min-height: 40px;
+  }
+
+  [role="tablist"] [role="tab"] {
+    min-height: 36px;
+  }
+
+  [data-ribbon-layout] button,
+  .titlebar button {
+    min-width: 32px;
+    min-height: 32px;
+  }
+
+  /* No hover on a touch screen: a selected object shows its move bar without one. */
+  .object-frame .object-handle {
+    cursor: default;
+  }
+}

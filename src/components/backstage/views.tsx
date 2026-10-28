@@ -2,7 +2,7 @@ import { AddInsManager } from "@/components/addins"
 import { openCustomize } from "@/components/customize-dialog"
 import { ShortcutSettings } from "@/components/backstage/shortcut-settings"
 import { createStepLock, pageForKey, wheelStep } from "@/components/backstage/preview-steps"
-import { isTauriRuntime } from "@/lib/platform"
+import { isAndroid, isTauriRuntime } from "@/lib/platform"
 import { TemplateCard } from "@/components/backstage/template-card"
 import { RecentTable, greetingForNow } from "@/components/backstage/recent-table"
 import { requestPageSetup } from "@/components/design-dialogs"
@@ -156,7 +156,12 @@ function PlacesSidebar({
 }) {
   const places = [
     { id: "recent", label: "Recent", icon: <FileText className="size-4" /> },
-    { id: "this-pc", label: "This PC", icon: <Monitor className="size-4" />, group: "Other locations" },
+    {
+      id: "this-pc",
+      label: isAndroid ? "This device" : "This PC",
+      icon: <Monitor className="size-4" />,
+      group: "Other locations",
+    },
     { id: "browse", label: "Browse", icon: <FolderOpen className="size-4" />, group: "Other locations" },
   ]
 
