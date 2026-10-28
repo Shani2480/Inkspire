@@ -1514,6 +1514,12 @@ button.line-menu-row:focus-visible {
   margin-top: var(--chrome-top, 0);
 }
 
+/* A picture placed from the page's top margin (Word's "relative to margin"), not from the header's or footer's top:
+   a footer's picture is usually far below the margin, at the foot of the page. */
+.chrome-box .object-frame[data-relative="margin"] {
+  margin-top: calc(var(--chrome-top, 0px) + var(--chrome-margin, 0px));
+}
+
 .chrome-box :is(p, h1, h2, h3) {
   margin-top: 0;
   margin-bottom: 0;

@@ -1258,8 +1258,11 @@ function paintImage(dom: HTMLElement, node: ProseNode) {
     dom.style.width = width > 0 ? `${width}px` : ""
     dom.style.height = height > 0 ? `${height}px` : ""
     dom.style.maxWidth = "100%"
-    dom.style.marginLeft = "auto"
-    dom.style.marginRight = "auto"
+    // Centred or right-aligned as its paragraph is in Word; a block so the margins can place it.
+    const align = node.attrs.textAlign
+    dom.style.display = align === "center" || align === "right" ? "block" : ""
+    dom.style.marginLeft = align === "center" || align === "right" ? "auto" : ""
+    dom.style.marginRight = align === "center" ? "auto" : ""
     // A turned picture in line keeps the lines above and below clear of its corners, as in Word.
     const turnedBy = width > 0 && height > 0 ? Math.max(0, -rotatedBounds(width, height, rotate).dy) : 0
     dom.style.marginTop = turnedBy ? `${Math.round(turnedBy)}px` : ""
@@ -1278,6 +1281,7 @@ function paintImage(dom: HTMLElement, node: ProseNode) {
     width: "",
     height: "",
     maxWidth: "",
+    display: "",
     marginLeft: "",
     marginRight: "",
     marginTop: "",
@@ -1293,6 +1297,12 @@ export function applyFrame(dom: HTMLElement, node: ProseNode) {
   dom.dataset.page = String(Math.max(1, place.page))
   dom.dataset.x = String(Number(node.attrs.x) || 0)
   dom.dataset.y = String(place.y)
+  // In a header or footer, measured from the page's top margin rather than the box (see `.chrome-box` in index.css).
+  if (objectAnchoring(node.attrs.anchoring) === "move" && node.attrs.relative === "margin") {
+    dom.dataset.relative = "margin"
+  } else {
+    delete dom.dataset.relative
+  }
 }
 
 /**

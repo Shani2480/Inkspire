@@ -95,6 +95,8 @@ export type EditorView = {
 type Build = InlineBuild & {
   /** The document's styles, for the Word id of each paragraph's named style. */
   styles: StyleDef[]
+  /** The source document's Word styles, for what a paragraph took from its style when it was opened. */
+  wordStyles: Style[]
   bulletId: number
   orderedId: number
   origins: Origins
@@ -199,6 +201,7 @@ function newBuild(
 ): Build {
   return {
     styles: documentStyles,
+    wordStyles: source?.styles.styles ?? [],
     media: [...(source?.media ?? [])],
     picture: (source?.media?.length ?? 0) + 1,
     usedParts: new Set(
@@ -423,8 +426,13 @@ function paragraphHtml(paragraph: Paragraph, ctx: Projection) {
     (inline) => inline.kind !== "run" || inline.content.every((item) => item.kind !== "drawing" || item.layout),
   )
   if (picturesOnly(paragraph, ctx.doc) && !floatingOnly) {
-    // The editor's images are blocks; a <p> around one would open as an extra empty paragraph.
-    return inlinesHtml(paragraph.inlines, ctx)
+    // The editor's images are blocks; a <p> around one would open as an extra empty paragraph. They take the
+    // paragraph's alignment instead.
+    const align = pictureAlign(paragraph, ctx.doc.styles.styles)
+    const html = inlinesHtml(paragraph.inlines, ctx)
+    return align === "center" || align === "right"
+      ? html.replace(/<img (?![^>]*data-wrap=)/g, `<img style="text-align: ${align}" `)
+      : html
   }
   const tag = headingTag(paragraph.styleId)
   const outline = tag === "p" ? outlineLevelOf(paragraph, ctx.doc) : null
@@ -503,6 +511,27 @@ function outlineLevelOf(paragraph: Paragraph, doc: WordDocument): number | null 
       (/^heading\s?([1-9])$/i.test(style.name ?? "") ? Number(/([1-9])$/.exec(style.name ?? "")![1]) - 1 : undefined)
   }
   return level !== undefined && level >= 0 && level <= 8 ? level + 1 : null
+}
+
+/**
+ * Where a picture alone in its paragraph sits: the paragraph's own alignment, else its style's (through basedOn,
+ * then the default paragraph style). "" for the left, which is what the editor draws without one.
+ */
+function pictureAlign(paragraph: Paragraph, styles: Style[]): "center" | "right" | "" {
+  let jc = paragraph.pPr.jc
+  const seen = new Set<string>()
+  for (
+    let style = paragraph.styleId
+      ? styles.find((item) => item.id === paragraph.styleId)
+      : styles.find((item) => item.type === "paragraph" && item.default);
+    jc === undefined && style && !seen.has(style.id);
+    style = styles.find((item) => item.id === style?.basedOn)
+  ) {
+    seen.add(style.id)
+    jc = style.pPr.jc
+  }
+  const align = blockFromProperties({ jc }).textAlign
+  return align === "center" || align === "right" ? align : ""
 }
 
 function picturesOnly(paragraph: Paragraph, doc: WordDocument) {
@@ -1351,12 +1380,27 @@ function blockFromNode(node: JsonNode, build: Build): Block | null {
     }
     const runKey = typeof node.attrs?.docxKey === "string" ? node.attrs.docxKey : undefined
     const origin = runKey ? build.origins.runParagraphs.get(runKey) : undefined
+    const align = typeof node.attrs?.textAlign === "string" ? node.attrs.textAlign : ""
+    const jc = align === "center" ? "center" : align === "right" ? "right" : undefined
     if (!origin?.key || !picturesOnlySource(origin)) {
-      return { kind: "paragraph", pPr: {}, markRPr: {}, inlines: [drawing] }
+      return { kind: "paragraph", pPr: jc ? { jc } : {}, markRPr: {}, inlines: [drawing] }
+    }
+    const pPr = structuredClone(origin.pPr)
+    // The alignment the picture was opened with stays as Word wrote it; one set in the editor replaces it.
+    if (pictureAlign(origin, build.wordStyles) !== (jc ?? "")) {
+      if (jc) {
+        pPr.jc = jc
+      } else {
+        delete pPr.jc
+        // Left of a paragraph whose style centres it is said in the paragraph.
+        if (pictureAlign({ ...origin, pPr }, build.wordStyles)) {
+          pPr.jc = "left"
+        }
+      }
     }
     const paragraph: Paragraph = {
       kind: "paragraph",
-      pPr: structuredClone(origin.pPr),
+      pPr,
       markRPr: structuredClone(origin.markRPr),
       inlines: [drawing],
       key: origin.key,
@@ -1524,6 +1568,10 @@ function tableFromNode(node: JsonNode, build: Build): Table {
           // Borders, margins, conditional formatting: everything tcPr says that the editor does not show.
           cell.source = match.source
         }
+        if (match.width) {
+          // Kept while the columns are as read (below): Word's preferred width need not equal the grid.
+          cell.width = structuredClone(match.width)
+        }
       }
       // The vertical alignment the editor shows wins over the one the source cell had: top is only written where the
       // source said it, as it is Word's default.
@@ -1582,6 +1630,8 @@ function tableFromNode(node: JsonNode, build: Build): Table {
       }
     })
   const grid = editedGrid(rows, origin)
+  const resized =
+    !origin || origin.grid.length !== grid.length || origin.grid.some((width, index) => width !== grid[index])
   const table: Table = {
     kind: "table",
     ...(origin?.styleId ? { styleId: origin.styleId } : {}),
@@ -1592,6 +1642,9 @@ function tableFromNode(node: JsonNode, build: Build): Table {
     rows: rows.map((row) => ({
       ...row,
       cells: row.cells.map(({ colwidth: _colwidth, valign: _valign, editedMargins: _margins, ...cell }, index) => {
+        if (cell.width && !resized) {
+          return cell
+        }
         const at = gridColumn(row.cells, index)
         const width = grid.slice(at, at + (cell.gridSpan ?? 1)).reduce((sum, column) => sum + column, 0)
         return width > 0 ? { ...cell, width: { value: width, type: "dxa" as const } } : cell
