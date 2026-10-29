@@ -45,6 +45,13 @@ function wordListAttributes() {
           ? { "data-word-indent": attributes.wordIndent, style: attributes.wordIndent }
           : {},
     },
+    /** Word's marker for each level (`word-markers.ts`), drawn by the list marker decorations. */
+    wordLevels: {
+      default: "",
+      parseHTML: (element: HTMLElement) => element.getAttribute("data-word-levels") ?? "",
+      renderHTML: (attributes: { wordLevels?: string }) =>
+        attributes.wordLevels ? { "data-word-levels": attributes.wordLevels } : {},
+    },
   }
 }
 

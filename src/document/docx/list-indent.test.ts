@@ -61,3 +61,12 @@ describe("a list item's own indent", () => {
     expect(items.map((paragraph) => paragraph.pPr.numPr?.ilvl)).toEqual([0, 1, 0])
   })
 })
+
+describe("a Word list's markers", () => {
+  it("carries each level's text, format, start, hanging indent and font to the editor", async () => {
+    const opened = await openDocxBytes(new Uint8Array(readFileSync(path.join(AUTHORED, "f05_numbering.docx"))))
+    const encoded = opened.view.html.match(/data-word-levels="([^"]+)"/)![1]!
+    const levels = JSON.parse(encoded.replace(/&quot;/g, '"').replace(/&amp;/g, "&")) as unknown[]
+    expect(levels[0]).toEqual({ text: "%1.", format: "decimal", start: 1, hang: 18 })
+  })
+})
