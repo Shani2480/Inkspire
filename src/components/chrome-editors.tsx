@@ -5,6 +5,7 @@ import { chromeHasContent, chromeOnPage } from "@/document/chrome-html"
 import { useActiveChromeEditor } from "@/document/chrome-editing"
 import { reportChromeReach } from "@/document/chrome-extent"
 import { pageMetrics } from "@/document/page-setup"
+import type { ChromeSlot, SectionChrome } from "@/document/sections"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
 import { ChromeFlow } from "@/editor/chrome-flow"
@@ -138,6 +139,8 @@ export function ChromeBox({
   page,
   pages,
   focus,
+  section = "",
+  marginTop,
 }: {
   part: ChromePart
   kind: "header" | "footer"
@@ -148,6 +151,10 @@ export function ChromeBox({
   page: number
   pages: number
   focus: boolean
+  /** The key of the section before the last the page is in ("" for the last), whose margins the box reaches into. */
+  section?: string
+  /** That section's top margin in mm, when it is not the document's. */
+  marginTop?: number
 }) {
   const { editor, snapshot } = part
   const activate = useActiveChromeEditor((state) => state.activate)
@@ -208,6 +215,7 @@ export function ChromeBox({
   // How far the box reaches into the page: a header taller than the top margin pushes the body down (Word), and a
   // footer taller than the bottom margin pushes it up. Floating pictures in it are out of the flow and push nothing.
   const id = useId()
+  const filled = chromeHasContent(html)
   const measured = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const element = measured.current
@@ -216,25 +224,26 @@ export function ChromeBox({
     }
     const report = () => {
       // From the box's top to the page's top margin, which pictures placed relative to the margin are measured from.
-      const margin = useDocumentStore.getState().pageSetup.marginTop * MM_TO_PX
+      const margin = (marginTop ?? useDocumentStore.getState().pageSetup.marginTop) * MM_TO_PX
       element.style.setProperty("--chrome-margin", `${Math.round(margin - element.offsetTop)}px`)
       const sheet = element.offsetParent as HTMLElement | null
-      if (!sheet || useViewStore.getState().layoutMode === "web") {
-        reportChromeReach(id, kind, null)
+      // An empty header or footer takes no room, as on a cover page whose section has none (Word).
+      if (!sheet || useViewStore.getState().layoutMode === "web" || (!live && !filled)) {
+        reportChromeReach(id, kind, null, section)
         return
       }
       const reach =
         kind === "header" ? element.offsetTop + element.offsetHeight : sheet.offsetHeight - element.offsetTop
-      reportChromeReach(id, kind, reach)
+      reportChromeReach(id, kind, reach, section)
     }
     report()
     const observer = new ResizeObserver(report)
     observer.observe(element)
     return () => {
       observer.disconnect()
-      reportChromeReach(id, kind, null)
+      reportChromeReach(id, kind, null, section)
     }
-  }, [id, kind, live, editor, pageSetup.marginTop])
+  }, [id, kind, live, filled, editor, pageSetup.marginTop, marginTop, section])
 
   if (live && editor) {
     return (
@@ -267,4 +276,76 @@ export function ChromeBox({
       />
     </div>
   )
+}
+
+/** No editor yet: what a page shows for a section's part before its editor has been made. */
+export const NO_PART: ChromePart = { editor: null, snapshot: "" }
+
+/**
+ * The six headers and footers of a section before the last as editors, reported to the pages (`onParts`); a part the
+ * section is linked to the previous one for is made only if it is the chain's first (see `slotOwner`).
+ */
+export function SectionParts({
+  section,
+  root,
+  editing,
+  onParts,
+}: {
+  section: SectionChrome
+  /** The first section: a header or footer no section has yet is made here. */
+  root: boolean
+  editing: boolean
+  onParts: (key: string, parts: Record<ChromeSlot, ChromePart>) => void
+}) {
+  const setPart = useDocumentStore((state) => state.setSectionPart)
+  const { key, parts: html } = section
+  // A linked part is the previous section's editor, so none is made for it here.
+  const wanted = (value: string | undefined) =>
+    (value !== undefined || root) && (editing || chromeHasContent(value ?? ""))
+  const header = useChromePart(html.header ?? "", (next) => setPart(key, "header", next), "Header", wanted(html.header))
+  const footer = useChromePart(html.footer ?? "", (next) => setPart(key, "footer", next), "Footer", wanted(html.footer))
+  const firstHeader = useChromePart(
+    html.firstHeader ?? "",
+    (next) => setPart(key, "firstHeader", next),
+    "First page header",
+    wanted(html.firstHeader),
+  )
+  const firstFooter = useChromePart(
+    html.firstFooter ?? "",
+    (next) => setPart(key, "firstFooter", next),
+    "First page footer",
+    wanted(html.firstFooter),
+  )
+  const evenHeader = useChromePart(
+    html.evenHeader ?? "",
+    (next) => setPart(key, "evenHeader", next),
+    "Even page header",
+    wanted(html.evenHeader),
+  )
+  const evenFooter = useChromePart(
+    html.evenFooter ?? "",
+    (next) => setPart(key, "evenFooter", next),
+    "Even page footer",
+    wanted(html.evenFooter),
+  )
+  useEffect(() => {
+    onParts(key, { header, footer, firstHeader, firstFooter, evenHeader, evenFooter })
+    // Each part is a new object every render; what matters is its editor and what it drew.
+  }, [
+    key,
+    onParts,
+    header.editor,
+    header.snapshot,
+    footer.editor,
+    footer.snapshot,
+    firstHeader.editor,
+    firstHeader.snapshot,
+    firstFooter.editor,
+    firstFooter.snapshot,
+    evenHeader.editor,
+    evenHeader.snapshot,
+    evenFooter.editor,
+    evenFooter.snapshot,
+  ])
+  return null
 }

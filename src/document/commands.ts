@@ -100,6 +100,8 @@ function currentChrome(): DocumentChrome {
     firstFooter: state.firstFooterHtml,
     evenFooter: state.evenFooterHtml,
     pageSetup: state.pageSetup,
+    sections: state.sections,
+    linked: state.linkedSlots,
   }
 }
 

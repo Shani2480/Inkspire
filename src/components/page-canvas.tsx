@@ -10,12 +10,13 @@ import { TextContextMenu } from "@/components/text-context-menu"
 import { TableHandles } from "@/components/table-handles"
 import { pageGridCell, pageGridColumns, pageGridRows } from "@/document/page-grid"
 import { paintDesignVars } from "@/document/design-format"
-import { ChromeBox, useChromePart } from "@/components/chrome-editors"
+import { ChromeBox, NO_PART, SectionParts, useChromePart, type ChromePart } from "@/components/chrome-editors"
 import { chromeHasContent, chromeHasPageField } from "@/document/chrome-html"
 import { useActiveChromeEditor } from "@/document/chrome-editing"
 import { chromeText } from "@/document/chrome-html"
 import { useChromeExtent } from "@/document/chrome-extent"
 import { applyPageChrome, pageBorderStyle, pageMetrics, setupColumns, showsPageBorder } from "@/document/page-setup"
+import { sectionSetup, slotOwner, type ChromeSlot, type SectionChrome } from "@/document/sections"
 import { useDocumentStore } from "@/document/store"
 import { clampZoom, useViewStore } from "@/document/view"
 import { useBodyEditor } from "@/editor/document-editor"
@@ -25,7 +26,7 @@ import { bindLineSelect } from "@/editor/line-select"
 import { finishPageGrid, preparePageMeasure } from "@/editor/page-grid"
 import { TextSelection } from "@tiptap/pm/state"
 import { EditorContent, useEditorState } from "@tiptap/react"
-import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react"
 
 function cssString(value: string) {
   return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
@@ -37,6 +38,17 @@ function footerBoxes(footer: string) {
     center: text ? cssString(text) : "counter(page)",
     page: text ? "counter(page)" : "none",
   }
+}
+
+/** The header or footer slot a page shows, by which kind of page it is. */
+function slotOf(kind: "first" | "even" | "default", part: "header" | "footer"): ChromeSlot {
+  if (kind === "first") {
+    return part === "header" ? "firstHeader" : "firstFooter"
+  }
+  if (kind === "even") {
+    return part === "header" ? "evenHeader" : "evenFooter"
+  }
+  return part
 }
 
 export function PageCanvas() {
@@ -79,6 +91,26 @@ export function PageCanvas() {
   const firstFooterPart = useChromePart(firstFooterHtml, setFirstFooter, "First page footer", inUse(firstFooterHtml))
   const evenHeaderPart = useChromePart(evenHeaderHtml, setEvenHeader, "Even page header", inUse(evenHeaderHtml))
   const evenFooterPart = useChromePart(evenFooterHtml, setEvenFooter, "Even page footer", inUse(evenFooterHtml))
+  // A Word document's sections before the last each have their own margins and headers and footers.
+  const sections = useDocumentStore((state) => state.sections)
+  const linkedSlots = useDocumentStore((state) => state.linkedSlots)
+  const [sectionParts, setSectionParts] = useState<Record<string, Record<ChromeSlot, ChromePart>>>({})
+  const reportSectionParts = useCallback(
+    (key: string, parts: Record<ChromeSlot, ChromePart>) =>
+      setSectionParts((current) => ({ ...current, [key]: parts })),
+    [],
+  )
+  const pagePlaces =
+    useEditorState({
+      editor,
+      selector: ({ editor: current }) => {
+        const storage = current?.storage.pagination
+        return `${(storage?.pageSections ?? []).join("\u0001")}\u0002${(storage?.sectionStarts ?? []).map(Number).join("")}`
+      },
+    }) ?? ""
+  const [placeKeys, placeStarts] = pagePlaces.split("\u0002")
+  const pageKeys = placeKeys ? placeKeys.split("\u0001") : []
+  const pageStarts = (placeStarts ?? "").split("").map((value) => value === "1")
   const chromeTarget = useViewStore((state) => state.chromeTarget)
   const activeChrome = useActiveChromeEditor((state) => state.editor)
   const editChromeAt = useViewStore((state) => state.editChrome)
@@ -335,9 +367,25 @@ export function PageCanvas() {
     return () => window.removeEventListener("keydown", onKey)
   }, [editingChrome, editor, setEditingChrome])
 
-  /** Which header and footer a page shows: the first page's, the even pages', or the ones every page shares. */
-  const chromeKind = (index: number) =>
-    index === 0 && differentFirstPage ? "first" : pageSetup.differentOddEven && index % 2 === 1 ? "even" : "default"
+  /** The section before the last a page is in, or `null` for the document's own last section. */
+  const pageSection = (index: number): SectionChrome | null => {
+    const key = web ? "" : (pageKeys[index] ?? "")
+    return key ? (sections.find((item) => item.key === key) ?? null) : null
+  }
+  const metricsFor = (section: SectionChrome | null) =>
+    section ? pageMetrics(sectionSetup(pageSetup, section), false, section.key) : metrics
+  /**
+   * Which header and footer a page shows: its section's first page's, the even pages', or the ones every page shares.
+   */
+  const chromeKind = (index: number) => {
+    const section = pageSection(index)
+    const starts = pageStarts[index] ?? index === 0
+    return starts && (section ? section.differentFirstPage : differentFirstPage)
+      ? "first"
+      : pageSetup.differentOddEven && index % 2 === 1
+        ? "even"
+        : "default"
+  }
   const chromeLabel = (index: number, part: "Header" | "Footer") => {
     const kind = chromeKind(index)
     return kind === "first" ? `First Page ${part}` : kind === "even" ? `Even Page ${part}` : part
@@ -345,6 +393,18 @@ export function PageCanvas() {
   const chromeFor = (index: number, part: "header" | "footer") => {
     const kind = chromeKind(index)
     const header = part === "header"
+    const section = pageSection(index)
+    // The last section's part that is Linked to Previous is its previous section's.
+    const previous = sections[sections.length - 1]
+    const own = section ?? (previous && linkedSlots.includes(slotOf(kind, part)) ? previous : null)
+    if (own) {
+      // Linked to Previous: the part, and the editor that edits it, is the section's that has it.
+      const slot = slotOf(kind, part)
+      const owner = slotOwner(sections, own, slot)
+      if (section || owner.parts[slot] !== undefined) {
+        return { part: sectionParts[owner.key]?.[slot] ?? NO_PART, html: owner.parts[slot] ?? "" }
+      }
+    }
     return kind === "first"
       ? { part: header ? firstHeaderPart : firstFooterPart, html: header ? firstHeaderHtml : firstFooterHtml }
       : kind === "even"
@@ -384,109 +444,133 @@ export function PageCanvas() {
                 : stackHeight,
           }}
         >
-          {Array.from({ length: pageCount }, (_, index) => (
-            <div
-              key={index}
-              className={`page-sheet pointer-events-none absolute box-border border border-gray-300 bg-white shadow-sm ${showGridlines ? "page-grid" : ""}`}
-              data-header-style={pageSetup.headerStyle}
-              data-footer-style={pageSetup.footerStyle}
-              style={{
-                top: side
-                  ? 0
-                  : pageGridCell(index, grid ? pageView : 1, metrics.width + PAGE_GAP, metrics.height + PAGE_GAP).top,
-                left: side
-                  ? index * (metrics.width + PAGE_GAP)
-                  : pageGridCell(index, grid ? pageView : 1, metrics.width + PAGE_GAP, metrics.height + PAGE_GAP).left,
-                width: metrics.width,
-                height: web ? "100%" : metrics.height,
-                background: pageSetup.pageColor || undefined,
-              }}
-            >
-              <div
-                className="page-chrome-zone is-header"
-                aria-hidden
-                style={{ height: metrics.marginTop }}
-                onDoubleClick={() => editChrome(index, "header")}
-                onMouseDown={() => editingChrome && editChrome(index, "header")}
-              />
-              <div
-                className="page-chrome-zone is-footer"
-                aria-hidden
-                style={{ height: metrics.marginBottom }}
-                onDoubleClick={() => editChrome(index, "footer")}
-                onMouseDown={() => editingChrome && editChrome(index, "footer")}
-              />
-              {editingChrome ? (
-                <>
-                  <span
-                    className="page-chrome-tag is-header"
-                    data-label={chromeLabel(index, "Header")}
-                    style={{ top: metrics.marginTop }}
-                  />
-                  <span
-                    className="page-chrome-tag is-footer"
-                    data-label={chromeLabel(index, "Footer")}
-                    style={{ bottom: metrics.marginBottom }}
-                  />
-                </>
-              ) : null}
-              {index === 0 && editingChrome ? (
-                <label className="page-first">
-                  <input
-                    type="checkbox"
-                    checked={differentFirstPage}
-                    onChange={(event) => setDifferentFirstPage(event.target.checked)}
-                  />
-                  First page
-                </label>
-              ) : null}
-              <ChromeBox
-                kind="header"
-                {...chromeFor(index, "header")}
-                live={editingChrome && chromeTarget.part === "header" && chromeTarget.page === index}
-                placeholder={chromeLabel(index, "Header")}
-                page={index + 1}
-                pages={pageCount}
-                focus
-              />
-              <ChromeBox
-                kind="footer"
-                {...chromeFor(index, "footer")}
-                live={editingChrome && chromeTarget.part === "footer" && chromeTarget.page === index}
-                placeholder={chromeLabel(index, "Footer")}
-                page={index + 1}
-                pages={pageCount}
-                focus
-              />
-              {/* A page number written into the header or footer is the page's number; this one is for when there is none. */}
-              <div
-                className="page-number"
-                data-place={
-                  chromeHasPageField(chromeFor(index, "header").html) ||
-                  chromeHasPageField(chromeFor(index, "footer").html)
-                    ? "none"
-                    : pageSetup.pageNumber
-                }
-              >
-                {index + 1}
-              </div>
-              {pageSetup.watermark ? (
-                <div className="page-watermark" aria-hidden>
-                  <span>{pageSetup.watermark}</span>
-                </div>
-              ) : null}
-              {/* Body text margins only — not header/footer from-edge offsets. */}
-              <div className="page-margin-guide" aria-hidden />
-              {cropMarks && !web
-                ? ["tl", "tr", "bl", "br"].map((corner) => (
-                    <span key={corner} className={`page-crop-mark is-${corner}`} aria-hidden />
-                  ))
-                : null}
-              {showsPageBorder(pageSetup, index) ? (
-                <div className="page-border" data-border={pageSetup.border} style={pageBorderStyle(pageSetup)} />
-              ) : null}
-            </div>
+          {sections.map((section, index) => (
+            <SectionParts
+              key={section.key}
+              section={section}
+              root={index === 0}
+              editing={editingChrome}
+              onParts={reportSectionParts}
+            />
           ))}
+          {Array.from({ length: pageCount }, (_, index) => {
+            const section = pageSection(index)
+            const sheet = metricsFor(section)
+            return (
+              <div
+                key={index}
+                className={`page-sheet pointer-events-none absolute box-border border border-gray-300 bg-white shadow-sm ${showGridlines ? "page-grid" : ""}`}
+                data-header-style={pageSetup.headerStyle}
+                data-footer-style={pageSetup.footerStyle}
+                style={{
+                  top: side
+                    ? 0
+                    : pageGridCell(index, grid ? pageView : 1, metrics.width + PAGE_GAP, metrics.height + PAGE_GAP).top,
+                  left: side
+                    ? index * (metrics.width + PAGE_GAP)
+                    : pageGridCell(index, grid ? pageView : 1, metrics.width + PAGE_GAP, metrics.height + PAGE_GAP)
+                        .left,
+                  width: metrics.width,
+                  height: web ? "100%" : metrics.height,
+                  background: pageSetup.pageColor || undefined,
+                  ...(section
+                    ? {
+                        ["--header-from-edge" as string]: `${section.headerFromEdge}mm`,
+                        ["--footer-from-edge" as string]: `${section.footerFromEdge}mm`,
+                      }
+                    : {}),
+                }}
+              >
+                <div
+                  className="page-chrome-zone is-header"
+                  aria-hidden
+                  style={{ height: sheet.marginTop }}
+                  onDoubleClick={() => editChrome(index, "header")}
+                  onMouseDown={() => editingChrome && editChrome(index, "header")}
+                />
+                <div
+                  className="page-chrome-zone is-footer"
+                  aria-hidden
+                  style={{ height: sheet.marginBottom }}
+                  onDoubleClick={() => editChrome(index, "footer")}
+                  onMouseDown={() => editingChrome && editChrome(index, "footer")}
+                />
+                {editingChrome ? (
+                  <>
+                    <span
+                      className="page-chrome-tag is-header"
+                      data-label={chromeLabel(index, "Header")}
+                      style={{ top: sheet.marginTop }}
+                    />
+                    <span
+                      className="page-chrome-tag is-footer"
+                      data-label={chromeLabel(index, "Footer")}
+                      style={{ bottom: sheet.marginBottom }}
+                    />
+                  </>
+                ) : null}
+                {index === 0 && editingChrome && !section ? (
+                  <label className="page-first">
+                    <input
+                      type="checkbox"
+                      checked={differentFirstPage}
+                      onChange={(event) => setDifferentFirstPage(event.target.checked)}
+                    />
+                    First page
+                  </label>
+                ) : null}
+                <ChromeBox
+                  kind="header"
+                  {...chromeFor(index, "header")}
+                  live={editingChrome && chromeTarget.part === "header" && chromeTarget.page === index}
+                  placeholder={chromeLabel(index, "Header")}
+                  page={index + 1}
+                  pages={pageCount}
+                  focus
+                  section={section?.key}
+                  marginTop={section?.marginTop}
+                />
+                <ChromeBox
+                  kind="footer"
+                  {...chromeFor(index, "footer")}
+                  live={editingChrome && chromeTarget.part === "footer" && chromeTarget.page === index}
+                  placeholder={chromeLabel(index, "Footer")}
+                  page={index + 1}
+                  pages={pageCount}
+                  focus
+                  section={section?.key}
+                  marginTop={section?.marginTop}
+                />
+                {/* A page number written into the header or footer is the page's number; this one is for when there is none. */}
+                <div
+                  className="page-number"
+                  data-place={
+                    chromeHasPageField(chromeFor(index, "header").html) ||
+                    chromeHasPageField(chromeFor(index, "footer").html)
+                      ? "none"
+                      : pageSetup.pageNumber
+                  }
+                >
+                  {index + 1}
+                </div>
+                {pageSetup.watermark ? (
+                  <div className="page-watermark" aria-hidden>
+                    <span>{pageSetup.watermark}</span>
+                  </div>
+                ) : null}
+                {/* Body text margins only — not header/footer from-edge offsets. */}
+                <div className="page-margin-guide" aria-hidden />
+                {cropMarks && !web
+                  ? ["tl", "tr", "bl", "br"].map((corner) => (
+                      <span key={corner} className={`page-crop-mark is-${corner}`} aria-hidden />
+                    ))
+                  : null}
+                {showsPageBorder(pageSetup, index) ? (
+                  <div className="page-border" data-border={pageSetup.border} style={pageBorderStyle(pageSetup)} />
+                ) : null}
+              </div>
+            )
+          })}
           {pageSetup.watermark ? (
             <div className="print-mark" aria-hidden>
               <span>{pageSetup.watermark}</span>

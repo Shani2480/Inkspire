@@ -1,6 +1,7 @@
 import { BUILT_IN_STYLES, catalogWithStyles, wordIdForNamedStyle, type StyleDef } from "@/document/styles"
 import type { DocumentChrome } from "@/document/header"
 import { emptyChrome } from "@/document/header"
+import { CHROME_SLOTS, type ChromeSlot, type SectionChrome } from "@/document/sections"
 import { chromeHasContent, chromeHasPageField } from "@/document/chrome-html"
 import { chromeJson } from "@/document/chrome-json"
 import { bordersOf, editedShading, sidePensOf, wordShadingValue } from "@/document/docx/cell-edits"
@@ -25,6 +26,7 @@ import {
   blockFromProperties,
   blockHtmlAttributes,
   propertiesFromBlock,
+  withoutListIndent,
 } from "@/document/docx/block-format"
 import {
   blockAtomHtml,
@@ -152,10 +154,13 @@ export function editorToWord(
   build.numbering = ensureListNumbering(build.numbering, json, build)
   const blocks = blocksFromNodes(json.content ?? [], build, 0)
   dropEditorTrailingParagraph(blocks)
-  const stories = storiesFromChrome(chrome, source, build, source === null)
+  const nextId = storyIds(source)
+  const stories = storiesFromChrome(chrome, source, build, source === null, nextId)
+  sectionStoriesFromChrome(blocks, chrome.sections ?? [], source, build, nextId)
   const numbering = build.numbering
   section.references = stories.length > 0 ? stories : undefined
-  const partBlocks = [...blocks, ...stories.flatMap((story) => story.blocks)]
+  const sectionStories = paragraphsIn(blocks).flatMap((paragraph) => paragraph.sectionBreak?.references ?? [])
+  const partBlocks = [...blocks, ...[...stories, ...sectionStories].flatMap((story) => story.blocks)]
   const comments = commentsFromEditor(build.comments, source?.comments)
   placeCommentRanges(blocks, build.tags, comments.ids, commentReferenceProps(source))
   const styles = ensureEditorStyles(
@@ -367,24 +372,43 @@ function blocksToHtml(blocks: Block[], ctx: Projection) {
         index += 1
       }
       html += `<${tag}${listAttributes(tag, numId, items, ctx)}>${items.map((item) => listItemHtml(item, ctx)).join("")}</${tag}>`
+      html += sectionBreakHtml(items[items.length - 1]!)
       continue
     }
     if (block) {
-      html += blockHtml(block, ctx)
+      html += blockHtml(block, ctx) + sectionBreakHtml(block)
     }
     index += 1
   }
   return html || "<p></p>"
 }
 
-/** Where Word numbers the list from, and its indent from the numbering level (or the first item's own). */
+/** A numbered paragraph's text sits where its list puts it, so the editor gets it without its own indent. */
+function shownProperties(pPr: ParagraphProperties) {
+  return pPr.numPr?.numId ? withoutListIndent(pPr) : pPr
+}
+
+/**
+ * Where Word numbers the list from, and where its text starts: the paragraph's own left indent or else its numbering
+ * level's, for the first level and as the step to each deeper one.
+ */
 function listAttributes(tag: string, numId: number, items: Paragraph[], ctx: Projection) {
   const level = numberingLevel(ctx.doc.numbering, numId, 0)
   const before = ctx.listItems.get(numId) ?? 0
   ctx.listItems.set(numId, before + items.filter((item) => (item.pPr.numPr?.ilvl ?? 0) === 0).length)
   const start = (level?.start ?? 1) + before
-  const left = items[0]?.pPr.ind?.left ?? level?.pPr.ind?.left
-  const indent = left !== undefined ? `padding-left: ${left / 20}pt` : ""
+  const leftOf = (item: Paragraph) =>
+    item.pPr.ind?.left ?? numberingLevel(ctx.doc.numbering, numId, item.pPr.numPr?.ilvl ?? 0)?.pPr.ind?.left
+  const first = items.find((item) => (item.pPr.numPr?.ilvl ?? 0) === 0) ?? items[0]
+  const left = (first && leftOf(first)) ?? level?.pPr.ind?.left
+  const deeper = items.find((item) => (item.pPr.numPr?.ilvl ?? 0) > 0)
+  const deeperLeft = deeper ? leftOf(deeper) : numberingLevel(ctx.doc.numbering, numId, 1)?.pPr.ind?.left
+  const depth = deeper?.pPr.numPr?.ilvl ?? 1
+  const step = left !== undefined && deeperLeft !== undefined ? (deeperLeft - left) / depth : undefined
+  const indent =
+    left !== undefined
+      ? `padding-left: ${left / 20}pt${step !== undefined && step > 0 ? `; --list-indent-step: ${step / 20}pt` : ""}`
+      : ""
   return `${tag === "ol" && start !== 1 ? ` start="${start}"` : ""} data-word-list="1"${
     indent ? ` data-word-indent="${indent}"` : ""
   }`
@@ -401,6 +425,21 @@ function listItemHtml(paragraph: Paragraph, ctx: Projection) {
   // A list item has to open with a paragraph; without a blank one the picture would be pushed out of the list.
   const opening = picturesOnly(paragraph, ctx.doc) ? "<p></p>" : ""
   return `<li${indent}>${opening}${paragraphHtml(paragraph, ctx)}</li>`
+}
+
+/**
+ * A paragraph that ends a section starting on a new page is followed by the editor's section break, so the next
+ * section's text starts the next page as in Word. Saving takes the break from the paragraph, not from the editor.
+ */
+function sectionBreakHtml(block: Block) {
+  const type = block.kind === "paragraph" ? block.sectionBreak?.type : undefined
+  if (block.kind !== "paragraph" || !block.sectionBreak || type === "continuous" || type === "nextColumn") {
+    return ""
+  }
+  const kind = type === "evenPage" || type === "oddPage" ? type : "nextPage"
+  // The paragraph's anchor ties the break to the section's own margins and headers and footers (`chrome.sections`).
+  const section = block.key ? ` data-section="${escapeAttribute(block.key)}"` : ""
+  return `<div data-section-break="" data-kind="${kind}"${section} class="section-break"></div>`
 }
 
 function blockHtml(block: Block, ctx: Projection) {
@@ -437,7 +476,7 @@ function paragraphHtml(paragraph: Paragraph, ctx: Projection) {
   const tag = headingTag(paragraph.styleId)
   const outline = tag === "p" ? outlineLevelOf(paragraph, ctx.doc) : null
   const attrs =
-    blockHtmlAttributes(blockFromProperties(paragraph.pPr), paragraph.key) +
+    blockHtmlAttributes(blockFromProperties(shownProperties(paragraph.pPr)), paragraph.key) +
     (outline ? ` data-outline="${outline}"` : "")
   const style = tag === "p" && paragraph.styleId ? ` data-word-style="${escapeAttribute(paragraph.styleId)}"` : ""
   const stops = editorTabStops(paragraph, ctx.doc)
@@ -679,17 +718,133 @@ function chromeFromDocument(doc: WordDocument): DocumentChrome {
   setup.borderSurroundFooter = doc.settings.bordersDoNotSurroundFooter !== true
   // A page number in a Word document is a field in its header or footer, which is shown there.
   setup.pageNumber = "none"
-  const references = section?.references ?? []
+  // The last section's header or footer of a kind it has none of is its previous section's (Link to Previous).
+  const last = (slot: ChromeSlot) => storyHtml(doc, section ? slotStory(doc, section, slot) : undefined)
   return {
     ...emptyChrome(),
-    header: storyHtml(doc, storyOf(references, "header", "default")),
-    footer: storyHtml(doc, storyOf(references, "footer", "default")),
+    header: last("header"),
+    footer: last("footer"),
     differentFirstPage: Boolean(section?.titlePg),
-    firstHeader: storyHtml(doc, storyOf(references, "header", "first")),
-    firstFooter: storyHtml(doc, storyOf(references, "footer", "first")),
-    evenHeader: storyHtml(doc, storyOf(references, "header", "even")),
-    evenFooter: storyHtml(doc, storyOf(references, "footer", "even")),
+    firstHeader: last("firstHeader"),
+    firstFooter: last("firstFooter"),
+    evenHeader: last("evenHeader"),
+    evenFooter: last("evenFooter"),
     pageSetup: setup,
+    sections: sectionsChrome(doc),
+    linked: section
+      ? CHROME_SLOTS.filter((slot) => !storyOf(section.references ?? [], SLOT_STORY[slot].kind, SLOT_STORY[slot].type))
+      : [],
+  }
+}
+
+const SLOT_STORY: Record<ChromeSlot, { kind: "header" | "footer"; type: HeaderFooterType }> = {
+  header: { kind: "header", type: "default" },
+  footer: { kind: "footer", type: "default" },
+  firstHeader: { kind: "header", type: "first" },
+  firstFooter: { kind: "footer", type: "first" },
+  evenHeader: { kind: "header", type: "even" },
+  evenFooter: { kind: "footer", type: "even" },
+}
+
+/** Every section's properties in order: those ended by a paragraph's section break, then the document's last. */
+function sectionList(doc: WordDocument) {
+  const list: SectionProps[] = []
+  for (const paragraph of paragraphsIn(doc.blocks)) {
+    if (paragraph.sectionBreak) {
+      list.push(paragraph.sectionBreak)
+    }
+  }
+  if (doc.section) {
+    list.push(doc.section)
+  }
+  return list
+}
+
+/** The part a section shows for a slot: its own, else the nearest previous section's (Link to Previous). */
+function slotStory(doc: WordDocument, section: SectionProps, slot: ChromeSlot) {
+  const { kind, type } = SLOT_STORY[slot]
+  const list = sectionList(doc)
+  for (let index = list.indexOf(section); index >= 0; index -= 1) {
+    const found = storyOf(list[index]!.references ?? [], kind, type)
+    if (found) {
+      return found
+    }
+  }
+  return undefined
+}
+
+/**
+ * The sections before the last that start a page of their own, each with its margins and the headers and footers it
+ * has of its own. A continuous section starts no page: what it has of its own goes to the next one that does.
+ */
+function sectionsChrome(doc: WordDocument): SectionChrome[] {
+  const sections: SectionChrome[] = []
+  let carried: Partial<Record<ChromeSlot, string>> = {}
+  for (const paragraph of paragraphsIn(doc.blocks)) {
+    const props = paragraph.sectionBreak
+    if (!props) {
+      continue
+    }
+    const own: Partial<Record<ChromeSlot, string>> = { ...carried }
+    for (const slot of CHROME_SLOTS) {
+      const story = storyOf(props.references ?? [], SLOT_STORY[slot].kind, SLOT_STORY[slot].type)
+      if (story) {
+        own[slot] = storyHtml(doc, story)
+      }
+    }
+    if (props.type === "continuous" || props.type === "nextColumn" || !paragraph.key) {
+      carried = own
+      continue
+    }
+    carried = {}
+    sections.push({
+      key: paragraph.key,
+      marginTop: twipsToMm(props.marginTop ?? doc.section?.marginTop ?? 1440),
+      marginBottom: twipsToMm(props.marginBottom ?? doc.section?.marginBottom ?? 1440),
+      headerFromEdge: twipsToMm(props.header ?? doc.section?.header ?? 720),
+      footerFromEdge: twipsToMm(props.footer ?? doc.section?.footer ?? 720),
+      differentFirstPage: Boolean(props.titlePg),
+      parts: own,
+      opened: { ...own },
+    })
+  }
+  return sections
+}
+
+/**
+ * Writes the headers and footers edited in sections before the last into their section breaks: a section that had
+ * the part gets it rewritten, one that was linked to the previous section gets a part of its own.
+ */
+function sectionStoriesFromChrome(
+  blocks: Block[],
+  sections: SectionChrome[],
+  source: WordDocument | null,
+  shared: Build,
+  nextId: () => string,
+) {
+  for (const paragraph of paragraphsIn(blocks)) {
+    const section = paragraph.key ? sections.find((item) => item.key === paragraph.key) : undefined
+    if (!section || !paragraph.sectionBreak) {
+      continue
+    }
+    for (const slot of CHROME_SLOTS) {
+      const html = section.parts[slot]
+      if (html === undefined || html === section.opened[slot]) {
+        continue
+      }
+      const { kind, type } = SLOT_STORY[slot]
+      const references: HeaderFooterRef[] = paragraph.sectionBreak.references ?? []
+      const current = storyOf(references, kind, type)
+      const rebuilt = storyBlocks(html, current, source, shared, false)
+      const blocks = rebuilt.blocks.length > 0 ? rebuilt.blocks : [emptyParagraph()]
+      const story = current
+        ? { ...current, blocks, links: storyLinks(current, rebuilt.media) }
+        : { kind, type, relId: nextId(), blocks, links: storyLinks(undefined, rebuilt.media) }
+      paragraph.sectionBreak = {
+        ...paragraph.sectionBreak,
+        references: [...references.filter((item) => item !== current), story],
+      }
+    }
   }
 }
 
@@ -1111,30 +1266,24 @@ function storiesFromChrome(
   source: WordDocument | null,
   shared: Build,
   synthesizePageNumber: boolean,
+  nextId: () => string,
 ) {
   const existing = source?.section?.references ?? []
-  const used = new Set(existing.map((story) => story.relId))
-  const nextId = () => {
-    let number = 10
-    while (used.has(`rId${number}`)) {
-      number += 1
-    }
-    const id = `rId${number}`
-    used.add(id)
-    return id
-  }
   for (const story of existing) {
     for (const part of story.links?.parts ?? []) {
       shared.usedParts?.add(part.name.toLowerCase())
     }
   }
   const stories = existing.map((story) => ({ ...story, blocks: story.blocks.map((block) => ({ ...block })) }))
-  const ensure = (kind: "header" | "footer", type: HeaderFooterType, html: string) => {
+  const ensure = (slot: ChromeSlot, html: string) => {
+    const { kind, type } = SLOT_STORY[slot]
     const current = stories.find((story) => story.kind === kind && story.type === type)
     const original = existing.find((story) => story.kind === kind && story.type === type)
-    const projected = source ? storyHtml(source, original) : ""
+    // A kind the last section has none of shows the previous section's; unchanged, it stays linked to it.
+    const shown = original ?? (source?.section ? slotStory(source, source.section, slot) : undefined)
+    const projected = source ? storyHtml(source, shown) : ""
     const page = pageFieldFor(kind, type, chrome, html, current, synthesizePageNumber)
-    if (current && html === projected) {
+    if ((current || shown) && html === projected) {
       return
     }
     const rebuilt = storyBlocks(html, original, source, shared, page)
@@ -1149,17 +1298,36 @@ function storiesFromChrome(
     }
     stories.push({ kind, type, relId: nextId(), blocks, links: storyLinks(undefined, rebuilt.media) })
   }
-  ensure("header", "default", chrome.header)
-  ensure("footer", "default", chrome.footer)
+  ensure("header", chrome.header)
+  ensure("footer", chrome.footer)
   if (chrome.differentFirstPage) {
-    ensure("header", "first", chrome.firstHeader)
-    ensure("footer", "first", chrome.firstFooter)
+    ensure("firstHeader", chrome.firstHeader)
+    ensure("firstFooter", chrome.firstFooter)
   }
   if (chrome.pageSetup.differentOddEven) {
-    ensure("header", "even", chrome.evenHeader)
-    ensure("footer", "even", chrome.evenFooter)
+    ensure("evenHeader", chrome.evenHeader)
+    ensure("evenFooter", chrome.evenFooter)
   }
   return stories
+}
+
+/**
+ * New relationship ids for header and footer parts. They are named apart (`rIdHf1`…) from the document's own
+ * `rId` numbers, which its pictures, styles and kept parts already use, and none is one a section already points at.
+ */
+function storyIds(source: WordDocument | null) {
+  const used = new Set(
+    (source ? sectionList(source) : []).flatMap((item) => (item.references ?? []).map((story) => story.relId)),
+  )
+  return () => {
+    let number = 1
+    while (used.has(`rIdHf${number}`)) {
+      number += 1
+    }
+    const id = `rIdHf${number}`
+    used.add(id)
+    return id
+  }
 }
 
 /**
@@ -1290,6 +1458,18 @@ function blocksFromNodes(nodes: JsonNode[], build: Build, level: number): Block[
   }
   if (floats.length > 0) {
     blocks.push({ kind: "paragraph", pPr: {}, markRPr: {}, inlines: floats.map((float) => float.run) })
+  }
+  // A paragraph or table read from inside a content control goes back inside it.
+  for (const block of blocks) {
+    const origin =
+      block.kind === "paragraph" && block.key
+        ? build.origins.paragraphs.get(block.key)
+        : block.kind === "table" && block.key
+          ? build.origins.tables.get(block.key)
+          : undefined
+    if (origin?.controls && !block.controls) {
+      block.controls = structuredClone(origin.controls)
+    }
   }
   return blocks
 }
@@ -1425,7 +1605,11 @@ function blockFromNode(node: JsonNode, build: Build): Block | null {
   const level = node.type === "heading" ? headingLevel(node.attrs?.level) : 0
   const key = typeof node.attrs?.docxKey === "string" ? node.attrs.docxKey : undefined
   const origin = key ? build.origins.paragraphs.get(key) : undefined
-  const pPr = propertiesFromBlock(blockFromAttrs(node.attrs), origin?.pPr)
+  const pPr = propertiesFromBlock(
+    blockFromAttrs(node.attrs),
+    origin?.pPr,
+    origin?.pPr ? shownProperties(origin.pPr) : undefined,
+  )
   // List membership comes from the editor's list structure, not from the source paragraph.
   delete pPr.numPr
   const outline = node.type === "paragraph" ? Number(node.attrs?.outlineLevel || 0) : 0

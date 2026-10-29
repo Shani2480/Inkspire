@@ -7,6 +7,20 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Per-section headers and margins (2026-10-29)** — open a Word file with sections that have different headers
+  (a cover page and a body with a logo header). Each section's pages show their own header and top margin. Edit the
+  header on a body page, save, and open in Word: the body section has the edited header, the cover is unchanged,
+  and a later section that was Linked to Previous still is.
+
+- [ ] **Section breaks, page clip, see-through fills (2026-10-29)** — a Word document with next-page section breaks
+      opens in the app with each section on a new page, the same page count as Word (fonts allowing); a shape with
+      a transparent fill edited in the app (moved, recoloured) opens in Word still see-through.
+- [ ] **Content controls opened as text (2026-10-29)** — a document whose text sits in a cover page or rich text
+      control, edited inside the control and saved from the app, opens in Word with the control still there (Insert
+      Cover Page offers to replace it) and the edit inside it.
+- [ ] **List items with their own indent (2026-10-29)** — `Case 00512196 summary.docx` opens in the app with each
+      bullet and number line breaking where Word breaks it, and saved from the app after an edit opens in Word with
+      the same indents.
 - [ ] **Picture alignment and margin-relative footer pictures (2026-10-28)** — a picture centred or right-aligned in
       the app opens in Word aligned the same; a Word document with a footer picture placed relative to the margin shows
       it at the same place in the app and, saved from the app, in Word.
@@ -143,6 +157,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - [ ] **Native shapes (see Word section)** — also not looked at in Chrome after the preset batch.
 
 ## Needs the desktop app (Tauri build)
+
+- [ ] **Options in dark mode; SmartArt layouts (2026-10-29)** — in the desktop app in dark mode open File → Options:
+  every page reads light on dark. Insert → SmartArt → Basic Cycle, Organization Chart, Basic Relationship: a ring
+  with arrows, a tree, overlapping circles; no dashed frame until hovered.
 
 - [ ] **Stock 3D models (2026-10-28)** — each of the 42 models in Electronics, Anatomy, Furniture and Symbols draws in
       the WebKitGTK webview as in Chrome (lit screens, see-through cornea and bulb glass); Format › Matte / Metal and a

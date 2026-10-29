@@ -233,7 +233,7 @@ function storyTarget(partName: string) {
 function writeStory(ref: HeaderFooterRef, styles: StyleCatalog) {
   const tag = ref.kind === "header" ? "hdr" : "ftr"
   const ids = paraIdState()
-  const blocks = ref.blocks.map((block) => writeBlock(block, styles, null, ids)).join("")
+  const blocks = writeBlocks(ref.blocks, styles, null, ids)
   return `<w:${tag} ${declaredNamespaces(ref.rootAttributes, ref.blocks).join(" ")}>${blocks || "<w:p/>"}</w:${tag}>`
 }
 
@@ -501,7 +501,7 @@ function writeNotes(part: NotePart, name: "footnotes" | "endnotes", styles: Styl
   const notes = part.items
     .map((note) => {
       const type = note.type ? ` w:type="${note.type}"` : ""
-      const blocks = note.blocks.map((block) => writeBlock(block, styles, null, ids)).join("") || "<w:p/>"
+      const blocks = writeBlocks(note.blocks, styles, null, ids) || "<w:p/>"
       return `<w:${item}${type} w:id="${note.id}">${blocks}</w:${item}>`
     })
     .join("")
@@ -588,7 +588,7 @@ function writeComments(part: CommentPart, styles: StyleCatalog) {
       const author = comment.author ? ` w:author="${escapeXml(comment.author)}"` : ""
       const date = comment.date ? ` w:date="${escapeXml(comment.date)}"` : ""
       const initials = comment.initials ? ` w:initials="${escapeXml(comment.initials)}"` : ""
-      const blocks = comment.blocks.map((block) => writeBlock(block, styles, null, ids)).join("") || "<w:p/>"
+      const blocks = writeBlocks(comment.blocks, styles, null, ids) || "<w:p/>"
       return `<w:comment w:id="${comment.id}"${author}${date}${initials}>${blocks}</w:comment>`
     })
     .join("")
@@ -662,9 +662,42 @@ function writePeople(part: PeoplePart) {
 
 function writeBody(doc: WordDocument) {
   const ids = paraIdState()
-  const blocks = doc.blocks.map((block) => writeBlock(block, doc.styles, doc.section, ids)).join("")
+  const blocks = writeBlocks(doc.blocks, doc.styles, doc.section, ids)
   const trailing = doc.blocks.length === 0 || doc.blocks[doc.blocks.length - 1]?.kind === "table" ? "<w:p/>" : ""
   return `<w:body>${blocks}${trailing}${writeSection(doc.section ?? DEFAULT_SECTION)}</w:body>`
+}
+
+/**
+ * Blocks in order, each content control they were read from put back around them: from a control's first block to
+ * its last, so a paragraph added inside it in the editor stays inside it.
+ */
+function writeBlocks(
+  blocks: Block[],
+  styles: StyleCatalog,
+  section: SectionProps | null,
+  ids: ParaIds,
+  depth = 0,
+): string {
+  let xml = ""
+  let index = 0
+  while (index < blocks.length) {
+    const control = blocks[index]?.controls?.[depth]
+    if (!control) {
+      xml += writeBlock(blocks[index]!, styles, section, ids)
+      index += 1
+      continue
+    }
+    let last = index
+    blocks.forEach((block, at) => {
+      if (at > last && block.controls?.[depth]?.open === control.open) {
+        last = at
+      }
+    })
+    const inner = writeBlocks(blocks.slice(index, last + 1), styles, section, ids, depth + 1)
+    xml += `${control.open}${inner}${control.close}`
+    index = last + 1
+  }
+  return xml
 }
 
 function writeBlock(block: Block, styles: StyleCatalog, section: SectionProps | null, ids: ParaIds): string {
@@ -836,7 +869,7 @@ function writeTable(table: Table, styles: StyleCatalog, section: SectionProps | 
       const properties = writeChildren(rowPropertiesInput(row), row.source, writeRowProperties, ORDER.trPr)
       const cells = row.cells
         .map((cell) => {
-          const blocks = cell.blocks.map((block) => writeBlock(block, styles, section, ids)).join("")
+          const blocks = writeBlocks(cell.blocks, styles, section, ids)
           // A cell must end with a paragraph.
           const closing = cell.blocks[cell.blocks.length - 1]?.kind === "paragraph" ? "" : "<w:p/>"
           return `<w:tc>${wrap("tcPr", writeCellProperties(cell))}${blocks}${closing}</w:tc>`

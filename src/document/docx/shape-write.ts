@@ -22,7 +22,8 @@ const NOT_PLAIN = ["fillImage", "texture", "arrowBegin", "arrowEnd"] as const
 
 type Attrs = Record<string, unknown>
 
-const HEX = /^#[0-9a-fA-F]{6}$/
+// Six digits, or eight with Word's alpha (a fill shown through).
+const HEX = /^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$/
 
 /** The colours the app draws a shape in when none was chosen: those of its own drawing. */
 function drawnColors(variant: string) {
@@ -74,7 +75,13 @@ export function gradientFill(fill: string, gradient: string) {
   return `<a:gradFill rotWithShape="1"><a:gsLst>${stops}</a:gsLst>${direction}</a:gradFill>`
 }
 
-export const solid = (hex: string) => `<a:solidFill><a:srgbClr val="${hex.slice(1).toUpperCase()}"/></a:solidFill>`
+export const solid = (hex: string) => {
+  const alpha = hex.length === 9 ? Math.round((Number.parseInt(hex.slice(7), 16) / 255) * 100) * 1000 : 100000
+  const color = hex.slice(1, 7).toUpperCase()
+  return alpha < 100000
+    ? `<a:solidFill><a:srgbClr val="${color}"><a:alpha val="${alpha}"/></a:srgbClr></a:solidFill>`
+    : `<a:solidFill><a:srgbClr val="${color}"/></a:solidFill>`
+}
 
 /** The text a shape holds as Word's `wps:txbx`, one paragraph per line in its alignment, and the body that centres it. */
 function textBody(attrs: Attrs) {

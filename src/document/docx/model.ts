@@ -402,6 +402,7 @@ export type RawMarkup = {
    * these blocks.
    */
   blocks?: Block[]
+  controls?: ContentControl[]
 }
 export type Inline =
   | Run
@@ -429,6 +430,7 @@ export type Paragraph = {
   inlines: Inline[]
   /** Editor anchor (data-docx) linking this paragraph to the one it was opened from. Never written. */
   key?: string
+  controls?: ContentControl[]
 }
 
 export const BORDER_VALUES = [
@@ -667,7 +669,15 @@ export type Table = {
   rows: TableRow[]
   /** Editor anchor (data-docx) linking this table to the one it was opened from. Never written. */
   key?: string
+  controls?: ContentControl[]
 }
+/**
+ * A block-level content control (w:sdt) whose content is read as ordinary blocks: its markup before and after the
+ * content, as written. Each block inside carries its controls, outermost first; saving wraps consecutive blocks of
+ * the same control back in it.
+ */
+export type ContentControl = { open: string; close: string }
+
 export type Block = Paragraph | Table | RawMarkup
 
 export type HeaderFooterRef = {

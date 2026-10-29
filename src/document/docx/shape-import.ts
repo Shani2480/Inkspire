@@ -184,6 +184,16 @@ export function colorOf(markup: string, scheme: Map<string, string>): string {
   return toHex(values)
 }
 
+/** A colour Word shows through (`a:alpha` under 100%) as eight-digit hex, which the drawing and the writer keep. */
+export function withAlpha(hex: string, markup: string) {
+  const alpha = Number(/<a:alpha val="(\d+)"/.exec(markup)?.[1])
+  if (!hex || !Number.isFinite(alpha) || alpha >= 100000) {
+    return hex
+  }
+  const byte = Math.round((Math.max(0, alpha) / 100000) * 255)
+  return `${hex}${byte.toString(16).padStart(2, "0")}`
+}
+
 function unescapeText(value: string) {
   return value
     .replace(/&#x([0-9a-f]+);/gi, (_, code: string) => String.fromCodePoint(Number.parseInt(code, 16)))
@@ -280,18 +290,18 @@ export function readShapeLook(shape: string, themeXml: string | null) {
     : /<a:noFill\s*\/>/.test(own)
       ? "none"
       : ownSolid
-        ? colorOf(ownSolid, scheme)
+        ? withAlpha(colorOf(ownSolid, scheme), ownSolid)
         : firstStop
           ? colorOf(firstStop, scheme)
           : fillRef
-            ? colorOf(fillRef[2] ?? "", scheme)
+            ? withAlpha(colorOf(fillRef[2] ?? "", scheme), fillRef[2] ?? "")
             : ""
 
   const lineSolid = /<a:solidFill>([\s\S]*?)<\/a:solidFill>/.exec(line)?.[1]
   const stroke = /<a:noFill\s*\/>/.test(line)
     ? "none"
     : lineSolid
-      ? colorOf(lineSolid, scheme)
+      ? withAlpha(colorOf(lineSolid, scheme), lineSolid)
       : lineRef
         ? colorOf(lineRef[2] ?? "", scheme)
         : ""

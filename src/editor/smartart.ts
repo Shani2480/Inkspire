@@ -149,6 +149,10 @@ function paintSmartArt(dom: HTMLElement, node: ProseNode) {
     paintLook(cell, items[index])
     cells.push(cell)
   })
+  if (layout === "cycle") {
+    paintCycle(dom, cells)
+    return
+  }
   if (layout === "hierarchy") {
     // Hierarchy draws the outline as a tree: each item over a row of the items under it, joined by lines.
     const tree = document.createElement("div")
@@ -158,6 +162,66 @@ function paintSmartArt(dom: HTMLElement, node: ProseNode) {
   } else {
     dom.append(...cells)
   }
+}
+
+const SVG_NS = "http://www.w3.org/2000/svg"
+const CYCLE_SIZE = 300
+const CYCLE_RADIUS = 105
+
+/**
+ * Basic Cycle: the shapes evenly round a ring, the first at the top, each joined to the next by an arrow that runs
+ * clockwise along the ring, as Word draws it.
+ */
+function paintCycle(dom: HTMLElement, cells: HTMLElement[]) {
+  const ring = document.createElement("div")
+  ring.className = "smartart-ring"
+  const svg = document.createElementNS(SVG_NS, "svg")
+  svg.setAttribute("viewBox", `0 0 ${CYCLE_SIZE} ${CYCLE_SIZE}`)
+  svg.setAttribute("aria-hidden", "true")
+  const marker = document.createElementNS(SVG_NS, "marker")
+  const id = `smartart-arrow-${Math.random().toString(36).slice(2, 9)}`
+  marker.id = id
+  marker.setAttribute("viewBox", "0 0 10 10")
+  marker.setAttribute("refX", "6")
+  marker.setAttribute("refY", "5")
+  marker.setAttribute("markerWidth", "5")
+  marker.setAttribute("markerHeight", "5")
+  marker.setAttribute("orient", "auto-start-reverse")
+  const head = document.createElementNS(SVG_NS, "path")
+  head.setAttribute("d", "M0 0L10 5L0 10z")
+  head.setAttribute("class", "smartart-ring-head")
+  marker.append(head)
+  const defs = document.createElementNS(SVG_NS, "defs")
+  defs.append(marker)
+  svg.append(defs)
+  const count = cells.length
+  const center = CYCLE_SIZE / 2
+  const angle = (index: number) => -Math.PI / 2 + (index * 2 * Math.PI) / Math.max(1, count)
+  // The arrows leave room for the shapes at each end: about a shape's half width along the ring.
+  const gap = Math.min(Math.PI / Math.max(2, count), 0.5)
+  if (count > 1) {
+    for (let index = 0; index < count; index += 1) {
+      const from = angle(index) + gap
+      const to = angle(index + 1) - gap
+      if (to <= from) {
+        continue
+      }
+      const point = (value: number) =>
+        `${(center + CYCLE_RADIUS * Math.cos(value)).toFixed(1)} ${(center + CYCLE_RADIUS * Math.sin(value)).toFixed(1)}`
+      const arc = document.createElementNS(SVG_NS, "path")
+      arc.setAttribute("d", `M${point(from)}A${CYCLE_RADIUS} ${CYCLE_RADIUS} 0 0 1 ${point(to)}`)
+      arc.setAttribute("class", "smartart-ring-arrow")
+      arc.setAttribute("marker-end", `url(#${id})`)
+      svg.append(arc)
+    }
+  }
+  ring.append(svg)
+  cells.forEach((cell, index) => {
+    cell.style.left = `${center + CYCLE_RADIUS * Math.cos(angle(index))}px`
+    cell.style.top = `${center + CYCLE_RADIUS * Math.sin(angle(index))}px`
+    ring.append(cell)
+  })
+  dom.append(ring)
 }
 
 /** The items from `start` to `end` as branches of `parent`, each holding its own block's items under it. */
@@ -420,11 +484,14 @@ export const SmartArt = Node.create({
       insertSmartArt:
         (layout) =>
         ({ chain }) => {
-          const labels = JSON.stringify(defaultLabels(layout))
+          const texts = defaultLabels(layout)
+          const labels = JSON.stringify(texts)
+          // An organization chart starts as Word's does: one shape at the top and the others under it.
+          const levels = JSON.stringify(texts.map((_, index) => (layout === "hierarchy" && index > 0 ? 1 : 0)))
           return chain()
             .insertContent({
               type: "smartArt",
-              attrs: { layout, labels, accent: "#0f6cbd" },
+              attrs: { layout, labels, levels, accent: "#0f6cbd" },
             })
             .run()
         },
