@@ -1,7 +1,7 @@
 import { Editor } from "@tiptap/core"
 import { describe, expect, it } from "vitest"
 import { createExtensions } from "@/editor/extensions"
-import { bulletGlyph, formatNumber, WordNumbering, type WordLevel } from "@/editor/word-markers"
+import { bulletGlyph, formatNumber, withWordMarkers, WordNumbering, type WordLevel } from "@/editor/word-markers"
 
 const level = (text: string, format: string, extra: Partial<WordLevel> = {}): WordLevel => ({
   text,
@@ -56,6 +56,52 @@ describe("Word's list markers", () => {
     editor.commands.setTextSelection(4)
     editor.commands.splitListItem("listItem")
     expect(markers()).toEqual(['"1."', '"2."', '"a)"', '"3."'])
+    editor.destroy()
+  })
+})
+
+describe("Word's list level options", () => {
+  it("writes every number as a decimal on a legal level", () => {
+    const numbering = new WordNumbering([level("%1.", "upperRoman"), level("%1.%2", "lowerLetter", { legal: true })])
+    expect([0, 1].map((at) => numbering.next(at)!.text)).toEqual(["I.", "1.1"])
+  })
+
+  it("keeps counting a level whose lvlRestart is 0, or names a level above the item", () => {
+    const never = new WordNumbering([level("%1.", "decimal"), level("%2)", "decimal", { restart: 0 })])
+    expect([1, 1, 0, 1].map((at) => never.next(at)!.text)).toEqual(["1)", "2)", "1.", "3)"])
+    const afterFirst = new WordNumbering([
+      level("%1.", "decimal"),
+      level("%2.", "decimal"),
+      level("%3)", "decimal", { restart: 1 }),
+    ])
+    // Level 2 starts again after level 0 only, not after level 1.
+    expect([2, 2, 1, 2, 0, 2].map((at) => afterFirst.next(at)!.text)).toEqual(["1)", "2)", "1.", "3)", "1.", "1)"])
+  })
+
+  it("writes the markers into exported HTML as each item's list-style-type", () => {
+    const levels = JSON.stringify([level("%1.", "decimal"), level("%2)", "lowerLetter", { suffix: "nothing" })])
+    const html = withWordMarkers(
+      `<ol start="3" data-word-levels='${levels}'><li><p>one</p></li><li data-indent="1"><p>sub</p></li><li><p>two</p></li></ol>`,
+    )
+    const items = new DOMParser().parseFromString(html, "text/html").querySelectorAll("li")
+    expect([...items].map((item) => item.style.listStyleType)).toEqual(['"3. "', '"a)"', '"4. "'])
+  })
+
+  it("draws the level's own look on the item: alignment, suffix and run format", () => {
+    const levels = JSON.stringify([
+      level("%1.", "decimal", { justify: "right", suffix: "space", size: 16, color: "#c00000", bold: true }),
+    ])
+    const editor = new Editor({
+      extensions: createExtensions().filter((extension) => extension.name !== "spellcheck"),
+      content: `<ol data-word-list="1" data-word-tab="36" data-word-levels='${levels}'><li><p>one</p></li></ol>`,
+    })
+    const item = editor.view.dom.querySelector<HTMLElement>("li[data-word-marker]")!
+    expect(item.dataset.wordJustify).toBe("right")
+    expect(item.dataset.wordSuffix).toBe("space")
+    expect(item.dataset.wordTab).toBe("36")
+    expect(item.style.getPropertyValue("--word-marker-size")).toBe("16pt")
+    expect(item.style.getPropertyValue("--word-marker-color")).toBe("#c00000")
+    expect(item.style.getPropertyValue("--word-marker-weight")).toBe("700")
     editor.destroy()
   })
 })

@@ -45,6 +45,13 @@ function wordListAttributes() {
           ? { "data-word-indent": attributes.wordIndent, style: attributes.wordIndent }
           : {},
     },
+    /** The document's default tab stops in pt (`word-markers.ts`). */
+    wordTab: {
+      default: "",
+      parseHTML: (element: HTMLElement) => element.getAttribute("data-word-tab") ?? "",
+      renderHTML: (attributes: { wordTab?: string }) =>
+        attributes.wordTab ? { "data-word-tab": attributes.wordTab } : {},
+    },
     /** Word's marker for each level (`word-markers.ts`), drawn by the list marker decorations. */
     wordLevels: {
       default: "",

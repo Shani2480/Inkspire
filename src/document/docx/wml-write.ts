@@ -1084,11 +1084,16 @@ function numberingJustify(value: string) {
 function writeLevel(level: NumberingLevel) {
   const start = level.start !== undefined ? `<w:start w:val="${level.start}"/>` : ""
   const format = level.format ? `<w:numFmt w:val="${level.format}"/>` : ""
+  // CT_Lvl's order: start, numFmt, lvlRestart, pStyle, isLgl, suff, lvlText, lvlPicBulletId, legacy, lvlJc, pPr, rPr.
+  const restart = level.restart !== undefined ? `<w:lvlRestart w:val="${level.restart}"/>` : ""
+  const pStyle = level.pStyle ? `<w:pStyle w:val="${escapeXml(level.pStyle)}"/>` : ""
+  const legal = level.legal ? "<w:isLgl/>" : ""
+  const suffix = level.suffix ? `<w:suff w:val="${level.suffix}"/>` : ""
   const text = level.text !== undefined ? `<w:lvlText w:val="${escapeXml(level.text)}"/>` : ""
   const justify = level.justify ? `<w:lvlJc w:val="${numberingJustify(level.justify)}"/>` : ""
   const paragraph = writeLooseParagraphProperties(level.pPr)
   const run = writeRunProperties(level.rPr)
-  return `<w:lvl w:ilvl="${level.ilvl}">${start}${format}${text}${justify}${paragraph ? `<w:pPr>${paragraph}</w:pPr>` : ""}${run ? `<w:rPr>${run}</w:rPr>` : ""}</w:lvl>`
+  return `<w:lvl w:ilvl="${level.ilvl}">${start}${format}${restart}${pStyle}${legal}${suffix}${text}${justify}${paragraph ? `<w:pPr>${paragraph}</w:pPr>` : ""}${run ? `<w:rPr>${run}</w:rPr>` : ""}</w:lvl>`
 }
 
 function writeNumber(item: NumberingDefinitions["instances"][number]) {

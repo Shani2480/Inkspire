@@ -1614,7 +1614,8 @@ button.line-menu-row:focus-visible {
   line-height: 2;
 }
 
-.page-sheet:has(.page-footer.has-content) .page-footer {
+/* Room for the app's own page number beside a footer; none when it is not shown (a Word file's footer numbers itself). */
+.page-sheet:has(.page-footer.has-content):has(.page-number:not([data-place="none"])) .page-footer {
   padding-right: 2.5rem;
 }
 
@@ -1928,16 +1929,21 @@ button.line-menu-row:focus-visible {
   color: #1c1c1c;
 }
 
-/* Word's own bullet or number (word-markers.ts): left-aligned in the hanging indent, the text at the indent. */
+/* Word's own bullet or number (word-markers.ts): in the hanging indent, the text at the indent or the tab stop past
+   the marker (`--word-box`, set by fitWordMarkers), the marker in its level's own font, size, colour and weight. */
 .page-editor li[data-word-marker] > :first-child::before {
   content: var(--word-marker);
   display: inline-block;
   box-sizing: border-box;
-  min-width: var(--word-hang, 18pt);
+  min-width: var(--word-box, var(--word-hang, 18pt));
+  max-width: var(--word-box, none);
   margin-left: calc(-1 * var(--word-hang, 18pt));
-  padding-right: var(--word-pad, 0);
+  transform: translateX(var(--word-shift, 0));
   font-family: var(--word-marker-font, inherit);
-  font-style: normal;
+  font-size: var(--word-marker-size, inherit);
+  font-weight: var(--word-marker-weight, inherit);
+  font-style: var(--word-marker-style, normal);
+  color: var(--word-marker-color, inherit);
   text-decoration: none;
   text-indent: 0;
   white-space: pre;

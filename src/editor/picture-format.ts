@@ -1,4 +1,4 @@
-import { NO_EFFECTS, numberAttr, stringAttr } from "@/editor/shape-style"
+import { booleanAttr, NO_EFFECTS, numberAttr, stringAttr } from "@/editor/shape-style"
 
 /**
  * Word's Picture Format (21.2): corrections (brightness and contrast), colour (saturation, recolour), artistic
@@ -31,6 +31,9 @@ export function pictureFormatAttributes() {
     softEdge: numberAttr("softEdge"),
     reflection: stringAttr("reflection"),
     rot3d: stringAttr("rot3d"),
+    // Word's Flip Horizontal and Flip Vertical (a:xfrm flipH / flipV).
+    flipH: booleanAttr("flipH"),
+    flipV: booleanAttr("flipV"),
   }
 }
 

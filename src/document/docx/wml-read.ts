@@ -838,9 +838,16 @@ function drawingContent(node: MarkupNode, raw: RawCursor): RunContent {
   if (cy !== undefined) {
     content.cy = cy
   }
-  const rot = readInt(anyAttr(descendant(node, "xfrm"), "rot"))
+  const xfrm = descendant(node, "xfrm")
+  const rot = readInt(anyAttr(xfrm, "rot"))
   if (rot) {
     content.rot = rot
+  }
+  if (isOn(anyAttr(xfrm, "flipH"))) {
+    content.flipH = true
+  }
+  if (isOn(anyAttr(xfrm, "flipV"))) {
+    content.flipV = true
   }
   const source = descendant(node, "srcRect")
   if (source) {
@@ -1101,6 +1108,21 @@ function readNumberingLevel(node: MarkupNode): NumberingLevel | undefined {
   const justify = oneOf(childVal(node, "lvlJc"), JC_VALUES)
   if (start !== undefined) {
     level.start = start
+  }
+  const restart = readUint(childVal(node, "lvlRestart"))
+  if (restart !== undefined) {
+    level.restart = restart
+  }
+  const pStyle = childVal(node, "pStyle")
+  if (pStyle) {
+    level.pStyle = pStyle
+  }
+  if (readOnOff(wordChild(node, "isLgl"))) {
+    level.legal = true
+  }
+  const suffix = oneOf(childVal(node, "suff"), ["tab", "space", "nothing"] as const)
+  if (suffix) {
+    level.suffix = suffix
   }
   if (format) {
     level.format = format

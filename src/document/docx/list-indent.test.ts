@@ -70,3 +70,53 @@ describe("a Word list's markers", () => {
     expect(levels[0]).toEqual({ text: "%1.", format: "decimal", start: 1, hang: 18 })
   })
 })
+
+/** f05 with its level drawn as Word lets a level be: right-aligned, a space after, legal numbers, its own run format. */
+async function formattedLevels() {
+  const pkg = await openPackage(new Uint8Array(readFileSync(path.join(AUTHORED, "f05_numbering.docx"))), "f05.docx")
+  const part = findPart(pkg, "/word/numbering.xml")!
+  const level = `<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="upperRoman"/><w:lvlRestart w:val="0"/><w:isLgl/><w:suff w:val="space"/><w:lvlText w:val="%1."/><w:lvlJc w:val="right"/><w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr><w:rPr><w:b/><w:color w:val="C00000"/><w:sz w:val="32"/></w:rPr></w:lvl>`
+  part.data = new TextEncoder().encode(decodeXml(part.data).replace(/<w:lvl w:ilvl="0">.*?<\/w:lvl>/, level))
+  return writePackage(pkg)
+}
+
+describe("a Word list level's own look", () => {
+  it("carries the marker's alignment, suffix, legal numbers, restart and run format, and keeps them on save", async () => {
+    const opened = await openDocxBytes(await formattedLevels(), "f05.docx")
+    const encoded = opened.view.html.match(/data-word-levels="([^"]+)"/)![1]!
+    const levels = JSON.parse(encoded.replace(/&quot;/g, '"').replace(/&amp;/g, "&")) as unknown[]
+    expect(levels[0]).toEqual({
+      text: "%1.",
+      format: "upperRoman",
+      start: 1,
+      hang: 18,
+      justify: "right",
+      suffix: "space",
+      legal: true,
+      restart: 0,
+      size: 16,
+      color: "#c00000",
+      bold: true,
+    })
+    expect(opened.view.html).toContain(`data-word-tab="36"`)
+
+    const extensions = createExtensions().filter((extension) => extension.name !== "spellcheck")
+    const editor = new Editor({ extensions, content: opened.view.html })
+    editors.push(editor)
+    editor.commands.insertContentAt(editor.state.doc.content.size, "<p>added</p>")
+    const saved = await saveDocxBytes({
+      json: editor.getJSON(),
+      chrome: opened.view.chrome,
+      props: opened.view.props,
+      word: opened.word,
+      unchanged: false,
+      fileName: "edited.docx",
+    })
+    const numbering = decodeXml(findPart(await openPackage(saved.bytes, "edited.docx"), "/word/numbering.xml")!.data)
+    const written = numbering.match(/<w:lvl w:ilvl="0">.*?<\/w:lvl>/)![0]
+    expect(written).toMatch(
+      /<w:numFmt w:val="upperRoman"\/><w:lvlRestart w:val="0"\/><w:isLgl\/><w:suff w:val="space"\/>/,
+    )
+    expect(written).toContain(`<w:lvlJc w:val="right"/>`)
+  })
+})

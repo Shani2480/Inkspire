@@ -32,7 +32,7 @@ export function numberAttr(key: string, fallback = 0) {
   }
 }
 
-function booleanAttr(key: string) {
+export function booleanAttr(key: string) {
   const name = `data-${key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)}`
   return {
     default: false,

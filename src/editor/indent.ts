@@ -8,7 +8,8 @@ import { ListItem } from "@tiptap/extension-list"
 import Paragraph from "@tiptap/extension-paragraph"
 import type { Node as ProseNode, NodeRange, ResolvedPos } from "@tiptap/pm/model"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
-import { Decoration, DecorationSet } from "@tiptap/pm/view"
+import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view"
+import { holdObserver } from "@/editor/page-grid"
 
 export const INDENT_MAX = 8
 export const INDENT_STEP_PX = 24
@@ -333,6 +334,105 @@ function listMarkerPlugin() {
         return listMarkerKey.getState(state) ?? DecorationSet.empty
       },
     },
+    view(view) {
+      let frame = 0
+      const schedule = () => {
+        cancelAnimationFrame(frame)
+        frame = requestAnimationFrame(() => fitWordMarkers(view))
+      }
+      schedule()
+      return {
+        update: schedule,
+        destroy: () => cancelAnimationFrame(frame),
+      }
+    },
+  })
+}
+
+const PT = 96 / 72
+let measureContext: CanvasRenderingContext2D | null | undefined
+
+/**
+ * Word's tab after a list marker. The text starts at the item's indent when the marker ends before it; a marker that
+ * runs past it (or one with no hanging indent) sends the text on to the next tab stop of the paragraph's own, or the
+ * document's default ones, all measured from the margin. A centred or right-aligned marker sits on, or ends at, the
+ * first line's start; one followed by a space or nothing has the text straight after it. The marker's box takes the
+ * width to that point (`--word-box`), and the marker is moved within it for its alignment (`--word-shift`).
+ */
+export function fitWordMarkers(view: EditorView) {
+  if (view.isDestroyed) {
+    return
+  }
+  const items = view.dom.querySelectorAll<HTMLElement>("li[data-word-marker]")
+  // Nothing is laid out (a headless editor): there is nothing to measure.
+  if (items.length === 0 || view.dom.offsetWidth === 0) {
+    return
+  }
+  measureContext ??= document.createElement("canvas").getContext("2d")
+  const context = measureContext
+  if (!context) {
+    return
+  }
+  const origin = view.dom.getBoundingClientRect()
+  const scale = origin.width / view.dom.offsetWidth
+  if (!Number.isFinite(scale) || scale <= 0) {
+    return
+  }
+  const changes: { item: HTMLElement; box: string; shift: string }[] = []
+  items.forEach((item) => {
+    const first = item.firstElementChild
+    if (!(first instanceof HTMLElement)) {
+      return
+    }
+    const marker = getComputedStyle(first, "::before")
+    context.font = `${marker.fontStyle} ${marker.fontWeight} ${marker.fontSize} ${marker.fontFamily}`
+    const width = context.measureText(item.dataset.wordText ?? "").width
+    const hang = (Number(item.dataset.wordHang) || 0) * PT
+    const tab = (Number(item.dataset.wordTab) || 36) * PT
+    // Where the item's text starts, from the margin.
+    const left = (first.getBoundingClientRect().left - origin.left) / scale
+    const start = left - hang
+    const justify = item.dataset.wordJustify
+    const shift = justify === "right" ? -width : justify === "center" ? -width / 2 : 0
+    const end = start + shift + width
+    let box: number
+    if (item.dataset.wordSuffix === "nothing") {
+      box = Math.max(0, end - start)
+    } else if (item.dataset.wordSuffix === "space") {
+      box = Math.max(0, end - start) + context.measureText(" ").width
+    } else {
+      let stop = left
+      if (end > left - 0.5) {
+        const own = (first.dataset.tabStops ?? "")
+          .split(",")
+          .map((entry) => parseFloat(entry))
+          .filter((value) => Number.isFinite(value) && value > end + 0.5)
+          .sort((a, b) => a - b)
+        stop = own[0] ?? (Math.floor((end + 0.5) / tab) + 1) * tab
+      }
+      box = Math.max(0, stop - start)
+    }
+    const boxValue = `${Math.round(box * 100) / 100}px`
+    const shiftValue = shift ? `${Math.round(shift * 100) / 100}px` : ""
+    if (
+      item.style.getPropertyValue("--word-box") !== boxValue ||
+      item.style.getPropertyValue("--word-shift") !== shiftValue
+    ) {
+      changes.push({ item, box: boxValue, shift: shiftValue })
+    }
+  })
+  if (changes.length === 0) {
+    return
+  }
+  holdObserver(view, () => {
+    for (const change of changes) {
+      change.item.style.setProperty("--word-box", change.box)
+      if (change.shift) {
+        change.item.style.setProperty("--word-shift", change.shift)
+      } else {
+        change.item.style.removeProperty("--word-shift")
+      }
+    }
   })
 }
 
@@ -357,7 +457,11 @@ function listMarkers(doc: ProseNode) {
       const start = Number(node.attrs.start)
       const ownWord =
         levels.length > 0
-          ? new WordNumbering(levels, node.type.name === "orderedList" && start > 0 ? start : undefined)
+          ? new WordNumbering(
+              levels,
+              node.type.name === "orderedList" && start > 0 ? start : undefined,
+              Number(node.attrs.wordTab) > 0 ? Number(node.attrs.wordTab) : undefined,
+            )
           : ownMarker
             ? null
             : word
@@ -368,17 +472,25 @@ function listMarkers(doc: ProseNode) {
     if (node.type.name === "listItem" && kind && word) {
       const drawn = word.next(depth + clampIndent(node.attrs.indent))
       if (drawn) {
-        const hang = drawn.level.hang
+        const { level } = drawn
         decorations.push(
           Decoration.node(pos, pos + node.nodeSize, {
             "data-word-marker": "",
+            // What `fitWordMarkers` needs to place the text after the marker as Word's tab does.
+            "data-word-text": drawn.text,
+            "data-word-hang": String(level.hang),
+            "data-word-tab": String(word.tab),
+            ...(level.justify ? { "data-word-justify": level.justify } : {}),
+            ...(level.suffix ? { "data-word-suffix": level.suffix } : {}),
             style: [
               "list-style-type: none",
               `--word-marker: ${cssString(drawn.text)}`,
-              `--word-hang: ${hang}pt`,
-              // With no hanging indent Word puts the text at the next tab stop after the marker.
-              hang > 0 ? "" : "--word-pad: 0.5em",
+              `--word-hang: ${level.hang}pt`,
               drawn.font ? `--word-marker-font: ${cssString(drawn.font)}` : "",
+              level.size ? `--word-marker-size: ${level.size}pt` : "",
+              level.color ? `--word-marker-color: ${level.color}` : "",
+              level.bold !== undefined ? `--word-marker-weight: ${level.bold ? 700 : 400}` : "",
+              level.italic ? "--word-marker-style: italic" : "",
             ]
               .filter(Boolean)
               .join("; "),

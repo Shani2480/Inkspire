@@ -336,6 +336,9 @@ export type RunContent =
       cy?: number
       /** a:xfrm rot, the turn clockwise in 60000ths of a degree. */
       rot?: number
+      /** a:xfrm flipH / flipV: the picture is drawn mirrored. */
+      flipH?: boolean
+      flipV?: boolean
       /** a:srcRect: how much of each side of the picture is cropped away, in 1000ths of a percent. */
       crop?: { l: number; t: number; r: number; b: number }
       /** A picture's own a:prstGeom when it is not a rectangle (Crop to Shape). */
@@ -703,6 +706,14 @@ export type NumberingLevel = {
   ilvl: number
   start?: number
   format?: NumberFormat
+  /** w:lvlRestart: the level (1-based) after which this one counts again; 0 never. Unset: after any level above. */
+  restart?: number
+  /** w:pStyle: the paragraph style that goes with the level. */
+  pStyle?: string
+  /** w:isLgl: every number in the level's text is written as a decimal (Legal numbering). */
+  legal?: boolean
+  /** w:suff: what follows the marker; a tab when unset. */
+  suffix?: "tab" | "space" | "nothing"
   text?: string
   justify?: JcValue
   pPr: ParagraphProperties

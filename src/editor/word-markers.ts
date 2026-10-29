@@ -1,8 +1,8 @@
 /**
  * Word's list markers. A list opened from Word carries each level's definition (`data-word-levels`): the marker text
  * with `%1`…`%9` for the levels' numbers, the number format, where numbering starts, the hanging indent the marker
- * sits in, and the bullet's font. The editor numbers the items itself from these, as Word does, so a marker follows
- * edits: an item added, removed or moved to another level.
+ * sits in, how it is aligned and what follows it, and its own font, size, colour and weight. The editor numbers the
+ * items itself from these, as Word does, so a marker follows edits: an item added, removed or moved to another level.
  */
 export type WordLevel = {
   text: string
@@ -11,6 +11,19 @@ export type WordLevel = {
   /** The hanging indent in pt: the marker starts this far left of the text. */
   hang: number
   font?: string
+  /** w:lvlJc: the marker is centred on, or ends at, the first line's start instead of starting there. */
+  justify?: "center" | "right"
+  /** w:suff: a space or nothing after the marker instead of a tab. */
+  suffix?: "space" | "nothing"
+  /** w:isLgl: every number in the text is a decimal. */
+  legal?: boolean
+  /** w:lvlRestart: the level (1-based) after which this one counts again; 0 never. */
+  restart?: number
+  /** The marker's own run formatting: size in pt, colour, bold, italic. */
+  size?: number
+  color?: string
+  bold?: boolean
+  italic?: boolean
 }
 
 export function parseWordLevels(value: unknown): WordLevel[] {
@@ -30,6 +43,14 @@ export function parseWordLevels(value: unknown): WordLevel[] {
         start: Number.isInteger(level.start) ? level.start! : 1,
         hang: Number.isFinite(level.hang) ? Math.max(0, level.hang!) : 18,
         ...(typeof level.font === "string" && level.font ? { font: level.font } : {}),
+        ...(level.justify === "center" || level.justify === "right" ? { justify: level.justify } : {}),
+        ...(level.suffix === "space" || level.suffix === "nothing" ? { suffix: level.suffix } : {}),
+        ...(level.legal === true ? { legal: true } : {}),
+        ...(Number.isInteger(level.restart) && level.restart! >= 0 ? { restart: level.restart } : {}),
+        ...(Number.isFinite(level.size) && level.size! > 0 ? { size: level.size } : {}),
+        ...(typeof level.color === "string" && /^#[0-9a-f]{6}$/i.test(level.color) ? { color: level.color } : {}),
+        ...(typeof level.bold === "boolean" ? { bold: level.bold } : {}),
+        ...(typeof level.italic === "boolean" ? { italic: level.italic } : {}),
       }
     })
   } catch {
@@ -155,6 +176,8 @@ export class WordNumbering {
     private readonly levels: WordLevel[],
     /** Where level 0 starts, when the list continues one before it (its `start`). */
     private readonly firstStart?: number,
+    /** The document's default tab stops in pt, where text after a marker too wide for its indent goes. */
+    readonly tab = 36,
   ) {}
 
   /** The level's definition (the last one given for a level past them). */
@@ -171,14 +194,20 @@ export class WordNumbering {
     const start = (at: number) =>
       at === 0 && this.firstStart !== undefined ? this.firstStart : (this.level(at)?.start ?? 1)
     this.counts[index] = (this.counts[index] ?? start(index) - 1) + 1
-    this.counts.length = index + 1
+    // A level below counts again after this one, unless its w:lvlRestart names a level above this one, or 0.
+    for (let below = index + 1; below < this.counts.length; below += 1) {
+      const restart = this.level(below)?.restart
+      if (restart === undefined || (restart > 0 && index < restart)) {
+        this.counts[below] = undefined
+      }
+    }
     if (level.format === "bullet") {
       return { ...bulletGlyph(level.text, level.font), level }
     }
     const text = level.text.replace(/%([1-9])/g, (_, digit: string) => {
       const at = Number(digit) - 1
       const value = this.counts[at] ?? start(at)
-      return formatNumber(value, this.level(at)?.format ?? "decimal")
+      return formatNumber(value, level.legal ? "decimal" : (this.level(at)?.format ?? "decimal"))
     })
     return { text, ...(level.font && !SYMBOL_FONTS.test(level.font) ? { font: level.font } : {}), level }
   }
@@ -187,4 +216,42 @@ export class WordNumbering {
 /** A CSS string for `content`. */
 export function cssString(text: string) {
   return `"${text.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\a ")}"`
+}
+
+/**
+ * The HTML written out of the editor (an .html export, and the PDF, ODT and RTF made from it) with each Word list
+ * item's marker as its `list-style-type` string, since the editor draws them as decorations, which the HTML has not.
+ */
+export function withWordMarkers(html: string) {
+  if (!html.includes("data-word-levels") || typeof DOMParser === "undefined") {
+    return html
+  }
+  const body = new DOMParser().parseFromString(`<body>${html}</body>`, "text/html").body
+  const lists = [...body.querySelectorAll<HTMLElement>("ul[data-word-levels], ol[data-word-levels]")].filter(
+    (list) => !list.parentElement?.closest("[data-word-levels]"),
+  )
+  for (const list of lists) {
+    const levels = parseWordLevels(list.getAttribute("data-word-levels"))
+    if (levels.length === 0 || list.hasAttribute("data-marker")) {
+      continue
+    }
+    const start = Number(list.getAttribute("start"))
+    const numbering = new WordNumbering(levels, list.tagName === "OL" && start > 0 ? start : undefined)
+    const walk = (parent: HTMLElement, depth: number) => {
+      for (const item of [...parent.children]) {
+        if (!(item instanceof HTMLElement) || item.tagName !== "LI") {
+          continue
+        }
+        const drawn = numbering.next(depth + (Number(item.getAttribute("data-indent")) || 0))
+        if (drawn) {
+          item.style.listStyleType = cssString(`${drawn.text}${drawn.level.suffix === "nothing" ? "" : " "}`)
+        }
+        for (const nested of item.querySelectorAll<HTMLElement>(":scope > ul, :scope > ol")) {
+          walk(nested, depth + 1)
+        }
+      }
+    }
+    walk(list, 0)
+  }
+  return body.innerHTML
 }

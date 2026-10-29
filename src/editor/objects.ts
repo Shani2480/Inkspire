@@ -1208,6 +1208,10 @@ function paintImage(dom: HTMLElement, node: ProseNode) {
   }
   shape.style.borderRadius = frame === "oval" ? "50%" : frame === "rounded" ? "12%" : ""
   image.style.filter = pictureFilter(node.attrs)
+  // Flip Horizontal and Vertical mirror the picture inside its frame; the frame keeps its place and turn.
+  const flipX = node.attrs.flipH ? -1 : 1
+  const flipY = node.attrs.flipV ? -1 : 1
+  image.style.transform = flipX < 0 || flipY < 0 ? `scale(${flipX}, ${flipY})` : ""
   const transparency = Math.max(0, Math.min(100, Number(node.attrs.transparency) || 0))
   image.style.opacity = transparency ? String(1 - transparency / 100) : ""
   // Soft edges fade the picture's border into the page.
@@ -1375,7 +1379,9 @@ function frameStyle(node: ProseNode, dom?: HTMLElement) {
 export function pageClip(node: ProseNode, x: number, y: number, metrics: PageMetrics, dom?: HTMLElement) {
   const width = Number(node.attrs.width) || 0
   const height = Number(node.attrs.height) || 0
-  if (width <= 0 || height <= 0 || Number(node.attrs.rotate) || dom?.closest(".chrome-box")) {
+  // A header's or footer's own editor is drawn off the page and copied onto each sheet, so its objects are placed
+  // from the header or footer box, not the page's text: the page's corners are not known here.
+  if (width <= 0 || height <= 0 || Number(node.attrs.rotate) || dom?.closest(".chrome-box, .chrome-editor")) {
     return ""
   }
   const left = -(x + metrics.marginLeft)
