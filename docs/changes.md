@@ -7,6 +7,37 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-29
 
+### Word lists draw Word's own bullets and numbers
+
+- **What was wrong:** a list opened from Word used the browser's markers: disc, circle and square bullets, and
+  decimal numbers counted across every level of the list. Word's `a)` lists showed `1.`, Word's `o` sub-bullets in
+  Courier New showed a hollow circle, and the marker sat just left of the text instead of at the hanging indent.
+- **What changed:**
+  - `docx/project.ts` writes each level of the list's numbering on the list as `data-word-levels`: the `lvlText`,
+    the number format, the start, the hanging indent and the font.
+  - `editor/word-markers.ts` (new) numbers the items as Word does:
+    - Each level counts on its own and starts again after an item of a level above it.
+    - `%1`–`%9` in the text take the levels' numbers in their formats (letters, roman, zero-padded, ordinal).
+    - Bullets in Symbol and Wingdings are drawn as their Unicode look; Word's other bullet fonts are kept.
+  - The list marker decorations (`editor/indent.ts`) recompute the markers on every edit. An item added or moved
+    to another level renumbers.
+  - The marker is drawn before the item's first line, left-aligned in the hanging indent (`index.css`).
+  - A marker picked from the ribbon still overrides Word's.
+- **Checked:**
+  - `src/editor/word-markers.test.ts`: formats, bullet glyphs, `%1.%2` numbering and restarts, a list's own
+    start, and renumbering in the editor after Enter.
+  - `list-indent.test.ts`: the levels are carried from a Word file.
+  - Headless Chrome:
+    - The contract: `a)`–`d)` lists in the hanging indent.
+    - The Case summary: `•` bullets, `o` sub-bullets in Courier New, `1.`–`3.` numbers.
+- **Open:**
+  - The marker takes its paragraph's font and size, not the numbering level's own run formatting (size, colour,
+    bold).
+  - Centred and right-aligned numbers (`lvlJc`) are drawn left-aligned.
+  - A marker wider than its hanging indent pushes the text over by its own width, not to Word's next tab stop.
+  - Legal-style numbering (`isLgl`) is not applied.
+  - Exported HTML keeps the browser's markers.
+
 ### Each Word section has its own margins and headers and footers, edited per section
 
 - **What was wrong:** only a document's last section was read for page setup and headers and footers; every page

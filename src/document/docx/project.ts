@@ -2,6 +2,7 @@ import { BUILT_IN_STYLES, catalogWithStyles, wordIdForNamedStyle, type StyleDef 
 import type { DocumentChrome } from "@/document/header"
 import { emptyChrome } from "@/document/header"
 import { CHROME_SLOTS, type ChromeSlot, type SectionChrome } from "@/document/sections"
+import type { WordLevel } from "@/editor/word-markers"
 import { chromeHasContent, chromeHasPageField } from "@/document/chrome-html"
 import { chromeJson } from "@/document/chrome-json"
 import { bordersOf, editedShading, sidePensOf, wordShadingValue } from "@/document/docx/cell-edits"
@@ -411,7 +412,31 @@ function listAttributes(tag: string, numId: number, items: Paragraph[], ctx: Pro
       : ""
   return `${tag === "ol" && start !== 1 ? ` start="${start}"` : ""} data-word-list="1"${
     indent ? ` data-word-indent="${indent}"` : ""
-  }`
+  }${wordLevelsAttribute(ctx.doc.numbering, numId)}`
+}
+
+/**
+ * Each level's marker as Word defines it (`editor/word-markers.ts`): its text, number format, start, the hanging
+ * indent it sits in and its font, so the editor draws Word's own bullets and numbers.
+ */
+function wordLevelsAttribute(numbering: NumberingDefinitions, numId: number) {
+  const levels: WordLevel[] = []
+  for (let ilvl = 0; ilvl < 9; ilvl += 1) {
+    const level = numberingLevel(numbering, numId, ilvl)
+    if (!level) {
+      break
+    }
+    const ind = level.pPr.ind
+    const font = level.rPr.rFonts?.ascii ?? level.rPr.rFonts?.hAnsi
+    levels.push({
+      text: level.text ?? "",
+      format: level.format ?? "decimal",
+      start: level.start ?? 1,
+      hang: (ind?.hanging ?? 0) / 20,
+      ...(font ? { font } : {}),
+    })
+  }
+  return levels.length > 0 ? ` data-word-levels="${escapeAttribute(JSON.stringify(levels))}"` : ""
 }
 
 function listTag(doc: WordDocument, numId: number) {

@@ -705,6 +705,10 @@ Icon contact sheet per tab in both layouts and both themes; narrow widths; keybo
 
 One sub-phase at a time, each checked in the browser in both themes before the next starts.
 
+Fixed 2026-10-29: Word lists draw Word's own bullets and numbers (`lvlText`, number format, bullet font) at the
+hanging indent, renumbered as they are edited (`changes.md`). Open: the level's own marker formatting, `lvlJc`
+centred/right numbers, `isLgl`.
+
 Fixed 2026-10-29: each Word section opens with its own top and bottom margins and headers and footers, editable
 per section with Link to Previous, and saved into its own section break (`changes.md`). Open: Page Setup, rulers
 and print copy use the last section's margins; per-section page size and orientation are not drawn.

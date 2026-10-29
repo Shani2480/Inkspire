@@ -89,6 +89,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [ ] **Word list markers (2026-10-29)** — open Word files with `a)`, `i.`, `1.1` and bullet lists (Symbol,
+  Wingdings, `o` in Courier New) next to Word: each marker reads and sits as Word's. Add, delete and Tab an item:
+  the numbers follow.
+
 - [ ] **No pill over a table's last row (2026-10-27)** — in the desktop app, hover over the last row of a table as
       wide as the text, and of one widened past the margin: no scrollbar shows.
 - [x] **Tables text wraps around, Table Positioning, dragging a table (22.10, 2026-10-27)** — checked 2026-10-27 in

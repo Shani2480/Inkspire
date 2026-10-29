@@ -1928,6 +1928,21 @@ button.line-menu-row:focus-visible {
   color: #1c1c1c;
 }
 
+/* Word's own bullet or number (word-markers.ts): left-aligned in the hanging indent, the text at the indent. */
+.page-editor li[data-word-marker] > :first-child::before {
+  content: var(--word-marker);
+  display: inline-block;
+  box-sizing: border-box;
+  min-width: var(--word-hang, 18pt);
+  margin-left: calc(-1 * var(--word-hang, 18pt));
+  padding-right: var(--word-pad, 0);
+  font-family: var(--word-marker-font, inherit);
+  font-style: normal;
+  text-decoration: none;
+  text-indent: 0;
+  white-space: pre;
+}
+
 .page-editor ul ul {
   list-style-type: circle;
 }

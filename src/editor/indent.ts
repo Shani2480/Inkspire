@@ -1,6 +1,7 @@
 import { blockFormatAttributes } from "@/editor/block-format"
 import { restoreSelection } from "@/editor/selection-memory"
 import { insertAlignedTab, tabStopsAttribute } from "@/editor/tab-stops"
+import { cssString, parseWordLevels, WordNumbering } from "@/editor/word-markers"
 import { Extension, type Editor } from "@tiptap/core"
 import Heading from "@tiptap/extension-heading"
 import { ListItem } from "@tiptap/extension-list"
@@ -345,12 +346,46 @@ function listMarkers(doc: ProseNode) {
     kind: "bullet" | "ordered" | null,
     scheme: string | null,
     marker: string | null,
+    word: WordNumbering | null = null,
   ) => {
     if (node.type.name === "bulletList" || node.type.name === "orderedList") {
       const nextKind = node.type.name === "bulletList" ? "bullet" : "ordered"
       const ownScheme = typeof node.attrs.scheme === "string" && node.attrs.scheme ? node.attrs.scheme : scheme
       const ownMarker = typeof node.attrs.marker === "string" && node.attrs.marker ? node.attrs.marker : null
-      node.forEach((child, offset) => visit(child, pos + 1 + offset, depth, nextKind, ownScheme, ownMarker))
+      // A list from Word numbers its items by Word's levels, unless a marker has been picked for it since.
+      const levels = ownMarker ? [] : parseWordLevels(node.attrs.wordLevels)
+      const start = Number(node.attrs.start)
+      const ownWord =
+        levels.length > 0
+          ? new WordNumbering(levels, node.type.name === "orderedList" && start > 0 ? start : undefined)
+          : ownMarker
+            ? null
+            : word
+      node.forEach((child, offset) => visit(child, pos + 1 + offset, depth, nextKind, ownScheme, ownMarker, ownWord))
+      return
+    }
+
+    if (node.type.name === "listItem" && kind && word) {
+      const drawn = word.next(depth + clampIndent(node.attrs.indent))
+      if (drawn) {
+        const hang = drawn.level.hang
+        decorations.push(
+          Decoration.node(pos, pos + node.nodeSize, {
+            "data-word-marker": "",
+            style: [
+              "list-style-type: none",
+              `--word-marker: ${cssString(drawn.text)}`,
+              `--word-hang: ${hang}pt`,
+              // With no hanging indent Word puts the text at the next tab stop after the marker.
+              hang > 0 ? "" : "--word-pad: 0.5em",
+              drawn.font ? `--word-marker-font: ${cssString(drawn.font)}` : "",
+            ]
+              .filter(Boolean)
+              .join("; "),
+          }),
+        )
+      }
+      node.forEach((child, offset) => visit(child, pos + 1 + offset, depth + 1, kind, scheme, null, word))
       return
     }
 
@@ -367,7 +402,7 @@ function listMarkers(doc: ProseNode) {
       return
     }
 
-    node.forEach((child, offset) => visit(child, pos + 1 + offset, depth, kind, scheme, marker))
+    node.forEach((child, offset) => visit(child, pos + 1 + offset, depth, kind, scheme, marker, word))
   }
 
   doc.forEach((child, offset) => visit(child, offset, 0, null, null, null))
