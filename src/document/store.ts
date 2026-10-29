@@ -4,6 +4,7 @@ import { clearWordDocument } from "@/document/docx/session"
 import type { DocumentChrome } from "@/document/header"
 import { pageSetupForNewDocument } from "@/document/design-format"
 import { DEFAULT_PAGE_SETUP, normalizePageSetup, samePageSetup, type PageSetup } from "@/document/page-setup"
+import type { ChromeSlot, SectionChrome } from "@/document/sections"
 import { create } from "zustand"
 
 type ChromeState = {
@@ -25,6 +26,9 @@ type ChromeState = {
   savedEvenFooter: string
   pageSetup: PageSetup
   savedPageSetup: PageSetup
+  sections: SectionChrome[]
+  savedSections: SectionChrome[]
+  linkedSlots: ChromeSlot[]
 }
 
 function isUnsaved(state: ChromeState, next: Partial<ChromeState> = {}) {
@@ -41,7 +45,9 @@ function isUnsaved(state: ChromeState, next: Partial<ChromeState> = {}) {
   const firstFooter = next.firstFooterHtml ?? state.firstFooterHtml
   const evenFooter = next.evenFooterHtml ?? state.evenFooterHtml
   const pageSetup = next.pageSetup ?? state.pageSetup
+  const sections = next.sections ?? state.sections
   return (
+    sections !== state.savedSections ||
     html !== state.savedHTML ||
     header !== state.savedHeader ||
     footer !== state.savedFooter ||
@@ -230,6 +236,11 @@ type DocumentState = {
   savedEvenFooter: string
   pageSetup: PageSetup
   savedPageSetup: PageSetup
+  /** A Word document's sections before the last (see `sections.ts`); empty for one with a single section. */
+  sections: SectionChrome[]
+  savedSections: SectionChrome[]
+  /** The last section's headers and footers that are Linked to Previous (its previous section's are shown). */
+  linkedSlots: ChromeSlot[]
   recentFiles: string[]
   pinnedFiles: string[]
   recentFolders: string[]
@@ -243,6 +254,8 @@ type DocumentState = {
   setEvenHeader: (header: string) => void
   setEvenFooter: (footer: string) => void
   setDifferentFirstPage: (enabled: boolean) => void
+  /** A header or footer of a section before the last, by its section's key. */
+  setSectionPart: (key: string, slot: ChromeSlot, html: string) => void
   setPageSetup: (pageSetup: PageSetup) => void
   startUntitled: (blankHtml: string) => void
   markOpened: (
@@ -291,6 +304,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   savedEvenFooter: "",
   pageSetup: pageSetupForNewDocument(),
   savedPageSetup: pageSetupForNewDocument(),
+  sections: [],
+  savedSections: [],
+  linkedSlots: [],
   recentFiles: loadRecentFiles(),
   pinnedFiles: loadPinnedFiles(),
   recentFolders: loadRecentFolders(),
@@ -336,6 +352,18 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       differentFirstPage: enabled,
       isDirty: isUnsaved(state, { differentFirstPage: enabled }),
     })),
+  setSectionPart: (key, slot, value) =>
+    set((state) => {
+      const html = chromeHtml(value)
+      const section = state.sections.find((item) => item.key === key)
+      if (!section || section.parts[slot] === html) {
+        return state
+      }
+      const sections = state.sections.map((item) =>
+        item === section ? { ...item, parts: { ...item.parts, [slot]: html } } : item,
+      )
+      return { sections, isDirty: isUnsaved(state, { sections }) }
+    }),
   setPageSetup: (pageSetup) =>
     set((state) => {
       const next = normalizePageSetup(pageSetup)
@@ -383,6 +411,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       savedEvenFooter: "",
       pageSetup: pageSetupForNewDocument(),
       savedPageSetup: pageSetupForNewDocument(),
+      sections: [],
+      savedSections: [],
+      linkedSlots: [],
       documentProps,
       readOnly: false,
     })
@@ -422,6 +453,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         savedEvenFooter: chrome.evenFooter ?? "",
         pageSetup: normalizePageSetup(chrome.pageSetup ?? DEFAULT_PAGE_SETUP),
         savedPageSetup: normalizePageSetup(chrome.pageSetup ?? DEFAULT_PAGE_SETUP),
+        sections: chrome.sections ?? [],
+        savedSections: chrome.sections ?? [],
+        linkedSlots: chrome.linked ?? [],
         isDirty: false,
         recentFiles: path ? rememberRecent(path, state.recentFiles) : state.recentFiles,
         recentFolders: path ? rememberFolder(path, state.recentFolders) : state.recentFolders,
@@ -447,6 +481,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         savedFirstFooter: state.firstFooterHtml,
         savedEvenFooter: state.evenFooterHtml,
         savedPageSetup: state.pageSetup,
+        savedSections: state.sections,
         isDirty: false,
         recentFiles: path ? rememberRecent(path, state.recentFiles) : state.recentFiles,
         recentFolders: path ? rememberFolder(path, state.recentFolders) : state.recentFolders,
@@ -531,6 +566,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       savedEvenFooter: chrome.evenFooter,
       pageSetup: chrome.pageSetup,
       savedPageSetup: chrome.pageSetup,
+      sections: chrome.sections ?? [],
+      savedSections: chrome.sections ?? [],
+      linkedSlots: chrome.linked ?? [],
       isDirty: true,
       recentFiles: path ? rememberRecent(path, get().recentFiles) : get().recentFiles,
     }),

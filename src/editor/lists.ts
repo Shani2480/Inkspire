@@ -41,7 +41,7 @@ function wordListAttributes() {
       default: "",
       parseHTML: (element: HTMLElement) => element.getAttribute("data-word-indent") ?? "",
       renderHTML: (attributes: { wordIndent?: string }) =>
-        /^padding-left: \d+(\.\d+)?pt$/.test(attributes.wordIndent ?? "")
+        /^padding-left: \d+(\.\d+)?pt(; --list-indent-step: \d+(\.\d+)?pt)?$/.test(attributes.wordIndent ?? "")
           ? { "data-word-indent": attributes.wordIndent, style: attributes.wordIndent }
           : {},
     },

@@ -5,6 +5,140 @@ wrong or missing, what changed, where (files, tests), how it was checked, and wh
 story of each feature stays in `next-todo.md` under its section; `verify-list.md` holds what still needs a check
 in Word, Chrome or the desktop app.
 
+## 2026-10-29
+
+### Each Word section has its own margins and headers and footers, edited per section
+
+- **What was wrong:** only a document's last section was read for page setup and headers and footers; every page
+  used it. On the contract, the agreement pages (section 2, with a 37.5 mm top margin and the company logo in its
+  header) showed no logo and started their text at the cover's top margin; the cover showed a strip of empty header.
+- **What changed:**
+  - `document/sections.ts` (new): `SectionChrome`, one per section before the last that starts a page. It holds
+    the section's margins and header/footer distances, its first page setting, and the parts it has of its own.
+    A missing part is Linked to Previous. `sectionAt` (a page's section) and `slotOwner` (whose part a linked one is)
+    are there too.
+  - `docx/project.ts`:
+    - `chromeFromDocument` builds `chrome.sections`. A continuous section's own parts carry to the next section.
+    - The last section's missing parts are read from the previous section (`slotStory`) and listed in
+      `chrome.linked`.
+    - The editor's section break carries the paragraph's key (`data-section`).
+    - Saving writes an edited section part into that paragraph's `w:sectPr` (`sectionStoriesFromChrome`): it
+      rewrites the part or adds a reference. An untouched section and a still-linked last section are left as
+      they were.
+    - New header/footer relationship ids are `rIdHf<n>`, so they can't clash with the document's own `rId`
+      numbers (they did: "rId12 is used twice").
+  - `editor/pages.ts`: the paginator lays each page out with its section's margins. The gap between pages uses
+    one page's bottom margin and the next page's top margin. The first page's text starts at its own section's
+    top margin. Each page's section is stored in `pageSections` and `sectionStarts`.
+  - `page-canvas.tsx` / `chrome-editors.tsx`:
+    - Each sheet draws its section's header/footer zone, distances and parts.
+    - The first page of each section shows the First Page header when that section has it.
+    - `SectionParts` makes one editor per part a section owns. Double-clicking a page edits its section's part, or
+      the part it is linked to, and every page of that chain follows.
+    - The last section's linked parts edit the previous section's.
+  - `chrome-extent.ts`: header and footer reach is tracked per section. An empty header or footer no longer pushes
+    the body down.
+- **Checked:**
+  - `section-pages.test.ts`: reads a section's own header and margins; the last section is linked; an untouched
+    save is unchanged; an edit is written and reads back on reopen.
+  - `chrome-extent.test.ts` covers per-section reach.
+  - Headless Chrome on the contract: the cover has no header strip; pages 2–11 have the logo header and a 142 px
+    top zone; typing in page 3's header shows on pages 2–11 only.
+  - The Open XML validator passes the contract saved untouched and saved with edited section headers and footers
+    (0 errors).
+- **Open:**
+  - Page Setup, the rulers and the print copy still use the last section's margins.
+  - The "First page" check box is offered only for the last section.
+  - A recovered draft keeps only the last section's headers and footers.
+  - A page size or orientation that differs between sections is not drawn.
+  - Not yet opened in Word.
+
+### Options dialog in dark mode; SmartArt Cycle, Organization Chart and Relationship drawn as their own shapes
+
+- **What was wrong:** (1) File → Options in dark mode kept a white card with white text: the backstage's dark
+  colours were set only inside `.backstage`, and Options opens as a dialog outside it. (2) Every SmartArt graphic
+  looked the same, a dashed box holding a row of boxes: Basic Cycle and Basic Relationship had no drawing of their
+  own, Organization Chart was inserted with every item at the top level (a row, not a tree), and the dashed frame
+  showed round every graphic all the time.
+- **What changed:** the dark backstage colours are set on `html.dark` too (`index.css`). Basic Cycle puts the
+  shapes evenly round a ring, first at the top, with a clockwise arrow from each to the next (`paintCycle` in
+  `editor/smartart.ts`). Organization Chart starts with one shape over two (`levels` [0,1,1]). Basic Relationship
+  draws circles side by side, each overlapping the next. The dashed frame shows only on hover or selection.
+- **Checked:** headless Chrome screenshots of Options in dark mode and of each layout inserted;
+  `src/editor/smartart.test.ts` (tree levels, ring shapes and arrows).
+- **Open:** the Layouts gallery switching a flat outline to Organization Chart still draws a row (as Word does
+  until items are demoted). A Cycle with many items keeps the 300 px ring, so long text crowds.
+
+### Word section breaks start a new page; objects are cut off at the page; fills shown through
+
+- **What was wrong:** opening the cover page contract: (1) the agreement started on the cover page, hidden behind
+  its white wash, because a Word section break (`w:sectPr` in a paragraph) was kept for saving but never shown, so
+  no new page began; every later page then ended about a page's top margin early and the first line of a paragraph
+  moved on (articles 2.3, 4.1, 10, 13.1) was drawn in the gap between two pages. (2) The cover photo, larger than
+  the page, was drawn past the sheet on both sides. (3) The 70% white wash over it (`a:schemeClr bg1` +
+  `a:alpha`) was drawn solid, hiding the photo.
+- **What changed:** `project.ts` (`sectionBreakHtml`) follows a paragraph that ends a next, even or odd page section
+  with the editor's section break, which the paginator already ends a page at; saving still takes the break from
+  the paragraph's `w:sectPr` (the editor's node writes nothing). Section breaks draw like page breaks: no height of
+  their own, the dashed line and label with formatting marks only (`index.css`). `objects.ts` (`pageClip`) cuts a
+  floating object off at its sheet's edges with a polygon in the frame's own coordinates (a wide picture
+  overflows a frame the text's width), not when turned, in a header or while selected. `shape-import.ts`
+  (`withAlpha`) keeps a fill's or outline's `a:alpha` as eight-digit hex, which the drawing shows and
+  `shape-write.ts` (`solid`) writes back as `a:alpha`.
+- **Tests:** `section-pages.test.ts` (f15's section break opens as the editor's break and saving writes two
+  `w:sectPr`, as read; alpha read and written; the page clip, and none for an object that fits or is turned). 182
+  files, 1230 tests pass.
+- **Checked:** in headless Chrome, a probe listing every line of text outside a page sheet: the contract 0 (was 4
+  paragraphs), 11 pages, the agreement from page 2; f15 3 pages as in Word; `123.docx` 0. The cover shows the photo
+  washed out and filling the page, cut at its edges.
+- **Open:** one page setup for all sections, so the cover keeps the last section's top (an 18 px strip above the
+  photo); the header's logo is not drawn on the contract's pages.
+
+### Word documents inside a content control open as their text (a whole contract in a cover page)
+
+- **What was wrong:** a block-level content control was kept as one raw block and drawn as its plain text. A
+  contract whose 204 paragraphs all sat inside Word's Cover Pages control opened as one run-on block of text in
+  the body font, no paragraphs, pictures, headings or lists, running off the bottom of a two-page document.
+- **What changed:** `wml-read.ts` opens a rich text or building block control (`opensAsBlocks`: no typed kind such
+  as `w:text`, `w:dropDownList`, `w:date`, `w:showingPlcHdr`, and not a table of contents) as its own paragraphs
+  and tables, read with a raw cursor over the control's content so its pictures keep their markup. Each block
+  carries the control's markup before and after the content (`controls`, outermost first, `model.ts`).
+  `wml-write.ts` (`writeBlocks`, used for the body, headers, footers, notes, comments and cells) wraps each
+  control's first to last block back in it, so a paragraph added inside stays inside; `project.ts` gives a saved
+  paragraph or table its source's controls. Typed and placeholder controls and TOC controls are unchanged.
+- **Tests:** `content-controls.test.ts` (a cover control with a control inside it opens as paragraphs and writes
+  back as read; text typed inside is saved inside both). `objects.test.ts` still round-trips f16's plain text and
+  dropdown controls as raw. 181 files, 1226 tests pass.
+- **Checked:** the user's contract in headless Chrome: cover logo, title and name, then the agreement's
+  paragraphs, numbered articles and bullets, 9 pages. Read → write keeps every word (the only differences are
+  `w:proofErr` and `w:lastRenderedPageBreak`, dropped as for any document). Saved after an edit: the cover control
+  is still around all 204 paragraphs with the edit inside; Open XML validator 0 errors.
+- **Open:** the cover's photo, its white wash and the page breaks after it: fixed in the entry above. Word shows 14
+  pages against 11 here, largely because Avenir LT Std is not installed on this machine.
+
+### Word lists: the text sits once at the item's indent, levels step by the document's spacing
+
+- **What was wrong:** a Word list whose items set their own left indent (`w:ind w:left="1080"`, the level adding
+  `hanging="360"`, as text pasted from Slack or Outlook is written) opened with the text 0.75" further right than in
+  Word: the list was padded to the item's indent and the paragraph inside indented by the same amount again. Second
+  level items stepped 1.75em and then indented by their own 1.5", so their text sat at 2.6" instead of 1.5". The
+  narrower column wrapped every item sooner and pushed the following sections down a page. The font box also
+  showed a Word file's font with its quotes (`'Times New Roman'`).
+- **What changed:** `project.ts` shows a numbered paragraph without its left, hanging and first-line indent
+  (`withoutListIndent` in `block-format.ts`); the list carries the first level's indent and, as
+  `--list-indent-step`, the step to the deeper levels (from the items' own indents, else the numbering levels').
+  A list item's level margin (`editor/indent.ts`) uses that step, the editor's 1.75em otherwise. Saving compares
+  the edited paragraph with what was shown (`propertiesFromBlock`'s new `shown` argument), so the item's `w:ind`
+  is written back as it came. `fontLabel` drops single quotes as well as double.
+- **Tests:** `list-indent.test.ts` (opened HTML, editor round trip, saved `w:ind` and levels),
+  `ribbon/options.test.ts`. 180 files, 1224 tests pass.
+- **Checked:** `Case 00512196 summary.docx` in headless Chrome against the user's Word screenshot: first-level text
+  at 0.75" and second-level at 1.5" from the margin, every line breaking at the same word as in Word; the font box
+  reads Times New Roman. Saved after an edit, every item keeps `w:left="1080"` / `"2160"`; Open XML validator 0
+  errors.
+- **Open:** the marker sits just before the text (CSS outside marker), not at Word's left - hanging position; for
+  bullets and short numbers the difference is a few points.
+
 ## 2026-10-28
 
 ### 3D Models: ten or more real models in Electronics, Anatomy, Furniture and Symbols
@@ -24,6 +158,7 @@ in Word, Chrome or the desktop app.
   Matte, Glossy, Metal and the colour tint still apply over it. The library's tiles are pictures of the models
   themselves, drawn once per session with the viewer's light and pose. The old ids (`electronics`, `anatomy`,
   `furniture`, `symbol`) still open, as the Tablet, Human Figure, Chair and Star; the primitives are unchanged.
+
 - **Tests:** `model-stock.test.ts` (48): every listed model builds, has its own surfaces, is centred and the same
   size; primitives unchanged; old ids; unknown id is the cube; the same model every time. 179 files, 1227 tests
   pass on android.

@@ -19,6 +19,7 @@ import {
   spacingPreset,
   type PageSetup,
 } from "@/document/page-setup"
+import type { ChromeSlot, SectionChrome } from "@/document/sections"
 
 const CHROME_MARK =
   /^<!-- aiword-(header|footer|first-header|first-footer|even-header|even-footer|first|oddeven|page|columns|colgap|colline|colwidths|lines|watermark|border|borderwidth|borderline|borderplace|pagecolor|pagenum|hyphens|language|fonts|spacing|headerstyle|footerstyle|colors|effects):([^\n>]*) -->\n?/
@@ -34,6 +35,10 @@ export type DocumentChrome = {
   evenHeader: string
   evenFooter: string
   pageSetup: PageSetup
+  /** A Word document's sections before the last, each with its own margins and headers and footers. */
+  sections?: SectionChrome[]
+  /** The headers and footers the last section has none of: it shows, and edits, the previous section's. */
+  linked?: ChromeSlot[]
 }
 
 export function emptyChrome(): DocumentChrome {

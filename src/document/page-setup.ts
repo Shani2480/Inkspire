@@ -357,8 +357,11 @@ export function webMetrics(width: number): PageMetrics {
   }
 }
 
-/** The page's size and margins in pixels; `paper` asks for the sheet itself, even where the view has no pages. */
-export function pageMetrics(setup: PageSetup, paper = false): PageMetrics {
+/**
+ * The page's size and margins in pixels; `paper` asks for the sheet itself, even where the view has no pages, and
+ * `section` names the section before the last whose headers and footers push its margins.
+ */
+export function pageMetrics(setup: PageSetup, paper = false, section = ""): PageMetrics {
   if (!paper) {
     const { layoutMode, webWidth } = useViewStore.getState()
     if (layoutMode === "web" && webWidth > 0) {
@@ -369,7 +372,9 @@ export function pageMetrics(setup: PageSetup, paper = false): PageMetrics {
   const width = box.width * MM_TO_PX
   const height = box.height * MM_TO_PX
   // A header or footer taller than its margin pushes the body away from the edge, as in Word.
-  const reach = useChromeExtent.getState()
+  // A section before the last is pushed by its own headers and footers (`section` is its key).
+  const extent = useChromeExtent.getState()
+  const reach = section ? (extent.sections[section] ?? { header: 0, footer: 0 }) : extent
   const marginTop = Math.max(setup.marginTop * MM_TO_PX, reach.header)
   const marginRight = setup.marginRight * MM_TO_PX
   const marginBottom = Math.max(setup.marginBottom * MM_TO_PX, reach.footer)

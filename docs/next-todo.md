@@ -705,6 +705,29 @@ Icon contact sheet per tab in both layouts and both themes; narrow widths; keybo
 
 One sub-phase at a time, each checked in the browser in both themes before the next starts.
 
+Fixed 2026-10-29: each Word section opens with its own top and bottom margins and headers and footers, editable
+per section with Link to Previous, and saved into its own section break (`changes.md`). Open: Page Setup, rulers
+and print copy use the last section's margins; per-section page size and orientation are not drawn.
+
+Fixed 2026-10-29: Options dialog drawn light in dark mode; SmartArt Cycle, Organization Chart and Relationship
+drawn as a row of boxes in a dashed frame (`changes.md`).
+
+Fixed 2026-10-29, from a contract built on Word's cover page: a Word section break did not start a new page (the
+next section ran on under the cover, and every later page break landed early, text into the gaps between pages); a
+floating picture larger than the page was drawn past its edges; a fill with `a:alpha` was drawn opaque
+(`changes.md`).
+
+Open 2026-10-29: the editor has one page setup for every section, so a cover section with its own margins (top 0)
+is laid out with the last section's, and a header picture taller than the top margin (the contract's logo) is not
+drawn on the pages, though the body starts below the header's reach.
+
+Fixed 2026-10-29: a block-level rich text or cover page content control opened as one raw block of plain text; its
+paragraphs and tables now open as the document's own and are saved back inside the control (`changes.md`).
+
+Fixed 2026-10-29: Word list items that set their own left indent (the level giving the hanging one) opened with the
+text indented twice, 0.75" too far right, and deeper levels stepped 1.75em; the list now places the text once and
+steps levels by the document's own spacing (`changes.md`).
+
 ### 18.1 — Charts in Word documents
 
 Opening a document with a chart failed: "Unknown namespace is not listed in mc:Ignorable: …/drawingml/2006/chart".

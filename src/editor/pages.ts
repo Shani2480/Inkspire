@@ -2,6 +2,7 @@ import { contourOf, contourPolygon, onContourReady } from "@/editor/wrap-contour
 import { keepWithNextMustMove, linesOnPage } from "@/editor/page-breaking"
 import { useChromeExtent } from "@/document/chrome-extent"
 import { pageMetrics, setupColumns, type LineNumberRestart } from "@/document/page-setup"
+import { sectionAt, sectionSetup } from "@/document/sections"
 import { columnBoxes } from "@/document/column-widths"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
@@ -56,6 +57,12 @@ export type LineMark = {
 
 export type PaginationStorage = {
   pageCount: number
+  /**
+   * The section each page is in, as the key of a section before the last (`chrome.sections`), or "" for the
+   * document's own last section; and each page's number within its section's run (0 for a section's first page).
+   */
+  pageSections: string[]
+  sectionStarts: boolean[]
   breaks: number[]
   lines: LineMark[]
   /** Last layout duration in ms (for profiling / status). */
@@ -109,6 +116,8 @@ export const Pagination = Extension.create<unknown, PaginationStorage>({
   addStorage() {
     return {
       pageCount: 1,
+      pageSections: [""],
+      sectionStarts: [true],
       breaks: [],
       lines: [],
       lastLayoutMs: 0,
@@ -309,6 +318,10 @@ function paginationPlugin(storage: PaginationStorage) {
               placeFlowObjects(view, laid.placements)
               placeFloatingTables(view, laid.tables, metrics)
               storage.pageCount = laid.pageCount
+              storage.pageSections = laid.pageSections
+              storage.sectionStarts = laid.sectionStarts
+              // The first page's text starts at its own section's top margin; the canvas is padded by the last's.
+              view.dom.style.marginTop = laid.firstTop && !web ? `${laid.firstTop}px` : ""
               storage.breaks = laid.breaks.map((item) => item.pos)
               storage.lines = lines
               const lineSignature = lines.map((line) => `${line.n}:${line.pos}:${line.top}`).join(",")
@@ -888,6 +901,11 @@ type Layout = {
   lastUsed: number
   contentHeight: number
   pageCount: number
+  /** Each page's section key and whether it starts its section (see `PaginationStorage`). */
+  pageSections: string[]
+  sectionStarts: boolean[]
+  /** How much lower (or higher) the first page's text starts than the document's own top margin puts it. */
+  firstTop: number
   signature: string
   layoutMs: number
   measureCount: number
@@ -933,7 +951,25 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   }
 
   const metrics = pageMetrics(useDocumentStore.getState().pageSetup)
-  const contentHeight = metrics.contentHeight
+  // Word's sections each have their own top and bottom margins: a page is laid out with its section's. The editor's
+  // section breaks (those that start a page) split the pages into sections; the last is the document's own.
+  const sectionIds: string[] = []
+  view.state.doc.forEach((node) => {
+    if (node.type.name === "sectionBreak" && node.attrs.kind !== "continuous") {
+      sectionIds.push(String(node.attrs.sectionId || ""))
+    }
+  })
+  const sectionList = useDocumentStore.getState().sections
+  const sectionKeys = [...sectionIds.map((_, index) => sectionAt(sectionList, sectionIds, index)?.key ?? ""), ""]
+  const sectionMetrics = sectionKeys.map((key) => {
+    const section = key ? (sectionList.find((item) => item.key === key) ?? null) : null
+    return section
+      ? pageMetrics(sectionSetup(useDocumentStore.getState().pageSetup, section), false, section.key)
+      : metrics
+  })
+  let section = 0
+  let contentHeight = sectionMetrics[0]!.contentHeight
+  const pageSections = [0]
   const columnCount = metricsColumns()
   const breaks: PageBreak[] = []
   const bands: FlowBand[] = []
@@ -1001,25 +1037,35 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   }
   /** Where the text has got to: changes when a block moves on to another column or page. */
   const whereNow = () => `${breaks.length}:${column}`
-  const pushBreak = (pos: number, manual: boolean) => {
+  /** Ends the page; `next` is the section the next page is in (a section break starts the next one). */
+  const pushBreak = (pos: number, manual: boolean, next = section) => {
     if (web) {
       return
     }
     const ended = column
     column = 0
+    const following = Math.min(next, sectionMetrics.length - 1)
     if (breaks.some((item) => item.pos === pos)) {
       used = 0
+      section = following
+      contentHeight = sectionMetrics[section]!.contentHeight
       return
     }
     const fill = Math.max(0, contentHeight - used)
+    // The gap runs from this page's bottom margin to the next page's top margin, each its own section's.
+    const below = sectionMetrics[section]!.marginBottom
+    const above = sectionMetrics[following]!.marginTop
     breaks.push({
       pos,
-      height: Math.ceil(fill + PAGE_GAP + metrics.marginTop + metrics.marginBottom),
+      height: Math.ceil(fill + PAGE_GAP + below + above),
       manual,
-      labelTop: Math.round(fill + metrics.marginBottom + PAGE_GAP / 2),
+      labelTop: Math.round(fill + below + PAGE_GAP / 2),
       ...(unequal ? { page: breaks.length + 1, column: ended } : {}),
     })
     used = 0
+    section = following
+    contentHeight = sectionMetrics[section]!.contentHeight
+    pageSections.push(section)
   }
 
   const overflow = (pos: number) => {
@@ -1202,7 +1248,9 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
           return
         }
         const keep = Math.max(0, Math.round(room - (cut.top - from[index]!)))
-        const height = Math.ceil(keep + PAGE_GAP + metrics.marginTop + metrics.marginBottom + header)
+        const height = Math.ceil(
+          keep + PAGE_GAP + sectionMetrics[section]!.marginTop + sectionMetrics[section]!.marginBottom + header,
+        )
         gaps.push({ pos: cut.pos, keep, height, ...(header > 0 ? { header, draw: gaps.length === 0 } : {}) })
         from[index] = cut.top
       })
@@ -1327,8 +1375,9 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
         place(pos, 12)
         trailing = 0
       } else {
-        // As in Word, the break mark stays at the end of the page it ends; the next page starts after it.
-        pushBreak(pos + node.nodeSize, true)
+        // As in Word, the break mark stays at the end of the page it ends; the next page starts after it, in the
+        // next section.
+        pushBreak(pos + node.nodeSize, true, section + 1)
       }
       return
     }
@@ -1580,6 +1629,9 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     lastUsed,
     contentHeight,
     pageCount: breaks.length + 1,
+    pageSections: pageSections.map((index) => sectionKeys[index]!),
+    sectionStarts: pageSections.map((index, page) => page === 0 || pageSections[page - 1] !== index),
+    firstTop: Math.round(sectionMetrics[0]!.marginTop - metrics.marginTop),
     layoutMs: performance.now() - started,
     measureCount,
     cacheHits,
@@ -1592,7 +1644,8 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       mirrors.map((item) => `${item.pos}:${item.page % 2}`).join(","),
       columnCount,
       useDocumentStore.getState().pageSetup.columnGap,
-      `${Math.round(metrics.marginTop)}:${Math.round(metrics.marginBottom)}`,
+      sectionMetrics.map((item) => `${Math.round(item.marginTop)}:${Math.round(item.marginBottom)}`).join(","),
+      pageSections.join(","),
       cells.map((cell) => `${cell.pos}:${cell.column}:${cell.lift}:${cell.width ?? ""}`).join(","),
       breaks.map((item) => item.lift ?? 0).join(","),
       breaks

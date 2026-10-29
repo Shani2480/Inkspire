@@ -1355,13 +1355,38 @@ function frameStyle(node: ProseNode, dom?: HTMLElement) {
     return { position: "static", left: "", top: "", zIndex: "" }
   }
   const place = dom ? flowPlace(dom, node) : { page: Number(node.attrs.page) || 1, y: Number(node.attrs.y) || 0 }
+  const x = Number(node.attrs.x) || 0
   return {
     position: "absolute",
-    left: `${Math.round(objectLeft(place.page, Number(node.attrs.x) || 0, metrics))}px`,
+    left: `${Math.round(objectLeft(place.page, x, metrics))}px`,
     top: `${objectTop(place.page, place.y, metrics)}px`,
     zIndex: wrap === "behind" ? String(-1000 + (Number(node.attrs.z) || 0)) : String(20 + (Number(node.attrs.z) || 0)),
     transform: Number(node.attrs.rotate) ? `rotate(${Number(node.attrs.rotate)}deg)` : "",
+    clipPath: pageClip(node, x, place.y, metrics, dom),
   }
+}
+
+/**
+ * Word draws nothing outside the page: the part of a floating object past the sheet's edges (a cover photo larger
+ * than the page) is cut off. `x` and `y` are from the text's top-left corner, the margins in from the sheet's. A
+ * polygon, not an inset: its corners are the sheet's, whatever size the frame's own box is (a wide picture overflows
+ * a frame the text's width). Not for a turned object (the clip would turn with it) or one in a header or footer box.
+ */
+export function pageClip(node: ProseNode, x: number, y: number, metrics: PageMetrics, dom?: HTMLElement) {
+  const width = Number(node.attrs.width) || 0
+  const height = Number(node.attrs.height) || 0
+  if (width <= 0 || height <= 0 || Number(node.attrs.rotate) || dom?.closest(".chrome-box")) {
+    return ""
+  }
+  const left = -(x + metrics.marginLeft)
+  const top = -(y + metrics.marginTop)
+  const right = left + metrics.width
+  const bottom = top + metrics.height
+  if (left <= 0.5 && top <= 0.5 && width <= right + 0.5 && height <= bottom + 0.5) {
+    return ""
+  }
+  const px = (value: number) => `${Math.round(value)}px`
+  return `polygon(${px(left)} ${px(top)}, ${px(right)} ${px(top)}, ${px(right)} ${px(bottom)}, ${px(left)} ${px(bottom)})`
 }
 
 export function objectTop(page: number, y: number, metrics: PageMetrics) {

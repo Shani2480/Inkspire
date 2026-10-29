@@ -37,6 +37,7 @@ import {
   type Border,
   type CellMargins,
   type Comment,
+  type ContentControl,
   type CommentEx,
   type CommentExtensible,
   type CommentId,
@@ -2319,6 +2320,22 @@ function readBlockChildren(node: MarkupNode, notes: WordNote[], raw: RawCursor =
     } else if (child.local === "sdt") {
       const control: Block = { kind: "raw", xml: raw.take("sdt") ?? sourceOf(child) ?? "", text: visibleText(child) }
       const content = wordChild(child, "sdtContent")
+      const wrapper = content && opensAsBlocks(child) ? splitControl(control.xml) : undefined
+      if (content && wrapper) {
+        // Any other control (a cover page, a template's section) opens as its paragraphs and tables, each
+        // remembering the control so saving puts it back around them.
+        const inner = readBlockChildren(content, notes, rawCursor(wrapper.content))
+        for (const block of inner) {
+          block.controls = [wrapper.control, ...(block.controls ?? [])]
+        }
+        const first = inner[0]
+        if (first?.kind === "paragraph" && pending.length > 0) {
+          first.inlines = [...pending, ...first.inlines]
+          pending = []
+        }
+        blocks.push(...inner)
+        continue
+      }
       if (content && isTocControl(child)) {
         // Read for the editor's table of contents; the control itself is written back as read.
         control.blocks = readBlocks(content, [])
@@ -2742,6 +2759,48 @@ function bindHyperlinkStory(pkg: OpcPackage, source: string, blocks: Block[]) {
         inline.target = relationship.target
       }
     })
+  }
+}
+
+/** Controls whose own kind decides their content (a list, a date, plain text, a citation…). */
+const TYPED_CONTROLS = new Set([
+  "text",
+  "dropDownList",
+  "comboBox",
+  "date",
+  "picture",
+  "checkbox",
+  "citation",
+  "bibliography",
+  "equation",
+  "showingPlcHdr",
+])
+
+/**
+ * A rich text or building block control (a cover page, a template's section) holding real content, not its
+ * placeholder: opened as its blocks. A table of contents and the typed controls stay as written.
+ */
+function opensAsBlocks(node: MarkupNode) {
+  const properties = wordChild(node, "sdtPr")
+  const typed = properties?.children.some((child) => TYPED_CONTROLS.has(child.local))
+  return !typed && !isTocControl(node)
+}
+
+/**
+ * A block-level control's markup around its content, and the content itself, from the control as written. None
+ * when the content is empty: such a control has nothing to open and stays as it is.
+ */
+function splitControl(xml: string): { control: ContentControl; content: string } | undefined {
+  const opening = /<(?:[A-Za-z_][\w.-]*:)?sdtContent(?:\s[^>]*)?>/.exec(xml)
+  const closings = [...xml.matchAll(/<\/(?:[A-Za-z_][\w.-]*:)?sdtContent\s*>/g)]
+  const closing = closings[closings.length - 1]
+  if (!opening || !closing || closing.index < opening.index) {
+    return undefined
+  }
+  const start = opening.index + opening[0].length
+  return {
+    control: { open: xml.slice(0, start), close: xml.slice(closing.index) },
+    content: xml.slice(start, closing.index),
   }
 }
 

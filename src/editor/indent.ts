@@ -54,7 +54,8 @@ function listIndentAttribute() {
       }
       return {
         "data-indent": String(indent),
-        style: `margin-left: calc(${indent} * ${LIST_INDENT_STEP})`,
+        // A list from Word steps by its own levels' indent.
+        style: `margin-left: calc(${indent} * var(--list-indent-step, ${LIST_INDENT_STEP}))`,
       }
     },
   }
