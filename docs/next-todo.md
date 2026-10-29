@@ -706,8 +706,10 @@ Icon contact sheet per tab in both layouts and both themes; narrow widths; keybo
 One sub-phase at a time, each checked in the browser in both themes before the next starts.
 
 Fixed 2026-10-29: Word lists draw Word's own bullets and numbers (`lvlText`, number format, bullet font) at the
-hanging indent, renumbered as they are edited (`changes.md`). Open: the level's own marker formatting, `lvlJc`
-centred/right numbers, `isLgl`.
+hanging indent, renumbered as they are edited (`changes.md`). Fixed the same day: the level's own marker
+formatting, `lvlJc` centred/right numbers, `suff`, `isLgl`, `lvlRestart`, a wide marker's text at the next tab stop,
+markers in exported HTML. Also the contract's footer cloud: pictures in headers are no longer clipped to the body,
+and pictures flip (`flipH`/`flipV`). Open: picture bullets (`lvlPicBulletId`).
 
 Fixed 2026-10-29: each Word section opens with its own top and bottom margins and headers and footers, editable
 per section with Link to Previous, and saved into its own section break (`changes.md`). Open: Page Setup, rulers

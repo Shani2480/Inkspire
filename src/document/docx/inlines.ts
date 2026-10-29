@@ -348,6 +348,7 @@ function runContentHtml(content: RunContent, run: Run, ctx: Projection) {
         content.object,
         content.crop,
         content.geometry,
+        content,
       )
     }
     case "text":
@@ -1103,6 +1104,7 @@ function imageHtml(
   object?: string,
   crop?: { l: number; t: number; r: number; b: number },
   geometry?: string,
+  flip?: { flipH?: boolean; flipV?: boolean },
 ) {
   const mime = media.contentType || "image/png"
   const kept = object && /^[A-Za-z0-9+/=]+$/.test(object) ? ` data-inkspire-object="${object}"` : ""
@@ -1122,7 +1124,8 @@ function imageHtml(
     : ""
   const frame = frameOfPreset(geometry)
   const shaped = frame ? ` data-frame="${escapeHtml(frame)}"` : ""
-  return `<img src="data:${mime};base64,${encodeBase64(media.data)}"${width}${height}${alt}${anchor}${floating}${rotate}${cropped}${shaped}${kept}>`
+  const flipped = `${flip?.flipH ? ' data-flip-h="1"' : ""}${flip?.flipV ? ' data-flip-v="1"' : ""}`
+  return `<img src="data:${mime};base64,${encodeBase64(media.data)}"${width}${height}${alt}${anchor}${floating}${rotate}${cropped}${shaped}${flipped}${kept}>`
 }
 
 /** The data attributes the editor reads a floating object's layout from. */
@@ -1788,6 +1791,8 @@ export function imageRun(node: JsonNode, build: InlineBuild, asPicture = false):
       sameLayout(node, drawing.layout, drawing.cx, build.section, drawing.cy) &&
       rotationDegrees(drawing.rot) === (numberAttr(node.attrs?.rotate) ?? 0) &&
       sameCrop(node.attrs ?? {}, drawing.crop) &&
+      Boolean(drawing.flipH) === Boolean(node.attrs?.flipH) &&
+      Boolean(drawing.flipV) === Boolean(node.attrs?.flipV) &&
       src === `data:${media.contentType || "image/png"};base64,${encodeBase64(media.data)}`
     ) {
       return structuredClone(origin)
@@ -2574,7 +2579,15 @@ function anchorOpen(layout: FloatingLayout, cx: number, cy: number, section?: Se
   )
 }
 
-export type PictureDrawingFormat = { blip: string; srcRect: string; geometry: string; line: string; effects: string }
+export type PictureDrawingFormat = {
+  blip: string
+  srcRect: string
+  geometry: string
+  line: string
+  effects: string
+  /** `a:xfrm`'s flipH / flipV attributes. */
+  flips: string
+}
 
 /** The crop as `a:srcRect` writes it: each side in 1000ths of a percent, negative for Fit's empty room. */
 function cropRect(attrs: Record<string, unknown>) {
@@ -2659,6 +2672,7 @@ export function pictureDrawingFormat(attrs: Record<string, unknown>): PictureDra
     geometry,
     line,
     effects: effects.length ? `<a:effectLst>${effects.join("")}</a:effectLst>` : "",
+    flips: `${attrs.flipH ? ' flipH="1"' : ""}${attrs.flipV ? ' flipV="1"' : ""}`,
   }
 }
 
@@ -2699,7 +2713,7 @@ function drawingXml(
         `<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
         `<pic:nvPicPr><pic:cNvPr id="${id}" name=""/><pic:cNvPicPr/></pic:nvPicPr>` +
         `<pic:blipFill>${format?.blip ? `<a:blip r:embed="${relId}">${format.blip}</a:blip>` : `<a:blip r:embed="${relId}"/>`}${format?.srcRect ?? ""}<a:stretch><a:fillRect/></a:stretch></pic:blipFill>` +
-        `<pic:spPr><a:xfrm${rot ? ` rot="${rot}"` : ""}><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>` +
+        `<pic:spPr><a:xfrm${rot ? ` rot="${rot}"` : ""}${format?.flips ?? ""}><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>` +
         `<a:prstGeom prst="${format?.geometry ?? "rect"}"><a:avLst/></a:prstGeom>${format?.line ?? ""}${format?.effects ?? ""}</pic:spPr></pic:pic>` +
         `</a:graphicData>`) +
     `</a:graphic></wp:${layout ? "anchor" : "inline"}></w:drawing>`

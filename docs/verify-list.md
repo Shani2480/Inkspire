@@ -8,9 +8,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 ## Needs Microsoft Word (open the saved .docx in Word)
 
 - [ ] **Per-section headers and margins (2026-10-29)** — open a Word file with sections that have different headers
-  (a cover page and a body with a logo header). Each section's pages show their own header and top margin. Edit the
-  header on a body page, save, and open in Word: the body section has the edited header, the cover is unchanged,
-  and a later section that was Linked to Previous still is.
+      (a cover page and a body with a logo header). Each section's pages show their own header and top margin. Edit the
+      header on a body page, save, and open in Word: the body section has the edited header, the cover is unchanged,
+      and a later section that was Linked to Previous still is.
 
 - [ ] **Section breaks, page clip, see-through fills (2026-10-29)** — a Word document with next-page section breaks
       opens in the app with each section on a new page, the same page count as Word (fonts allowing); a shape with
@@ -90,8 +90,13 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 ## Needs Chrome (the web build in a browser)
 
 - [ ] **Word list markers (2026-10-29)** — open Word files with `a)`, `i.`, `1.1` and bullet lists (Symbol,
-  Wingdings, `o` in Courier New) next to Word: each marker reads and sits as Word's. Add, delete and Tab an item:
-  the numbers follow.
+      Wingdings, `o` in Courier New) next to Word: each marker reads and sits as Word's. Add, delete and Tab an item:
+      the numbers follow.
+- [ ] **Word list levels' own look (2026-10-29)** — next to Word: a list with right-aligned roman numbers, a long
+      `Article 1.` marker, a level with a space after its number, a legal `1.1` under a roman level, and a marker in
+      its own size and colour. Export to HTML and PDF: the same markers.
+- [ ] **Footer cloud (2026-10-29)** — the contract's agreement pages: the page number sits inside the flipped cloud
+      as in Word; open and save, then open in Word: the cloud is still flipped.
 
 - [ ] **No pill over a table's last row (2026-10-27)** — in the desktop app, hover over the last row of a table as
       wide as the text, and of one widened past the margin: no scrollbar shows.
@@ -163,8 +168,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 ## Needs the desktop app (Tauri build)
 
 - [ ] **Options in dark mode; SmartArt layouts (2026-10-29)** — in the desktop app in dark mode open File → Options:
-  every page reads light on dark. Insert → SmartArt → Basic Cycle, Organization Chart, Basic Relationship: a ring
-  with arrows, a tree, overlapping circles; no dashed frame until hovered.
+      every page reads light on dark. Insert → SmartArt → Basic Cycle, Organization Chart, Basic Relationship: a ring
+      with arrows, a tree, overlapping circles; no dashed frame until hovered.
 
 - [ ] **Stock 3D models (2026-10-28)** — each of the 42 models in Electronics, Anatomy, Furniture and Symbols draws in
       the WebKitGTK webview as in Chrome (lit screens, see-through cornea and bulb glass); Format › Matte / Metal and a

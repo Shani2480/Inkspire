@@ -1,3 +1,4 @@
+import { withWordMarkers } from "@/editor/word-markers"
 import { useBackstage } from "@/document/backstage"
 import { invokeWithTools } from "@/document/helper-tools"
 import {
@@ -924,6 +925,8 @@ async function writeDocument(path: string, forceExt?: string, operation: FileOpe
   useDocumentStore.getState().setSaving(true)
   try {
     const html = currentHTML()
+    // Word's list markers are drawn by the editor; written out, each item carries its own.
+    const written = withWordMarkers(html)
     const editor = getDocumentEditor()
     const chrome = currentChrome()
     const props = useDocumentStore.getState().documentProps
@@ -949,7 +952,7 @@ async function writeDocument(path: string, forceExt?: string, operation: FileOpe
         throw new Error(`Saving .${ext} requires the desktop app.`)
       }
       await invokeWithTools<void>("export_document", {
-        html,
+        html: written,
         path,
         title: props.title || null,
         author: props.author || null,
@@ -962,7 +965,7 @@ async function writeDocument(path: string, forceExt?: string, operation: FileOpe
     } else if (ext === "txt") {
       await writeText(path, stripTags(html))
     } else {
-      await writeText(path, packStyles(useStyleStore.getState().styles) + packDocument(html, chrome))
+      await writeText(path, packStyles(useStyleStore.getState().styles) + packDocument(written, chrome))
     }
 
     if (ext !== "pdf") {

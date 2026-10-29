@@ -25,7 +25,7 @@ describe("picture formatting", () => {
 
   it("writes the formatting as DrawingML Word reads", () => {
     const none = pictureDrawingFormat({})
-    expect(none).toEqual({ blip: "", srcRect: "", geometry: "rect", line: "", effects: "" })
+    expect(none).toEqual({ blip: "", srcRect: "", geometry: "rect", flips: "", line: "", effects: "" })
     const format = pictureDrawingFormat({
       brightness: 20,
       contrast: -10,

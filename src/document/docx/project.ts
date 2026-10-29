@@ -412,14 +412,14 @@ function listAttributes(tag: string, numId: number, items: Paragraph[], ctx: Pro
       : ""
   return `${tag === "ol" && start !== 1 ? ` start="${start}"` : ""} data-word-list="1"${
     indent ? ` data-word-indent="${indent}"` : ""
-  }${wordLevelsAttribute(ctx.doc.numbering, numId)}`
+  }${wordLevelsAttribute(ctx.doc.numbering, numId, ctx.doc.settings.defaultTabStop)}`
 }
 
 /**
  * Each level's marker as Word defines it (`editor/word-markers.ts`): its text, number format, start, the hanging
  * indent it sits in and its font, so the editor draws Word's own bullets and numbers.
  */
-function wordLevelsAttribute(numbering: NumberingDefinitions, numId: number) {
+function wordLevelsAttribute(numbering: NumberingDefinitions, numId: number, defaultTab = 720) {
   const levels: WordLevel[] = []
   for (let ilvl = 0; ilvl < 9; ilvl += 1) {
     const level = numberingLevel(numbering, numId, ilvl)
@@ -427,16 +427,32 @@ function wordLevelsAttribute(numbering: NumberingDefinitions, numId: number) {
       break
     }
     const ind = level.pPr.ind
-    const font = level.rPr.rFonts?.ascii ?? level.rPr.rFonts?.hAnsi
+    const run = level.rPr
+    const font = run.rFonts?.ascii ?? run.rFonts?.hAnsi
+    const color = run.color && /^[0-9A-Fa-f]{6}$/.test(run.color) ? `#${run.color.toLowerCase()}` : undefined
+    const justify =
+      level.justify === "center" ? "center" : level.justify === "right" || level.justify === "end" ? "right" : undefined
     levels.push({
       text: level.text ?? "",
       format: level.format ?? "decimal",
       start: level.start ?? 1,
       hang: (ind?.hanging ?? 0) / 20,
       ...(font ? { font } : {}),
+      ...(justify ? { justify } : {}),
+      ...(level.suffix && level.suffix !== "tab" ? { suffix: level.suffix } : {}),
+      ...(level.legal ? { legal: true } : {}),
+      ...(level.restart !== undefined ? { restart: level.restart } : {}),
+      ...(run.sz ? { size: run.sz / 2 } : {}),
+      ...(color ? { color } : {}),
+      ...(run.b !== undefined ? { bold: run.b } : {}),
+      ...(run.i !== undefined ? { italic: run.i } : {}),
     })
   }
-  return levels.length > 0 ? ` data-word-levels="${escapeAttribute(JSON.stringify(levels))}"` : ""
+  if (levels.length === 0) {
+    return ""
+  }
+  // The default tab stops, which the text after a marker too wide for its hanging indent moves on to.
+  return ` data-word-levels="${escapeAttribute(JSON.stringify(levels))}" data-word-tab="${defaultTab / 20}"`
 }
 
 function listTag(doc: WordDocument, numId: number) {

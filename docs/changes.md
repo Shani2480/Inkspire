@@ -7,6 +7,63 @@ in Word, Chrome or the desktop app.
 
 ## 2026-10-29
 
+### List markers drawn with each level's own settings; the cloud in the contract's footer
+
+- **What was wrong:**
+  - Word list markers took their paragraph's font, size and colour, not the level's own `w:rPr`.
+  - Centred and right-aligned numbers (`w:lvlJc`) were drawn left-aligned.
+  - A marker wider than its hanging indent pushed the text over by its own width, not to Word's next tab stop.
+  - `w:suff` (a space or nothing after the marker), `w:isLgl` (legal numbers) and `w:lvlRestart` were ignored.
+  - Saving rewrote `numbering.xml` without `lvlRestart`, `pStyle`, `isLgl` and `suff`.
+  - Exported HTML (and the PDF, ODT and RTF made from it) showed the browser's markers.
+  - On the contract's agreement pages, the page number in the footer sat outside its cloud picture, and the cloud
+    was cut off at the top. There were three causes:
+    - `pageClip` clipped a picture inside a header or footer editor against the body's page area. The last
+      section's top margin of 0 cut 17 px off the top.
+    - The cloud is flipped horizontally (`a:xfrm flipH`), and pictures were not flipped.
+    - The footer reserved 2.5 rem on the right for the app's page number even when it was hidden, which pushed the
+      document's own number out of the cloud.
+- **What changed:**
+  - `docx/wml-read.ts`, `wml-write.ts`, `model.ts`: numbering levels read and write `lvlRestart`, `pStyle`, `isLgl`
+    and `suff`, in `CT_Lvl` order.
+  - `docx/project.ts`: `data-word-levels` adds each level's justification, suffix, legal flag, restart and run
+    format (size, colour, bold, italic). `data-word-tab` carries the document's default tab stop.
+  - `editor/word-markers.ts`:
+    - `WordNumbering` follows `lvlRestart` and writes legal levels' numbers as decimals.
+    - `withWordMarkers` writes each item's marker as its `list-style-type` in exported HTML (`document/commands.ts`).
+  - `editor/indent.ts`:
+    - The decoration sets the marker's font, size, colour, weight and style.
+    - `fitWordMarkers` measures each marker after layout:
+      - A right-aligned or centred marker is moved to end at, or be centred on, the number position
+        (`--word-shift`).
+      - The text goes to the hanging indent, or past a wide marker to the paragraph's next tab stop or the next
+        default one (`--word-box`).
+      - With a space suffix the text follows a space; with no suffix it follows the marker directly.
+  - `editor/objects.ts`:
+    - `pageClip` leaves pictures in headers and footers alone.
+    - A picture's `flipH`/`flipV` are drawn, kept on the node (`picture-format.ts`) and written back in `a:xfrm`
+      (`docx/inlines.ts`).
+  - `index.css`: the footer keeps room on the right only while the app's page number is shown.
+- **Checked:**
+  - `word-markers.test.ts`: legal numbers, `lvlRestart` 0 and 1, exported markers, and the item's look and
+    alignment attributes.
+  - `list-indent.test.ts`: a level with right alignment, a space suffix, `isLgl`, `lvlRestart` and its own
+    run format opens with all of them and keeps them in `numbering.xml` after an edit.
+  - `section-pages.test.ts`: a picture in a header editor is not clipped. A flipped picture opens flipped, stays
+    flipped on save and loses the flip when it is cleared.
+  - The Open XML SDK validator reports 0 errors on both saved files.
+  - Headless Chrome:
+    - Right-aligned `I.`–`IV.` end at the number position.
+    - `Article 1.` sends the text to the 72 pt tab.
+    - `a)` with a space suffix is followed by its text.
+    - A level with no hanging indent sends the text to the first tab.
+    - A 16 pt red bold marker is drawn as set.
+    - On the contract, the page number sits inside the cloud.
+    - The full suite passes: 1249 tests.
+- **Open:**
+  - Not checked in Word side by side.
+  - The marker of a `w:lvlPicBulletId` picture bullet is still drawn as text.
+
 ### Word lists draw Word's own bullets and numbers
 
 - **What was wrong:** a list opened from Word used the browser's markers: disc, circle and square bullets, and

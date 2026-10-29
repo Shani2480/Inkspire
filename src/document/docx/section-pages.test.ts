@@ -4,7 +4,7 @@ import { Editor } from "@tiptap/core"
 import type { Node as ProseNode } from "@tiptap/pm/model"
 import { afterEach, describe, expect, it } from "vitest"
 import { openDocxBytes, saveDocxBytes } from "@/document/docx/io"
-import { findPart, openPackage } from "@/document/docx/opc"
+import { findPart, openPackage, writePackage } from "@/document/docx/opc"
 import { readShapeLook } from "@/document/docx/shape-import"
 import { solid } from "@/document/docx/shape-write"
 import { decodeXml } from "@/document/docx/xml"
@@ -88,6 +88,59 @@ describe("a floating object past the page's edge", () => {
   it("is drawn whole when it fits the page, or when it is turned", () => {
     expect(pageClip(node({ width: 200, height: 100 }), 10, 10, metrics)).toBe("")
     expect(pageClip(node({ width: 2000, height: 100, rotate: 15 }), -300, 10, metrics)).toBe("")
+  })
+
+  it("is not cut in a header or footer, whose editor is drawn off the page", () => {
+    const editor = document.createElement("div")
+    editor.className = "page-editor chrome-editor"
+    const frame = document.createElement("div")
+    editor.append(frame)
+    // A footer picture a little above its paragraph, as the contract's cloud behind the page number, in a document
+    // whose last section has no top margin: in the body it would be cut at the sheet's top.
+    const flush = pageMetrics({ ...DEFAULT_PAGE_SETUP, marginTop: 0 })
+    expect(pageClip(node({ width: 130, height: 47 }), 532, -17, flush)).not.toBe("")
+    expect(pageClip(node({ width: 130, height: 47 }), 532, -17, flush, frame)).toBe("")
+  })
+})
+
+describe("a flipped picture", () => {
+  async function flipped() {
+    const pkg = await openPackage(
+      new Uint8Array(readFileSync(path.join(AUTHORED, "f13_inline_image.docx"))),
+      "f13.docx",
+    )
+    const part = findPart(pkg, pkg.mainPartName)!
+    part.data = new TextEncoder().encode(decodeXml(part.data).replace(/<a:xfrm(?=[ >])/, '<a:xfrm flipH="1"'))
+    return openDocxBytes(await writePackage(pkg), "f13.docx")
+  }
+
+  it("opens mirrored, keeps Word's drawing untouched, and writes a flip that was taken off", async () => {
+    const opened = await flipped()
+    expect(opened.view.html).toContain('data-flip-h="1"')
+    const extensions = createExtensions().filter((extension) => extension.name !== "spellcheck")
+    const editor = new Editor({ extensions, content: opened.view.html })
+    editors.push(editor)
+    const save = async () => {
+      const saved = await saveDocxBytes({
+        json: editor.getJSON(),
+        chrome: opened.view.chrome,
+        props: opened.view.props,
+        word: opened.word,
+        unchanged: false,
+        fileName: "f13.docx",
+      })
+      const pkg = await openPackage(saved.bytes, "f13.docx")
+      return decodeXml(findPart(pkg, pkg.mainPartName)!.data)
+    }
+    expect(await save()).toMatch(/<a:xfrm[^>]*flipH="1"/)
+    let at = -1
+    editor.state.doc.descendants((child, pos) => {
+      if (child.type.name === "image") {
+        at = pos
+      }
+    })
+    editor.view.dispatch(editor.state.tr.setNodeAttribute(at, "flipH", false))
+    expect(await save()).not.toMatch(/flipH/)
   })
 })
 
