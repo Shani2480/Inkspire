@@ -25,7 +25,9 @@ import { chromeWithoutPageFields, pageFieldHtml } from "@/document/chrome-html"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
 import { addComment } from "@/editor/comments"
-import { useDocumentEditor } from "@/editor/document-editor"
+import { useBodyEditor, useDocumentEditor } from "@/editor/document-editor"
+import { caretSection } from "@/editor/section-break"
+import { usePageNumberFormat } from "@/components/page-number-format-dialog"
 import { insertPageField } from "@/editor/page-fields"
 import { insertImageFile } from "@/editor/actions"
 import {
@@ -1551,6 +1553,7 @@ const PAGE_NUMBER_PLACES = [
 function PageNumberMenu({ close }: { close: () => void }) {
   const editingChrome = useViewStore((state) => state.editingChrome)
   const editor = useDocumentEditor()
+  const body = useBodyEditor()
   const place = (part: "header" | "footer", align: "center" | "right") => {
     const state = useDocumentStore.getState()
     const set = part === "header" ? state.setHeader : state.setFooter
@@ -1590,6 +1593,18 @@ function PageNumberMenu({ close }: { close: () => void }) {
         }}
       >
         Number of Pages
+      </MenuButton>
+      <MenuButton
+        onClick={() => {
+          // The section of the page whose header or footer is open, else the one the caret is in.
+          const pages = body?.storage.pagination?.pageSections ?? []
+          const view = useViewStore.getState()
+          const key = editingChrome ? (pages[view.chromeTarget.page] ?? "") : (caretSection(body)?.key ?? "")
+          close()
+          usePageNumberFormat.getState().open(key)
+        }}
+      >
+        Format Page Numbers…
       </MenuButton>
       <MenuButton
         onClick={() => {

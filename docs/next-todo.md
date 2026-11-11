@@ -715,6 +715,14 @@ Fixed 2026-10-29: each Word section opens with its own top and bottom margins an
 per section with Link to Previous, and saved into its own section break (`changes.md`). Open: Page Setup, rulers
 and print copy use the last section's margins; per-section page size and orientation are not drawn.
 
+Fixed 2026-11-11: page numbers restart per section (`w:pgNumType` Start at and number format, read and written),
+with Insert > Page Number > Format Page Numbers…. Page Setup opens with the caret's section and applies to This
+section / This point forward / Whole document. The vertical ruler draws and drags each section's margins. The First
+page box and the Header & Footer tab's options change the open page's section. A recovered draft keeps every
+section (`changes.md`). The print copy already followed each section. Open: a section's own paper size,
+orientation and side margins; Top / Bottom of Page numbers only in the last section's header or footer; Previous /
+Next across sections and Link to Previous.
+
 Fixed 2026-10-29: Options dialog drawn light in dark mode; SmartArt Cycle, Organization Chart and Relationship
 drawn as a row of boxes in a dashed frame (`changes.md`).
 
@@ -725,7 +733,8 @@ floating picture larger than the page was drawn past its edges; a fill with `a:a
 
 Open 2026-10-29: the editor has one page setup for every section, so a cover section with its own margins (top 0)
 is laid out with the last section's, and a header picture taller than the top margin (the contract's logo) is not
-drawn on the pages, though the body starts below the header's reach.
+drawn on the pages, though the body starts below the header's reach. **Fixed** by the per-section margins and headers (checked
+2026-11-11: no strip above the cover's photo, and the logo is drawn on the agreement pages).
 
 Fixed 2026-10-29: a block-level rich text or cover page content control opened as one raw block of plain text; its
 paragraphs and tables now open as the document's own and are saved back inside the control (`changes.md`).

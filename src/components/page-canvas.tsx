@@ -16,6 +16,7 @@ import { useActiveChromeEditor } from "@/document/chrome-editing"
 import { chromeText } from "@/document/chrome-html"
 import { useChromeExtent } from "@/document/chrome-extent"
 import { applyPageChrome, pageBorderStyle, pageMetrics, setupColumns, showsPageBorder } from "@/document/page-setup"
+import { sectionPageLabels } from "@/document/page-numbers"
 import { sectionSetup, slotOwner, type ChromeSlot, type SectionChrome } from "@/document/sections"
 import { useDocumentStore } from "@/document/store"
 import { clampZoom, useViewStore } from "@/document/view"
@@ -94,6 +95,7 @@ export function PageCanvas() {
   // A Word document's sections before the last each have their own margins and headers and footers.
   const sections = useDocumentStore((state) => state.sections)
   const linkedSlots = useDocumentStore((state) => state.linkedSlots)
+  const setSectionSetup = useDocumentStore((state) => state.setSectionSetup)
   const [sectionParts, setSectionParts] = useState<Record<string, Record<ChromeSlot, ChromePart>>>({})
   const reportSectionParts = useCallback(
     (key: string, parts: Record<ChromeSlot, ChromePart>) =>
@@ -372,6 +374,8 @@ export function PageCanvas() {
     const key = web ? "" : (pageKeys[index] ?? "")
     return key ? (sections.find((item) => item.key === key) ?? null) : null
   }
+  // The number each page's PAGE fields show: a section that starts its page numbers at a number restarts there.
+  const pageLabels = sectionPageLabels(pageCount, web ? [] : pageKeys, pageStarts, sections, pageSetup)
   const metricsFor = (section: SectionChrome | null) =>
     section ? pageMetrics(sectionSetup(pageSetup, section), false, section.key) : metrics
   /**
@@ -509,12 +513,16 @@ export function PageCanvas() {
                     />
                   </>
                 ) : null}
-                {index === 0 && editingChrome && !section ? (
+                {(pageStarts[index] ?? index === 0) && editingChrome ? (
                   <label className="page-first">
                     <input
                       type="checkbox"
-                      checked={differentFirstPage}
-                      onChange={(event) => setDifferentFirstPage(event.target.checked)}
+                      checked={section ? section.differentFirstPage : differentFirstPage}
+                      onChange={(event) =>
+                        section
+                          ? setSectionSetup(section.key, { differentFirstPage: event.target.checked })
+                          : setDifferentFirstPage(event.target.checked)
+                      }
                     />
                     First page
                   </label>
@@ -524,7 +532,7 @@ export function PageCanvas() {
                   {...chromeFor(index, "header")}
                   live={editingChrome && chromeTarget.part === "header" && chromeTarget.page === index}
                   placeholder={chromeLabel(index, "Header")}
-                  page={index + 1}
+                  page={pageLabels[index] ?? String(index + 1)}
                   pages={pageCount}
                   focus
                   section={section?.key}
@@ -535,7 +543,7 @@ export function PageCanvas() {
                   {...chromeFor(index, "footer")}
                   live={editingChrome && chromeTarget.part === "footer" && chromeTarget.page === index}
                   placeholder={chromeLabel(index, "Footer")}
-                  page={index + 1}
+                  page={pageLabels[index] ?? String(index + 1)}
                   pages={pageCount}
                   focus
                   section={section?.key}
@@ -551,7 +559,7 @@ export function PageCanvas() {
                       : pageSetup.pageNumber
                   }
                 >
-                  {index + 1}
+                  {pageLabels[index] ?? index + 1}
                 </div>
                 {pageSetup.watermark ? (
                   <div className="page-watermark" aria-hidden>

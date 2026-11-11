@@ -64,6 +64,7 @@ import {
   type Hyperlink,
   type Inline,
   type LineNumbering,
+  type PageNumbering,
   type PageBorders,
   type MediaPart,
   type NumberingDefinitions,
@@ -845,6 +846,8 @@ function sectionsChrome(doc: WordDocument): SectionChrome[] {
       headerFromEdge: twipsToMm(props.header ?? doc.section?.header ?? 720),
       footerFromEdge: twipsToMm(props.footer ?? doc.section?.footer ?? 720),
       differentFirstPage: Boolean(props.titlePg),
+      pageNumberStart: props.pageNumbers?.start ?? null,
+      pageNumberFormat: props.pageNumbers?.format ?? "decimal",
       parts: own,
       opened: { ...own },
     })
@@ -868,6 +871,7 @@ function sectionStoriesFromChrome(
     if (!section || !paragraph.sectionBreak) {
       continue
     }
+    paragraph.sectionBreak = sectionSetupFromChrome(paragraph.sectionBreak, section, source?.section ?? null)
     for (const slot of CHROME_SLOTS) {
       const html = section.parts[slot]
       if (html === undefined || html === section.opened[slot]) {
@@ -887,6 +891,43 @@ function sectionStoriesFromChrome(
       }
     }
   }
+}
+
+/**
+ * A section break's w:sectPr with what Page Setup and Format Page Numbers changed in its section: each value that
+ * reads back the same as it opened keeps what Word wrote (twips, attributes it does not show).
+ */
+function sectionSetupFromChrome(props: SectionProps, section: SectionChrome, body: SectionProps | null): SectionProps {
+  const next: SectionProps = { ...props }
+  const measure = (name: "marginTop" | "marginBottom" | "header" | "footer", mm: number, fallback: number) => {
+    if (twipsToMm(props[name] ?? body?.[name] ?? fallback) !== mm) {
+      next[name] = mmToTwips(mm)
+    }
+  }
+  measure("marginTop", section.marginTop, 1440)
+  measure("marginBottom", section.marginBottom, 1440)
+  measure("header", section.headerFromEdge, 720)
+  measure("footer", section.footerFromEdge, 720)
+  if (Boolean(props.titlePg) !== section.differentFirstPage) {
+    next.titlePg = section.differentFirstPage ? true : undefined
+  }
+  const start = section.pageNumberStart ?? null
+  const format = section.pageNumberFormat ?? "decimal"
+  if ((props.pageNumbers?.start ?? null) !== start || (props.pageNumbers?.format ?? "decimal") !== format) {
+    const pages = { ...props.pageNumbers }
+    if (start === null) {
+      delete pages.start
+    } else {
+      pages.start = start
+    }
+    if (format === "decimal") {
+      delete pages.format
+    } else {
+      pages.format = format
+    }
+    next.pageNumbers = Object.keys(pages).length ? pages : undefined
+  }
+  return next
 }
 
 function storyOf(references: HeaderFooterRef[], kind: "header" | "footer", type: HeaderFooterType) {
@@ -922,6 +963,8 @@ function pageSetupFromSection(section: SectionProps): PageSetup {
     lineNumberStart: (section.lineNumbers?.start ?? 0) + 1,
     lineNumberCountBy: section.lineNumbers?.countBy ?? 1,
     lineNumberDistance: section.lineNumbers?.distance ? twipsToMm(section.lineNumbers.distance) : 0,
+    pageNumberStart: section.pageNumbers?.start ?? null,
+    pageNumberFormat: section.pageNumbers?.format ?? "decimal",
     gutter: twipsToMm(section.gutter ?? 0),
     headerFromEdge: twipsToMm(section.header ?? 708),
     footerFromEdge: twipsToMm(section.footer ?? 708),
@@ -1128,6 +1171,7 @@ function sectionFromChrome(chrome: DocumentChrome, base: SectionProps | null): S
     linePitch: base?.linePitch ?? DEFAULT_SECTION.linePitch,
     lineNumbers: lineNumberingFrom(setup, base?.lineNumbers),
     pageBorders: pageBordersFrom(setup, base?.pageBorders),
+    pageNumbers: pageNumberingFrom(setup, base?.pageNumbers),
     titlePg: chrome.differentFirstPage ? true : undefined,
     type: sectionTypeFrom(setup.sectionStart) ?? base?.type,
   }
@@ -1187,6 +1231,24 @@ function lineNumberingFrom(setup: PageSetup, base: LineNumbering | undefined): L
     ...(start !== undefined ? { start } : {}),
     ...(distance !== undefined ? { distance } : {}),
     restart,
+  }
+}
+
+/** The section's w:pgNumType from Format Page Numbers: what Word wrote while the start and format are the same. */
+function pageNumberingFrom(setup: PageSetup, base: PageNumbering | undefined): PageNumbering | undefined {
+  const start = setup.pageNumberStart ?? undefined
+  const format = setup.pageNumberFormat === "decimal" ? undefined : setup.pageNumberFormat
+  if (base && base.start === start && (base.format === "decimal" ? undefined : base.format) === format) {
+    return base
+  }
+  if (start === undefined && format === undefined && !base?.chapStyle && !base?.chapSep) {
+    return undefined
+  }
+  return {
+    ...(format !== undefined ? { format } : {}),
+    ...(start !== undefined ? { start } : {}),
+    ...(base?.chapStyle !== undefined ? { chapStyle: base.chapStyle } : {}),
+    ...(base?.chapSep ? { chapSep: base.chapSep } : {}),
   }
 }
 

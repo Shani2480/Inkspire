@@ -1,4 +1,7 @@
-import { Node, mergeAttributes } from "@tiptap/core"
+import { Node, mergeAttributes, type Editor } from "@tiptap/core"
+import type { Node as ProseNode } from "@tiptap/pm/model"
+import { sectionAtPosition, type SectionChrome } from "@/document/sections"
+import { useDocumentStore } from "@/document/store"
 
 export type SectionBreakKind = "nextPage" | "continuous" | "evenPage" | "oddPage"
 
@@ -104,3 +107,23 @@ export const SectionBreak = Node.create({
     }
   },
 })
+
+/** The section breaks of `doc` that start a page, in order: where each is and the key of the section it ends. */
+export function pageSectionBreaks(doc: ProseNode): { pos: number; key: string }[] {
+  const breaks: { pos: number; key: string }[] = []
+  doc.forEach((node, pos) => {
+    if (node.type.name === "sectionBreak" && node.attrs.kind !== "continuous") {
+      breaks.push({ pos, key: String(node.attrs.sectionId || "") })
+    }
+  })
+  return breaks
+}
+
+/** The section the body's caret is in (a section before the last), or `null` for the document's own last section. */
+export function caretSection(editor: Editor | null): SectionChrome | null {
+  const sections = useDocumentStore.getState().sections
+  if (!editor || sections.length === 0) {
+    return null
+  }
+  return sectionAtPosition(sections, pageSectionBreaks(editor.state.doc), editor.state.selection.from)
+}

@@ -313,6 +313,8 @@ function buildSnapshotRecord(id: string): SnapshotRecord | null {
       firstFooter: state.firstFooterHtml,
       evenFooter: state.evenFooterHtml,
       pageSetup: state.pageSetup,
+      sections: state.sections,
+      linked: state.linkedSlots,
     })
   const editor = getDocumentEditor()
   const json = editor && !editor.isDestroyed ? editor.getJSON() : null

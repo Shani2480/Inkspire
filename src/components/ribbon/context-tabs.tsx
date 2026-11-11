@@ -104,6 +104,7 @@ import { MODEL_LIGHTINGS } from "@/editor/model-format"
 import { chromeStep } from "@/document/chrome-editing"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
+import { usePageSectionSetup } from "@/components/chrome-section"
 import { useBodyEditor, useDocumentEditor } from "@/editor/document-editor"
 import { useTableDraw } from "@/editor/table-draw"
 import type { Editor } from "@tiptap/core"
@@ -1820,13 +1821,15 @@ export function HeaderFooterTab() {
   const editor = useDocumentEditor()
   const ribbonLayout = useViewStore((state) => state.ribbonLayout)
   const setEditingChrome = useViewStore((state) => state.setEditingChrome)
-  const differentFirstPage = useDocumentStore((state) => state.differentFirstPage)
-  const setDifferentFirstPage = useDocumentStore((state) => state.setDifferentFirstPage)
   const setup = useDocumentStore((state) => state.pageSetup)
   const setPageSetup = useDocumentStore((state) => state.setPageSetup)
   const { headerMenu, footerMenu, pageNumberMenu } = useChromeMenus()
   const dateMenu = (close: () => void) => <DateMenu editor={editor} close={close} />
   const chromeTarget = useViewStore((state) => state.chromeTarget)
+  // Different First Page and the distances are the section's of the page being edited.
+  const section = usePageSectionSetup(chromeTarget.page)
+  const differentFirstPage = section.differentFirstPage
+  const setDifferentFirstPage = (enabled: boolean) => section.set({ differentFirstPage: enabled })
   const editChrome = useViewStore((state) => state.editChrome)
   // The page count is the body's (the editor above is the header's while one is open).
   const body = useBodyEditor()
@@ -1852,8 +1855,8 @@ export function HeaderFooterTab() {
           min={0}
           step={0.1}
           aria-label={`${label} in centimeters`}
-          value={Math.round(setup[key]) / 10}
-          onChange={(event) => setPageSetup({ ...setup, [key]: Math.max(0, Number(event.target.value) || 0) * 10 })}
+          value={Math.round(section[key]) / 10}
+          onChange={(event) => section.set({ [key]: Math.max(0, Number(event.target.value) || 0) * 10 })}
         />
         <span>cm</span>
       </label>

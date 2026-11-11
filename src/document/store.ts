@@ -4,7 +4,7 @@ import { clearWordDocument } from "@/document/docx/session"
 import type { DocumentChrome } from "@/document/header"
 import { pageSetupForNewDocument } from "@/document/design-format"
 import { DEFAULT_PAGE_SETUP, normalizePageSetup, samePageSetup, type PageSetup } from "@/document/page-setup"
-import type { ChromeSlot, SectionChrome } from "@/document/sections"
+import type { ChromeSlot, SectionChrome, SectionSetupPatch } from "@/document/sections"
 import { create } from "zustand"
 
 type ChromeState = {
@@ -256,6 +256,8 @@ type DocumentState = {
   setDifferentFirstPage: (enabled: boolean) => void
   /** A header or footer of a section before the last, by its section's key. */
   setSectionPart: (key: string, slot: ChromeSlot, html: string) => void
+  /** The page setup of a section before the last (Page Setup > Apply to: This section, Format Page Numbers). */
+  setSectionSetup: (key: string, patch: SectionSetupPatch) => void
   setPageSetup: (pageSetup: PageSetup) => void
   startUntitled: (blankHtml: string) => void
   markOpened: (
@@ -362,6 +364,19 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       const sections = state.sections.map((item) =>
         item === section ? { ...item, parts: { ...item.parts, [slot]: html } } : item,
       )
+      return { sections, isDirty: isUnsaved(state, { sections }) }
+    }),
+  setSectionSetup: (key, patch) =>
+    set((state) => {
+      const section = state.sections.find((item) => item.key === key)
+      if (!section) {
+        return state
+      }
+      const changed = (Object.keys(patch) as (keyof SectionSetupPatch)[]).some((name) => patch[name] !== section[name])
+      if (!changed) {
+        return state
+      }
+      const sections = state.sections.map((item) => (item === section ? { ...item, ...patch } : item))
       return { sections, isDirty: isUnsaved(state, { sections }) }
     }),
   setPageSetup: (pageSetup) =>

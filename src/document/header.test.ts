@@ -77,4 +77,33 @@ describe("document chrome pack/unpack", () => {
     expect(packed).toContain("<!-- aiword-pagenum:none -->")
     expect(unpackDocument(packed).pageSetup.pageNumber).toBe("none")
   })
+
+  it("keeps a Word document's sections and each section's page numbers (a recovered draft)", () => {
+    const chrome: DocumentChrome = {
+      ...emptyChrome(),
+      footer: "<p>Last footer</p>",
+      pageSetup: { ...DEFAULT_PAGE_SETUP, pageNumberStart: 1, pageNumberFormat: "lowerRoman" },
+      sections: [
+        {
+          key: "s1",
+          marginTop: 0,
+          marginBottom: 25,
+          headerFromEdge: 12.5,
+          footerFromEdge: 12.5,
+          differentFirstPage: true,
+          pageNumberStart: 0,
+          pageNumberFormat: "decimal",
+          parts: { firstFooter: "<p>Cover --> footer</p>" },
+          opened: { firstFooter: "<p>Cover footer</p>" },
+        },
+      ],
+      linked: ["header"],
+    }
+    const unpacked = unpackDocument(packDocument("<p>Body</p>", chrome))
+    expect(unpacked.html).toBe("<p>Body</p>")
+    expect(unpacked.sections).toEqual(chrome.sections)
+    expect(unpacked.linked).toEqual(["header"])
+    expect(unpacked.pageSetup.pageNumberStart).toBe(1)
+    expect(unpacked.pageSetup.pageNumberFormat).toBe("lowerRoman")
+  })
 })

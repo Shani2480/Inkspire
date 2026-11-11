@@ -5,6 +5,62 @@ wrong or missing, what changed, where (files, tests), how it was checked, and wh
 story of each feature stays in `next-todo.md` under its section; `verify-list.md` holds what still needs a check
 in Word, Chrome or the desktop app.
 
+## 2026-11-11
+
+### Page numbers restart per section; Page Setup, the rulers and First page work per section
+
+- **What was wrong:**
+  - Every page field showed the page's position plus one. Word's `w:pgNumType` (Start at, number format) was kept on
+    save but never read. The contract's cover showed 1 and its first agreement page 2; Word shows 0 and 1.
+  - Page Setup always showed and changed the last section. Apply to was ignored.
+  - The vertical ruler drew the last section's top and bottom margins on every page.
+  - The "First page" check box was offered only for the last section's first page. The Header & Footer tab's
+    Different First Page and Header/Footer from edge fields changed the last section, whatever page was open.
+  - A recovered draft lost the sections before the last: their margins, headers and footers.
+  - There was no Format Page Numbers window.
+- **What changed:**
+  - `docx/model.ts`, `wml-read.ts`, `wml-write.ts`: `w:pgNumType` is read and written (`start`, `fmt`, `chapStyle`,
+    `chapSep`). Untouched, it is kept as Word wrote it.
+  - `page-setup.ts`: `pageNumberStart` (null = continue from the previous section) and `pageNumberFormat` for the
+    last section. `sections.ts`: the same on `SectionChrome`, plus `SectionSetupPatch`, `sectionAtPosition`.
+  - `docx/project.ts`: both are opened from each section. `sectionSetupFromChrome` writes a section's edited
+    margins, header/footer distances, `w:titlePg` and `w:pgNumType` into its own `w:sectPr`. A value that reads back
+    the same keeps Word's twips.
+  - `document/page-numbers.ts` (new): Word's number formats (roman, letters, `- 1 -`). `sectionPageLabels` gives
+    each laid-out page its number. The page canvas (header and footer fields, the app's own page number) and the
+    table of contents (`editor/toc.ts`) use it.
+  - `store.ts`: `setSectionSetup`. `editor/section-break.ts`: `caretSection`, the section the caret is in.
+  - `design-dialogs.tsx`: Page Setup opens with the caret's section. With more than one section, Apply to offers
+    This section (the default), This point forward and Whole document, as Word does.
+  - `document-rulers.tsx`: the vertical ruler draws each page's section margins. Dragging one changes that section.
+  - `page-canvas.tsx`, `chrome-section.ts` (new), `context-tabs.tsx`: the First page box is on each section's first
+    page. The Header & Footer tab's Different First Page and from-edge fields change the open page's section.
+  - `page-number-format-dialog.tsx` (new): Insert > Page Number > Format Page Numbers… (Number format; Continue from
+    previous section / Start at). It changes the open header's section, or the caret's.
+  - `header.ts`, `recovery.ts`, `commands.ts`: the `sections` and `pagenumbers` marks keep the sections and page
+    numbering in a recovered draft and in the app's own HTML.
+- **Tests:**
+  - `page-numbers.test.ts`: formats, restarts, the contract's pattern.
+  - `section-pages.test.ts`: `w:pgNumType` opens per section and is kept untouched. An edited section writes its
+    `w:pgMar`, `w:titlePg` and `w:pgNumType`, and reopens with them.
+  - `header.test.ts`: the sections and page numbering survive pack and unpack.
+- **Checked:**
+  - In headless Chrome, the contract shows 0 on the cover and 1, 2 on the agreement pages.
+  - Page Setup on page 2 opens at 3.75 cm (This section). 5 cm moves only the agreement pages; the cover stays.
+  - Format Page Numbers set to i, ii, iii numbers the agreement's footers so; the cover keeps 0. Checked in light and
+    dark.
+  - Printed to PDF: 12 pages with 0, 1, 2 and the logo header. The print copy already followed each section, so the
+    earlier note that it used the last section's margins was out of date.
+  - The Open XML validator passes the contract saved untouched and saved with edited section setup.
+  - The cover's top strip and the missing logo, noted open on 2026-10-29, were already fixed by the per-section
+    margins and headers.
+- **Open:**
+  - A section's paper size, orientation and left and right margins are not its own. Page Setup's This section
+    applies them to the whole document.
+  - Insert > Page Number > Top / Bottom of Page puts the field in the last section's header or footer only.
+  - The Header & Footer tab's Previous and Next do not step between sections. Link to Previous is still greyed.
+  - Not opened in Word.
+
 ## 2026-10-29
 
 ### List markers drawn with each level's own settings; the cloud in the contract's footer

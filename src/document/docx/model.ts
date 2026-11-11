@@ -245,6 +245,15 @@ export type LineNumbering = {
   restart?: "continuous" | "newPage" | "newSection"
 }
 
+/** w:pgNumType: the number the section's first page takes (absent: it goes on from the previous section) and how
+ * the page numbers are written (`decimal`, `lowerRoman`, …); the chapter attributes are kept as Word wrote them. */
+export type PageNumbering = {
+  start?: number
+  format?: string
+  chapStyle?: number
+  chapSep?: string
+}
+
 /** w:pgBorders: the section's page border, the pages that show it and what its distances are measured from. */
 export type PageBorders = {
   display?: "allPages" | "firstPage" | "notFirstPage"
@@ -282,6 +291,8 @@ export type SectionProps = {
   lineNumbers?: LineNumbering
   /** w:pgBorders (22.4). */
   pageBorders?: PageBorders
+  /** w:pgNumType. */
+  pageNumbers?: PageNumbering
   /** Header and footer parts, in the order Word wrote the references. */
   references?: HeaderFooterRef[]
 }

@@ -18,6 +18,8 @@ import {
 } from "@/document/toc"
 
 import { useStyleStore } from "@/document/styles"
+import { useDocumentStore } from "@/document/store"
+import { sectionPageLabels } from "@/document/page-numbers"
 
 export type { TocEntry } from "@/document/toc"
 
@@ -170,7 +172,12 @@ export const TableOfContents = Node.create({
           const existing = tocPositions(state, this.name)[0]
           const node = existing === undefined ? null : state.doc.nodeAt(existing)
           const attrs = { ...(node?.attrs ?? {}), ...settings }
-          const entries = collectToc(state.doc, breaks, tocLevels(String(attrs.instruction || DEFAULT_TOC_INSTRUCTION)))
+          const entries = collectToc(
+            state.doc,
+            breaks,
+            tocLevels(String(attrs.instruction || DEFAULT_TOC_INSTRUCTION)),
+            laidOutLabels(editor.storage.pagination),
+          )
           if (existing === undefined) {
             return commands.insertContent({ type: this.name, attrs: { ...attrs, entries } })
           }
@@ -190,7 +197,8 @@ export const TableOfContents = Node.create({
             return true
           }
           const breaks = editor.storage.pagination?.breaks ?? []
-          const headings = tocHeadings(state.doc, breaks)
+          const labels = laidOutLabels(editor.storage.pagination)
+          const headings = tocHeadings(state.doc, breaks, labels)
           for (const pos of positions) {
             const current = tr.doc.nodeAt(pos)
             if (current?.type.name !== this.name) {
@@ -200,7 +208,7 @@ export const TableOfContents = Node.create({
             const entries =
               update === "pages"
                 ? refreshPages(readTocEntries(current.attrs.entries), headings)
-                : collectToc(state.doc, breaks, levels)
+                : collectToc(state.doc, breaks, levels, labels)
             tr.setNodeMarkup(pos, undefined, { ...current.attrs, entries })
           }
           return true
@@ -283,8 +291,25 @@ function tocPositions(state: EditorState, name: string) {
 
 type TocHeading = TocEntry & { pos: number }
 
+/** The number each laid-out page shows, with each section's own page numbering (Format Page Numbers). */
+function laidOutLabels(
+  pagination: { pageCount?: number; pageSections?: string[]; sectionStarts?: boolean[] } | undefined,
+): string[] {
+  if (!pagination?.pageCount) {
+    return []
+  }
+  const { sections, pageSetup } = useDocumentStore.getState()
+  return sectionPageLabels(
+    pagination.pageCount,
+    pagination.pageSections ?? [],
+    pagination.sectionStarts ?? [],
+    sections,
+    pageSetup,
+  )
+}
+
 /** Every heading a table of contents could list, with its page and the bookmark an entry links to. */
-function tocHeadings(doc: ProseNode, breaks: number[]): TocHeading[] {
+function tocHeadings(doc: ProseNode, breaks: number[], labels: string[] = []): TocHeading[] {
   const headings: TocHeading[] = []
   doc.descendants((node, pos) => {
     const level = tocLevelOf({ type: node.type.name, attrs: node.attrs }, useStyleStore.getState().styles)
@@ -303,7 +328,7 @@ function tocHeadings(doc: ProseNode, breaks: number[]): TocHeading[] {
     }
     const children: TocNodeLike[] = []
     node.forEach((child) => children.push({ type: child.type.name, attrs: child.attrs }))
-    const heading: TocHeading = { level, text, page: String(page), pos }
+    const heading: TocHeading = { level, text, page: labels[page - 1] ?? String(page), pos }
     const anchor = headingBookmark(children)
     if (anchor) {
       heading.anchor = anchor
@@ -313,8 +338,8 @@ function tocHeadings(doc: ProseNode, breaks: number[]): TocHeading[] {
   return headings
 }
 
-export function collectToc(doc: ProseNode, breaks: number[], levels = 3): TocEntry[] {
-  return tocHeadings(doc, breaks)
+export function collectToc(doc: ProseNode, breaks: number[], levels = 3, labels: string[] = []): TocEntry[] {
+  return tocHeadings(doc, breaks, labels)
     .filter((heading) => heading.level <= levels)
     .map(({ pos: _pos, ...entry }) => entry)
 }

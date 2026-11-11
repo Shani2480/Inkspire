@@ -1148,6 +1148,19 @@ function generateSection(section: SectionProps) {
     const sides = (["top", "left", "bottom", "right"] as const).map((side) => writeBorder(side, borders[side])).join("")
     parts.push(`<w:pgBorders${attributes.length ? ` ${attributes.join(" ")}` : ""}>${sides}</w:pgBorders>`)
   }
+  if (section.pageNumbers) {
+    const pages = section.pageNumbers
+    const attributes: string[] = []
+    if (pages.format) {
+      attributes.push(`w:fmt="${escapeXml(pages.format)}"`)
+    }
+    pushNumber(attributes, "w:start", pages.start)
+    pushNumber(attributes, "w:chapStyle", pages.chapStyle)
+    if (pages.chapSep) {
+      attributes.push(`w:chapSep="${escapeXml(pages.chapSep)}"`)
+    }
+    parts.push(`<w:pgNumType${attributes.length ? ` ${attributes.join(" ")}` : ""}/>`)
+  }
   const columns: string[] = []
   if (section.columnCount !== undefined) {
     columns.push(`w:num="${section.columnCount}"`)

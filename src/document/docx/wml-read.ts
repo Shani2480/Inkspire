@@ -79,6 +79,7 @@ import {
   type LineNumbering,
   type PageBorders,
   type SectionProps,
+  type PageNumbering,
   type Settings,
   type Spacing,
   type Style,
@@ -1586,6 +1587,21 @@ function readSectionModel(node: MarkupNode): SectionProps {
       lines.restart = restart
     }
     section.lineNumbers = lines
+  }
+  const pageNumbering = wordChild(node, "pgNumType")
+  if (pageNumbering) {
+    const pages: PageNumbering = {}
+    assignUint(pages, "start", attr(pageNumbering, "start"))
+    assignUint(pages, "chapStyle", attr(pageNumbering, "chapStyle"))
+    const format = attr(pageNumbering, "fmt")
+    const separator = attr(pageNumbering, "chapSep")
+    if (format) {
+      pages.format = format
+    }
+    if (separator) {
+      pages.chapSep = separator
+    }
+    section.pageNumbers = pages
   }
   const borders = wordChild(node, "pgBorders")
   if (borders) {

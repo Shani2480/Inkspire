@@ -896,6 +896,8 @@ export async function restoreRecoveryDocument(offer: RecoveryOffer) {
     firstFooter: unpacked.firstFooter,
     evenFooter: unpacked.evenFooter,
     pageSetup: unpacked.pageSetup,
+    sections: unpacked.sections,
+    linked: unpacked.linked,
   })
   await discardRecovery(offer.id)
   useBackstage.getState().closeBackstage()

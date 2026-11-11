@@ -19,11 +19,28 @@ export type SectionChrome = {
   headerFromEdge: number
   footerFromEdge: number
   differentFirstPage: boolean
+  /** Format Page Numbers: its first page's number (absent or null: going on from the section before) and format. */
+  pageNumberStart?: number | null
+  pageNumberFormat?: string
   /** Its own headers and footers as editor HTML; a slot it has not is linked to the previous section's. */
   parts: Partial<Record<ChromeSlot, string>>
   /** The parts as they were opened, so saving rewrites only the ones that were edited. */
   opened: Partial<Record<ChromeSlot, string>>
 }
+
+/** What Page Setup and Format Page Numbers change in a section before the last. */
+export type SectionSetupPatch = Partial<
+  Pick<
+    SectionChrome,
+    | "marginTop"
+    | "marginBottom"
+    | "headerFromEdge"
+    | "footerFromEdge"
+    | "differentFirstPage"
+    | "pageNumberStart"
+    | "pageNumberFormat"
+  >
+>
 
 /**
  * The section a page is in, from the editor's section breaks in order (`ids`) and how many of them come before the
@@ -66,4 +83,21 @@ export function sectionSetup(setup: PageSetup, section: SectionChrome | null): P
     headerFromEdge: section.headerFromEdge,
     footerFromEdge: section.footerFromEdge,
   }
+}
+
+/**
+ * The section the position `pos` of the body is in: the one ended by the first section break that starts a page after
+ * it, or `null` for the document's own last section. `breaks` are those breaks' positions and keys, in order.
+ */
+export function sectionAtPosition(
+  sections: SectionChrome[],
+  breaks: { pos: number; key: string }[],
+  pos: number,
+): SectionChrome | null {
+  const before = breaks.filter((item) => item.pos < pos).length
+  return sectionAt(
+    sections,
+    breaks.map((item) => item.key),
+    before,
+  )
 }

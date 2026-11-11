@@ -30,6 +30,7 @@ import {
 import { columnMarks, columnMarksFrom, findColumnSection, gapFromBoundary, setColumnSectionGap } from "@/editor/columns"
 import { moveColumnEdge } from "@/document/column-widths"
 import { useDocumentStore } from "@/document/store"
+import { sectionSetup } from "@/document/sections"
 import { useViewStore } from "@/document/view"
 import { ZOOM_PREVIEW_EVENT } from "@/document/zoom-gesture"
 import { useBodyEditor } from "@/editor/document-editor"
@@ -109,6 +110,22 @@ export function DocumentRulers({ children }: DocumentRulersProps) {
       editor,
       selector: ({ editor: current }) => current?.storage.pagination?.pageCount ?? 1,
     }) ?? 1
+  // Each page's section (a section before the last keeps its own top and bottom margins), for the vertical ruler.
+  const sections = useDocumentStore((state) => state.sections)
+  const pageKeys = (
+    useEditorState({
+      editor,
+      selector: ({ editor: current }) => (current?.storage.pagination?.pageSections ?? []).join("\u0001"),
+    }) ?? ""
+  ).split("\u0001")
+  const pageSectionOf = (index: number) => {
+    const key = pageKeys[index] ?? ""
+    return key ? (sections.find((item) => item.key === key) ?? null) : null
+  }
+  const metricsOfPage = (index: number) => {
+    const section = pageSectionOf(index)
+    return section ? pageMetrics(sectionSetup(pageSetup, section), false, section.key) : metrics
+  }
   const [align, setAlign] = useState<TabAlign>("left")
   const [locale, setLocale] = useState(readLocale)
   const [drag, setDrag] = useState<DragState | null>(null)
@@ -489,7 +506,11 @@ export function DocumentRulers({ children }: DocumentRulersProps) {
     const move = (pointer: MouseEvent) => {
       const rect = ruler.getBoundingClientRect()
       const currentZoom = zoomRef.current || 1
-      const setup = useDocumentStore.getState().pageSetup
+      const store = useDocumentStore.getState()
+      // The top and bottom margins of a page in a section before the last are that section's.
+      const sectionKey = horizontal ? "" : (pageKeys[pageIndex] ?? "")
+      const section = sectionKey ? (store.sections.find((item) => item.key === sectionKey) ?? null) : null
+      const setup = sectionSetup(store.pageSetup, section)
       const current = pageMetrics(setup)
       const along = horizontal
         ? (pointer.clientX - rect.left) / currentZoom
@@ -501,7 +522,11 @@ export function DocumentRulers({ children }: DocumentRulersProps) {
       if (next === setup[key]) {
         return
       }
-      useDocumentStore.getState().setPageSetup({ ...setup, [key]: next })
+      if (section && (key === "marginTop" || key === "marginBottom")) {
+        store.setSectionSetup(section.key, { [key]: next })
+        return
+      }
+      store.setPageSetup({ ...store.pageSetup, [key]: next })
     }
     const up = () => {
       window.removeEventListener("mousemove", move)
@@ -681,12 +706,13 @@ export function DocumentRulers({ children }: DocumentRulersProps) {
             >
               {Array.from({ length: rulerRows }, (_, index) => {
                 const pageTop = index * (metrics.height + PAGE_GAP) * zoom
+                const page = metricsOfPage(index)
                 return (
                   <RulerScale
                     key={index}
                     ticks={buildRulerTicks({
                       length: metrics.height,
-                      origin: metrics.marginTop,
+                      origin: page.marginTop,
                       zoom,
                       system: ticks,
                       locale,
@@ -694,30 +720,31 @@ export function DocumentRulers({ children }: DocumentRulersProps) {
                     orientation="vertical"
                     pageTop={pageTop}
                     pageSpan={metrics.height * zoom}
-                    marginStart={metrics.marginTop * zoom}
-                    marginEnd={metrics.marginBottom * zoom}
+                    marginStart={page.marginTop * zoom}
+                    marginEnd={page.marginBottom * zoom}
                     indent={0}
                   />
                 )
               })}
               {Array.from({ length: rulerRows }, (_, index) => {
                 const pageTop = index * (metrics.height + PAGE_GAP) * zoom
+                const page = metricsOfPage(index)
                 return (
                   <span key={`margins-${index}`}>
                     <MarginHandle
                       edge="top"
                       orientation="vertical"
                       pageIndex={index}
-                      offset={pageTop + metrics.marginTop * zoom}
-                      label={`Top margin, ${formatLength(metrics.marginTop, system, locale)}`}
+                      offset={pageTop + page.marginTop * zoom}
+                      label={`Top margin, ${formatLength(page.marginTop, system, locale)}`}
                       onMouseDown={onMarginMouseDown}
                     />
                     <MarginHandle
                       edge="bottom"
                       orientation="vertical"
                       pageIndex={index}
-                      offset={pageTop + (metrics.height - metrics.marginBottom) * zoom}
-                      label={`Bottom margin, ${formatLength(metrics.marginBottom, system, locale)}`}
+                      offset={pageTop + (metrics.height - page.marginBottom) * zoom}
+                      label={`Bottom margin, ${formatLength(page.marginBottom, system, locale)}`}
                       onMouseDown={onMarginMouseDown}
                     />
                   </span>

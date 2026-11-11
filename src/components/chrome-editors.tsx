@@ -148,7 +148,7 @@ export function ChromeBox({
   html: string
   placeholder: string
   /** The number of the page this box is on, and how many pages there are: what the page fields in it show. */
-  page: number
+  page: string
   pages: number
   focus: boolean
   /** The key of the section before the last the page is in ("" for the last), whose margins the box reaches into. */

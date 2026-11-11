@@ -59,7 +59,7 @@ export function chromeWithoutPageFields(html: string) {
 }
 
 /** Each page number and page count field in `html` showing the number of the page it is drawn on. */
-export function chromeOnPage(html: string, page: number, pages: number) {
+export function chromeOnPage(html: string, page: number | string, pages: number) {
   const number = (_match: string, open: string, kind: string, close: string) =>
     `${open}${kind === "pages" ? pages : page}${close}`
   // As the editor draws a field (its result in a .field-value span), then as it is saved (the number alone).

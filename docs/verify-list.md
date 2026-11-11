@@ -7,6 +7,11 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Page numbers and Page Setup per section (2026-11-11)** — the contract saved from the app opens in Word with
+      page 0 on the cover and 1 on the first agreement page. A section given Start at 3 and i, ii, iii in Format
+      Page Numbers, and a 5 cm top margin with This section, opens in Word with Format Page Numbers and Page Setup
+      showing the same for that section only.
+
 - [ ] **Per-section headers and margins (2026-10-29)** — open a Word file with sections that have different headers
       (a cover page and a body with a logo header). Each section's pages show their own header and top margin. Edit the
       header on a body page, save, and open in Word: the body section has the edited header, the cover is unchanged,

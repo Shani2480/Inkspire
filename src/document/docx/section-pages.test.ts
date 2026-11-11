@@ -216,3 +216,72 @@ describe("a section's own header", () => {
     expect(reopened.view.chrome.footer).toContain("NEW FOOTER")
   })
 })
+
+describe("a section's page setup and page numbers", () => {
+  /** f15 with its first section's page numbers starting at 0 and its last section's restarting at 1, as a cover. */
+  async function numbered() {
+    const opened = await openDocxBytes(new Uint8Array(readFileSync(path.join(AUTHORED, "f15_sections.docx"))))
+    const word = opened.word!
+    const breaking = paragraphsIn(word.blocks).find((paragraph) => paragraph.sectionBreak)!
+    breaking.sectionBreak = { ...breaking.sectionBreak!, pageNumbers: { start: 0 } }
+    word.section = { ...word.section!, pageNumbers: { start: 1, format: "lowerRoman" } }
+    return { word, view: wordToEditor(word), key: breaking.key! }
+  }
+
+  async function save(word: WordDocument, view: ReturnType<typeof wordToEditor>, chrome = view.chrome) {
+    const extensions = createExtensions().filter((extension) => extension.name !== "spellcheck")
+    const editor = new Editor({ extensions, content: view.html })
+    editors.push(editor)
+    const saved = await saveDocxBytes({
+      json: editor.getJSON(),
+      chrome,
+      props: view.props,
+      word,
+      unchanged: false,
+      fileName: "edited.docx",
+    })
+    const pkg = await openPackage(saved.bytes, "edited.docx")
+    return { bytes: saved.bytes, xml: decodeXml(findPart(pkg, pkg.mainPartName)!.data) }
+  }
+
+  it("opens each section's page number start and format (w:pgNumType)", async () => {
+    const { view, key } = await numbered()
+    const section = view.chrome.sections!.find((item) => item.key === key)!
+    expect(section.pageNumberStart).toBe(0)
+    expect(section.pageNumberFormat).toBe("decimal")
+    expect(view.chrome.pageSetup.pageNumberStart).toBe(1)
+    expect(view.chrome.pageSetup.pageNumberFormat).toBe("lowerRoman")
+  })
+
+  it("keeps w:pgNumType as written when untouched", async () => {
+    const { word, view } = await numbered()
+    const { xml } = await save(word, view)
+    const sectPrs = xml.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/g)!
+    expect(sectPrs[0]).toMatch(/<w:pgNumType w:start="0"\/>/)
+    expect(sectPrs[1]).toMatch(/<w:pgNumType w:fmt="lowerRoman" w:start="1"\/>/)
+  })
+
+  it("writes a section's new margins, first page and page numbers into its own w:sectPr", async () => {
+    const { word, view, key } = await numbered()
+    const sections = view.chrome.sections!.map((item) =>
+      item.key === key
+        ? { ...item, marginTop: 40, differentFirstPage: true, pageNumberStart: null, pageNumberFormat: "upperRoman" }
+        : item,
+    )
+    const pageSetup = { ...view.chrome.pageSetup, pageNumberStart: 5, pageNumberFormat: "decimal" }
+    const { bytes, xml } = await save(word, view, { ...view.chrome, sections, pageSetup })
+    const [first, last] = xml.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/g)!
+    expect(first).toMatch(/<w:pgMar [^>]*w:top="2268"/)
+    expect(first).toMatch(/<w:titlePg\/>/)
+    expect(first).toMatch(/<w:pgNumType w:fmt="upperRoman"\/>/)
+    expect(last).toMatch(/<w:pgNumType w:start="5"\/>/)
+
+    const reopened = await openDocxBytes(bytes, "edited.docx")
+    const section = reopened.view.chrome.sections![0]!
+    expect(section.marginTop).toBeCloseTo(40, 0)
+    expect(section.differentFirstPage).toBe(true)
+    expect(section.pageNumberStart).toBeNull()
+    expect(section.pageNumberFormat).toBe("upperRoman")
+    expect(reopened.view.chrome.pageSetup.pageNumberStart).toBe(5)
+  })
+})

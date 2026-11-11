@@ -17,6 +17,9 @@ import {
   type LineNumberRestart,
 } from "@/document/page-setup"
 import { useDocumentStore } from "@/document/store"
+import { sectionSetup, type SectionChrome } from "@/document/sections"
+import { caretSection } from "@/editor/section-break"
+import { useBodyEditor } from "@/editor/document-editor"
 import { printDocument } from "@/document/commands"
 import { useEffect, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
@@ -105,28 +108,38 @@ export function requestPageSetup(tab: PageSetupTab = "margins") {
 
 export function DesignDialogs() {
   const setup = useDocumentStore((state) => state.pageSetup)
-  const setPageSetup = useDocumentStore((state) => state.setPageSetup)
+  const sections = useDocumentStore((state) => state.sections)
+  const differentFirstPage = useDocumentStore((state) => state.differentFirstPage)
+  const editor = useBodyEditor()
   const [borders, setBorders] = useState<BordersRequest | null>(null)
   const [pageSetupOpen, setPageSetupOpen] = useState<PageSetupTab | null>(null)
+  // The section the caret was in when Page Setup opened: what it shows, and what This section changes.
+  const [setupKey, setSetupKey] = useState("")
+  const setupSection = sections.find((item) => item.key === setupKey) ?? null
 
   useEffect(() => {
     bordersListener = setBorders
-    setupListener = (tab) => setPageSetupOpen(tab)
+    setupListener = (tab) => {
+      setSetupKey(caretSection(editor)?.key ?? "")
+      setPageSetupOpen(tab)
+    }
     return () => {
       bordersListener = null
       setupListener = null
     }
-  }, [])
+  }, [editor])
 
   return (
     <>
       {pageSetupOpen ? (
         <PageSetupDialog
-          setup={setup}
+          setup={sectionSetup(setup, setupSection)}
+          firstPage={setupSection ? setupSection.differentFirstPage : differentFirstPage}
+          sectioned={sections.length > 0}
           initialTab={pageSetupOpen}
           onClose={() => setPageSetupOpen(null)}
-          onApply={(next) => {
-            setPageSetup(next)
+          onApply={(next, firstPage, applyTo) => {
+            applyPageSetup(next, firstPage, applyTo, setupSection)
             setPageSetupOpen(null)
           }}
         />
@@ -351,23 +364,74 @@ function toggleSide(current: BorderPatch, side: PageSide): BorderPatch {
     : { ...current, borderSides: sides }
 }
 
+/** Page Setup > Apply to. */
+type ApplyTo = "section" | "forward" | "whole" | "selected"
+
+/**
+ * Page Setup's OK: the margins, header and footer distances and Different first page go to the sections Apply to
+ * names (the caret's section, it and the ones after it, or all); what the sections share here (paper, the side
+ * margins, columns, …) goes to the document.
+ */
+function applyPageSetup(next: PageSetup, firstPage: boolean, applyTo: ApplyTo, section: SectionChrome | null) {
+  const store = useDocumentStore.getState()
+  const patch = {
+    marginTop: next.marginTop,
+    marginBottom: next.marginBottom,
+    headerFromEdge: next.headerFromEdge,
+    footerFromEdge: next.footerFromEdge,
+    differentFirstPage: firstPage,
+  }
+  const at = section ? store.sections.indexOf(section) : store.sections.length
+  const targets =
+    applyTo === "section"
+      ? section
+        ? [section]
+        : []
+      : applyTo === "forward"
+        ? store.sections.slice(at)
+        : store.sections
+  for (const target of targets) {
+    store.setSectionSetup(target.key, patch)
+  }
+  // The document's own last section is changed unless only a section before it is.
+  const last = applyTo !== "section" || section === null
+  const own = store.pageSetup
+  store.setPageSetup(
+    last
+      ? next
+      : {
+          ...next,
+          marginTop: own.marginTop,
+          marginBottom: own.marginBottom,
+          headerFromEdge: own.headerFromEdge,
+          footerFromEdge: own.footerFromEdge,
+        },
+  )
+  if (last) {
+    store.setDifferentFirstPage(firstPage)
+  }
+}
+
 function PageSetupDialog({
   setup,
+  firstPage: openedFirstPage,
+  sectioned,
   initialTab = "margins",
   onClose,
   onApply,
 }: {
   setup: PageSetup
+  firstPage: boolean
+  /** The document has more than one section: Apply to offers This section and This point forward, as Word does. */
+  sectioned: boolean
   initialTab?: PageSetupTab
   onClose: () => void
-  onApply: (next: PageSetup) => void
+  onApply: (next: PageSetup, firstPage: boolean, applyTo: ApplyTo) => void
 }) {
-  const differentFirstPage = useDocumentStore((state) => state.differentFirstPage)
-  const setDifferentFirstPage = useDocumentStore((state) => state.setDifferentFirstPage)
   const [draft, setDraft] = useState(setup)
   const [tab, setTab] = useState<PageSetupTab>(initialTab)
-  const [applyTo, setApplyTo] = useState("whole")
-  const [firstPage, setFirstPage] = useState(differentFirstPage)
+  const [applyTo, setApplyTo] = useState<ApplyTo>(sectioned ? "section" : "whole")
+  const [firstPage, setFirstPage] = useState(openedFirstPage)
   const [lineNumbersOpen, setLineNumbersOpen] = useState(false)
   const [printOptionsOpen, setPrintOptionsOpen] = useState(false)
 
@@ -376,8 +440,7 @@ function PageSetupDialog({
   }
 
   function commit() {
-    setDifferentFirstPage(firstPage)
-    onApply(draft)
+    onApply(draft, firstPage, applyTo)
   }
 
   const box = paperBox({ ...draft, orientation: "portrait" })
@@ -675,11 +738,21 @@ function PageSetupDialog({
             aria-label="Apply to"
             className="h-7 rounded border border-black/15 px-2 text-xs text-neutral-900"
             value={applyTo}
-            onChange={(event) => setApplyTo(event.target.value)}
+            onChange={(event) => setApplyTo(event.target.value as ApplyTo)}
           >
-            <option value="whole">Whole document</option>
-            <option value="section">This section</option>
-            <option value="selected">Selected text</option>
+            {sectioned ? (
+              <>
+                <option value="section">This section</option>
+                <option value="forward">This point forward</option>
+                <option value="whole">Whole document</option>
+              </>
+            ) : (
+              <>
+                <option value="whole">Whole document</option>
+                <option value="section">This section</option>
+                <option value="selected">Selected text</option>
+              </>
+            )}
           </select>
         </label>
         <button
