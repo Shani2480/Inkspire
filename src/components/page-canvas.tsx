@@ -21,8 +21,10 @@ import {
   pageMetrics,
   setupColumns,
   showsPageBorder,
+  type PageMetrics,
   type PageSetup,
 } from "@/document/page-setup"
+import { drawnPageSetup, pageMetricsList, stackFrames } from "@/document/page-frames"
 import { sectionPageLabels } from "@/document/page-numbers"
 import { drawnColumns, sectionSetup, type ChromeSlot, type SectionChrome } from "@/document/sections"
 import { slotHome, slotOf, type SlotState } from "@/document/section-slots"
@@ -132,12 +134,24 @@ export function PageCanvas() {
   const grid = pageView > 1 && !side
   const gridColumns = grid ? pageGridColumns(pageView) : 1
   const gridRows = grid ? pageGridRows(pageCount, pageView) : pageCount
-  const stackHeight = side ? metrics.height : gridRows * metrics.height + Math.max(0, gridRows - 1) * PAGE_GAP
+  // One page wide down the screen, each section's pages have its own paper, centred in a stack as wide as the widest.
+  const stacked = !web && !side && !grid
+  const stack = stackFrames(stacked ? pageMetricsList(pageSetup, sections, pageKeys, pageCount) : [metrics], PAGE_GAP)
+  const fitPageWidth = stack.width
+  const stackHeight = side
+    ? metrics.height
+    : stacked
+      ? stack.height
+      : gridRows * metrics.height + Math.max(0, gridRows - 1) * PAGE_GAP
   const stackWidth = side
     ? pageCount * metrics.width + Math.max(0, pageCount - 1) * PAGE_GAP
     : grid
       ? gridColumns * metrics.width + Math.max(0, gridColumns - 1) * PAGE_GAP
-      : metrics.width
+      : stacked
+        ? stack.width
+        : metrics.width
+  // Where the document's own page sits in the stack: the editor's text is its section's.
+  const ownLeft = stacked ? (stack.width - metrics.width) / 2 : 0
 
   useEffect(() => {
     const style = document.documentElement.style
@@ -198,7 +212,8 @@ export function PageCanvas() {
       const slack = pageView > 1 && zoomMode === "pages" ? 12 : 0
       const availableHeight =
         scroll.clientHeight - (parseFloat(style.paddingTop) || 0) - (parseFloat(style.paddingBottom) || 0) - 40 - slack
-      const widthZoom = availableWidth / metrics.width
+      // Page Width fits the widest page, so a landscape section among portrait pages is not cut off.
+      const widthZoom = availableWidth / Math.max(metrics.width, fitPageWidth)
       const fitColumns = pageView > 1 ? pageGridColumns(pageView) : 2
       const fitRows = pageView === 8 ? 2 : 1
       const fitWidth = fitColumns * metrics.width + Math.max(0, fitColumns - 1) * PAGE_GAP
@@ -223,7 +238,7 @@ export function PageCanvas() {
     const observer = new ResizeObserver(apply)
     observer.observe(scroll)
     return () => observer.disconnect()
-  }, [zoomMode, web, pageView, metrics.width, metrics.height, syncZoom])
+  }, [zoomMode, web, pageView, metrics.width, metrics.height, fitPageWidth, syncZoom])
 
   useEffect(() => {
     if (!editor || editor.isDestroyed) {
@@ -434,9 +449,17 @@ export function PageCanvas() {
           style={{
             width: stackWidth,
             paddingTop: metrics.marginTop,
-            paddingRight: web ? metrics.marginRight : `${pageSetup.marginRight}mm`,
+            paddingRight: web
+              ? metrics.marginRight
+              : stacked
+                ? stack.width - ownLeft - metrics.width + metrics.marginRight
+                : `${pageSetup.marginRight}mm`,
             paddingBottom: metrics.marginBottom,
-            paddingLeft: web ? metrics.marginLeft : `${pageSetup.marginLeft}mm`,
+            paddingLeft: web
+              ? metrics.marginLeft
+              : stacked
+                ? ownLeft + metrics.marginLeft
+                : `${pageSetup.marginLeft}mm`,
             transform: `scale(${zoom})`,
             transformOrigin: "top left",
             minHeight: web
@@ -457,7 +480,8 @@ export function PageCanvas() {
           ))}
           {Array.from({ length: pageCount }, (_, index) => {
             const section = pageSection(index)
-            const sheet = metricsFor(section)
+            const frame = stacked ? stack.frames[index] : undefined
+            const sheet = frame ? frame.metrics : metricsFor(section)
             return (
               <div
                 key={index}
@@ -465,20 +489,34 @@ export function PageCanvas() {
                 data-header-style={pageSetup.headerStyle}
                 data-footer-style={pageSetup.footerStyle}
                 style={{
-                  top: side
-                    ? 0
-                    : pageGridCell(index, grid ? pageView : 1, metrics.width + PAGE_GAP, metrics.height + PAGE_GAP).top,
-                  left: side
-                    ? index * (metrics.width + PAGE_GAP)
-                    : pageGridCell(index, grid ? pageView : 1, metrics.width + PAGE_GAP, metrics.height + PAGE_GAP)
-                        .left,
-                  width: metrics.width,
-                  height: web ? "100%" : metrics.height,
+                  top: frame
+                    ? frame.top
+                    : side
+                      ? 0
+                      : pageGridCell(index, grid ? pageView : 1, metrics.width + PAGE_GAP, metrics.height + PAGE_GAP)
+                          .top,
+                  left: frame
+                    ? frame.left
+                    : side
+                      ? index * (metrics.width + PAGE_GAP)
+                      : pageGridCell(index, grid ? pageView : 1, metrics.width + PAGE_GAP, metrics.height + PAGE_GAP)
+                          .left,
+                  width: frame ? frame.width : metrics.width,
+                  height: web ? "100%" : frame ? frame.height : metrics.height,
                   background: pageSetup.pageColor || undefined,
                   ...(section
                     ? {
                         ["--header-from-edge" as string]: `${section.headerFromEdge}mm`,
                         ["--footer-from-edge" as string]: `${section.footerFromEdge}mm`,
+                      }
+                    : {}),
+                  // The page's own margins, for its header, footer and margin guides.
+                  ...(frame && section
+                    ? {
+                        ["--page-margin-top" as string]: `${sheet.marginTop}px`,
+                        ["--page-margin-right" as string]: `${sheet.marginRight}px`,
+                        ["--page-margin-bottom" as string]: `${sheet.marginBottom}px`,
+                        ["--page-margin-left" as string]: `${sheet.marginLeft}px`,
                       }
                     : {}),
                 }}
@@ -568,9 +606,8 @@ export function PageCanvas() {
                 <div className="page-margin-guide" aria-hidden />
                 <PageColumnGuides
                   columns={web ? null : drawnColumns(pageSetup, sections, section)}
-                  setup={pageSetup}
-                  top={sheet.marginTop}
-                  bottom={sheet.marginBottom}
+                  setup={frame ? drawnPageSetup(pageSetup, section) : pageSetup}
+                  margins={sheet}
                 />
                 {cropMarks && !web
                   ? ["tl", "tr", "bl", "br"].map((corner) => (
@@ -611,13 +648,12 @@ export function PageCanvas() {
 function PageColumnGuides({
   columns,
   setup,
-  top,
-  bottom,
+  margins,
 }: {
   columns: Pick<PageSetup, "columns" | "columnGap" | "columnLine" | "columnWidths"> | null
   setup: PageSetup
-  top: number
-  bottom: number
+  /** The page's own margins (px). */
+  margins: Pick<PageMetrics, "marginTop" | "marginRight" | "marginBottom" | "marginLeft">
 }) {
   if (!columns || columns.columns < 2) {
     return null
@@ -626,7 +662,12 @@ function PageColumnGuides({
     <div
       className={`page-column-guides${columns.columnLine ? " has-rule" : ""}`}
       aria-hidden
-      style={{ top, right: `${setup.marginRight}mm`, bottom, left: `${setup.marginLeft}mm` }}
+      style={{
+        top: margins.marginTop,
+        right: margins.marginRight,
+        bottom: margins.marginBottom,
+        left: margins.marginLeft,
+      }}
     >
       {setupColumns({ ...setup, ...columns }).map((column, index) => (
         <span

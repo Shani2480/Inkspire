@@ -33,7 +33,7 @@ import { defaultStyles, packStyles, stylesFromWord, unpackStyles, useStyleStore 
 import { useEditingOptions } from "@/document/editing-options"
 import { documentName, useDocumentStore, type DocumentProps } from "@/document/store"
 import { useViewStore } from "@/document/view"
-import { paperSize, printPages } from "@/document/print-copy"
+import { namedPaperRules, paperSize, printPages } from "@/document/print-copy"
 import {
   fileExtension,
   openDroppedFile,
@@ -706,7 +706,9 @@ export function stagePrintPages() {
   const boxes = ["@top-center", "@bottom-center", "@bottom-right"]
     .map((box) => `    ${box} {\n      content: none;\n    }`)
     .join("\n")
-  style.textContent = `@media print {\n  @page {\n    size: ${paper.width} ${paper.height};\n    margin: 0;\n${boxes}\n  }\n  @page :first {\n${boxes}\n  }\n}`
+  // A section of another size (a landscape page among portrait ones) prints on its own paper.
+  const named = namedPaperRules(pages, paper).join("\n")
+  style.textContent = `@media print {\n  @page {\n    size: ${paper.width} ${paper.height};\n    margin: 0;\n${boxes}\n  }\n  @page :first {\n${boxes}\n  }\n${named ? `${named}\n` : ""}}`
   document.head.append(style)
   document.body.append(pages)
   document.documentElement.dataset.printPages = "1"

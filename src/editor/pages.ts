@@ -2,7 +2,8 @@ import { contourOf, contourPolygon, onContourReady } from "@/editor/wrap-contour
 import { keepWithNextMustMove, linesOnPage } from "@/editor/page-breaking"
 import { useChromeExtent } from "@/document/chrome-extent"
 import { pageMetrics, setupColumns, type LineNumberRestart } from "@/document/page-setup"
-import { drawnColumns, sectionAt, sectionSetup, type SectionChrome } from "@/document/sections"
+import { drawnPageSetup, setDrawnPageKeys } from "@/document/page-frames"
+import { drawnColumns, sectionAt, type SectionChrome } from "@/document/sections"
 import { columnBoxes } from "@/document/column-widths"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
@@ -326,6 +327,7 @@ function paginationPlugin(storage: PaginationStorage) {
               placeFloatingTables(view, laid.tables, metrics)
               storage.pageCount = laid.pageCount
               storage.pageSections = laid.pageSections
+              setDrawnPageKeys(laid.pageSections)
               storage.sectionStarts = laid.sectionStarts
               // The first page's text starts at its own section's top margin; the canvas is padded by the last's.
               view.dom.style.marginTop = laid.firstTop && !web ? `${laid.firstTop}px` : ""
@@ -353,6 +355,7 @@ function paginationPlugin(storage: PaginationStorage) {
                         laid.mirrors,
                         laid.cells,
                         laid.spans,
+                        laid.sectionCells,
                       ),
                       signature,
                     } satisfies PaginationSnapshot)
@@ -541,8 +544,15 @@ function decorationsFor(
   mirrors: Layout["mirrors"] = [],
   cells: ColumnCell[] = [],
   spans: Layout["spans"] = [],
+  sectionBoxes: SectionCell[] = [],
 ) {
   const decorations: Decoration[] = []
+  for (const cell of sectionBoxes) {
+    const width = cell.width === undefined ? "" : `; --sec-w: ${cell.width}px`
+    decorations.push(
+      Decoration.node(cell.pos, cell.pos + cell.size, { class: "section-cell", style: `--sec-x: ${cell.x}px${width}` }),
+    )
+  }
   for (const span of spans) {
     decorations.push(Decoration.node(span.pos, span.pos + span.size, { class: "section-span" }))
   }
@@ -924,6 +934,8 @@ type Layout = {
   columnGap: number
   /** Top-level blocks of one-column sections, drawn across the editor's columns. */
   spans: { pos: number; size: number }[]
+  /** Top-level blocks of sections whose text is placed or as wide as the document's own is not. */
+  sectionCells: SectionCell[]
   spanKey: string
   pageSections: string[]
   sectionStarts: boolean[]
@@ -984,10 +996,11 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   })
   const sectionList = useDocumentStore.getState().sections
   const sectionKeys = [...sectionIds.map((_, index) => sectionAt(sectionList, sectionIds, index)?.key ?? ""), ""]
+  // A section's pages have its own paper and side margins in the usual view (`drawsSectionPaper`).
   const sectionMetrics = sectionKeys.map((key) => {
     const section = key ? (sectionList.find((item) => item.key === key) ?? null) : null
     return section
-      ? pageMetrics(sectionSetup(useDocumentStore.getState().pageSetup, section), false, section.key)
+      ? pageMetrics(drawnPageSetup(useDocumentStore.getState().pageSetup, section), false, section.key)
       : metrics
   })
   let section = 0
@@ -1635,6 +1648,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     }
   }
 
+  const sectionBoxes = unequal ? [] : sectionCells(view, sectionMetrics, columns.counts)
   const lastUsed = Math.min(Math.max(used, 0), contentHeight)
   const sideKey = bands
     .filter((band) => band.side)
@@ -1658,7 +1672,11 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     columns: columns.editor,
     columnGap: columns.gap,
     spans: columns.spans,
-    spanKey: columns.spans.map((item) => `${item.pos}:${item.size}`).join(","),
+    sectionCells: sectionBoxes,
+    spanKey: [
+      columns.spans.map((item) => `${item.pos}:${item.size}`).join(","),
+      sectionBoxes.map((item) => `${item.pos}:${item.x}:${item.width ?? ""}`).join(","),
+    ].join("|"),
     pageSections: pageSections.map((index) => sectionKeys[index]!),
     sectionStarts: pageSections.map((index, page) => page === 0 || pageSections[page - 1] !== index),
     firstTop: Math.round(sectionMetrics[0]!.marginTop - metrics.marginTop),
@@ -1688,6 +1706,46 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
         .join(","),
     ].join("|"),
   }
+}
+
+/**
+ * A top-level block of a section whose pages have another width or side margins than the document's own: drawn `x`
+ * across from where the document's text starts, and, for text, `width` wide (tables and objects keep their own).
+ */
+type SectionCell = { pos: number; size: number; x: number; width?: number }
+
+/**
+ * The blocks of sections drawn with their own paper or side margins. The pages are centred in a stack as wide as the
+ * widest (`stackFrames`), so a section's text starts at its page's left plus its left margin; the editor's text is the
+ * document's own section's. Blocks in columns are left where the columns put them.
+ */
+function sectionCells(view: EditorView, metrics: PageMetrics[], counts: number[]): SectionCell[] {
+  const own = metrics[metrics.length - 1]!
+  const widest = Math.max(...metrics.map((item) => item.width))
+  const textLeft = (item: PageMetrics) => (widest - item.width) / 2 + item.marginLeft
+  const textWidth = (item: PageMetrics) => item.width - item.marginLeft - item.marginRight
+  const base = textLeft(own)
+  const cells: SectionCell[] = []
+  let index = 0
+  view.state.doc.forEach((node, pos) => {
+    const item = metrics[Math.min(index, metrics.length - 1)]!
+    const x = Math.round(textLeft(item) - base)
+    const wide = Math.round(textWidth(item)) !== Math.round(textWidth(own))
+    if ((x !== 0 || wide) && (counts[index] ?? 1) === 1) {
+      const dom = view.nodeDOM(pos)
+      let width: number | undefined
+      if ((node.isTextblock || TEXT_BLOCKS.has(node.type.name)) && dom instanceof HTMLElement) {
+        const style = getComputedStyle(dom)
+        const sides = (parseFloat(style.marginLeft) || 0) + (parseFloat(style.marginRight) || 0)
+        width = Math.max(8, Math.round(textWidth(item) - sides))
+      }
+      cells.push({ pos, size: node.nodeSize, x, width })
+    }
+    if (node.type.name === "sectionBreak" && node.attrs.kind !== "continuous") {
+      index += 1
+    }
+  })
+  return cells
 }
 
 /** What of the sections lays the pages out: everything but their headers and footers. */

@@ -162,3 +162,27 @@ export function paperSize(source: HTMLElement) {
   const sheet = pageSheets(source)[0]
   return sheet ? { width: sheet.style.width, height: sheet.style.height } : null
 }
+
+/**
+ * The paper of each printed page, when they are not all one size (a landscape section among portrait ones): each
+ * size gets a named `@page` rule and its pages are set to it. The first size is the default `@page`'s. Returns the
+ * extra rules; empty when every page is the same size.
+ */
+export function namedPaperRules(pages: HTMLElement, first: { width: string; height: string }) {
+  const names = new Map<string, string>()
+  const rules: string[] = []
+  for (const page of pages.querySelectorAll<HTMLElement>(":scope > .print-page")) {
+    const size = `${page.style.width} ${page.style.height}`
+    if (size === `${first.width} ${first.height}`) {
+      continue
+    }
+    let name = names.get(size)
+    if (!name) {
+      name = `paper-${names.size + 1}`
+      names.set(size, name)
+      rules.push(`  @page ${name} {\n    size: ${size};\n    margin: 0;\n  }`)
+    }
+    page.style.setProperty("page", name)
+  }
+  return rules
+}

@@ -7,6 +7,39 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-11
 
+### Pages of different sizes
+
+- **What was wrong:** every page was drawn on the document's own paper. In f15 (a portrait section, then a
+  landscape one) all three pages were drawn landscape, and the first section's text was laid out at the landscape
+  width. The rulers, floating objects, Page Width zoom and the printed pages also assumed one page size.
+- **What changed:**
+  - `document/page-frames.ts` (new): `drawnPageSetup` (a section's paper and side margins, the columns drawn
+    apart), `stackFrames` (each page under the last at its own size, centred in the widest), `pageMetricsList`,
+    and `stackedPageCell` for code without the editor.
+  - `editor/pages.ts`: each section's pages are measured with its own paper. In a one-column section before the
+    last, the top-level blocks are moved to its text's left edge and laid out at its text width (`section-cell`,
+    `index.css`). The paginator hands each page's section to `page-frames.ts`.
+  - `page-canvas.tsx`: the sheets are drawn from the frames, at cumulative tops, each with its own width, height
+    and margins. Page Width fits the widest page.
+  - `document-rulers.tsx`: the vertical ruler draws each page at its own top and height. The horizontal ruler is
+    the caret page's, and dragging its margins changes that section's side margins.
+  - `editor/objects.ts`: a floating object's page is found from the frames.
+  - `print-copy.ts` / `commands.ts`: each paper size other than the first prints on its own named `@page`.
+  - Multiple Pages, Side to Side and Web Layout still draw every page with the document's paper.
+- **Tests:** `page-frames.test.ts` (new: drawn setup, stack, object cells, named print pages).
+- **Checked:** in headless Chrome on f15.
+  - Page 1 is portrait (794 × 1123), centred above the landscape pages 2 and 3. Its text is 602 px wide at the
+    96 px margins.
+  - The vertical ruler's margin handles sit 96 px inside each sheet. Each page's header box is its sheet's width.
+    Dark mode is unchanged. Page Width fits the landscape pages.
+  - The printed PDF has page 1 A4 portrait and pages 2-3 A4 landscape.
+  - The contract (12 pages, all A4 portrait) is drawn and printed as before.
+- **Open:**
+  - Multiple Pages and Side to Side keep one page size.
+  - A section of several columns is drawn at the widest page's text width when it is not the widest.
+  - The page clip of a floating object uses the document's page size.
+  - Not opened in Word.
+
 ### Each section has its own columns
 
 - **What was wrong:**

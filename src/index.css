@@ -3316,6 +3316,17 @@ button.line-menu-row:focus-visible {
   max-width: none;
 }
 
+/* A block of a Word section with its own paper or side margins: moved across to its page's text, and as wide. */
+.page-editor > .section-cell {
+  position: relative;
+  left: var(--sec-x, 0);
+}
+
+.page-editor > .section-cell[style*="--sec-w"] {
+  width: var(--sec-w);
+  max-width: none;
+}
+
 /* A one-column Word section in a document whose other sections have columns: drawn across them. */
 .page-editor[data-columns] > .section-span {
   column-span: all;

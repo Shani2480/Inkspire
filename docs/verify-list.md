@@ -7,6 +7,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Pages of different sizes (2026-11-11)** — a Word document with a portrait section, then a landscape one,
+      looks the same in the app as in Word's Print Layout: the portrait page centred above the landscape pages, each
+      with its text at its own margins. Printed from the app, the landscape pages come out landscape.
+
 - [ ] **Columns per section (2026-11-11)** — a Word file with a one-column title section and a two-column body opens
       in the app with the title across the page. Set the title section to Three with Layout > Columns and save:
       Word shows three columns there and two in the body.

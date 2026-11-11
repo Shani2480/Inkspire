@@ -1,4 +1,5 @@
 import { pageGridCell } from "@/document/page-grid"
+import { drawsSectionPaper, stackedPageCell } from "@/document/page-frames"
 import { pageMetrics, type PageMetrics } from "@/document/page-setup"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
@@ -821,8 +822,9 @@ export function pagePoint(left: number, top: number) {
   let best = { page: 1, x: left, y: top, distance: Number.POSITIVE_INFINITY }
   for (let page = 1; page <= pageCount + 1; page += 1) {
     const cell = objectCell(page, metrics)
-    const inside = top >= cell.top && top < cell.top + metrics.height + PAGE_GAP
-    const distance = inside ? Math.abs(left - cell.left - metrics.width / 2) : Number.POSITIVE_INFINITY
+    const own = "metrics" in cell ? cell.metrics : metrics
+    const inside = top >= cell.top && top < cell.top + own.height + PAGE_GAP
+    const distance = inside ? Math.abs(left - cell.left - own.width / 2) : Number.POSITIVE_INFINITY
     if (distance < best.distance) {
       best = { page, x: left - cell.left, y: top - cell.top, distance }
     }
@@ -1404,6 +1406,13 @@ export function objectLeft(page: number, x: number, metrics: PageMetrics) {
 }
 
 function objectCell(page: number, metrics: PageMetrics) {
+  // One page wide, each page is drawn at its own size (page-frames.ts), so its place comes from the pages above it.
+  if (drawsSectionPaper()) {
+    const store = useDocumentStore.getState()
+    if (store.sections.length) {
+      return stackedPageCell(store.pageSetup, store.sections, Math.max(0, page - 1), PAGE_GAP)
+    }
+  }
   const pageView = useViewStore.getState().movement === "side" ? 1 : useViewStore.getState().pageView
   return pageGridCell(Math.max(0, page - 1), pageView, metrics.width + PAGE_GAP, metrics.height + PAGE_GAP)
 }

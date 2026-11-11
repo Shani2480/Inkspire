@@ -732,9 +732,10 @@ Link to Previous toggles, asks before deleting a part with content, and is saved
 day: each section's paper, orientation and side margins are read, shown and set by Page Setup, and saved into its
 own `w:sectPr` (`changes.md`). Open:
 
-- Drawing pages of different sizes: the paginator, page sheets (cumulative tops, own width), rulers, print copy,
-  floating objects and the grid/side views all assume one page size. A section's side margins also need the body's
-  blocks laid out at its own text width.
+- ~~Drawing pages of different sizes~~ **Fixed** the same day in the usual view: each section's pages are drawn,
+  ruled, zoomed and printed at their own size (`changes.md`). Open: Multiple Pages and Side to Side keep one page
+  size; a multi-column section on a narrower page is laid out at the widest page's text width; a floating object's
+  page clip uses the document's size.
 - ~~The ribbon's Orientation, Size and Margins act on the document, not the caret's section.~~ **Fixed** the same day
   (`changes.md`); the horizontal ruler's margin drag still changes the document's side margins.
 - ~~Columns per section~~ **Fixed** the same day (`changes.md`). Open: different counts above one share the larger;
