@@ -7,6 +7,43 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-11
 
+### Picture bullets drawn and kept; list overrides and restarts kept on save
+
+- **What was wrong:**
+  - A picture bullet (`w:lvlPicBulletId`) was drawn as its level's text.
+  - Worse, saving lost data. `numbering.xml` is rewritten on every save from a model that held only the
+    `w:abstractNum` levels and each `w:num`'s abstract. These were dropped from any Word file saved from the app:
+    - `w:numPicBullet`, the pictures behind it, and `w:lvlPicBulletId`;
+    - `w:lvlOverride` with `w:startOverride` (Word's Restart at 1 and Set Numbering Value);
+    - `w:numIdMacAtCleanup`.
+  - A list restarted with an override also counted on in the app, from the abstract's start.
+- **What changed:**
+  - `docx/model.ts`:
+    - `NumberingDefinitions` keeps `pictureBullets` (each as written, with its picture's r:id), `macCleanup` and
+      `links`: numbering.xml's relationships and the parts they point at.
+    - `NumberingLevel.pictureBullet`. `NumberingInstance.overrides` (the start, a level of its own, the markup).
+    - `numberingLevel` returns a list's overridden level, or the abstract's counting from `w:startOverride`.
+  - `wml-read.ts`: reads them all; `attachNumberingLinks` keeps the pictures.
+  - `wml-write.ts`:
+    - Writes `w:numPicBullet` first, the overrides as written and `w:numIdMacAtCleanup` last.
+    - Writes numbering.xml's relationships and pictures.
+    - Declares the VML/DrawingML prefixes kept markup uses when the root is written fresh.
+  - `project.ts` (`pictureBulletOf`): a level's `data-word-levels` entry carries its picture as a data URL and its
+    width over height (VML style or `wp:extent`). EMF and WMF pictures, which a browser cannot draw, keep the text.
+  - `editor/indent.ts`, `index.css`: the marker draws the picture one font size high, as wide as its shape.
+    `fitWordMarkers` measures it so. `word-markers.ts`: exported HTML shows a round bullet for it.
+- **Tests:** `picture-bullets.test.ts`. f04 is given a VML picture bullet with a PNG, a second list starting at 4
+  and Word's clean-up mark. The picture reaches the editor's levels at its 2:1 shape. Saving keeps every element as
+  written, in `CT_Numbering`'s order, with the picture's relationship and bytes. The override counts from 4.
+- **Checked:**
+  - In headless Chrome: the bullets are the picture, 2:1, one font size high.
+  - The Open XML validator passes the built file and the copy saved from the app.
+- **Open:**
+  - Not checked with a picture bullet Word made itself, or in Word.
+  - An EMF/WMF picture bullet is drawn as its level's text.
+  - Lists that share an abstract numbering across `numId`s count separately in the app (Word counts them as one
+    list unless an override restarts one).
+
 ### Page numbers restart per section; Page Setup, the rulers and First page work per section
 
 - **What was wrong:**

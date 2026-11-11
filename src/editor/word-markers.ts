@@ -24,6 +24,9 @@ export type WordLevel = {
   color?: string
   bold?: boolean
   italic?: boolean
+  /** A picture bullet (w:lvlPicBulletId): its picture as a data URL and its width over its height. */
+  picture?: string
+  pictureRatio?: number
 }
 
 export function parseWordLevels(value: unknown): WordLevel[] {
@@ -51,6 +54,14 @@ export function parseWordLevels(value: unknown): WordLevel[] {
         ...(typeof level.color === "string" && /^#[0-9a-f]{6}$/i.test(level.color) ? { color: level.color } : {}),
         ...(typeof level.bold === "boolean" ? { bold: level.bold } : {}),
         ...(typeof level.italic === "boolean" ? { italic: level.italic } : {}),
+        ...(typeof level.picture === "string" &&
+        /^data:image\/(png|jpeg|gif|bmp|svg\+xml|webp);base64,[A-Za-z0-9+/=]+$/.test(level.picture)
+          ? {
+              picture: level.picture,
+              pictureRatio:
+                Number.isFinite(level.pictureRatio) && level.pictureRatio! > 0 ? Math.min(20, level.pictureRatio!) : 1,
+            }
+          : {}),
       }
     })
   } catch {
@@ -244,7 +255,9 @@ export function withWordMarkers(html: string) {
         }
         const drawn = numbering.next(depth + (Number(item.getAttribute("data-indent")) || 0))
         if (drawn) {
-          item.style.listStyleType = cssString(`${drawn.text}${drawn.level.suffix === "nothing" ? "" : " "}`)
+          // A picture bullet cannot be sized as a list marker: exported HTML shows Word's round bullet for it.
+          const text = drawn.level.picture ? "•" : drawn.text
+          item.style.listStyleType = cssString(`${text}${drawn.level.suffix === "nothing" ? "" : " "}`)
         }
         for (const nested of item.querySelectorAll<HTMLElement>(":scope > ul, :scope > ol")) {
           walk(nested, depth + 1)

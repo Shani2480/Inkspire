@@ -726,6 +726,8 @@ export type NumberingLevel = {
   /** w:suff: what follows the marker; a tab when unset. */
   suffix?: "tab" | "space" | "nothing"
   text?: string
+  /** w:lvlPicBulletId: the picture bullet (`NumberingDefinitions.pictureBullets`) the level shows. */
+  pictureBullet?: number
   justify?: JcValue
   pPr: ParagraphProperties
   rPr: RunProperties
@@ -738,10 +740,27 @@ export type AbstractNumbering = {
   tmpl?: string
   levels: NumberingLevel[]
 }
-export type NumberingInstance = { id: number; abstractNumId: number; durableId?: string }
+/**
+ * w:lvlOverride on a w:num: a level that counts from its own start (w:startOverride, Word's Restart at 1 and Set
+ * Numbering Value) or has a level of its own; `xml` is the element as written, kept on save.
+ */
+export type LevelOverride = { ilvl: number; startOverride?: number; level?: NumberingLevel; xml?: string }
+export type NumberingInstance = {
+  id: number
+  abstractNumId: number
+  durableId?: string
+  overrides?: LevelOverride[]
+}
+/** w:numPicBullet: a picture a level shows as its bullet, kept as written; `image` is its picture's r:id. */
+export type PictureBullet = { id: number; xml: string; image?: string }
 export type NumberingDefinitions = {
   abstracts: AbstractNumbering[]
   instances: NumberingInstance[]
+  pictureBullets?: PictureBullet[]
+  /** w:numIdMacAtCleanup, as written. */
+  macCleanup?: string
+  /** numbering.xml's relationships and the parts they point at: the picture bullets' images. */
+  links?: PartLinks
   /** Root declarations of a Transitional numbering.xml, written back unchanged. */
   rootAttributes?: RootAttribute[]
 }
@@ -943,10 +962,24 @@ export function emptyNumbering(): NumberingDefinitions {
   return { abstracts: [], instances: [] }
 }
 
-export function numberingLevel(numbering: NumberingDefinitions, numId: number, ilvl: number) {
+/**
+ * The level `ilvl` of list `numId` as Word shows it: the abstract numbering's, or the list's own override of it (a
+ * level of its own, or the abstract's counting from w:startOverride).
+ */
+export function numberingLevel(
+  numbering: NumberingDefinitions,
+  numId: number,
+  ilvl: number,
+): NumberingLevel | undefined {
   const instance = numbering.instances.find((item) => item.id === numId)
   const abstract = numbering.abstracts.find((item) => item.id === instance?.abstractNumId)
-  return abstract?.levels.find((level) => level.ilvl === ilvl)
+  const level = abstract?.levels.find((item) => item.ilvl === ilvl)
+  const override = instance?.overrides?.find((item) => item.ilvl === ilvl)
+  const own = override?.level ?? level
+  if (!own || override?.startOverride === undefined) {
+    return own
+  }
+  return { ...own, start: override.startOverride }
 }
 
 /** U+F0B7 in the Symbol font is the bullet Word stores. Show it as •. */

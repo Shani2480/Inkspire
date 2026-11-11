@@ -80,6 +80,8 @@ import {
   type PageBorders,
   type SectionProps,
   type PageNumbering,
+  type LevelOverride,
+  type PictureBullet,
   type Settings,
   type Spacing,
   type Style,
@@ -295,6 +297,7 @@ export function readDocument(pkg: OpcPackage): WordDocument {
     settingsXml: partXml(pkg, "settings"),
     numberingXml: partXml(pkg, "numbering"),
   })
+  attachNumberingLinks(pkg, doc)
   attachStories(pkg, doc)
   attachNotes(pkg, doc)
   attachComments(pkg, doc)
@@ -350,6 +353,20 @@ export function readWordXml(input: {
     settings,
     rootAttributes: copiedAttributes(document),
     notes,
+  }
+}
+
+/** The pictures numbering.xml's picture bullets show, with their relationships, so a save writes them back. */
+function attachNumberingLinks(pkg: OpcPackage, doc: WordDocument) {
+  if (!doc.numbering.pictureBullets?.length) {
+    return
+  }
+  const relationship = relationshipsFor(pkg, pkg.mainPartName).find((item) =>
+    REL_TYPES.some((base) => item.type === `${base}numbering`),
+  )
+  const links = relationship?.partName ? partLinks(pkg, relationship.partName) : undefined
+  if (links) {
+    doc.numbering.links = links
   }
 }
 
@@ -1085,9 +1102,56 @@ function readNumberingDefinitions(root: MarkupNode): NumberingDefinitions {
     if (durableId && /^[0-9A-Za-z]+$/.test(durableId)) {
       instance.durableId = durableId
     }
+    const overrides: LevelOverride[] = []
+    for (const child of wordChildren(node, "lvlOverride")) {
+      const ilvl = readUint(attr(child, "ilvl"))
+      if (ilvl === undefined) {
+        continue
+      }
+      const override: LevelOverride = { ilvl }
+      const startOverride = readUint(childVal(child, "startOverride"))
+      if (startOverride !== undefined) {
+        override.startOverride = startOverride
+      }
+      const levelNode = wordChild(child, "lvl")
+      const level = levelNode ? readNumberingLevel(levelNode) : undefined
+      if (level) {
+        override.level = level
+      }
+      const xml = sourceOf(child)
+      if (xml) {
+        override.xml = xml
+      }
+      overrides.push(override)
+    }
+    if (overrides.length > 0) {
+      instance.overrides = overrides
+    }
     instances.push(instance)
   }
-  return { abstracts, instances }
+  const definitions: NumberingDefinitions = { abstracts, instances }
+  const pictureBullets: PictureBullet[] = []
+  for (const node of wordChildren(root, "numPicBullet")) {
+    const id = readInt(attr(node, "numPicBulletId"))
+    const xml = sourceOf(node)
+    if (id === undefined || !xml) {
+      continue
+    }
+    const bullet: PictureBullet = { id, xml }
+    const image = /<(?:v:imagedata|a:blip)\b[^>]*?\br:(?:id|embed)="([^"]+)"/.exec(xml)?.[1]
+    if (image) {
+      bullet.image = image
+    }
+    pictureBullets.push(bullet)
+  }
+  if (pictureBullets.length > 0) {
+    definitions.pictureBullets = pictureBullets
+  }
+  const cleanup = sourceOf(wordChild(root, "numIdMacAtCleanup"))
+  if (cleanup) {
+    definitions.macCleanup = cleanup
+  }
+  return definitions
 }
 
 function readNumberingLevel(node: MarkupNode): NumberingLevel | undefined {
@@ -1133,6 +1197,10 @@ function readNumberingLevel(node: MarkupNode): NumberingLevel | undefined {
   }
   if (justify) {
     level.justify = justify
+  }
+  const picture = readInt(childVal(node, "lvlPicBulletId"))
+  if (picture !== undefined) {
+    level.pictureBullet = picture
   }
   return level
 }

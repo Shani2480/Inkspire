@@ -386,7 +386,11 @@ export function fitWordMarkers(view: EditorView) {
     }
     const marker = getComputedStyle(first, "::before")
     context.font = `${marker.fontStyle} ${marker.fontWeight} ${marker.fontSize} ${marker.fontFamily}`
-    const width = context.measureText(item.dataset.wordText ?? "").width
+    // A picture bullet is as wide as the picture drawn a font size high.
+    const width =
+      item.dataset.wordPicture !== undefined
+        ? (Number(item.dataset.wordPicture) || 1) * (parseFloat(marker.fontSize) || 16)
+        : context.measureText(item.dataset.wordText ?? "").width
     const hang = (Number(item.dataset.wordHang) || 0) * PT
     const tab = (Number(item.dataset.wordTab) || 36) * PT
     // Where the item's text starts, from the margin.
@@ -482,9 +486,14 @@ function listMarkers(doc: ProseNode) {
             "data-word-tab": String(word.tab),
             ...(level.justify ? { "data-word-justify": level.justify } : {}),
             ...(level.suffix ? { "data-word-suffix": level.suffix } : {}),
+            // A picture bullet is drawn in a box as tall as its font and as wide as the picture is at that height.
+            ...(level.picture ? { "data-word-picture": String(level.pictureRatio ?? 1) } : {}),
             style: [
               "list-style-type: none",
-              `--word-marker: ${cssString(drawn.text)}`,
+              level.picture ? `--word-marker: " "; --word-picture: url("${level.picture}")` : "",
+              level.picture
+                ? `--word-picture-width: ${level.pictureRatio ?? 1}em`
+                : `--word-marker: ${cssString(drawn.text)}`,
               `--word-hang: ${level.hang}pt`,
               drawn.font ? `--word-marker-font: ${cssString(drawn.font)}` : "",
               level.size ? `--word-marker-size: ${level.size}pt` : "",

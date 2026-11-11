@@ -37,6 +37,7 @@ import {
   diagramSvg,
   inlinesHtml,
   mediaFor,
+  encodeBase64,
   numberAttr,
   payloadBlock,
   payloadInlines,
@@ -447,6 +448,7 @@ function wordLevelsAttribute(numbering: NumberingDefinitions, numId: number, def
       ...(color ? { color } : {}),
       ...(run.b !== undefined ? { bold: run.b } : {}),
       ...(run.i !== undefined ? { italic: run.i } : {}),
+      ...pictureBulletOf(numbering, level.pictureBullet),
     })
   }
   if (levels.length === 0) {
@@ -454,6 +456,34 @@ function wordLevelsAttribute(numbering: NumberingDefinitions, numId: number, def
   }
   // The default tab stops, which the text after a marker too wide for its hanging indent moves on to.
   return ` data-word-levels="${escapeAttribute(JSON.stringify(levels))}" data-word-tab="${defaultTab / 20}"`
+}
+
+/** Image types a browser draws; a picture bullet in another (EMF, WMF) is drawn as its level's text. */
+const DRAWN_IMAGES = /^image\/(png|jpeg|gif|bmp|svg\+xml|webp)$/
+
+/**
+ * A level's picture bullet as `WordLevel` draws it: the picture numbering.xml points at, and its shape's width over
+ * its height (VML `style="width:…;height:…"`, or DrawingML `wp:extent`).
+ */
+function pictureBulletOf(numbering: NumberingDefinitions, id: number | undefined) {
+  const bullet = id === undefined ? undefined : numbering.pictureBullets?.find((item) => item.id === id)
+  const relationship = bullet?.image
+    ? numbering.links?.relationships.find((item) => item.id === bullet.image)
+    : undefined
+  const part = relationship?.partName
+    ? numbering.links?.parts.find((item) => item.name.toLowerCase() === relationship.partName!.toLowerCase())
+    : undefined
+  const type = part?.contentType || (part?.name.toLowerCase().endsWith(".png") ? "image/png" : "")
+  if (!bullet || !part || !DRAWN_IMAGES.test(type)) {
+    return {}
+  }
+  const vml = /width:\s*([\d.]+)(pt|px|in)?[^"]*?height:\s*([\d.]+)(pt|px|in)?/.exec(bullet.xml)
+  const extent = /<wp:extent\b[^>]*\bcx="(\d+)"[^>]*\bcy="(\d+)"/.exec(bullet.xml)
+  const ratio = vml ? Number(vml[1]) / Number(vml[3]) : extent ? Number(extent[1]) / Number(extent[2]) : 1
+  return {
+    picture: `data:${type};base64,${encodeBase64(part.data)}`,
+    pictureRatio: Number.isFinite(ratio) && ratio > 0 ? Math.round(ratio * 1000) / 1000 : 1,
+  }
 }
 
 function listTag(doc: WordDocument, numId: number) {

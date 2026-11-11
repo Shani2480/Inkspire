@@ -426,6 +426,10 @@ function storyPackages(doc: WordDocument, stories: HeaderFooterRef[], parts: Pac
       sources.push({ source: name, blocks: part.items.flatMap((note) => note.blocks), links: part.links })
     }
   }
+  // The pictures of numbering.xml's picture bullets.
+  if (doc.numbering?.links && doc.numbering.pictureBullets?.length) {
+    sources.push({ source: "/word/numbering.xml", blocks: [], links: doc.numbering.links })
+  }
   if (doc.comments && doc.comments.items.length > 0) {
     sources.push({
       source: "/word/comments.xml",
@@ -1049,6 +1053,7 @@ function writeNumberingPart(numbering: NumberingDefinitions) {
     }
     namespaces.push(`mc:Ignorable="${ignorable.join(" ")}"`)
   }
+  const pictures = (numbering.pictureBullets ?? []).map((item) => item.xml).join("")
   const abstracts = numbering.abstracts.map((item) => writeAbstract(item)).join("")
   const instances = numbering.instances.map((item) => writeNumber(item)).join("")
   const declared = numbering.rootAttributes?.length
@@ -1056,7 +1061,14 @@ function writeNumberingPart(numbering: NumberingDefinitions) {
         (item) => `${item.prefix ? `${item.prefix}:` : ""}${item.local}="${escapeXml(item.value)}"`,
       )
     : namespaces
-  return `<w:numbering ${declared.join(" ")}>${abstracts}${instances}</w:numbering>`
+  // Markup kept as written may use prefixes the root does not declare yet.
+  const kept = `${pictures}${numbering.instances.map((item) => (item.overrides ?? []).map((o) => o.xml ?? "").join("")).join("")}`
+  for (const [prefix, uri] of PICTURE_BULLET_NAMESPACES) {
+    if (new RegExp(`[<\\s/]${prefix}:`).test(kept) && !declared.some((item) => item.startsWith(`xmlns:${prefix}=`))) {
+      declared.push(`xmlns:${prefix}="${uri}"`)
+    }
+  }
+  return `<w:numbering ${declared.join(" ")}>${pictures}${abstracts}${instances}${numbering.macCleanup ?? ""}</w:numbering>`
 }
 
 function writeAbstract(item: AbstractNumbering) {
@@ -1090,16 +1102,38 @@ function writeLevel(level: NumberingLevel) {
   const legal = level.legal ? "<w:isLgl/>" : ""
   const suffix = level.suffix ? `<w:suff w:val="${level.suffix}"/>` : ""
   const text = level.text !== undefined ? `<w:lvlText w:val="${escapeXml(level.text)}"/>` : ""
+  const picture = level.pictureBullet !== undefined ? `<w:lvlPicBulletId w:val="${level.pictureBullet}"/>` : ""
   const justify = level.justify ? `<w:lvlJc w:val="${numberingJustify(level.justify)}"/>` : ""
   const paragraph = writeLooseParagraphProperties(level.pPr)
   const run = writeRunProperties(level.rPr)
-  return `<w:lvl w:ilvl="${level.ilvl}">${start}${format}${restart}${pStyle}${legal}${suffix}${text}${justify}${paragraph ? `<w:pPr>${paragraph}</w:pPr>` : ""}${run ? `<w:rPr>${run}</w:rPr>` : ""}</w:lvl>`
+  return `<w:lvl w:ilvl="${level.ilvl}">${start}${format}${restart}${pStyle}${legal}${suffix}${text}${picture}${justify}${paragraph ? `<w:pPr>${paragraph}</w:pPr>` : ""}${run ? `<w:rPr>${run}</w:rPr>` : ""}</w:lvl>`
 }
 
 function writeNumber(item: NumberingDefinitions["instances"][number]) {
   const durable = item.durableId ? ` w16cid:durableId="${escapeXml(item.durableId)}"` : ""
-  return `<w:num w:numId="${item.id}"${durable}><w:abstractNumId w:val="${item.abstractNumId}"/></w:num>`
+  // A level override goes back as Word wrote it; one made here is written from the model.
+  const overrides = (item.overrides ?? [])
+    .map(
+      (override) =>
+        override.xml ??
+        `<w:lvlOverride w:ilvl="${override.ilvl}">${
+          override.startOverride !== undefined ? `<w:startOverride w:val="${override.startOverride}"/>` : ""
+        }${override.level ? writeLevel(override.level) : ""}</w:lvlOverride>`,
+    )
+    .join("")
+  return `<w:num w:numId="${item.id}"${durable}><w:abstractNumId w:val="${item.abstractNumId}"/>${overrides}</w:num>`
 }
+
+/** Prefixes a picture bullet's markup uses (VML or DrawingML), declared when numbering.xml is written fresh. */
+const PICTURE_BULLET_NAMESPACES: [string, string][] = [
+  ["r", "http://schemas.openxmlformats.org/officeDocument/2006/relationships"],
+  ["v", "urn:schemas-microsoft-com:vml"],
+  ["o", "urn:schemas-microsoft-com:office:office"],
+  ["w10", "urn:schemas-microsoft-com:office:word"],
+  ["wp", "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"],
+  ["a", "http://schemas.openxmlformats.org/drawingml/2006/main"],
+  ["pic", "http://schemas.openxmlformats.org/drawingml/2006/picture"],
+]
 
 function writeSection(section: SectionProps) {
   return `<w:sectPr>${writeChildren(section, section.source, generateSection, ORDER.sectPr)}</w:sectPr>`

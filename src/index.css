@@ -1949,6 +1949,14 @@ button.line-menu-row:focus-visible {
   white-space: pre;
 }
 
+/* A picture bullet (w:lvlPicBulletId): its picture a font size high, in the marker's place. */
+.page-editor li[data-word-picture] > :first-child::before {
+  background-image: var(--word-picture);
+  background-repeat: no-repeat;
+  background-position: 0 50%;
+  background-size: var(--word-picture-width, 1em) 1em;
+}
+
 .page-editor ul ul {
   list-style-type: circle;
 }
