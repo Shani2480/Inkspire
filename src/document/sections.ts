@@ -173,22 +173,35 @@ export function sectionPageSetup(setup: PageSetup, section: SectionChrome | null
 }
 
 /**
- * The columns a section's pages are drawn with, as a page setup's columns. The body is one flow in the browser's
- * columns, as many as the section with the most has: a one-column section is drawn across them, a section with fewer
- * columns above one takes that many (and the gap of the first section that has columns). Unequal columns are the
- * document's own and are used for every section, as the paginator lays them out block by block.
+ * Whether the sections' columns cannot be one flow in the browser's columns, which are always equal and as many all
+ * the way down: a section has unequal widths, or two sections have different counts or gaps above one column. The
+ * paginator then lays the blocks out one by one, each in its own section's columns (`drawnColumns`).
+ */
+export function columnsBlockwise(setup: PageSetup, sections: SectionChrome[]) {
+  const all = [setup, ...sections.map((item) => sectionPageSetup(setup, item))].filter((item) => item.columns > 1)
+  if (all.some((item) => item.columnWidths !== undefined)) {
+    return true
+  }
+  return new Set(all.map((item) => `${item.columns}:${item.columnGap}`)).size > 1
+}
+
+/**
+ * The columns a section's pages are drawn with, as a page setup's columns. Usually the body is one flow in the
+ * browser's columns, as many as the section with the most has: a one-column section is drawn across them. When the
+ * sections' columns differ (`columnsBlockwise`), each section's are its own.
  */
 export function drawnColumns(
   setup: PageSetup,
   sections: SectionChrome[],
   section: SectionChrome | null,
 ): Pick<PageSetup, "columns" | "columnGap" | "columnLine" | "columnWidths"> {
-  if (setup.columns > 1 && setup.columnWidths !== undefined) {
+  if (columnsBlockwise(setup, sections)) {
+    const own = sectionPageSetup(setup, section)
     return {
-      columns: setup.columns,
-      columnGap: setup.columnGap,
-      columnLine: setup.columnLine,
-      columnWidths: setup.columnWidths,
+      columns: own.columns > 1 ? own.columns : 1,
+      columnGap: own.columnGap,
+      columnLine: own.columnLine,
+      columnWidths: own.columns > 1 ? own.columnWidths : undefined,
     }
   }
   const own = sectionColumns(setup, section)

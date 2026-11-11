@@ -7,6 +7,32 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-11
 
+### Sections with different columns each keep their own
+
+- **What was wrong:** the body was one flow in the browser's columns, which are equal and as many all the way down.
+  Two sections with different counts above one (3 and 2) were both drawn with the larger, and with the first's
+  gap. A section's own unequal widths (Left, Right) were drawn equal. A one-column section in a document of unequal
+  columns was drawn in the first column's width.
+- **What changed:**
+  - `document/sections.ts`: `columnsBlockwise` says when the sections' columns cannot be that one flow (unequal
+    widths anywhere, or counts or gaps that differ). `drawnColumns` then gives each section its own columns, so the
+    column outlines and the ruler show them too.
+  - `editor/pages.ts`: in that case the body is laid out block by block, as unequal columns already were, with each
+    section's own column boxes: its count, gap and widths, at its own paper's text width and left edge. The layout
+    tells the apply step which way it was laid out (`Layout.unequal`).
+- **Tests:** `sections.test.ts` (when the columns are laid out block by block, each section's own count). The old
+  test that a section with fewer columns takes the most any section has is replaced, as that is no longer so.
+- **Checked:** in headless Chrome on f15.
+  - The first section set to Three with 30 lines typed: page 1 in three 169 px columns, filled from the first;
+    pages 2-3 in two 442 px columns, the page after the break at 97 px. Outlines 3, 2, 2.
+  - Left for the whole document: page 1 in 175 and 379 px columns, the landscape pages 279 and 605 px.
+  - A one-section document with Left: 279 and 605 px, the text running on into the second column.
+- **Open:**
+  - Laid out block by block, a paragraph that does not fit the rest of a column goes whole to the next, as with
+    unequal columns before.
+  - The Columns dialog has no "This section" in Apply to, as Word has when the document has sections.
+  - The ruler's drags still change the document's own columns.
+
 ### Multiple Pages keeps each block in its column
 
 - **What was wrong:** Multiple Pages moves each block to its page's place in the grid, but always to the page's left
@@ -109,11 +135,12 @@ in Word, Chrome or the desktop app.
   - Page 2 is two columns and starts at the top margin (96 px; before, 63).
   - Columns > Three in the first section draws it in three columns, with outlines and ruler marks.
 - **Open:**
-  - Two sections with different counts above one (2 and 3) are both drawn with the larger, though each is saved
+  - **Fixed** the same day (Sections with different columns each keep their own): two sections with different counts above one (2 and 3) are both drawn with the larger, though each is saved
     with its own.
   - Columns that change at a continuous section break (mid-page) are not drawn: only sections that start a page
     count.
-  - A section's unequal widths (Left, Right) are saved but drawn equal unless they are the document's own.
+  - **Fixed** the same day: a section's unequal widths (Left, Right) are saved but drawn equal unless they are the
+    document's own.
   - Older, also in one-section documents: a page ended early (page break) in columns is balanced by the browser,
     where Word fills the first column first, and the next page's text starts 10-43 px high. (f15's page 3: 86 px
     instead of 96. A one-section copy: 53.)

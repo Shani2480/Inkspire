@@ -3,7 +3,7 @@ import { keepWithNextMustMove, linesOnPage } from "@/editor/page-breaking"
 import { useChromeExtent } from "@/document/chrome-extent"
 import { pageMetrics, setupColumns, type LineNumberRestart } from "@/document/page-setup"
 import { drawnPageSetup, setDrawnPageKeys } from "@/document/page-frames"
-import { drawnColumns, sectionAt, type SectionChrome } from "@/document/sections"
+import { columnsBlockwise, drawnColumns, sectionAt, type SectionChrome } from "@/document/sections"
 import { columnBoxes } from "@/document/column-widths"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
@@ -287,7 +287,7 @@ function paginationPlugin(storage: PaginationStorage) {
               }
               const web = useViewStore.getState().layoutMode === "web"
               const columns = laid.columns
-              const unequal = columns > 1 && pageSetup.columnWidths !== undefined
+              const unequal = columns > 1 && laid.unequal
               view.dom.toggleAttribute("data-unequal", unequal)
               view.dom.style.marginBottom = ""
               if (unequal) {
@@ -963,6 +963,8 @@ type Layout = {
   /** Changes when the floats text wraps beside change, which reshapes the lines after them. */
   sideKey: string
   lastUsed: number
+  /** Whether the columns are laid out block by block (`columnsBlockwise`), not in the browser's columns. */
+  unequal: boolean
   /** Columns: the filler after the text that fills the last page's columns (`PageBreak.filler`). */
   endFiller: number
   contentHeight: number
@@ -1098,9 +1100,21 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   // column goes whole to the next one.
   const setup = useDocumentStore.getState().pageSetup
   const unequal = !web && columns.unequal
-  const boxes = unequal ? columnBoxes(setupColumns(setup), PX_PER_CM) : []
+  // Each section's columns, from its own text's left edge: its page may be another size (`sectionCells`).
+  const widest = Math.max(...sectionMetrics.map((item) => item.width))
+  const textLeft = (item: PageMetrics) => (widest - item.width) / 2 + item.marginLeft
+  const ownLeft = textLeft(sectionMetrics[sectionMetrics.length - 1]!)
+  const sectionBoxList = unequal
+    ? sectionKeys.map((key, index) => {
+        const found = key ? (sectionList.find((item) => item.key === key) ?? null) : null
+        const shift = textLeft(sectionMetrics[index]!) - ownLeft
+        const paper = { ...drawnPageSetup(setup, found), ...columns.drawn[index]! }
+        return columnBoxes(setupColumns(paper), PX_PER_CM).map((box) => ({ x: box.x + shift, width: box.width }))
+      })
+    : []
+  const boxesOf = (index: number) => sectionBoxList[index] ?? sectionBoxList[sectionBoxList.length - 1] ?? []
   // Where the top-level block being laid out started: its page, column and whether at the column's top.
-  type Starting = { page: number; column: number; atTop: boolean }
+  type Starting = { page: number; column: number; atTop: boolean; section: number }
   const track: { starting: Starting | null; top: number } = { starting: null, top: -1 }
   // Blocks given their column's width to be measured there, which get their drawn width back when the layout is done.
   const sized = new Set<HTMLElement>()
@@ -1111,7 +1125,8 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     }
     const style = getComputedStyle(dom)
     const sides = (parseFloat(style.marginLeft) || 0) + (parseFloat(style.marginRight) || 0)
-    const width = `${Math.max(8, Math.round((boxes[column] ?? boxes[0]).width - sides))}px`
+    const boxes = boxesOf(section)
+    const width = `${Math.max(8, Math.round((boxes[column] ?? boxes[0]!).width - sides))}px`
     if (dom.style.width !== width) {
       holdObserver(view, () => {
         dom.style.width = width
@@ -1217,7 +1232,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       size = height
     }
     if (unequal && !track.starting) {
-      track.starting = { page: breaks.length + 1, column, atTop: used === 0 }
+      track.starting = { page: breaks.length + 1, column, atTop: used === 0, section }
     }
     used += size
   }
@@ -1671,7 +1686,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     placeBlock(pos, height, top, bottom)
   }
 
-  const begun: { pos: number; node: ProseNode; page: number; column: number; atTop: boolean }[] = []
+  const begun: { pos: number; node: ProseNode; page: number; column: number; atTop: boolean; section: number }[] = []
   view.state.doc.forEach((node, offset, index) => {
     track.starting = null
     track.top = offset
@@ -1692,7 +1707,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     return null
   }
   const { cells, lastLift } = unequal
-    ? columnCells(view, begun, boxes, breaks, `${breaks.length + 1}:${column}`)
+    ? columnCells(view, begun, boxesOf, breaks, `${breaks.length + 1}:${column}`)
     : { cells: [], lastLift: 0 }
   // The lifts above were read with each block at its new column's width; the decorations draw it so from now on.
   unsize()
@@ -1731,6 +1746,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     contentHeight,
     pageCount: breaks.length + 1,
     columns: columns.editor,
+    unequal,
     columnGap: columns.gap,
     spans: columns.spans,
     sectionCells: sectionBoxes,
@@ -1829,17 +1845,18 @@ function sectionSetupKey(sections: SectionChrome[]) {
 function sectionColumnLayout(view: EditorView, keys: string[], sections: SectionChrome[]) {
   const setup = useDocumentStore.getState().pageSetup
   if (useViewStore.getState().layoutMode === "web") {
-    return { counts: keys.map(() => 1), editor: 1, gap: setup.columnGap, spans: [], unequal: false }
+    return { counts: keys.map(() => 1), editor: 1, gap: setup.columnGap, spans: [], unequal: false, drawn: [] }
   }
   const drawn = keys.map((key) =>
     drawnColumns(setup, sections, key ? (sections.find((item) => item.key === key) ?? null) : null),
   )
   const counts = drawn.map((item) => item.columns)
   const editor = Math.max(1, ...counts)
-  const unequal = setup.columns > 1 && setup.columnWidths !== undefined
+  // Unequal widths, or sections whose columns differ: laid out block by block, each section in its own columns.
+  const unequal = editor > 1 && columnsBlockwise(setup, sections)
   const gap = drawn.find((item) => item.columns > 1)?.columnGap ?? setup.columnGap
   const spans: { pos: number; size: number }[] = []
-  if (editor > 1) {
+  if (editor > 1 && !unequal) {
     let index = 0
     view.state.doc.forEach((node, pos) => {
       if (counts[index] === 1) {
@@ -1850,7 +1867,7 @@ function sectionColumnLayout(view: EditorView, keys: string[], sections: Section
       }
     })
   }
-  return { counts, editor, gap, spans, unequal }
+  return { counts, editor, gap, spans, unequal, drawn }
 }
 
 /** The blocks that hold text, which take their column's width (tables and objects keep their own). */
@@ -1864,8 +1881,8 @@ const TEXT_BLOCKS = new Set(["bulletList", "orderedList", "taskList", "blockquot
  */
 function columnCells(
   view: EditorView,
-  started: { pos: number; node: ProseNode; page: number; column: number; atTop: boolean }[],
-  boxes: { x: number; width: number }[],
+  started: { pos: number; node: ProseNode; page: number; column: number; atTop: boolean; section: number }[],
+  boxesOf: (section: number) => { x: number; width: number }[],
   breaks: PageBreak[],
   lastKey: string,
 ) {
@@ -1898,7 +1915,8 @@ function columnCells(
   }
   const cells: ColumnCell[] = []
   for (const item of started) {
-    const box = boxes[item.column] ?? boxes[0]
+    const boxes = boxesOf(item.section)
+    const box = boxes[item.column] ?? boxes[0]!
     const dom = view.nodeDOM(item.pos)
     let width: number | undefined
     if ((item.node.isTextblock || TEXT_BLOCKS.has(item.node.type.name)) && dom instanceof HTMLElement) {

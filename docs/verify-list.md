@@ -7,6 +7,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Sections with different columns (2026-11-11)** — a Word document with a three-column section and a two-column
+      one, and one with a Left (unequal) section, opens in the app with each section's columns as Word draws them.
+
 - [ ] **Columns fill from the first (2026-11-11)** — a two-column Word document with a few lines, a page break, then
       a few more lines: in the app, as in Word, each page's lines stay in the left column and the second page's text
       starts at its top margin.
