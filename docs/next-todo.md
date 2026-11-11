@@ -737,8 +737,10 @@ own `w:sectPr` (`changes.md`). Open:
   blocks laid out at its own text width.
 - ~~The ribbon's Orientation, Size and Margins act on the document, not the caret's section.~~ **Fixed** the same day
   (`changes.md`); the horizontal ruler's margin drag still changes the document's side margins.
-- Columns per section: the document's columns are applied to every section. In f15 this draws the one-column
-  first section in two columns and puts the text of later pages inside the top margin.
+- ~~Columns per section~~ **Fixed** the same day (`changes.md`). Open: different counts above one share the larger;
+  columns changing at a continuous break; a section's own unequal widths.
+- Columns and page breaks (also with one section): a page ended early is balanced by the browser, where Word fills
+  the first column first, and the next page's text starts 10-43 px high.
 
 Fixed 2026-10-29: Options dialog drawn light in dark mode; SmartArt Cycle, Organization Chart and Relationship
 drawn as a row of boxes in a dashed frame (`changes.md`).

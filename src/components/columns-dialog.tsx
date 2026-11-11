@@ -97,13 +97,18 @@ function ColumnsDialog({ editor, onClose }: { editor: Editor | null; onClose: ()
     const gap = clampColumnGap(spacing)
     if (scope === "document") {
       const unequal = count > 1 && !equal && !columnsAreEqual(columns)
-      setPageSetup({
-        ...setup,
+      const next = {
         columns: count,
         columnGap: gap,
         columnLine: count > 1 && line,
         columnWidths: unequal ? columns : undefined,
-      })
+      }
+      setPageSetup({ ...setup, ...next })
+      // Every Word section has its own columns: the whole document is each of them.
+      const store = useDocumentStore.getState()
+      for (const item of store.sections) {
+        store.setSectionSetup(item.key, next)
+      }
     } else if (editor) {
       const placed =
         count === 1

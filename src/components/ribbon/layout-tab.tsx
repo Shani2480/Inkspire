@@ -71,7 +71,7 @@ export function LayoutTab() {
   function update(next: Partial<PageSetup>) {
     setPageSetup({ ...setup, ...next })
   }
-  // Margins, Orientation and Size change the section the caret is in, as in Word.
+  // Margins, Orientation, Size and Columns change the section the caret is in, as in Word.
   const { setup: section, update: updateSection } = useCaretSectionSetup()
 
   const marginsMenu = () => (
@@ -147,8 +147,8 @@ export function LayoutTab() {
       ))}
     </div>
   )
-  const textCm = contentWidthCm(setup)
-  const preset = columnPreset(setup.columns, setup.columnWidths, textCm, setup.columnGap)
+  const textCm = contentWidthCm(section)
+  const preset = columnPreset(section.columns, section.columnWidths, textCm, section.columnGap)
   const columnsMenu = (close: () => void) => (
     <div className="flex w-52 flex-col">
       {(["one", "two", "three", "left", "right"] as const).map((choice) => (
@@ -156,8 +156,8 @@ export function LayoutTab() {
           key={choice}
           selected={preset === choice}
           onClick={() => {
-            const picked = presetColumns(choice, textCm, setup.columnGap)
-            update({ columns: picked.count, columnWidths: picked.widths })
+            const picked = presetColumns(choice, textCm, section.columnGap)
+            updateSection({ columns: picked.count, columnWidths: picked.widths })
             close()
           }}
         >

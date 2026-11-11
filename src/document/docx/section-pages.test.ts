@@ -340,6 +340,27 @@ describe("a section's page setup and page numbers", () => {
     expect(section).toMatchObject({ paper: "letter", orientation: "landscape", marginLeft: 30 })
   })
 
+  it("opens each section's own columns, and writes a section's new ones into its own w:sectPr", async () => {
+    const { word, view, key } = await numbered()
+    const section = view.chrome.sections!.find((item) => item.key === key)!
+    // f15: a one-column first section before the document's two columns.
+    expect(section.columns).toBe(1)
+    expect(view.chrome.pageSetup.columns).toBe(2)
+    const untouched = await save(word, view)
+    expect(untouched.xml.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/g)![0]).toMatch(/<w:cols w:space="708"\/>/)
+
+    const sections = view.chrome.sections!.map((item) =>
+      item.key === key ? { ...item, columns: 3, columnGap: 1, columnLine: true } : item,
+    )
+    const { bytes, xml } = await save(word, view, { ...view.chrome, sections })
+    const [first, last] = xml.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/g)!
+    expect(first).toMatch(/<w:cols [^>]*w:num="3"/)
+    expect(first).toMatch(/<w:cols [^>]*w:sep="1"/)
+    expect(last).toMatch(/<w:cols w:num="2" w:space="708"\/>/)
+    const reopened = await openDocxBytes(bytes, "edited.docx")
+    expect(reopened.view.chrome.sections![0]).toMatchObject({ columns: 3, columnGap: 1, columnLine: true })
+  })
+
   it("keeps a section's paper as written when untouched", async () => {
     const { word, view } = await numbered()
     const { xml } = await save(word, view)

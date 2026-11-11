@@ -15,9 +15,16 @@ import { chromeHasContent, chromeHasPageField } from "@/document/chrome-html"
 import { useActiveChromeEditor } from "@/document/chrome-editing"
 import { chromeText } from "@/document/chrome-html"
 import { useChromeExtent } from "@/document/chrome-extent"
-import { applyPageChrome, pageBorderStyle, pageMetrics, setupColumns, showsPageBorder } from "@/document/page-setup"
+import {
+  applyPageChrome,
+  pageBorderStyle,
+  pageMetrics,
+  setupColumns,
+  showsPageBorder,
+  type PageSetup,
+} from "@/document/page-setup"
 import { sectionPageLabels } from "@/document/page-numbers"
-import { sectionSetup, type ChromeSlot, type SectionChrome } from "@/document/sections"
+import { drawnColumns, sectionSetup, type ChromeSlot, type SectionChrome } from "@/document/sections"
 import { slotHome, slotOf, type SlotState } from "@/document/section-slots"
 import { useDocumentStore } from "@/document/store"
 import { clampZoom, useViewStore } from "@/document/view"
@@ -559,6 +566,12 @@ export function PageCanvas() {
                 ) : null}
                 {/* Body text margins only — not header/footer from-edge offsets. */}
                 <div className="page-margin-guide" aria-hidden />
+                <PageColumnGuides
+                  columns={web ? null : drawnColumns(pageSetup, sections, section)}
+                  setup={pageSetup}
+                  top={sheet.marginTop}
+                  bottom={sheet.marginBottom}
+                />
                 {cropMarks && !web
                   ? ["tl", "tr", "bl", "br"].map((corner) => (
                       <span key={corner} className={`page-crop-mark is-${corner}`} aria-hidden />
@@ -580,30 +593,6 @@ export function PageCanvas() {
           ) : null}
           <EditorContent editor={editor} />
           {editor ? <CommentMarkers /> : null}
-          {pageSetup.columns > 1 ? (
-            <div
-              className={`page-column-guides${pageSetup.columnLine ? " has-rule" : ""}`}
-              aria-hidden
-              style={{
-                top: metrics.marginTop,
-                right: `${pageSetup.marginRight}mm`,
-                bottom: metrics.marginBottom,
-                left: `${pageSetup.marginLeft}mm`,
-              }}
-            >
-              {setupColumns(pageSetup).map((column, index) => (
-                <span
-                  key={index}
-                  style={{
-                    flex: "none",
-                    width: `${column.width}cm`,
-                    marginRight: `${column.space}cm`,
-                    ["--column-gap" as string]: `${column.space}cm`,
-                  }}
-                />
-              ))}
-            </div>
-          ) : null}
           {formatted ? <MiniToolbar editor={formatted} /> : null}
           {formatted ? <ObjectBar editor={formatted} /> : null}
           {editor ? <ChartSideButtons editor={editor} /> : null}
@@ -614,6 +603,42 @@ export function PageCanvas() {
           <TableHandles editor={formatted} />
         </article>
       </div>
+    </div>
+  )
+}
+
+/** The blue outlines of a page's columns, and the Line between rule (which prints), for its section's columns. */
+function PageColumnGuides({
+  columns,
+  setup,
+  top,
+  bottom,
+}: {
+  columns: Pick<PageSetup, "columns" | "columnGap" | "columnLine" | "columnWidths"> | null
+  setup: PageSetup
+  top: number
+  bottom: number
+}) {
+  if (!columns || columns.columns < 2) {
+    return null
+  }
+  return (
+    <div
+      className={`page-column-guides${columns.columnLine ? " has-rule" : ""}`}
+      aria-hidden
+      style={{ top, right: `${setup.marginRight}mm`, bottom, left: `${setup.marginLeft}mm` }}
+    >
+      {setupColumns({ ...setup, ...columns }).map((column, index) => (
+        <span
+          key={index}
+          style={{
+            flex: "none",
+            width: `${column.width}cm`,
+            marginRight: `${column.space}cm`,
+            ["--column-gap" as string]: `${column.space}cm`,
+          }}
+        />
+      ))}
     </div>
   )
 }

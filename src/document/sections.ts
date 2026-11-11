@@ -1,3 +1,4 @@
+import type { ColumnWidth } from "@/document/column-widths"
 import type { PageOrientation, PageSetup, PaperSize } from "@/document/page-setup"
 
 /** The six headers and footers a section can have. */
@@ -30,6 +31,14 @@ export type SectionChrome = {
   paperHeight?: number
   marginLeft?: number
   marginRight?: number
+  /**
+   * Its own columns, as Page Setup holds them (absent: the document's). A one-column section among sections with
+   * columns is drawn across the page; sections with different numbers of columns above one take the most of them.
+   */
+  columns?: number
+  columnGap?: number
+  columnLine?: boolean
+  columnWidths?: ColumnWidth[]
   /** Format Page Numbers: its first page's number (absent or null: going on from the section before) and format. */
   pageNumberStart?: number | null
   pageNumberFormat?: string
@@ -51,6 +60,10 @@ export type SectionSetupPatch = Partial<
     | "orientation"
     | "paperWidth"
     | "paperHeight"
+    | "columns"
+    | "columnGap"
+    | "columnLine"
+    | "columnWidths"
     | "headerFromEdge"
     | "footerFromEdge"
     | "differentFirstPage"
@@ -129,6 +142,15 @@ export const SECTION_PAPER_FIELDS = [
   "marginRight",
 ] as const
 
+/** The column settings a section has of its own. */
+export const SECTION_COLUMN_FIELDS = ["columns", "columnGap", "columnLine", "columnWidths"] as const
+
+/** How many columns a section's pages have: its own, else the document's. */
+export function sectionColumns(setup: PageSetup, section: SectionChrome | null) {
+  const count = section?.columns ?? setup.columns
+  return count > 1 ? count : 1
+}
+
 /**
  * A section's whole page setup, as Page Setup shows it: the document's, with everything the section has of its own,
  * paper and side margins included (`sectionSetup` leaves those out, since pages are drawn with the document's).
@@ -138,10 +160,44 @@ export function sectionPageSetup(setup: PageSetup, section: SectionChrome | null
     return setup
   }
   const own: Partial<PageSetup> = {}
-  for (const field of SECTION_PAPER_FIELDS) {
+  for (const field of [...SECTION_PAPER_FIELDS, ...SECTION_COLUMN_FIELDS]) {
     if (section[field] !== undefined) {
       Object.assign(own, { [field]: section[field] })
     }
   }
+  // A section with columns of its own has equal ones unless it has widths: none of the document's.
+  if (section.columns !== undefined) {
+    own.columnWidths = section.columnWidths
+  }
   return { ...sectionSetup(setup, section), ...own }
+}
+
+/**
+ * The columns a section's pages are drawn with, as a page setup's columns. The body is one flow in the browser's
+ * columns, as many as the section with the most has: a one-column section is drawn across them, a section with fewer
+ * columns above one takes that many (and the gap of the first section that has columns). Unequal columns are the
+ * document's own and are used for every section, as the paginator lays them out block by block.
+ */
+export function drawnColumns(
+  setup: PageSetup,
+  sections: SectionChrome[],
+  section: SectionChrome | null,
+): Pick<PageSetup, "columns" | "columnGap" | "columnLine" | "columnWidths"> {
+  if (setup.columns > 1 && setup.columnWidths !== undefined) {
+    return {
+      columns: setup.columns,
+      columnGap: setup.columnGap,
+      columnLine: setup.columnLine,
+      columnWidths: setup.columnWidths,
+    }
+  }
+  const own = sectionColumns(setup, section)
+  const most = Math.max(sectionColumns(setup, null), ...sections.map((item) => sectionColumns(setup, item)))
+  const first = setup.columns > 1 ? null : (sections.find((item) => sectionColumns(setup, item) > 1) ?? null)
+  return {
+    columns: own === 1 ? 1 : most,
+    columnGap: first?.columnGap ?? setup.columnGap,
+    columnLine: (section ? section.columnLine : undefined) ?? setup.columnLine,
+    columnWidths: undefined,
+  }
 }

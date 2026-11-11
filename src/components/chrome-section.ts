@@ -1,5 +1,5 @@
 import { useDocumentStore } from "@/document/store"
-import { sectionPageSetup, type SectionSetupPatch } from "@/document/sections"
+import { sectionPageSetup, type SectionChrome, type SectionSetupPatch } from "@/document/sections"
 import type { PageSetup } from "@/document/page-setup"
 import { caretSection } from "@/editor/section-break"
 import { useBodyEditor } from "@/editor/document-editor"
@@ -100,17 +100,33 @@ export function useSlotState(): SlotState {
   return { sections, linkedSlots, differentFirstPage, differentOddEven }
 }
 
-/** What Layout's Margins, Orientation and Size change: each section has its own (see `SectionChrome`). */
+/** What Layout's Margins, Orientation, Size and Columns change: each section has its own (see `SectionChrome`). */
 export type SectionPagePatch = Pick<
   SectionSetupPatch,
-  "marginTop" | "marginBottom" | "marginLeft" | "marginRight" | "paper" | "orientation" | "paperWidth" | "paperHeight"
+  | "marginTop"
+  | "marginBottom"
+  | "marginLeft"
+  | "marginRight"
+  | "paper"
+  | "orientation"
+  | "paperWidth"
+  | "paperHeight"
+  | "columns"
+  | "columnGap"
+  | "columnLine"
+  | "columnWidths"
 >
 
 /**
  * The page setup of the section the body's caret is in, as Page Setup shows it, and how to change it there: a
  * section before the last its own, the document's own (last) section the document's, as Word's Layout tab does.
  */
-export function useCaretSectionSetup(): { setup: PageSetup; update: (patch: SectionPagePatch) => void } {
+export function useCaretSectionSetup(): {
+  setup: PageSetup
+  /** The caret's section before the last, or `null` for the document's own. */
+  section: SectionChrome | null
+  update: (patch: SectionPagePatch) => void
+} {
   const body = useBodyEditor()
   const sections = useDocumentStore((state) => state.sections)
   const own = useDocumentStore((state) => state.pageSetup)
@@ -122,6 +138,7 @@ export function useCaretSectionSetup(): { setup: PageSetup; update: (patch: Sect
   const section = key ? (sections.find((item) => item.key === key) ?? null) : null
   return {
     setup: sectionPageSetup(own, section),
+    section,
     update: (patch) => {
       const store = useDocumentStore.getState()
       if (section) {

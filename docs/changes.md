@@ -7,6 +7,49 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-11
 
+### Each section has its own columns
+
+- **What was wrong:**
+  - Only the document's own (last section's) columns were read, and they applied to the whole body. In f15
+    (a one-column section, then a two-column one) the first section was drawn in two columns. Because the
+    paginator counted one column there, the text on later pages started 30-40 px inside the top margin.
+  - Word sections with more than three columns opened as one column.
+- **What changed:**
+  - `document/sections.ts`: `SectionChrome` gains `columns`, `columnGap`, `columnLine`, `columnWidths`.
+    `sectionColumns` gives a section's count. `drawnColumns` gives the columns a section's pages are drawn with:
+    the body is one flow in CSS columns, as many as the section with the most has. A one-column section is drawn
+    across them, and the document's unequal columns apply everywhere, as before.
+  - `editor/pages.ts`: `sectionColumnLayout`. Each section's pages count their own columns. The editor is drawn
+    in the most columns any section has, with the first multi-column section's gap. A one-column section's
+    top-level blocks get `section-span` (`column-span: all`, `index.css`), and the measures are dropped when
+    those blocks change. A change to a section's setup (not its headers' text) lays the pages out again.
+  - `page-canvas.tsx`: the blue column outlines and the Line between rule are drawn per page, for that page's
+    section (`PageColumnGuides`). `document-rulers.tsx`: the ruler shows the caret's section's columns.
+  - `docx/project.ts`: `sectionColumnsOf` reads a section's own `w:cols` (none: one column).
+    `sectionSetupFromChrome` writes them when changed. `columnProps` is shared with the last section's writer.
+    Any count up to 12 is read.
+  - Layout > Columns changes the caret's section. The Columns dialog's Whole document sets every section.
+  - `header.ts`: the native `sections` mark keeps the columns.
+- **Tests:**
+  - `sections.test.ts` (new: `drawnColumns`, equal columns kept in Page Setup).
+  - `section-pages.test.ts` (f15's columns read, kept, and written for one section).
+  - `columns-dialog.test.tsx` (Whole document sets every section).
+- **Checked:** in headless Chrome on f15.
+  - Page 1 is one column across the page: "portrait section" sits below "BEFORE", with no column outlines.
+  - Page 2 is two columns and starts at the top margin (96 px; before, 63).
+  - Columns > Three in the first section draws it in three columns, with outlines and ruler marks.
+- **Open:**
+  - Two sections with different counts above one (2 and 3) are both drawn with the larger, though each is saved
+    with its own.
+  - Columns that change at a continuous section break (mid-page) are not drawn: only sections that start a page
+    count.
+  - A section's unequal widths (Left, Right) are saved but drawn equal unless they are the document's own.
+  - Older, also in one-section documents: a page ended early (page break) in columns is balanced by the browser,
+    where Word fills the first column first, and the next page's text starts 10-43 px high. (f15's page 3: 86 px
+    instead of 96. A one-section copy: 53.)
+  - The ruler's column gap drag still changes the document's gap.
+  - Not opened in Word.
+
 ### Layout's Margins, Orientation and Size change the caret's section
 
 - **What was wrong:** the Layout tab's Margins, Orientation and Size menus showed and changed the document's own

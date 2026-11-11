@@ -19,6 +19,7 @@ import {
   spacingPreset,
   type PageSetup,
 } from "@/document/page-setup"
+import type { ColumnWidth } from "@/document/column-widths"
 import type { ChromeSlot, SectionChrome } from "@/document/sections"
 
 const CHROME_MARK =
@@ -144,7 +145,7 @@ function borderFlags(setup: PageSetup) {
 
 const SLOTS: ChromeSlot[] = ["header", "footer", "firstHeader", "firstFooter", "evenHeader", "evenFooter"]
 
-/** A packed section's own paper and side margins; one without them (an older file) takes the document's. */
+/** A packed section's own paper, side margins and columns; one without them (an older file) takes the document's. */
 function sectionPaperOf(item: Record<string, unknown>): Partial<SectionChrome> {
   const out: Partial<SectionChrome> = {}
   if (item.paper === "letter" || item.paper === "a4" || item.paper === "legal") {
@@ -153,10 +154,25 @@ function sectionPaperOf(item: Record<string, unknown>): Partial<SectionChrome> {
   if (item.orientation === "portrait" || item.orientation === "landscape") {
     out.orientation = item.orientation
   }
-  for (const field of ["paperWidth", "paperHeight", "marginLeft", "marginRight"] as const) {
+  for (const field of ["paperWidth", "paperHeight", "marginLeft", "marginRight", "columnGap"] as const) {
     const value = item[field]
     if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
       out[field] = value
+    }
+  }
+  if (typeof item.columns === "number" && Number.isFinite(item.columns)) {
+    out.columns = columnCount(item.columns)
+  }
+  if (typeof item.columnLine === "boolean") {
+    out.columnLine = item.columnLine
+  }
+  if (Array.isArray(item.columnWidths)) {
+    const widths = item.columnWidths.filter(
+      (column): column is ColumnWidth =>
+        typeof column?.width === "number" && Number.isFinite(column.width) && typeof column?.space === "number",
+    )
+    if (widths.length === out.columns && widths.length > 1) {
+      out.columnWidths = widths.map((column) => ({ width: column.width, space: column.space }))
     }
   }
   return out

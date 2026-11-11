@@ -1,7 +1,13 @@
 import { BUILT_IN_STYLES, catalogWithStyles, wordIdForNamedStyle, type StyleDef } from "@/document/styles"
 import type { DocumentChrome } from "@/document/header"
 import { emptyChrome } from "@/document/header"
-import { CHROME_SLOTS, SECTION_PAPER_FIELDS, type ChromeSlot, type SectionChrome } from "@/document/sections"
+import {
+  CHROME_SLOTS,
+  SECTION_COLUMN_FIELDS,
+  SECTION_PAPER_FIELDS,
+  type ChromeSlot,
+  type SectionChrome,
+} from "@/document/sections"
 import type { WordLevel } from "@/editor/word-markers"
 import { chromeHasContent, chromeHasPageField } from "@/document/chrome-html"
 import { chromeJson } from "@/document/chrome-json"
@@ -20,7 +26,7 @@ import {
   preferredToWord,
 } from "@/document/docx/table-props-docx"
 import type { PageSetup, PaperSize, SectionStart } from "@/document/page-setup"
-import { DEFAULT_PAGE_SETUP } from "@/document/page-setup"
+import { columnCount, DEFAULT_PAGE_SETUP } from "@/document/page-setup"
 import type { DocumentProps } from "@/document/store"
 import {
   blockFromAttrs,
@@ -903,6 +909,7 @@ function sectionsChrome(doc: WordDocument): SectionChrome[] {
       footerFromEdge: twipsToMm(props.footer ?? doc.section?.footer ?? 720),
       differentFirstPage: Boolean(props.titlePg),
       ...sectionPaper(props, doc.section),
+      ...sectionColumnsOf(props),
       pageNumberStart: props.pageNumbers?.start ?? null,
       pageNumberFormat: props.pageNumbers?.format ?? "decimal",
       parts: own,
@@ -935,6 +942,17 @@ function sectionPaper(
     paperHeight: setup.paperHeight,
     marginLeft: setup.marginLeft,
     marginRight: setup.marginRight,
+  }
+}
+
+/** A section's columns as Page Setup holds them, from its own `w:cols` (none: one column, as in Word). */
+function sectionColumnsOf(props: SectionProps): Pick<SectionChrome, (typeof SECTION_COLUMN_FIELDS)[number]> {
+  const setup = pageSetupFromSection(props)
+  return {
+    columns: setup.columns,
+    columnGap: setup.columnGap,
+    columnLine: setup.columnLine,
+    ...(setup.columnWidths ? { columnWidths: setup.columnWidths } : {}),
   }
 }
 
@@ -1034,6 +1052,16 @@ function sectionSetupFromChrome(props: SectionProps, section: SectionChrome, bod
   if (paper.marginRight !== opened.marginRight) {
     next.marginRight = keepTwips(props.marginRight ?? body?.marginRight, paper.marginRight!)
   }
+  // Columns: written only when they no longer read back as they opened.
+  const columns = { ...sectionColumnsOf(props) }
+  for (const field of SECTION_COLUMN_FIELDS) {
+    if (section[field] !== undefined) {
+      Object.assign(columns, { [field]: section[field] })
+    }
+  }
+  if (JSON.stringify(columns) !== JSON.stringify(sectionColumnsOf(props))) {
+    Object.assign(next, columnProps(columns as Required<typeof columns>, props))
+  }
   if (Boolean(props.titlePg) !== section.differentFirstPage) {
     next.titlePg = section.differentFirstPage ? true : undefined
   }
@@ -1067,7 +1095,7 @@ function pageSetupFromSection(section: SectionProps): PageSetup {
   const portraitHeight = Math.max(width, height)
   const named = namedPaper(portraitWidth, portraitHeight)
   const orientation = section.orient === "landscape" || width > height ? "landscape" : "portrait"
-  const columns = section.columnCount === 2 || section.columnCount === 3 ? section.columnCount : 1
+  const columns = columnCount(section.columnCount ?? 1)
   return {
     ...DEFAULT_PAGE_SETUP,
     paper: named ?? "letter",
@@ -1293,16 +1321,7 @@ function sectionFromChrome(chrome: DocumentChrome, base: SectionProps | null): S
     gutter: keep(base?.gutter, setup.gutter),
     header: keep(base?.header, setup.headerFromEdge),
     footer: keep(base?.footer, setup.footerFromEdge),
-    columnCount: setup.columns > 1 ? setup.columns : undefined,
-    columnSpace:
-      setup.columns > 1
-        ? base?.columnSpace !== undefined && Math.round((base.columnSpace / 1440) * 254) / 100 === setup.columnGap
-          ? base.columnSpace
-          : mmToTwips(setup.columnGap * 10)
-        : (base?.columnSpace ?? DEFAULT_SECTION.columnSpace),
-    columnSeparator:
-      setup.columns > 1 && setup.columnLine ? true : base?.columnSeparator === undefined ? undefined : false,
-    columnWidths: columnWidthsFrom(setup, base?.columnWidths),
+    ...columnProps(setup, base),
     linePitch: base?.linePitch ?? DEFAULT_SECTION.linePitch,
     lineNumbers: lineNumberingFrom(setup, base?.lineNumbers),
     pageBorders: pageBordersFrom(setup, base?.pageBorders),
@@ -1318,7 +1337,29 @@ function twipsToCm(twips: number) {
 }
 
 /** Unequal columns as Word's w:col list (twips); what Word wrote stays when the widths are still the same. */
-function columnWidthsFrom(setup: PageSetup, base: SectionProps["columnWidths"]): SectionProps["columnWidths"] {
+/** `w:cols` for Page Setup's columns; a gap the user left alone keeps `base`'s twips. */
+function columnProps(
+  setup: Pick<PageSetup, "columns" | "columnGap" | "columnLine" | "columnWidths">,
+  base: SectionProps | null,
+): Pick<SectionProps, "columnCount" | "columnSpace" | "columnSeparator" | "columnWidths"> {
+  return {
+    columnCount: setup.columns > 1 ? setup.columns : undefined,
+    columnSpace:
+      setup.columns > 1
+        ? base?.columnSpace !== undefined && Math.round((base.columnSpace / 1440) * 254) / 100 === setup.columnGap
+          ? base.columnSpace
+          : mmToTwips(setup.columnGap * 10)
+        : (base?.columnSpace ?? DEFAULT_SECTION.columnSpace),
+    columnSeparator:
+      setup.columns > 1 && setup.columnLine ? true : base?.columnSeparator === undefined ? undefined : false,
+    columnWidths: columnWidthsFrom(setup, base?.columnWidths),
+  }
+}
+
+function columnWidthsFrom(
+  setup: Pick<PageSetup, "columns" | "columnWidths">,
+  base: SectionProps["columnWidths"],
+): SectionProps["columnWidths"] {
   const widths = setup.columns > 1 ? setup.columnWidths : undefined
   if (!widths) {
     return undefined

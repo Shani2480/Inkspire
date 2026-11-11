@@ -30,7 +30,8 @@ import {
 import { columnMarks, columnMarksFrom, findColumnSection, gapFromBoundary, setColumnSectionGap } from "@/editor/columns"
 import { moveColumnEdge } from "@/document/column-widths"
 import { useDocumentStore } from "@/document/store"
-import { sectionSetup } from "@/document/sections"
+import { drawnColumns, sectionSetup } from "@/document/sections"
+import { useCaretSectionSetup } from "@/components/chrome-section"
 import { useViewStore } from "@/document/view"
 import { ZOOM_PREVIEW_EVENT } from "@/document/zoom-gesture"
 import { useBodyEditor } from "@/editor/document-editor"
@@ -234,15 +235,19 @@ export function DocumentRulers({ children }: DocumentRulersProps) {
     hangPx: selection.hangPx,
     rightPx: selection.rightPx,
   }
+  const wordSections = useDocumentStore((state) => state.sections)
+  const { section: caretWordSection } = useCaretSectionSetup()
   const sectionParts = (sectionKey ?? "").split(":")
   const sectionColumns = sectionParts.length === 3 ? Number(sectionParts[1]) : 0
   const sectionGap = sectionParts.length === 3 ? Number(sectionParts[2]) : 0
-  const columnCount = sectionColumns > 1 ? sectionColumns : pageSetup.columns
-  const columnGap = sectionColumns > 1 ? (sectionGapPreview ?? sectionGap) : pageSetup.columnGap
+  // The page's columns are those of the Word section the caret is in, as they are drawn.
+  const drawn = drawnColumns(pageSetup, wordSections, caretWordSection)
+  const columnCount = sectionColumns > 1 ? sectionColumns : drawn.columns
+  const columnGap = sectionColumns > 1 ? (sectionGapPreview ?? sectionGap) : drawn.columnGap
   const contentPx = metrics.width - metrics.marginLeft - metrics.marginRight
   const columnsOnRuler =
-    sectionColumns < 2 && pageSetup.columns > 1 && pageSetup.columnWidths
-      ? columnMarksFrom(setupColumns(pageSetup))
+    sectionColumns < 2 && drawn.columns > 1 && drawn.columnWidths
+      ? columnMarksFrom(setupColumns({ ...pageSetup, ...drawn }))
       : columnCount > 1
         ? columnMarks(contentPx, columnCount, columnGap)
         : []
