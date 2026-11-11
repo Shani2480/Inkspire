@@ -12,6 +12,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       the same breaks (Next Page on a new page, Continuous on the same page) and that paragraph in three columns. A
       Word file with a one-column title, a continuous break and two columns opens in the app with the title across.
 
+- [ ] **Ruler column drag per section (2026-11-11)** — give the first section of a two-section document two columns,
+      drag the ruler's column gap there and save: Word shows that section's new gap and the other section's columns
+      unchanged.
 - [ ] **Sections with different columns (2026-11-11)** — a Word document with a three-column section and a two-column
       one, and one with a Left (unequal) section, opens in the app with each section's columns as Word draws them.
 

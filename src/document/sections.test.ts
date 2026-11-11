@@ -45,6 +45,9 @@ describe("the columns a section's pages are drawn with", () => {
     expect(columnsBlockwise(twoColumns, [cover])).toBe(false)
     expect(columnsBlockwise(twoColumns, [section("b", { columns: 2, columnGap: 1.25 })])).toBe(false)
     expect(columnsBlockwise(twoColumns, [section("b", { columns: 2, columnGap: 2 })])).toBe(true)
+    // The same count and gap on a landscape page are wider columns.
+    const landscape = section("b", { columns: 2, columnGap: 1.25, orientation: "landscape" })
+    expect(columnsBlockwise(twoColumns, [landscape])).toBe(true)
     const widths = [
       { width: 5, space: 1 },
       { width: 9, space: 0 },

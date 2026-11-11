@@ -26,11 +26,12 @@ import {
   setupColumns,
   type PageMarginEdge,
   type PageMetrics,
+  type PageSetup,
 } from "@/document/page-setup"
 import { columnMarks, columnMarksFrom, findColumnSection, gapFromBoundary, setColumnSectionGap } from "@/editor/columns"
 import { moveColumnEdge } from "@/document/column-widths"
 import { useDocumentStore } from "@/document/store"
-import { drawnColumns, sectionSetup } from "@/document/sections"
+import { drawnColumns, sectionPageSetup, sectionSetup } from "@/document/sections"
 import { drawnPageSetup, pageMetricsList, stackFrames } from "@/document/page-frames"
 import { useCaretSectionSetup } from "@/components/chrome-section"
 import { useViewStore } from "@/document/view"
@@ -257,7 +258,7 @@ export function DocumentRulers({ children }: DocumentRulersProps) {
   const contentPx = metrics.width - metrics.marginLeft - metrics.marginRight
   const columnsOnRuler =
     sectionColumns < 2 && drawn.columns > 1 && drawn.columnWidths
-      ? columnMarksFrom(setupColumns({ ...pageSetup, ...drawn }))
+      ? columnMarksFrom(setupColumns({ ...drawnPageSetup(pageSetup, caretWordSection), ...drawn }))
       : columnCount > 1
         ? columnMarks(contentPx, columnCount, columnGap)
         : []
@@ -317,7 +318,22 @@ export function DocumentRulers({ children }: DocumentRulersProps) {
     event.stopPropagation()
     const ruler = horizontalRef.current
     const sectionNow = findColumnSection(editor.state)
-    const count = sectionNow ? sectionNow.columns : useDocumentStore.getState().pageSetup.columns
+    // Outside a column block, the columns are those of the caret's section: its own before the last, else the document's.
+    const sectionKeyNow = caretWordSection?.key ?? null
+    const pageColumns = () => {
+      const store = useDocumentStore.getState()
+      const live = sectionKeyNow ? (store.sections.find((item) => item.key === sectionKeyNow) ?? null) : null
+      return sectionPageSetup(store.pageSetup, live)
+    }
+    const writeColumns = (patch: { columnGap?: number; columnWidths?: PageSetup["columnWidths"] }) => {
+      const store = useDocumentStore.getState()
+      if (sectionKeyNow && store.sections.some((item) => item.key === sectionKeyNow)) {
+        store.setSectionSetup(sectionKeyNow, patch)
+      } else {
+        store.setPageSetup({ ...store.pageSetup, ...patch })
+      }
+    }
+    const count = sectionNow ? sectionNow.columns : pageColumns().columns
     if (count < 2) {
       return
     }
@@ -328,22 +344,23 @@ export function DocumentRulers({ children }: DocumentRulersProps) {
     const gapAt = (pointer: MouseEvent) => {
       const rect = ruler.getBoundingClientRect()
       const currentZoom = zoomRef.current || 1
-      const current = pageMetrics(useDocumentStore.getState().pageSetup)
+      // The ruler is the caret page's, drawn with its section's paper and side margins.
+      const current = metricsRef.current
       const content = current.width - current.marginLeft - current.marginRight
       const edge = (pointer.clientX - rect.left) / currentZoom - current.marginLeft
       return gapFromBoundary(content, count, index, edge)
     }
-    const unequal = !sectionNow && useDocumentStore.getState().pageSetup.columnWidths !== undefined
+    const unequal = !sectionNow && pageColumns().columnWidths !== undefined
     const move = (pointer: MouseEvent) => {
       if (unequal) {
         // Unequal columns: the column grows or shrinks and the next one gives or takes the difference.
-        const setup = useDocumentStore.getState().pageSetup
+        const setup = pageColumns()
         const rect = ruler.getBoundingClientRect()
-        const current = pageMetrics(setup)
-        const edge = ((pointer.clientX - rect.left) / (zoomRef.current || 1) - current.marginLeft) / PX_PER_CM
+        const edge =
+          ((pointer.clientX - rect.left) / (zoomRef.current || 1) - metricsRef.current.marginLeft) / PX_PER_CM
         const widths = moveColumnEdge(setupColumns(setup), index, edge)
         if (JSON.stringify(widths) !== JSON.stringify(setup.columnWidths)) {
-          useDocumentStore.getState().setPageSetup({ ...setup, columnWidths: widths })
+          writeColumns({ columnWidths: widths })
         }
         return
       }
@@ -356,9 +373,8 @@ export function DocumentRulers({ children }: DocumentRulersProps) {
         }
         return
       }
-      const setup = useDocumentStore.getState().pageSetup
-      if (gap !== setup.columnGap) {
-        useDocumentStore.getState().setPageSetup({ ...setup, columnGap: gap })
+      if (gap !== pageColumns().columnGap) {
+        writeColumns({ columnGap: gap })
       }
     }
     const up = (pointer: MouseEvent) => {

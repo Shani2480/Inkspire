@@ -1,5 +1,5 @@
 import type { ColumnWidth } from "@/document/column-widths"
-import type { PageOrientation, PageSetup, PaperSize } from "@/document/page-setup"
+import { contentWidthCm, type PageOrientation, type PageSetup, type PaperSize } from "@/document/page-setup"
 
 /** The six headers and footers a section can have. */
 export type ChromeSlot = "header" | "footer" | "firstHeader" | "firstFooter" | "evenHeader" | "evenFooter"
@@ -174,15 +174,16 @@ export function sectionPageSetup(setup: PageSetup, section: SectionChrome | null
 
 /**
  * Whether the sections' columns cannot be one flow in the browser's columns, which are always equal and as many all
- * the way down: a section has unequal widths, or two sections have different counts or gaps above one column. The
- * paginator then lays the blocks out one by one, each in its own section's columns (`drawnColumns`).
+ * the way down: a section has unequal widths, or two sections have different counts, gaps or text widths above one
+ * column. The paginator then lays the blocks out one by one, each in its own section's columns (`drawnColumns`).
  */
 export function columnsBlockwise(setup: PageSetup, sections: SectionChrome[]) {
   const all = [setup, ...sections.map((item) => sectionPageSetup(setup, item))].filter((item) => item.columns > 1)
   if (all.some((item) => item.columnWidths !== undefined)) {
     return true
   }
-  return new Set(all.map((item) => `${item.columns}:${item.columnGap}`)).size > 1
+  // Sections of other paper or side margins have other column widths, though their count and gap are the same.
+  return new Set(all.map((item) => `${item.columns}:${item.columnGap}:${contentWidthCm(item).toFixed(2)}`)).size > 1
 }
 
 /**

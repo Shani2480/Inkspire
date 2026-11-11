@@ -7,6 +7,24 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-11
 
+### The ruler's column drags change the caret's section; equal columns on a narrower page fit it
+
+- **What was wrong:** dragging a column gap or edge on the horizontal ruler changed the document's (last section's)
+  columns, whatever section the caret was in, and measured from the document's side margins. A two-column section
+  on a portrait page above a two-column landscape section (same count and gap) was drawn with the landscape
+  columns, 442 px wide and starting off the page.
+- **What changed:**
+  - `components/document-rulers.tsx`: outside a block of columns, the drag reads and writes the caret section's
+    columns (`setSectionSetup`, or the document's for the last section) and measures from the caret page's margins.
+    A section's unequal columns are marked from its own paper.
+  - `document/sections.ts`: `columnsBlockwise` also compares the sections' text widths, so columns of the same
+    count and gap on other paper are laid out block by block in their own section's width.
+- **Tests:** `sections.test.ts`: the same two columns on a landscape section are laid out block by block.
+- **Checked:** in headless Chrome on `f15_sections.docx` with forty lines: the portrait section set to Two columns
+  is drawn 277 + 277 px on its page; dragging its ruler gap makes them 297 px and the landscape section keeps
+  442 px. Set to Left, dragging the edge makes the columns 228/327 px from 169/386, the landscape section unchanged.
+- **Open:** a column block's own unequal widths cannot be dragged (its columns are equal).
+
 ### A section made in the editor has its own Page Setup and headers
 
 - **What was wrong:** a section break inserted in the editor made no section of its own: its pages were laid out,

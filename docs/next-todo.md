@@ -734,15 +734,16 @@ own `w:sectPr` (`changes.md`). Open:
 
 - ~~Drawing pages of different sizes~~ **Fixed** the same day in the usual view: each section's pages are drawn,
   ruled, zoomed and printed at their own size (`changes.md`). Open: Multiple Pages and Side to Side keep one page
-  size; a multi-column section on a narrower page is laid out at the widest page's text width; a floating object's
-  page clip uses the document's size.
+  size; a floating object's page clip uses the document's size. A multi-column section on a narrower page laid out
+  at the widest page's text width, fixed the same day (`changes.md`).
 - ~~The ribbon's Orientation, Size and Margins act on the document, not the caret's section.~~ **Fixed** the same day
   (`changes.md`); the horizontal ruler's margin drag still changes the document's side margins.
 - ~~Columns per section~~ **Fixed** the same day (`changes.md`). Columns changing at a continuous break **fixed** the same day: such a section opens as a block of its columns, and
   section breaks and blocks of columns made in the editor are saved (they were lost) (`changes.md`). Open: a long
   continuous section of other columns. A new section's own Page Setup, fixed the same day. Different
   counts above one and a section's own unequal widths **fixed** the same day (`changes.md`). The Columns dialog's
-  Apply to has This section, fixed the same day.
+  Apply to has This section, fixed the same day. The ruler's column drags change the caret's section, fixed the
+  same day.
 - ~~Columns and page breaks (also with one section): a page ended early is balanced by the browser, where Word
   fills the first column first, and the next page's text starts 10-43 px high.~~ **Fixed** the same day: a filler
   fills the page's columns (`changes.md`). Multiple Pages keeps each block in its column, fixed the same day.
