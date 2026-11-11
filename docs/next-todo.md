@@ -738,7 +738,9 @@ own `w:sectPr` (`changes.md`). Open:
   page clip uses the document's size.
 - ~~The ribbon's Orientation, Size and Margins act on the document, not the caret's section.~~ **Fixed** the same day
   (`changes.md`); the horizontal ruler's margin drag still changes the document's side margins.
-- ~~Columns per section~~ **Fixed** the same day (`changes.md`). Open: columns changing at a continuous break. Different
+- ~~Columns per section~~ **Fixed** the same day (`changes.md`). Columns changing at a continuous break **fixed** the same day: such a section opens as a block of its columns, and
+  section breaks and blocks of columns made in the editor are saved (they were lost) (`changes.md`). Open: a long
+  continuous section of other columns; a new section's own Page Setup before saving. Different
   counts above one and a section's own unequal widths **fixed** the same day (`changes.md`). The Columns dialog's
   Apply to has This section, fixed the same day.
 - ~~Columns and page breaks (also with one section): a page ended early is balanced by the browser, where Word

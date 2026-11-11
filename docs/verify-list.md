@@ -7,6 +7,11 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Section breaks and column blocks saved (2026-11-11)** — in the app, insert Layout > Breaks > Next Page and
+      Continuous, and Columns > Selected text with three columns on one paragraph. Saved, the file opens in Word with
+      the same breaks (Next Page on a new page, Continuous on the same page) and that paragraph in three columns. A
+      Word file with a one-column title, a continuous break and two columns opens in the app with the title across.
+
 - [ ] **Sections with different columns (2026-11-11)** — a Word document with a three-column section and a two-column
       one, and one with a Left (unequal) section, opens in the app with each section's columns as Word draws them.
 

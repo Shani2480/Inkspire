@@ -180,7 +180,8 @@ export function setColumnSectionLine(editor: Editor, pos: number, line: boolean)
 /** A selected-text section's columns: 2 to `MAX_COLUMNS`, always equal. */
 function columnCountAttr(value: unknown) {
   const count = Math.round(Number(value))
-  return Number.isFinite(count) ? Math.max(2, Math.min(MAX_COLUMNS, count)) : 2
+  // One column is a Word section of one column among pages of more (a title above two columns).
+  return Number.isFinite(count) ? Math.max(1, Math.min(MAX_COLUMNS, count)) : 2
 }
 
 export const ColumnSection = Node.create({

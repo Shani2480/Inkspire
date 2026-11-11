@@ -7,6 +7,37 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-11
 
+### Section breaks and blocks of columns made in the editor are saved; continuous sections open
+
+- **What was wrong:**
+  - Data loss: a section break inserted in the editor (Layout > Breaks) was not saved to .docx, and a block of
+    columns (Columns > Selected text) was dropped with all its text, and the section break after it.
+  - Word's `w:type` says how a section starts, so the break after a paragraph's `w:sectPr` is the next section's.
+    The reader used the paragraph's own: a Word continuous break opened as a new page.
+  - A Word section of other columns after a continuous break (a title of one column above two) was drawn in the
+    page's columns. The paginator counted 12 px for a continuous break drawn 0 px tall.
+- **What changed:**
+  - `docx/project.ts`, writing: a break made in the editor ends its section at the paragraph before it (or a new
+    empty one) with a copy of the following section's w:sectPr, without its header and footer parts or page-number
+    restart, and the break's kind goes on the next section's `w:type` (`placeEditorSections`). A block of columns is a
+    continuous section with its own `w:cols`; the section before it keeps the columns around it. A break read from
+    Word, also after its paragraph was split, is saved from that paragraph as before.
+  - `docx/project.ts`, reading: `breakAfter` gives the break after each section's paragraph from the next section.
+    Continuous breaks open as the editor's continuous breaks. Between two breaks that start a page, a Word section
+    whose columns differ from the last one's there opens as a block of its columns (`sectionsHtml`), unless it has
+    more blocks than that one (a block is laid out whole).
+  - `editor/columns.ts`: a block of columns can be one column. `editor/pages.ts`: a continuous break takes no height.
+- **Tests:** `section-pages.test.ts`: a title above a continuous break opens as a one-column block and saves as Word
+  wrote it; Next Page and Continuous breaks made in the editor are saved and open again; Columns > Selected text is
+  saved as its own section and opens as the block again. The saved files pass the Open XML validator.
+- **Checked:** in headless Chrome: the title file shows TITLE across the page and the text below in two 277 px
+  columns. f15 and the contract lay out as before.
+- **Open:**
+  - A new section in the editor has no Page Setup of its own until the file is saved and opened again.
+  - A long section of other columns (more blocks than the page's own) is still drawn in the page's columns.
+  - The column outlines are drawn over a block of other columns too.
+  - Not opened in Word.
+
 ### Columns dialog: Apply to This section
 
 - **What was wrong:** the Columns dialog could apply to the whole document, this point forward or the selected

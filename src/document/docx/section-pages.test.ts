@@ -13,6 +13,7 @@ import { wordToEditor } from "@/document/docx/project"
 import { DEFAULT_PAGE_SETUP, pageMetrics } from "@/document/page-setup"
 import { sectionPageSetup } from "@/document/sections"
 import { createExtensions } from "@/editor/extensions"
+import { applyColumnSection } from "@/editor/columns"
 import { pageClip } from "@/editor/objects"
 
 const AUTHORED = path.resolve(process.cwd(), "tests/docx-fixtures/authored")
@@ -390,5 +391,103 @@ describe("a section's page setup and page numbers", () => {
     expect(section.pageNumberStart).toBeNull()
     expect(section.pageNumberFormat).toBe("upperRoman")
     expect(reopened.view.chrome.pageSetup.pageNumberStart).toBe(5)
+  })
+})
+
+describe("sections made in the editor and continuous ones", () => {
+  const extensions = () => createExtensions().filter((extension) => extension.name !== "spellcheck")
+  const body = (xml: string) => xml.replace(/^.*<w:body>/s, "")
+
+  async function save(editor: Editor, opened: Awaited<ReturnType<typeof openDocxBytes>>, word = opened.word) {
+    const saved = await saveDocxBytes({
+      json: editor.getJSON(),
+      chrome: opened.view.chrome,
+      props: opened.view.props,
+      word,
+      unchanged: false,
+      fileName: "edited.docx",
+    })
+    const pkg = await openPackage(saved.bytes, "edited.docx")
+    return { bytes: saved.bytes, xml: body(decodeXml(findPart(pkg, pkg.mainPartName)!.data)) }
+  }
+
+  /** f15's package with a one-column title, a continuous break and two columns, as Word writes it. */
+  async function titleAboveColumns() {
+    const pkg = await openPackage(new Uint8Array(readFileSync(path.join(AUTHORED, "f15_sections.docx"))), "f15.docx")
+    const part = findPart(pkg, pkg.mainPartName)!
+    const paper =
+      '<w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="708" w:footer="708" w:gutter="0"/>'
+    const text = (value: string) => `<w:p><w:r><w:t>${value}</w:t></w:r></w:p>`
+    const xml = decodeXml(part.data).replace(
+      /<w:body>.*<\/w:body>/s,
+      `<w:body><w:p><w:pPr><w:sectPr>${paper}<w:cols w:space="708"/></w:sectPr></w:pPr><w:r><w:t>TITLE</w:t></w:r></w:p>` +
+        ["One", "Two", "Three"].map(text).join("") +
+        `<w:sectPr><w:type w:val="continuous"/>${paper}<w:cols w:num="2" w:space="708"/></w:sectPr></w:body>`,
+    )
+    part.data = new TextEncoder().encode(xml)
+    return openDocxBytes(await writePackage(pkg), "title.docx")
+  }
+
+  it("opens a title of one column above a continuous break as a block of one column, without a new page", async () => {
+    const opened = await titleAboveColumns()
+    expect(opened.view.html).toMatch(
+      /^<div data-column-section="" data-columns="1" data-gap="1.25" class="column-section"><p[^>]*>.*TITLE/,
+    )
+    expect(opened.view.html).not.toContain("data-section-break")
+    expect(opened.view.chrome.pageSetup.columns).toBe(2)
+    const editor = new Editor({ extensions: extensions(), content: opened.view.html })
+    editors.push(editor)
+    // Saved as it was: Word's two w:sectPr, the body's continuous, nothing added.
+    const { xml } = await save(editor, opened)
+    expect(xml.match(/<w:sectPr\b/g)).toHaveLength(2)
+    expect(xml).toMatch(/TITLE<\/w:t>/)
+    expect(xml).toMatch(/<w:sectPr><w:type w:val="continuous"\/>.*<w:cols w:num="2"/)
+    expect(xml).not.toMatch(/<w:p\b[^>]*\/>/)
+  })
+
+  it("saves a section break made in the editor, the break on the next section's w:type", async () => {
+    const opened = await openDocxBytes(
+      new Uint8Array(readFileSync(path.join(AUTHORED, "f15_sections.docx"))),
+      "f15.docx",
+    )
+    for (const kind of ["nextPage", "continuous"] as const) {
+      const editor = new Editor({ extensions: extensions(), content: "<p>one</p><p>two</p>" })
+      editors.push(editor)
+      editor.commands.setTextSelection(4)
+      editor.commands.insertSectionBreak(kind)
+      const { xml, bytes } = await save(
+        editor,
+        { ...opened, view: { ...opened.view, chrome: { ...opened.view.chrome, sections: [] } } },
+        null as never,
+      )
+      // The section before the break ends at "one"; the body's section starts as the break says.
+      expect(xml).toMatch(/<w:p><w:pPr><w:sectPr>(?!<w:type).*<\/w:sectPr><\/w:pPr><w:r><w:t>one/)
+      expect(/<w:sectPr><w:type w:val="continuous"\/>[^]*<\/w:body>/.test(xml)).toBe(kind === "continuous")
+      const back = await openDocxBytes(bytes, "back.docx")
+      expect(back.view.html).toMatch(new RegExp(`one</span></p><div data-section-break="" data-kind="${kind}"`))
+    }
+  })
+
+  it("saves Columns > Selected text as a continuous section of its own, and opens it as the block again", async () => {
+    const opened = await openDocxBytes(
+      new Uint8Array(readFileSync(path.join(AUTHORED, "f15_sections.docx"))),
+      "f15.docx",
+    )
+    const editor = new Editor({ extensions: extensions(), content: opened.view.html })
+    editors.push(editor)
+    // "BEFORE" only, inside the first section.
+    editor.commands.setTextSelection({ from: 2, to: 4 })
+    applyColumnSection(editor, 3)
+    const { xml, bytes } = await save(editor, opened)
+    // Nothing lost: the block's text and the section break after it are there.
+    expect(xml).toContain("BEFORE")
+    expect(xml).toContain("portrait section")
+    // The block's section has its 3 columns; the rest of the first section starts after it on the same page.
+    expect(xml).toMatch(/<w:cols w:num="3"[^]*?BEFORE[^]*?<w:type w:val="continuous"\/>[^]*?portrait section/)
+    const back = await openDocxBytes(bytes, "back.docx")
+    expect(back.view.html).toMatch(
+      /<div data-column-section="" data-columns="3"[^>]*><p[^>]*><span[^>]*>BEFORE<\/span><\/p><\/div><p/,
+    )
+    expect(back.view.html).toMatch(/portrait section.*data-kind="nextPage"/)
   })
 })

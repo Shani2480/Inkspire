@@ -1481,8 +1481,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     if (node.type.name === "sectionBreak") {
       const kind = String(node.attrs.kind || "nextPage")
       if (kind === "continuous") {
-        place(pos, 12)
-        trailing = 0
+        // Drawn 0 px tall (a dashed line with formatting marks): the text goes on below, margins collapsing through.
       } else {
         // As in Word, the break mark stays at the end of the page it ends; the next page starts after it, in the
         // next section.

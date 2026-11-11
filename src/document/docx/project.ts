@@ -113,6 +113,20 @@ type Build = InlineBuild & {
   origins: Origins
   numbering: NumberingDefinitions
   toc: TocLinks
+  /** Sections made in the editor, ended at these paragraphs (`placeEditorSections`). */
+  sectionEnds: EditorSectionEnd[]
+}
+
+/**
+ * A section the editor made, ended at `paragraph`: a section break (`kind`, the break after it), or a block of
+ * columns (Columns > Selected text), whose end has the block's `columns` and whose start is a continuous break.
+ */
+type EditorSectionEnd = {
+  paragraph: Paragraph
+  kind: string
+  columns?: { count: number; gapCm: number; line: boolean }
+  /** The paragraph already ends a section read from Word: only its columns are the block's. */
+  own?: boolean
 }
 
 /** How tables of contents link to their headings when saved. */
@@ -141,7 +155,7 @@ type Origins = {
 export function wordToEditor(doc: WordDocument): EditorView {
   assignKeys(doc)
   return {
-    html: blocksToHtml(doc.blocks, projectionFor(doc)),
+    html: sectionsHtml(doc, projectionFor(doc)),
     chrome: chromeFromDocument(doc),
     props: {},
   }
@@ -166,6 +180,7 @@ export function editorToWord(
   const nextId = storyIds(source)
   const stories = storiesFromChrome(chrome, source, build, source === null, nextId)
   sectionStoriesFromChrome(blocks, chrome.sections ?? [], source, build, nextId)
+  placeEditorSections(blocks, build.sectionEnds, section)
   const numbering = build.numbering
   section.references = stories.length > 0 ? stories : undefined
   const sectionStories = paragraphsIn(blocks).flatMap((paragraph) => paragraph.sectionBreak?.references ?? [])
@@ -206,6 +221,88 @@ export function editorToWord(
   return document
 }
 
+/**
+ * Gives each section made in the editor its w:sectPr, at the paragraph it ends at: a copy of the section that follows
+ * (the one the editor drew it with), without its header and footer parts (it shows the previous section's, as a new
+ * section in Word does) or a page-number restart. Word's w:type says how a section starts, so the break after the
+ * paragraph goes on the next section's. A block of columns has its own; a section before one has the columns around.
+ */
+function placeEditorSections(blocks: Block[], made: EditorSectionEnd[], body: SectionProps) {
+  if (made.length === 0) {
+    return
+  }
+  const byParagraph = new Map(made.map((end) => [end.paragraph, end]))
+  const ends = paragraphsIn(blocks).filter((paragraph) => paragraph.sectionBreak || byParagraph.has(paragraph))
+  const propsAt = (index: number) => (index < ends.length ? ends[index]!.sectionBreak! : body)
+  for (let index = ends.length - 1; index >= 0; index -= 1) {
+    const end = byParagraph.get(ends[index]!)
+    if (!end) {
+      continue
+    }
+    if (end.own && end.columns) {
+      const props = ends[index]!.sectionBreak!
+      const count = end.columns.count
+      // What Word wrote stays when the block's columns read back the same (twips, unequal widths).
+      if (
+        columnsKey(props) !==
+        columnsKey({
+          columnCount: count,
+          columnSpace: mmToTwips(end.columns.gapCm * 10),
+          columnSeparator: count > 1 && end.columns.line,
+        })
+      ) {
+        const sameCount = ((props.columnCount ?? 1) > 1 ? props.columnCount : 1) === count
+        const sameGap = Math.round(((props.columnSpace ?? 720) / 567) * 100) / 100 === end.columns.gapCm
+        ends[index]!.sectionBreak = {
+          ...props,
+          columnCount: count > 1 ? count : undefined,
+          columnSpace: sameGap ? props.columnSpace : mmToTwips(end.columns.gapCm * 10),
+          columnSeparator:
+            count > 1 && end.columns.line ? true : props.columnSeparator === undefined ? undefined : false,
+          columnWidths: sameCount && sameGap ? props.columnWidths : undefined,
+        }
+      }
+      continue
+    }
+    const next = propsAt(index + 1)
+    const { references: _references, source: _source, ...rest } = next
+    const props: SectionProps = structuredClone(rest)
+    if (props.pageNumbers) {
+      delete props.pageNumbers.start
+    }
+    // The columns: the block's own, else those of the first section after that is not a block of columns.
+    let around = index + 1
+    while (around < ends.length && byParagraph.get(ends[around]!)?.columns) {
+      around += 1
+    }
+    const columns = end.columns
+    const from = propsAt(around)
+    Object.assign(
+      props,
+      columns
+        ? {
+            columnCount: columns.count > 1 ? columns.count : undefined,
+            columnSpace: mmToTwips(columns.gapCm * 10),
+            columnSeparator: columns.count > 1 && columns.line ? true : undefined,
+            columnWidths: undefined,
+          }
+        : {
+            columnCount: from.columnCount,
+            columnSpace: from.columnSpace,
+            columnSeparator: from.columnSeparator,
+            columnWidths: structuredClone(from.columnWidths),
+          },
+    )
+    ends[index]!.sectionBreak = props
+    next.type = sectionTypeOfBreak(end.kind)
+  }
+}
+
+/** The w:type of the section after an editor's section break of `kind`. */
+function sectionTypeOfBreak(kind: string): SectionProps["type"] {
+  return kind === "continuous" || kind === "evenPage" || kind === "oddPage" ? kind : undefined
+}
+
 /** State for turning editor JSON back into a document's parts, starting from the source document's. */
 function newBuild(
   source: WordDocument | null,
@@ -236,6 +333,7 @@ function newBuild(
     nextRevision: 1_000_000,
     theme: source ? themeFontsOf(source) : undefined,
     toc: { bookmarks: new Map(), anchors: new Map(), textWidth: 0 },
+    sectionEnds: [],
   }
 }
 
@@ -381,11 +479,11 @@ function blocksToHtml(blocks: Block[], ctx: Projection) {
         index += 1
       }
       html += `<${tag}${listAttributes(tag, numId, items, ctx)}>${items.map((item) => listItemHtml(item, ctx)).join("")}</${tag}>`
-      html += sectionBreakHtml(items[items.length - 1]!)
+      html += sectionBreakHtml(items[items.length - 1]!, ctx.doc)
       continue
     }
     if (block) {
-      html += blockHtml(block, ctx) + sectionBreakHtml(block)
+      html += blockHtml(block, ctx) + sectionBreakHtml(block, ctx.doc)
     }
     index += 1
   }
@@ -527,16 +625,118 @@ function listItemHtml(paragraph: Paragraph, ctx: Projection) {
   return `<li${indent}>${opening}${paragraphHtml(paragraph, ctx)}</li>`
 }
 
+const breakTypes = new WeakMap<WordDocument, Map<Paragraph, SectionProps["type"]>>()
+/** Section ends next to a block of columns (`sectionsHtml`), whose continuous break the block stands for. */
+const quietEnds = new WeakSet<Paragraph>()
+
+const startsOnSamePage = (type: SectionProps["type"]) => type === "continuous" || type === "nextColumn"
+
+/** A section's columns, for telling whether two sections have the same. */
+function columnsKey(props: SectionProps) {
+  const count = (props.columnCount ?? 1) > 1 ? props.columnCount! : 1
+  return count > 1
+    ? `${count}:${props.columnSpace ?? DEFAULT_SECTION.columnSpace ?? 720}:${props.columnSeparator ? 1 : 0}:${JSON.stringify(props.columnWidths ?? null)}`
+    : "1"
+}
+
 /**
- * A paragraph that ends a section starting on a new page is followed by the editor's section break, so the next
- * section's text starts the next page as in Word. Saving takes the break from the paragraph, not from the editor.
+ * The body, with Word's continuous sections of other columns as blocks of columns. The editor's pages between two
+ * breaks that start a page have one section's columns, the last Word section's there (its w:sectPr starts the next
+ * page). A section before it on those pages with other columns (a title of one column above two) is drawn as a block
+ * of its own columns, balanced as Word balances columns before a continuous break. A block is laid out whole, so a
+ * section longer than the page's own (in blocks) is left in the page's columns.
  */
-function sectionBreakHtml(block: Block) {
-  const type = block.kind === "paragraph" ? block.sectionBreak?.type : undefined
-  if (block.kind !== "paragraph" || !block.sectionBreak || type === "continuous" || type === "nextColumn") {
+function sectionsHtml(doc: WordDocument, ctx: Projection) {
+  const blocks = doc.blocks
+  const ends: number[] = []
+  blocks.forEach((block, index) => {
+    if (block.kind === "paragraph" && block.sectionBreak) {
+      ends.push(index)
+    }
+  })
+  if (ends.length === 0) {
+    return blocksToHtml(blocks, ctx)
+  }
+  const sections = [
+    ...ends.map((end, index) => ({
+      from: index > 0 ? ends[index - 1]! + 1 : 0,
+      to: end + 1,
+      props: (blocks[end] as Paragraph).sectionBreak!,
+    })),
+    { from: ends[ends.length - 1]! + 1, to: blocks.length, props: doc.section ?? {} },
+  ]
+  const wrapped = new Set<number>()
+  let start = 0
+  sections.forEach((section, index) => {
+    const next = sections[index + 1]
+    if (next && startsOnSamePage(next.props.type)) {
+      return
+    }
+    for (let at = start; at < index; at += 1) {
+      const item = sections[at]!
+      if (columnsKey(item.props) !== columnsKey(section.props) && item.to - item.from <= section.to - section.from) {
+        wrapped.add(at)
+        quietEnds.add(blocks[item.to - 1] as Paragraph)
+        if (at > start) {
+          quietEnds.add(blocks[item.from - 1] as Paragraph)
+        }
+      }
+    }
+    start = index + 1
+  })
+  if (wrapped.size === 0) {
+    return blocksToHtml(blocks, ctx)
+  }
+  return sections
+    .map((section, index) => {
+      if (section.from >= section.to) {
+        return ""
+      }
+      const html = blocksToHtml(blocks.slice(section.from, section.to), ctx)
+      if (!wrapped.has(index)) {
+        return html
+      }
+      const props = section.props
+      const count = (props.columnCount ?? 1) > 1 ? props.columnCount! : 1
+      const gap = Math.round(((props.columnSpace ?? DEFAULT_SECTION.columnSpace ?? 720) / 567) * 100) / 100
+      const line = count > 1 && props.columnSeparator ? ' data-line="1"' : ""
+      return `<div data-column-section="" data-columns="${count}" data-gap="${gap}"${line} class="column-section">${html}</div>`
+    })
+    .join("")
+}
+
+/**
+ * How the section after each paragraph that ends one starts: Word's `w:type` is the section's own, how it starts
+ * after the one before, so the break after a paragraph is the next section's (the next paragraph's `w:sectPr`, or the
+ * body's last one).
+ */
+export function breakAfter(doc: WordDocument, paragraph: Paragraph): SectionProps["type"] {
+  let types = breakTypes.get(doc)
+  if (!types) {
+    types = new Map()
+    const ends = paragraphsIn(doc.blocks).filter((item) => item.sectionBreak)
+    ends.forEach((item, index) => {
+      types!.set(item, index + 1 < ends.length ? ends[index + 1]!.sectionBreak!.type : doc.section?.type)
+    })
+    breakTypes.set(doc, types)
+  }
+  return types.get(paragraph)
+}
+
+/**
+ * A paragraph that ends a section is followed by the editor's section break, so the next section's text starts the
+ * next page (or goes on below, for a continuous one) as in Word. Saving takes the break from the paragraph, not from
+ * the editor.
+ */
+function sectionBreakHtml(block: Block, doc: WordDocument) {
+  if (block.kind !== "paragraph" || !block.sectionBreak || quietEnds.has(block)) {
     return ""
   }
-  const kind = type === "evenPage" || type === "oddPage" ? type : "nextPage"
+  const type = breakAfter(doc, block)
+  if (type === "nextColumn") {
+    return ""
+  }
+  const kind = type === "evenPage" || type === "oddPage" || type === "continuous" ? type : "nextPage"
   // The paragraph's anchor ties the break to the section's own margins and headers and footers (`chrome.sections`).
   const section = block.key ? ` data-section="${escapeAttribute(block.key)}"` : ""
   return `<div data-section-break="" data-kind="${kind}"${section} class="section-break"></div>`
@@ -896,7 +1096,8 @@ function sectionsChrome(doc: WordDocument): SectionChrome[] {
         own[slot] = storyHtml(doc, story)
       }
     }
-    if (props.type === "continuous" || props.type === "nextColumn" || !paragraph.key) {
+    const type = breakAfter(doc, paragraph)
+    if (type === "continuous" || type === "nextColumn" || !paragraph.key) {
       carried = own
       continue
     }
@@ -1704,7 +1905,56 @@ function floatIndex(block: Paragraph, key: string | undefined, build: Build) {
 function blocksFromNodes(nodes: JsonNode[], build: Build, level: number): Block[] {
   const blocks: Block[] = []
   let floats: Float[] = []
+  /** The paragraph a section made in the editor ends at: the block before, or a new empty one. */
+  const endingParagraph = () => {
+    const previous = blocks[blocks.length - 1]
+    if (
+      previous?.kind === "paragraph" &&
+      !previous.sectionBreak &&
+      !build.sectionEnds.some((end) => end.paragraph === previous)
+    ) {
+      return previous
+    }
+    const empty = emptyParagraph()
+    blocks.push(empty)
+    return empty
+  }
   for (const node of nodes) {
+    if (node.type === "sectionBreak") {
+      const previous = blocks[blocks.length - 1]
+      // A break read from Word is saved from its paragraph's w:sectPr, which that paragraph keeps (its first half,
+      // when it was split: the break's section is that paragraph's key).
+      const key = String(node.attrs?.sectionId || "")
+      const fromWord = Boolean(key && build.origins.paragraphs.get(key)?.sectionBreak)
+      if (!fromWord && (previous?.kind !== "paragraph" || !previous.sectionBreak)) {
+        build.sectionEnds.push({ paragraph: endingParagraph(), kind: String(node.attrs?.kind || "nextPage") })
+      }
+      continue
+    }
+    if (node.type === "columnSection") {
+      // Word has columns only per section: the block is a continuous section of its own.
+      if (blocks.length > 0) {
+        const previous = blocks[blocks.length - 1]
+        const pending = build.sectionEnds.find((end) => end.paragraph === previous)
+        if (!pending && !(previous?.kind === "paragraph" && previous.sectionBreak)) {
+          build.sectionEnds.push({ paragraph: endingParagraph(), kind: "continuous" })
+        }
+      }
+      blocks.push(...blocksFromNodes(node.content ?? [], build, level))
+      const columns = {
+        count: Math.max(1, Math.round(Number(node.attrs?.columns) || 2)),
+        gapCm: Number(node.attrs?.gap) || 1.25,
+        line: node.attrs?.line === true,
+      }
+      const last = blocks[blocks.length - 1]
+      if (last?.kind === "paragraph" && last.sectionBreak) {
+        // A section read from Word, drawn as a block (`sectionsHtml`): its own w:sectPr, with the block's columns.
+        build.sectionEnds.push({ paragraph: last, kind: "continuous", columns, own: true })
+      } else {
+        build.sectionEnds.push({ paragraph: endingParagraph(), kind: "continuous", columns })
+      }
+      continue
+    }
     if (node.type === "bulletList" || node.type === "orderedList") {
       blocks.push(...blocksFromList(node, build, level))
       continue
