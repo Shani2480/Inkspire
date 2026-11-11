@@ -122,6 +122,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [ ] **Multiple Pages with columns (2026-11-11)** — a two-column document long enough to reach the second column on
+      its last page, in View > Multiple Pages: each column's text is in its own column, and typing there keeps it so.
+
 - [ ] **Basic Cycle with many items (2026-11-11)** — in a real document, add shapes to a Basic Cycle up to 10 and
       type long text in some: the shapes shrink apart, arrows stay between them, and the text shrinks together while
       typing, in light and dark mode.

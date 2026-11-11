@@ -742,7 +742,7 @@ own `w:sectPr` (`changes.md`). Open:
   columns changing at a continuous break; a section's own unequal widths.
 - ~~Columns and page breaks (also with one section): a page ended early is balanced by the browser, where Word
   fills the first column first, and the next page's text starts 10-43 px high.~~ **Fixed** the same day: a filler
-  fills the page's columns (`changes.md`). Open: Multiple Pages draws a page's columns all in the first.
+  fills the page's columns (`changes.md`). Multiple Pages keeps each block in its column, fixed the same day.
 
 Fixed 2026-10-29: Options dialog drawn light in dark mode; SmartArt Cycle, Organization Chart and Relationship
 drawn as a row of boxes in a dashed frame (`changes.md`).

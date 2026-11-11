@@ -85,9 +85,23 @@ function applyPageGrid(dom: HTMLElement, pageView: PageView, metrics: PageMetric
   dom.style.maxWidth = `${contentWidth}px`
 
   const kids = [...dom.children].filter((node): node is HTMLElement => node instanceof HTMLElement)
-  const snapshot = kids.map((el) => ({ el, top: el.offsetTop }))
+  // In columns (data-columns) a block keeps the column it is laid out in: how far right of the text's left edge,
+  // and its column's width, both read before any block is moved out of the flow.
+  const inColumns = dom.hasAttribute("data-columns")
+  const origin = dom.getBoundingClientRect()
+  const scale = dom.offsetWidth > 0 ? origin.width / dom.offsetWidth || 1 : 1
+  const padLeft = parseFloat(getComputedStyle(dom).paddingLeft) || 0
+  const snapshot = kids.map((el) => {
+    if (!inColumns || getComputedStyle(el).columnSpan === "all") {
+      return { el, top: el.offsetTop, x: 0, width: contentWidth }
+    }
+    const style = getComputedStyle(el)
+    const x = (el.getBoundingClientRect().left - origin.left) / scale - dom.clientLeft - padLeft
+    const width = parseFloat(style.width) || contentWidth
+    return { el, top: el.offsetTop, x: Math.max(0, x - (parseFloat(style.marginLeft) || 0)), width }
+  })
 
-  for (const { el, top } of snapshot) {
+  for (const { el, top, x, width } of snapshot) {
     if (el.classList.contains("object-frame") || el.tagName === "BR") {
       continue
     }
@@ -112,10 +126,10 @@ function applyPageGrid(dom: HTMLElement, pageView: PageView, metrics: PageMetric
 
     el.dataset.gridPlaced = "1"
     el.style.position = "absolute"
-    el.style.left = `${cell.left - marginLeft}px`
+    el.style.left = `${cell.left + x - marginLeft}px`
     el.style.top = `${cell.top + within - marginTop}px`
-    el.style.width = `${contentWidth}px`
-    el.style.maxWidth = `${contentWidth}px`
+    el.style.width = `${width}px`
+    el.style.maxWidth = `${width}px`
 
     const gaps = [...el.querySelectorAll(".page-gap")].filter(
       (node): node is HTMLElement => node instanceof HTMLElement,

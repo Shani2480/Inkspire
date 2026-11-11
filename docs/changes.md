@@ -7,6 +7,18 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-11
 
+### Multiple Pages keeps each block in its column
+
+- **What was wrong:** Multiple Pages moves each block to its page's place in the grid, but always to the page's left
+  edge and at the full text width. In a document in columns, the second column's text was drawn over the first.
+- **What changed:** `editor/page-grid.ts`: in columns, each block keeps how far right of the text's edge it was laid
+  out, and its column's width. Blocks drawn across the columns and documents without columns are placed as before.
+- **Tests:** none new. The placement reads the browser's layout, which the unit tests' DOM does not have.
+- **Checked:** in headless Chrome, f15 with 18 lines typed at the end, View > Multiple Pages > 2 pages: lines 1-16
+  in the left column of the last page, 17 and 18 at the top of the right one. The contract (no columns) is drawn as
+  before.
+- **Open:** Multiple Pages still draws every page on the document's own paper.
+
 ### Columns fill from the first, as Word's do
 
 - **What was wrong:** the browser balances a multi-column flow. A page ended early (a page break), and the last
@@ -28,7 +40,8 @@ in Word, Chrome or the desktop app.
   - The editor ends at the last page's bottom margin.
 - **Open:**
   - Older: Multiple Pages draws every block of a page in columns in the first column. At HEAD the text also ran
-    below the pages; now it stays on them, but overlaps.
+    below the pages; now it stays on them, but overlaps. **Fixed** the same day (Multiple Pages keeps each block in
+    its column).
   - Unequal columns are laid out block by block and were not changed.
 
 ### Pages of different sizes
