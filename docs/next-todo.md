@@ -731,10 +731,12 @@ the open (or caret's) page's section, through Link to Previous; Previous/Next st
 Link to Previous toggles, asks before deleting a part with content, and is saved (`changes.md`). **Fixed** the same
 day: each section's paper, orientation and side margins are read, shown and set by Page Setup, and saved into its
 own `w:sectPr` (`changes.md`). Open:
+
 - Drawing pages of different sizes: the paginator, page sheets (cumulative tops, own width), rulers, print copy,
   floating objects and the grid/side views all assume one page size. A section's side margins also need the body's
   blocks laid out at its own text width.
-- The ribbon's Orientation, Size and Margins act on the document, not the caret's section.
+- ~~The ribbon's Orientation, Size and Margins act on the document, not the caret's section.~~ **Fixed** the same day
+  (`changes.md`); the horizontal ruler's margin drag still changes the document's side margins.
 - Columns per section: the document's columns are applied to every section. In f15 this draws the one-column
   first section in two columns and puts the text of later pages inside the top margin.
 

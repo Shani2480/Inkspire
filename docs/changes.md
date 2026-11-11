@@ -7,6 +7,23 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-11
 
+### Layout's Margins, Orientation and Size change the caret's section
+
+- **What was wrong:** the Layout tab's Margins, Orientation and Size menus showed and changed the document's own
+  (last section's) setup wherever the caret was. Word changes the section the caret is in.
+- **What changed:** `chrome-section.ts`: `useCaretSectionSetup` gives the caret's section's whole setup
+  (`sectionPageSetup`) and changes it there: a section before the last its own, the last the document's.
+  `ribbon/layout-tab.tsx`: the three menus, their checked items, the margin fields and the Orientation icon use
+  it, in both ribbon layouts. Columns, Line Numbers and Hyphenation still act on the document.
+- **Tests:** `chrome-section.test.tsx` (new): with the caret before a section break, Orientation and a margin change
+  that section only; after it, the document's.
+- **Checked:** in headless Chrome on f15. In the first section the menu checks Portrait, though the page is drawn
+  landscape. Landscape there, then Portrait in the last section, leaves the first on Landscape in Page Setup.
+- **Open:**
+  - Pages are still drawn with the document's paper, so the change does not show on the page yet.
+  - The horizontal ruler's margin drag still changes the document's side margins.
+  - Not opened in Word.
+
 ### Each section keeps its own paper, orientation and side margins; Page Setup changes the right one
 
 - **What was wrong:** a section's paper size, orientation and side margins were not read. Page Setup opened for a
