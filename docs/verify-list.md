@@ -7,6 +7,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Paper and orientation per section (2026-11-11)** — in a document with a portrait section and a landscape
+      section, set the first to Letter, 3 cm left margin with Apply to: This section. Saved from the app, it opens in
+      Word with only that section changed, and the landscape section as it was.
+
 - [ ] **Link to Previous and page numbers per section (2026-11-11)** — in the contract, unlink the last section's footer
       and type in it, and link the body's header to the cover's. Saved from the app, it opens in Word with Link to
       Previous off for that footer (with the text) and on for that header. Bottom of Page with the caret in the body

@@ -11,6 +11,7 @@ import { decodeXml } from "@/document/docx/xml"
 import { paragraphsIn, type WordDocument } from "@/document/docx/model"
 import { wordToEditor } from "@/document/docx/project"
 import { DEFAULT_PAGE_SETUP, pageMetrics } from "@/document/page-setup"
+import { sectionPageSetup } from "@/document/sections"
 import { createExtensions } from "@/editor/extensions"
 import { pageClip } from "@/editor/objects"
 
@@ -305,6 +306,45 @@ describe("a section's page setup and page numbers", () => {
     const sectPrs = xml.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/g)!
     expect(sectPrs[0]).toMatch(/<w:pgNumType w:start="0"\/>/)
     expect(sectPrs[1]).toMatch(/<w:pgNumType w:fmt="lowerRoman" w:start="1"\/>/)
+  })
+
+  it("opens each section's own paper, orientation and side margins", async () => {
+    const { view, key } = await numbered()
+    const section = view.chrome.sections!.find((item) => item.key === key)!
+    expect(section).toMatchObject({ paper: "a4", orientation: "portrait", paperWidth: 0, paperHeight: 0 })
+    expect(section.marginLeft).toBeCloseTo(25.4, 1)
+    // The last section is landscape; Page Setup for the first shows the first's.
+    expect(view.chrome.pageSetup.orientation).toBe("landscape")
+    expect(sectionPageSetup(view.chrome.pageSetup, section).orientation).toBe("portrait")
+    expect(sectionPageSetup(view.chrome.pageSetup, { ...section, orientation: undefined }).orientation).toBe(
+      "landscape",
+    )
+  })
+
+  it("writes a section's new paper and side margins into its own w:sectPr only", async () => {
+    const { word, view, key } = await numbered()
+    const sections = view.chrome.sections!.map((item) =>
+      item.key === key
+        ? { ...item, paper: "letter" as const, orientation: "landscape" as const, marginLeft: 30 }
+        : item,
+    )
+    const { bytes, xml } = await save(word, view, { ...view.chrome, sections })
+    const [first, last] = xml.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/g)!
+    expect(first).toMatch(/<w:pgSz w:w="15840" w:h="12240" w:orient="landscape"\/>/)
+    expect(first).toMatch(/<w:pgMar [^>]*w:right="1440"[^>]*w:left="1701"/)
+    expect(last).toMatch(/<w:pgSz w:w="16838" w:h="11906" w:orient="landscape"\/>/)
+    expect(last).toMatch(/<w:pgMar [^>]*w:left="1440"/)
+
+    const reopened = await openDocxBytes(bytes, "edited.docx")
+    const section = reopened.view.chrome.sections![0]!
+    expect(section).toMatchObject({ paper: "letter", orientation: "landscape", marginLeft: 30 })
+  })
+
+  it("keeps a section's paper as written when untouched", async () => {
+    const { word, view } = await numbered()
+    const { xml } = await save(word, view)
+    const [first] = xml.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/g)!
+    expect(first).toMatch(/<w:pgSz w:w="11906" w:h="16838"\/>/)
   })
 
   it("writes a section's new margins, first page and page numbers into its own w:sectPr", async () => {

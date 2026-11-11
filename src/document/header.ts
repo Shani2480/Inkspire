@@ -144,6 +144,24 @@ function borderFlags(setup: PageSetup) {
 
 const SLOTS: ChromeSlot[] = ["header", "footer", "firstHeader", "firstFooter", "evenHeader", "evenFooter"]
 
+/** A packed section's own paper and side margins; one without them (an older file) takes the document's. */
+function sectionPaperOf(item: Record<string, unknown>): Partial<SectionChrome> {
+  const out: Partial<SectionChrome> = {}
+  if (item.paper === "letter" || item.paper === "a4" || item.paper === "legal") {
+    out.paper = item.paper
+  }
+  if (item.orientation === "portrait" || item.orientation === "landscape") {
+    out.orientation = item.orientation
+  }
+  for (const field of ["paperWidth", "paperHeight", "marginLeft", "marginRight"] as const) {
+    const value = item[field]
+    if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+      out[field] = value
+    }
+  }
+  return out
+}
+
 /** The `sections` mark: each section's setup and its own headers and footers, with anything malformed left out. */
 function readSections(value: string): { sections: SectionChrome[]; linked: ChromeSlot[] } {
   let data: unknown
@@ -179,6 +197,7 @@ function readSections(value: string): { sections: SectionChrome[]; linked: Chrom
           ? Math.max(0, Math.round(item.pageNumberStart))
           : null,
       pageNumberFormat: typeof item.pageNumberFormat === "string" ? item.pageNumberFormat : "decimal",
+      ...sectionPaperOf(item),
       parts: parts(item.parts),
       opened: parts(item.opened),
     }))

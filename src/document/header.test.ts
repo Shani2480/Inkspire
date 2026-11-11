@@ -78,7 +78,7 @@ describe("document chrome pack/unpack", () => {
     expect(unpackDocument(packed).pageSetup.pageNumber).toBe("none")
   })
 
-  it("keeps a Word document's sections and each section's page numbers (a recovered draft)", () => {
+  it("keeps a Word document's sections, each section's paper and page numbers (a recovered draft)", () => {
     const chrome: DocumentChrome = {
       ...emptyChrome(),
       footer: "<p>Last footer</p>",
@@ -93,6 +93,12 @@ describe("document chrome pack/unpack", () => {
           differentFirstPage: true,
           pageNumberStart: 0,
           pageNumberFormat: "decimal",
+          paper: "a4",
+          orientation: "landscape",
+          paperWidth: 0,
+          paperHeight: 0,
+          marginLeft: 20,
+          marginRight: 15,
           parts: { firstFooter: "<p>Cover --> footer</p>" },
           opened: { firstFooter: "<p>Cover footer</p>" },
         },

@@ -17,7 +17,7 @@ import {
   type LineNumberRestart,
 } from "@/document/page-setup"
 import { useDocumentStore } from "@/document/store"
-import { sectionSetup, type SectionChrome } from "@/document/sections"
+import { sectionPageSetup, type SectionChrome, type SectionSetupPatch } from "@/document/sections"
 import { caretSection } from "@/editor/section-break"
 import { useBodyEditor } from "@/editor/document-editor"
 import { printDocument } from "@/document/commands"
@@ -133,7 +133,7 @@ export function DesignDialogs() {
     <>
       {pageSetupOpen ? (
         <PageSetupDialog
-          setup={sectionSetup(setup, setupSection)}
+          setup={sectionPageSetup(setup, setupSection)}
           firstPage={setupSection ? setupSection.differentFirstPage : differentFirstPage}
           sectioned={sections.length > 0}
           initialTab={pageSetupOpen}
@@ -374,12 +374,18 @@ type ApplyTo = "section" | "forward" | "whole" | "selected"
  */
 function applyPageSetup(next: PageSetup, firstPage: boolean, applyTo: ApplyTo, section: SectionChrome | null) {
   const store = useDocumentStore.getState()
-  const patch = {
+  const patch: SectionSetupPatch = {
     marginTop: next.marginTop,
     marginBottom: next.marginBottom,
     headerFromEdge: next.headerFromEdge,
     footerFromEdge: next.footerFromEdge,
     differentFirstPage: firstPage,
+    paper: next.paper,
+    orientation: next.orientation,
+    paperWidth: next.paperWidth,
+    paperHeight: next.paperHeight,
+    marginLeft: next.marginLeft,
+    marginRight: next.marginRight,
   }
   const at = section ? store.sections.indexOf(section) : store.sections.length
   const targets =
@@ -405,6 +411,12 @@ function applyPageSetup(next: PageSetup, firstPage: boolean, applyTo: ApplyTo, s
           marginBottom: own.marginBottom,
           headerFromEdge: own.headerFromEdge,
           footerFromEdge: own.footerFromEdge,
+          paper: own.paper,
+          orientation: own.orientation,
+          paperWidth: own.paperWidth,
+          paperHeight: own.paperHeight,
+          marginLeft: own.marginLeft,
+          marginRight: own.marginRight,
         },
   )
   if (last) {

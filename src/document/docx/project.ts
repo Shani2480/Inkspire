@@ -1,7 +1,7 @@
 import { BUILT_IN_STYLES, catalogWithStyles, wordIdForNamedStyle, type StyleDef } from "@/document/styles"
 import type { DocumentChrome } from "@/document/header"
 import { emptyChrome } from "@/document/header"
-import { CHROME_SLOTS, type ChromeSlot, type SectionChrome } from "@/document/sections"
+import { CHROME_SLOTS, SECTION_PAPER_FIELDS, type ChromeSlot, type SectionChrome } from "@/document/sections"
 import type { WordLevel } from "@/editor/word-markers"
 import { chromeHasContent, chromeHasPageField } from "@/document/chrome-html"
 import { chromeJson } from "@/document/chrome-json"
@@ -902,6 +902,7 @@ function sectionsChrome(doc: WordDocument): SectionChrome[] {
       headerFromEdge: twipsToMm(props.header ?? doc.section?.header ?? 720),
       footerFromEdge: twipsToMm(props.footer ?? doc.section?.footer ?? 720),
       differentFirstPage: Boolean(props.titlePg),
+      ...sectionPaper(props, doc.section),
       pageNumberStart: props.pageNumbers?.start ?? null,
       pageNumberFormat: props.pageNumbers?.format ?? "decimal",
       parts: own,
@@ -909,6 +910,32 @@ function sectionsChrome(doc: WordDocument): SectionChrome[] {
     })
   }
   return sections
+}
+
+/**
+ * A section's paper, orientation and side margins as Page Setup holds them; what its w:sectPr leaves out is the
+ * document's (the body's last w:sectPr).
+ */
+function sectionPaper(
+  props: SectionProps,
+  body: SectionProps | null,
+): Pick<SectionChrome, (typeof SECTION_PAPER_FIELDS)[number]> {
+  const sized = props.pageWidth !== undefined || props.pageHeight !== undefined
+  const setup = pageSetupFromSection({
+    pageWidth: props.pageWidth ?? body?.pageWidth,
+    pageHeight: props.pageHeight ?? body?.pageHeight,
+    orient: sized ? props.orient : (props.orient ?? body?.orient),
+    marginLeft: props.marginLeft ?? body?.marginLeft,
+    marginRight: props.marginRight ?? body?.marginRight,
+  })
+  return {
+    paper: setup.paper,
+    orientation: setup.orientation,
+    paperWidth: setup.paperWidth,
+    paperHeight: setup.paperHeight,
+    marginLeft: setup.marginLeft,
+    marginRight: setup.marginRight,
+  }
 }
 
 /**
@@ -984,6 +1011,29 @@ function sectionSetupFromChrome(props: SectionProps, section: SectionChrome, bod
   measure("marginBottom", section.marginBottom, 1440)
   measure("header", section.headerFromEdge, 720)
   measure("footer", section.footerFromEdge, 720)
+  // Paper and side margins: written only when they no longer read back as they opened.
+  const opened = sectionPaper(props, body)
+  const paper = { ...opened }
+  for (const field of SECTION_PAPER_FIELDS) {
+    if (section[field] !== undefined) {
+      Object.assign(paper, { [field]: section[field] })
+    }
+  }
+  if (
+    paper.paper !== opened.paper ||
+    paper.orientation !== opened.orientation ||
+    paper.paperWidth !== opened.paperWidth ||
+    paper.paperHeight !== opened.paperHeight
+  ) {
+    const base = props.pageWidth !== undefined ? props : body
+    Object.assign(next, paperTwips(paper as Required<typeof paper>, base))
+  }
+  if (paper.marginLeft !== opened.marginLeft) {
+    next.marginLeft = keepTwips(props.marginLeft ?? body?.marginLeft, paper.marginLeft!)
+  }
+  if (paper.marginRight !== opened.marginRight) {
+    next.marginRight = keepTwips(props.marginRight ?? body?.marginRight, paper.marginRight!)
+  }
   if (Boolean(props.titlePg) !== section.differentFirstPage) {
     next.titlePg = section.differentFirstPage ? true : undefined
   }
@@ -1204,29 +1254,38 @@ function sectionStartFrom(type: SectionProps["type"]): SectionStart {
   }
 }
 
-function sectionFromChrome(chrome: DocumentChrome, base: SectionProps | null): SectionProps {
-  const setup = chrome.pageSetup
+/** A value the user left alone keeps the source twips; converting through millimetres would round it. */
+function keepTwips(source: number | undefined, mm: number) {
+  return source !== undefined && twipsToMm(source) === mm ? source : mmToTwips(mm)
+}
+
+/** `w:pgSz` for Page Setup's paper and orientation; a custom size the user left alone keeps `base`'s twips. */
+function paperTwips(
+  setup: Pick<PageSetup, "paper" | "orientation" | "paperWidth" | "paperHeight">,
+  base: SectionProps | null,
+): Pick<SectionProps, "pageWidth" | "pageHeight" | "orient"> {
   const named = PAPER_TWIPS[setup.paper] ?? PAPER_TWIPS.letter
   const custom = setup.paperWidth > 0 && setup.paperHeight > 0
-  // A value the user left alone keeps the source twips; converting through millimetres would round it.
-  const keep = (source: number | undefined, mm: number) =>
-    source !== undefined && twipsToMm(source) === mm ? source : mmToTwips(mm)
   const portrait =
     base && base.orient === "landscape"
       ? { w: base.pageHeight, h: base.pageWidth }
       : { w: base?.pageWidth, h: base?.pageHeight }
-  let width = custom ? keep(portrait.w, setup.paperWidth) : named.w
-  let height = custom ? keep(portrait.h, setup.paperHeight) : named.h
+  let width = custom ? keepTwips(portrait.w, setup.paperWidth) : named.w
+  let height = custom ? keepTwips(portrait.h, setup.paperHeight) : named.h
   if (setup.orientation === "landscape") {
     const swap = width
     width = height
     height = swap
   }
+  return { pageWidth: width, pageHeight: height, orient: setup.orientation === "landscape" ? "landscape" : undefined }
+}
+
+function sectionFromChrome(chrome: DocumentChrome, base: SectionProps | null): SectionProps {
+  const setup = chrome.pageSetup
+  const keep = keepTwips
   const section: SectionProps = {
     ...(base ?? {}),
-    pageWidth: width,
-    pageHeight: height,
-    orient: setup.orientation === "landscape" ? "landscape" : undefined,
+    ...paperTwips(setup, base),
     marginTop: keep(base?.marginTop, setup.marginTop),
     marginRight: keep(base?.marginRight, setup.marginRight),
     marginBottom: keep(base?.marginBottom, setup.marginBottom),

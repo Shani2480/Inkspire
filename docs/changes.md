@@ -7,6 +7,41 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-11
 
+### Each section keeps its own paper, orientation and side margins; Page Setup changes the right one
+
+- **What was wrong:** a section's paper size, orientation and side margins were not read. Page Setup opened for a
+  section before the last showed the document's own (last section's), and Apply to: This section wrote paper,
+  orientation and side margins into the last section. Choosing Landscape for a cover made the last section
+  landscape in the saved file.
+- **What changed:**
+  - `document/sections.ts`: `SectionChrome` gains `paper`, `orientation`, `paperWidth`, `paperHeight`,
+    `marginLeft`, `marginRight` (optional: an older native file takes the document's). `sectionPageSetup` is a
+    section's whole setup for the dialog; `sectionSetup` (drawing) still leaves them out.
+  - `docx/project.ts`: `sectionPaper` reads them from the section's `w:sectPr` (what it leaves out is the body's).
+    `sectionSetupFromChrome` writes `w:pgSz` and the side `w:pgMar` values only when they changed.
+    `paperTwips` / `keepTwips` are shared with the last section's writer.
+  - `design-dialogs.tsx`: Page Setup shows the caret's section's paper and side margins. This section, This point
+    forward and Whole document set them on the sections they name. The document's own only changes when the last
+    section is among them.
+  - `header.ts`: the native `sections` mark keeps them.
+- **Tests:** `section-pages.test.ts` (opens f15's portrait first section under a landscape last one; writes a
+  section's new paper and margins into its own `w:sectPr` only; keeps an untouched one as written),
+  `header.test.ts` (pack round trip).
+- **Checked:**
+  - In headless Chrome on f15: Page Setup in the first section shows Portrait, in the last Landscape. Setting the
+    first to Landscape (This section) and then the last to Portrait leaves the first on Landscape.
+  - A saved f15 with its first section on Letter landscape, 3 and 3.5 cm side margins passes docx-validate with
+    0 errors. Only the first `w:sectPr` changed.
+- **Open:**
+  - Pages are still all drawn with the document's paper and side margins. A landscape section among portrait ones
+    shows portrait until pages of different sizes are drawn.
+  - Layout > Orientation, Size and Margins on the ribbon still change the document's own setup, not the caret's
+    section.
+  - Found while checking: the app applies the document's columns to every section. In f15 (one column, then a
+    two-column last section) the first section is drawn in two columns, and the text on pages 2 and 3 starts
+    30-40 px inside the top margin, where the header zone takes its clicks. This was already so before this change.
+  - Not opened in Word.
+
 ### Page numbers, Previous/Next and Link to Previous work per section
 
 - **What was wrong:**

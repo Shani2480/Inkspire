@@ -728,8 +728,15 @@ section (`changes.md`). The print copy already followed each section. Open: a se
 orientation and side margins; Top / Bottom of Page numbers only in the last section's header or footer; Previous /
 Next across sections and Link to Previous. **Fixed** the same day: page numbers go into the header or footer of
 the open (or caret's) page's section, through Link to Previous; Previous/Next step through every section's parts;
-Link to Previous toggles, asks before deleting a part with content, and is saved (`changes.md`). Open: a section's
-own paper size, orientation and side margins.
+Link to Previous toggles, asks before deleting a part with content, and is saved (`changes.md`). **Fixed** the same
+day: each section's paper, orientation and side margins are read, shown and set by Page Setup, and saved into its
+own `w:sectPr` (`changes.md`). Open:
+- Drawing pages of different sizes: the paginator, page sheets (cumulative tops, own width), rulers, print copy,
+  floating objects and the grid/side views all assume one page size. A section's side margins also need the body's
+  blocks laid out at its own text width.
+- The ribbon's Orientation, Size and Margins act on the document, not the caret's section.
+- Columns per section: the document's columns are applied to every section. In f15 this draws the one-column
+  first section in two columns and puts the text of later pages inside the top margin.
 
 Fixed 2026-10-29: Options dialog drawn light in dark mode; SmartArt Cycle, Organization Chart and Relationship
 drawn as a row of boxes in a dashed frame (`changes.md`).

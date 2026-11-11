@@ -1,4 +1,4 @@
-import type { PageSetup } from "@/document/page-setup"
+import type { PageOrientation, PageSetup, PaperSize } from "@/document/page-setup"
 
 /** The six headers and footers a section can have. */
 export type ChromeSlot = "header" | "footer" | "firstHeader" | "firstFooter" | "evenHeader" | "evenFooter"
@@ -19,6 +19,17 @@ export type SectionChrome = {
   headerFromEdge: number
   footerFromEdge: number
   differentFirstPage: boolean
+  /**
+   * Its own paper, orientation and side margins (mm), as Page Setup holds them (`paperWidth`/`paperHeight` 0: the named
+   * paper). Absent (an older native file): the document's. Pages are still drawn with the document's paper and side
+   * margins; these are what Page Setup shows for the section and what is saved.
+   */
+  paper?: PaperSize
+  orientation?: PageOrientation
+  paperWidth?: number
+  paperHeight?: number
+  marginLeft?: number
+  marginRight?: number
   /** Format Page Numbers: its first page's number (absent or null: going on from the section before) and format. */
   pageNumberStart?: number | null
   pageNumberFormat?: string
@@ -34,6 +45,12 @@ export type SectionSetupPatch = Partial<
     SectionChrome,
     | "marginTop"
     | "marginBottom"
+    | "marginLeft"
+    | "marginRight"
+    | "paper"
+    | "orientation"
+    | "paperWidth"
+    | "paperHeight"
     | "headerFromEdge"
     | "footerFromEdge"
     | "differentFirstPage"
@@ -100,4 +117,31 @@ export function sectionAtPosition(
     breaks.map((item) => item.key),
     before,
   )
+}
+
+/** The fields of Page Setup a section has of its own (see `SectionChrome`). */
+export const SECTION_PAPER_FIELDS = [
+  "paper",
+  "orientation",
+  "paperWidth",
+  "paperHeight",
+  "marginLeft",
+  "marginRight",
+] as const
+
+/**
+ * A section's whole page setup, as Page Setup shows it: the document's, with everything the section has of its own,
+ * paper and side margins included (`sectionSetup` leaves those out, since pages are drawn with the document's).
+ */
+export function sectionPageSetup(setup: PageSetup, section: SectionChrome | null): PageSetup {
+  if (!section) {
+    return setup
+  }
+  const own: Partial<PageSetup> = {}
+  for (const field of SECTION_PAPER_FIELDS) {
+    if (section[field] !== undefined) {
+      Object.assign(own, { [field]: section[field] })
+    }
+  }
+  return { ...sectionSetup(setup, section), ...own }
 }
