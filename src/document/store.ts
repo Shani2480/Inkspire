@@ -4,7 +4,15 @@ import { clearWordDocument } from "@/document/docx/session"
 import type { DocumentChrome } from "@/document/header"
 import { pageSetupForNewDocument } from "@/document/design-format"
 import { DEFAULT_PAGE_SETUP, normalizePageSetup, samePageSetup, type PageSetup } from "@/document/page-setup"
-import { type ChromeSlot, type SectionChrome, type SectionSetupPatch, slotOwner } from "@/document/sections"
+import {
+  CHROME_SLOTS,
+  type ChromeSlot,
+  type SectionChrome,
+  type SectionSetupPatch,
+  sectionPageSetup,
+  slotOwner,
+} from "@/document/sections"
+import { slotHome } from "@/document/section-slots"
 import { create } from "zustand"
 
 type ChromeState = {
@@ -677,6 +685,67 @@ export function slotHtml(home: string | null, slot: ChromeSlot) {
     return state[SLOT_FIELDS[slot]]
   }
   return state.sections.find((item) => item.key === home)?.parts[slot] ?? ""
+}
+
+/**
+ * A section break that starts a page, made in the editor, ends a new section `key` before the one it is put in
+ * (`before`: a section before the last by key, or `null` for the document's own). As in Word, the new section has
+ * that one's page setup, and shows the same headers and footers: a copy of each it has of its own (all of them when
+ * the new one is first, with nothing before to link to), the rest linked to the previous section as they were.
+ */
+export function insertSection(key: string, before: string | null) {
+  useDocumentStore.setState((state) => {
+    if (state.sections.some((item) => item.key === key)) {
+      return state
+    }
+    const split = before ? (state.sections.find((item) => item.key === before) ?? null) : null
+    const at = split ? state.sections.indexOf(split) : state.sections.length
+    const setup = sectionPageSetup(state.pageSetup, split)
+    const slots = {
+      sections: state.sections,
+      linkedSlots: state.linkedSlots,
+      differentFirstPage: state.differentFirstPage,
+      differentOddEven: state.pageSetup.differentOddEven,
+    }
+    const parts: Partial<Record<ChromeSlot, string>> = {}
+    for (const slot of CHROME_SLOTS) {
+      const own = split ? split.parts[slot] : state.linkedSlots.includes(slot) ? undefined : state[SLOT_FIELDS[slot]]
+      if (own !== undefined) {
+        parts[slot] = own
+      } else if (at === 0) {
+        const home = slotHome(slots, split, slot)
+        parts[slot] =
+          home === null
+            ? state[SLOT_FIELDS[slot]]
+            : (state.sections.find((item) => item.key === home)?.parts[slot] ?? "")
+      }
+    }
+    const section: SectionChrome = {
+      key,
+      marginTop: setup.marginTop,
+      marginBottom: setup.marginBottom,
+      headerFromEdge: setup.headerFromEdge,
+      footerFromEdge: setup.footerFromEdge,
+      differentFirstPage: split ? split.differentFirstPage : state.differentFirstPage,
+      paper: setup.paper,
+      orientation: setup.orientation,
+      paperWidth: setup.paperWidth,
+      paperHeight: setup.paperHeight,
+      marginLeft: setup.marginLeft,
+      marginRight: setup.marginRight,
+      columns: setup.columns,
+      columnGap: setup.columnGap,
+      columnLine: setup.columnLine,
+      columnWidths: setup.columns > 1 ? setup.columnWidths : undefined,
+      pageNumberStart: null,
+      pageNumberFormat: setup.pageNumberFormat,
+      parts,
+      // Never opened: every part it has is written as its own when saved.
+      opened: {},
+    }
+    const sections = [...state.sections.slice(0, at), section, ...state.sections.slice(at)]
+    return { sections, isDirty: true }
+  })
 }
 
 /** Replaces the header or footer kept at `home` (see `slotHtml`). */

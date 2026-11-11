@@ -740,7 +740,7 @@ own `w:sectPr` (`changes.md`). Open:
   (`changes.md`); the horizontal ruler's margin drag still changes the document's side margins.
 - ~~Columns per section~~ **Fixed** the same day (`changes.md`). Columns changing at a continuous break **fixed** the same day: such a section opens as a block of its columns, and
   section breaks and blocks of columns made in the editor are saved (they were lost) (`changes.md`). Open: a long
-  continuous section of other columns; a new section's own Page Setup before saving. Different
+  continuous section of other columns. A new section's own Page Setup, fixed the same day. Different
   counts above one and a section's own unequal widths **fixed** the same day (`changes.md`). The Columns dialog's
   Apply to has This section, fixed the same day.
 - ~~Columns and page breaks (also with one section): a page ended early is balanced by the browser, where Word

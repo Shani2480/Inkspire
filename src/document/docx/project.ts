@@ -127,6 +127,8 @@ type EditorSectionEnd = {
   columns?: { count: number; gapCm: number; line: boolean }
   /** The paragraph already ends a section read from Word: only its columns are the block's. */
   own?: boolean
+  /** The break's section key, for its Page Setup and headers and footers (`insertSection`). */
+  key?: string
 }
 
 /** How tables of contents link to their headings when saved. */
@@ -179,8 +181,12 @@ export function editorToWord(
   dropEditorTrailingParagraph(blocks)
   const nextId = storyIds(source)
   const stories = storiesFromChrome(chrome, source, build, source === null, nextId)
-  sectionStoriesFromChrome(blocks, chrome.sections ?? [], source, build, nextId)
   placeEditorSections(blocks, build.sectionEnds, section)
+  // A section made in the editor is found by its break's key, as one read from Word is by its paragraph's.
+  const editorKeys = new Map(
+    build.sectionEnds.filter((end) => end.key).map((end) => [end.paragraph, end.key!] as const),
+  )
+  sectionStoriesFromChrome(blocks, chrome.sections ?? [], source, build, nextId, editorKeys)
   const numbering = build.numbering
   section.references = stories.length > 0 ? stories : undefined
   const sectionStories = paragraphsIn(blocks).flatMap((paragraph) => paragraph.sectionBreak?.references ?? [])
@@ -1167,11 +1173,13 @@ function sectionStoriesFromChrome(
   source: WordDocument | null,
   shared: Build,
   nextId: () => string,
+  editorKeys: Map<Paragraph, string> = new Map(),
 ) {
   // Continuous sections since the last section that starts a page: what they have of their own shows in the next one.
   let carried: Paragraph[] = []
   for (const paragraph of paragraphsIn(blocks)) {
-    const section = paragraph.key ? sections.find((item) => item.key === paragraph.key) : undefined
+    const key = editorKeys.get(paragraph) ?? paragraph.key
+    const section = key ? sections.find((item) => item.key === key) : undefined
     if (!section || !paragraph.sectionBreak) {
       if (paragraph.sectionBreak) {
         carried.push(paragraph)
@@ -1927,7 +1935,7 @@ function blocksFromNodes(nodes: JsonNode[], build: Build, level: number): Block[
       const key = String(node.attrs?.sectionId || "")
       const fromWord = Boolean(key && build.origins.paragraphs.get(key)?.sectionBreak)
       if (!fromWord && (previous?.kind !== "paragraph" || !previous.sectionBreak)) {
-        build.sectionEnds.push({ paragraph: endingParagraph(), kind: String(node.attrs?.kind || "nextPage") })
+        build.sectionEnds.push({ paragraph: endingParagraph(), kind: String(node.attrs?.kind || "nextPage"), key })
       }
       continue
     }

@@ -7,6 +7,24 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-11
 
+### A section made in the editor has its own Page Setup and headers
+
+- **What was wrong:** a section break inserted in the editor made no section of its own: its pages were laid out,
+  set up and given headers with the section after it, so Page Setup or Orientation in the new section changed that
+  one. Saved, the new section was a bare copy.
+- **What changed:**
+  - `document/store.ts`: `insertSection` adds the new section before the one the break is put in, with that one's
+    page setup. It shows the same headers and footers: a copy of each that section has of its own (all of them when
+    the new one is first), the rest linked to the previous section as before.
+  - `editor/section-break.ts`: Next Page, Even Page and Odd Page breaks call it (a continuous break starts no page).
+  - `docx/project.ts`: saving finds such a section by its break's key, so its margins, paper, columns and headers are
+    written into its w:sectPr like a section read from Word.
+- **Tests:** `section-pages.test.ts`: a break in a document with a header gives the new section the header and the
+  page setup; set landscape with a 30 mm left margin, it is saved and opens so, the body section unchanged.
+- **Checked:** in headless Chrome: two lines, Layout > Breaks > Next Page between them, Orientation > Landscape on the
+  first: the first page is drawn landscape (1123 × 794 px) and the second portrait.
+- **Open:** deleting the break leaves the section in the store, unused (undo brings the break back with it).
+
 ### Section breaks and blocks of columns made in the editor are saved; continuous sections open
 
 - **What was wrong:**
@@ -33,7 +51,8 @@ in Word, Chrome or the desktop app.
 - **Checked:** in headless Chrome: the title file shows TITLE across the page and the text below in two 277 px
   columns. f15 and the contract lay out as before.
 - **Open:**
-  - A new section in the editor has no Page Setup of its own until the file is saved and opened again.
+  - A new section in the editor has no Page Setup of its own until the file is saved and opened again. **Fixed**
+    the same day.
   - A long section of other columns (more blocks than the page's own) is still drawn in the page's columns.
   - The column outlines are drawn over a block of other columns too.
   - Not opened in Word.

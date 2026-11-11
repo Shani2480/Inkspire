@@ -1,7 +1,7 @@
 import { Node, mergeAttributes, type Editor } from "@tiptap/core"
 import type { Node as ProseNode } from "@tiptap/pm/model"
 import { sectionAtPosition, type SectionChrome } from "@/document/sections"
-import { useDocumentStore } from "@/document/store"
+import { insertSection, useDocumentStore } from "@/document/store"
 
 export type SectionBreakKind = "nextPage" | "continuous" | "evenPage" | "oddPage"
 
@@ -97,13 +97,15 @@ export const SectionBreak = Node.create({
     return {
       insertSectionBreak:
         (kind = "nextPage") =>
-        ({ chain }) =>
-          chain()
-            .insertContent({
-              type: "sectionBreak",
-              attrs: { kind, sectionId: crypto.randomUUID() },
-            })
-            .run(),
+        ({ chain, editor }) => {
+          const sectionId = crypto.randomUUID()
+          // A break that starts a page ends a section of its own, with its own Page Setup (a continuous one is
+          // drawn on the pages of the section it is in).
+          if (kind !== "continuous" && editor.isEditable) {
+            insertSection(sectionId, caretSection(editor)?.key ?? null)
+          }
+          return chain().insertContent({ type: "sectionBreak", attrs: { kind, sectionId } }).run()
+        },
     }
   },
 })

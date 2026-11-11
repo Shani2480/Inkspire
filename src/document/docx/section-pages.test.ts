@@ -13,6 +13,7 @@ import { wordToEditor } from "@/document/docx/project"
 import { DEFAULT_PAGE_SETUP, pageMetrics } from "@/document/page-setup"
 import { sectionPageSetup } from "@/document/sections"
 import { createExtensions } from "@/editor/extensions"
+import { useDocumentStore } from "@/document/store"
 import { applyColumnSection } from "@/editor/columns"
 import { pageClip } from "@/editor/objects"
 
@@ -489,5 +490,63 @@ describe("sections made in the editor and continuous ones", () => {
       /<div data-column-section="" data-columns="3"[^>]*><p[^>]*><span[^>]*>BEFORE<\/span><\/p><\/div><p/,
     )
     expect(back.view.html).toMatch(/portrait section.*data-kind="nextPage"/)
+  })
+})
+
+describe("a section made in the editor", () => {
+  afterEach(() => useDocumentStore.setState({ sections: [], linkedSlots: [] }))
+
+  it("has the Page Setup and headers of the section it was put in, its own from then on, and is saved so", async () => {
+    useDocumentStore.setState({
+      sections: [],
+      linkedSlots: [],
+      pageSetup: { ...DEFAULT_PAGE_SETUP, paper: "a4", orientation: "portrait" },
+      headerHtml: "<p>HEAD</p>",
+    })
+    const editor = new Editor({
+      extensions: createExtensions().filter((extension) => extension.name !== "spellcheck"),
+      content: "<p>cover</p><p>body</p>",
+    })
+    editors.push(editor)
+    editor.commands.setTextSelection(6)
+    editor.commands.insertSectionBreak("nextPage")
+    const state = useDocumentStore.getState()
+    expect(state.sections).toHaveLength(1)
+    const cover = state.sections[0]!
+    expect(cover).toMatchObject({ orientation: "portrait", parts: { header: "<p>HEAD</p>" } })
+    // Its own Page Setup now: the cover landscape, the rest as it was.
+    state.setSectionSetup(cover.key, { orientation: "landscape", marginLeft: 30 })
+    const now = useDocumentStore.getState()
+    const saved = await saveDocxBytes({
+      json: editor.getJSON(),
+      chrome: {
+        header: now.headerHtml,
+        footer: now.footerHtml,
+        differentFirstPage: now.differentFirstPage,
+        firstHeader: now.firstHeaderHtml,
+        evenHeader: now.evenHeaderHtml,
+        firstFooter: now.firstFooterHtml,
+        evenFooter: now.evenFooterHtml,
+        pageSetup: now.pageSetup,
+        sections: now.sections,
+        linked: now.linkedSlots,
+      },
+      props: {},
+      word: null,
+      unchanged: false,
+      fileName: "new.docx",
+    })
+    const pkg = await openPackage(saved.bytes, "new.docx")
+    const xml = decodeXml(findPart(pkg, pkg.mainPartName)!.data)
+    const [first, body] = [...xml.matchAll(/<w:sectPr\b[^]*?<\/w:sectPr>/g)].map((match) => match[0])
+    expect(first).toMatch(/w:orient="landscape"/)
+    expect(first).toMatch(/w:left="1701"/)
+    expect(first).toMatch(/<w:headerReference w:type="default"/)
+    expect(body).not.toMatch(/landscape/)
+    const back = await openDocxBytes(saved.bytes, "new.docx")
+    expect(back.view.chrome.sections?.[0]).toMatchObject({
+      orientation: "landscape",
+      parts: { header: expect.stringContaining("HEAD") },
+    })
   })
 })
