@@ -7,6 +7,30 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-11
 
+### Columns fill from the first, as Word's do
+
+- **What was wrong:** the browser balances a multi-column flow. A page ended early (a page break), and the last
+  page, had their text shared out between the columns, where Word fills the first column first. The paginator
+  sized the gap after such a page as if Word's columns, so the next page's text started 10-43 px high (f15's
+  page 3 at 86 px instead of 96; a one-section copy at 53).
+- **What changed:** `editor/pages.ts`: when a page in equal columns ends, an empty filler is drawn before the gap
+  (`PageBreak.filler`, `columnFiller`, `.column-filler` in `index.css`). It is as tall as the rest of the column
+  the text ends in plus every column after it, so the page's columns add up to whole ones and the browser's
+  balancing leaves the text where Word puts it. A page break's filler goes before its mark, which is drawn across
+  the columns. The last page gets one after the text. The gap no longer holds that space itself (between table
+  rows it still does). `page-grid.ts`: Multiple Pages collapses the fillers like the gaps.
+- **Tests:** `pages.test.ts` (`columnFiller`).
+- **Checked:** in headless Chrome on f15 and a one-section copy.
+  - The page after a page break starts at 97 px (the landscape page before it too; a rounding pixel).
+  - The text before the break and on the last page stays in the first column.
+  - Typing 40 lines at the end fills the first column to the bottom margin, then the second, then a new page.
+    Deleting them gives the same layout back.
+  - The editor ends at the last page's bottom margin.
+- **Open:**
+  - Older: Multiple Pages draws every block of a page in columns in the first column. At HEAD the text also ran
+    below the pages; now it stays on them, but overlaps.
+  - Unequal columns are laid out block by block and were not changed.
+
 ### Pages of different sizes
 
 - **What was wrong:** every page was drawn on the document's own paper. In f15 (a portrait section, then a

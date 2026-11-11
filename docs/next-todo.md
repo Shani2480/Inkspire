@@ -740,8 +740,9 @@ own `w:sectPr` (`changes.md`). Open:
   (`changes.md`); the horizontal ruler's margin drag still changes the document's side margins.
 - ~~Columns per section~~ **Fixed** the same day (`changes.md`). Open: different counts above one share the larger;
   columns changing at a continuous break; a section's own unequal widths.
-- Columns and page breaks (also with one section): a page ended early is balanced by the browser, where Word fills
-  the first column first, and the next page's text starts 10-43 px high.
+- ~~Columns and page breaks (also with one section): a page ended early is balanced by the browser, where Word
+  fills the first column first, and the next page's text starts 10-43 px high.~~ **Fixed** the same day: a filler
+  fills the page's columns (`changes.md`). Open: Multiple Pages draws a page's columns all in the first.
 
 Fixed 2026-10-29: Options dialog drawn light in dark mode; SmartArt Cycle, Organization Chart and Relationship
 drawn as a row of boxes in a dashed frame (`changes.md`).

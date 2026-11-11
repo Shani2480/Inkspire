@@ -7,6 +7,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Columns fill from the first (2026-11-11)** — a two-column Word document with a few lines, a page break, then
+      a few more lines: in the app, as in Word, each page's lines stay in the left column and the second page's text
+      starts at its top margin.
+
 - [ ] **Pages of different sizes (2026-11-11)** — a Word document with a portrait section, then a landscape one,
       looks the same in the app as in Word's Print Layout: the portrait page centred above the landscape pages, each
       with its text at its own margins. Printed from the app, the landscape pages come out landscape.

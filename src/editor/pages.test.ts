@@ -1,6 +1,12 @@
 import { Schema } from "@tiptap/pm/model"
 import { describe, expect, it } from "vitest"
-import { firstContentDiff, mustMoveToNextPage, pageCountForBlockHeights, splittable } from "@/editor/pages"
+import {
+  columnFiller,
+  firstContentDiff,
+  mustMoveToNextPage,
+  pageCountForBlockHeights,
+  splittable,
+} from "@/editor/pages"
 
 const schema = new Schema({
   nodes: {
@@ -189,5 +195,16 @@ describe("splittable (Allow row to break across pages, 22.10)", () => {
     expect(splittable(tables.node("tableRow", null, [cell(text("a"), tables.node("image"), text("b"))]))).toBe(true)
     const nested = tables.node("table", null, [tables.node("tableRow", null, [cell(text("x"))])])
     expect(splittable(tables.node("tableRow", null, [cell(nested)]))).toBe(true)
+  })
+})
+
+describe("columnFiller", () => {
+  it("fills the rest of a page's columns, so the browser leaves them as Word fills them", () => {
+    // Two columns, the text ending 300 px down the first: the rest of it and all of the second.
+    expect(columnFiller(300, 600, 2, 0)).toBe(900)
+    // Ending in the last column: only its rest.
+    expect(columnFiller(300, 600, 2, 1)).toBe(300)
+    expect(columnFiller(0, 600, 3, 0)).toBe(1200)
+    expect(columnFiller(-5, 600, 1, 0)).toBe(0)
   })
 })

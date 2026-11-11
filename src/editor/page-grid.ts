@@ -101,7 +101,11 @@ function applyPageGrid(dom: HTMLElement, pageView: PageView, metrics: PageMetric
     const marginTop = parseFloat(style.marginTop) || 0
     const marginLeft = parseFloat(style.marginLeft) || 0
 
-    if (el.classList.contains("page-gap") || el.classList.contains("object-band")) {
+    if (
+      el.classList.contains("page-gap") ||
+      el.classList.contains("object-band") ||
+      el.classList.contains("column-filler")
+    ) {
       collapseGap(el, true)
       continue
     }

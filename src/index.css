@@ -1425,6 +1425,15 @@ button.line-menu-row:focus-visible {
   z-index: 1;
 }
 
+/* The empty end of a page's columns (pages.ts, PageBreak.filler): breaks across the columns it fills. */
+.column-filler {
+  display: block;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  pointer-events: none;
+}
+
 .page-gap {
   display: block;
   clear: both;
