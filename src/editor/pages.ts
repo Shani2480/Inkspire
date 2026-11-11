@@ -1813,7 +1813,8 @@ function sectionCells(view: EditorView, metrics: PageMetrics[], counts: number[]
     const item = metrics[Math.min(index, metrics.length - 1)]!
     const x = Math.round(textLeft(item) - base)
     const wide = Math.round(textWidth(item)) !== Math.round(textWidth(own))
-    if ((x !== 0 || wide) && (counts[index] ?? 1) === 1) {
+    // A floating object is placed on its own page already (`objectCell`): a cell's `left` would undo that.
+    if ((x !== 0 || wide) && (counts[index] ?? 1) === 1 && !isFloating(node)) {
       const dom = view.nodeDOM(pos)
       let width: number | undefined
       if ((node.isTextblock || TEXT_BLOCKS.has(node.type.name)) && dom instanceof HTMLElement) {
@@ -1858,7 +1859,7 @@ function sectionColumnLayout(view: EditorView, keys: string[], sections: Section
   if (editor > 1 && !unequal) {
     let index = 0
     view.state.doc.forEach((node, pos) => {
-      if (counts[index] === 1) {
+      if (counts[index] === 1 && !isFloating(node)) {
         spans.push({ pos, size: node.nodeSize })
       }
       if (node.type.name === "sectionBreak" && node.attrs.kind !== "continuous") {

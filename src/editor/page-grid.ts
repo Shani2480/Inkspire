@@ -1,5 +1,6 @@
 import { pageGridCell, pageGridColumns, type PageView } from "@/document/page-grid"
 import type { PageMetrics } from "@/document/page-setup"
+import { objectLeft, objectTop } from "@/editor/objects"
 import { PAGE_GAP } from "@/editor/pages"
 import type { EditorView } from "@tiptap/pm/view"
 
@@ -204,6 +205,12 @@ export function placeObjectFrames(dom: HTMLElement, pageView: PageView, metrics:
     const page = Math.max(1, Number(el.dataset.page) || 1)
     const x = Number(el.dataset.x) || 0
     const y = Number(el.dataset.y) || 0
+    // One page wide, a section's pages are drawn at their own size, so the object's page is placed as `applyFrame` does.
+    if (pageView <= 1) {
+      el.style.left = `${Math.round(objectLeft(page, x, metrics))}px`
+      el.style.top = `${Math.round(objectTop(page, y, metrics))}px`
+      return
+    }
     const cell = pageGridCell(page - 1, pageView, xStride, yStride)
     el.style.left = `${Math.round(cell.left + x)}px`
     el.style.top = `${Math.round(cell.top + y)}px`

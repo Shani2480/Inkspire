@@ -15,7 +15,9 @@ import { sectionPageSetup } from "@/document/sections"
 import { createExtensions } from "@/editor/extensions"
 import { useDocumentStore } from "@/document/store"
 import { applyColumnSection } from "@/editor/columns"
-import { pageClip } from "@/editor/objects"
+import { applyFrame, pageClip } from "@/editor/objects"
+import { setDrawnPageKeys } from "@/document/page-frames"
+import { placeObjectFrames } from "@/editor/page-grid"
 
 const AUTHORED = path.resolve(process.cwd(), "tests/docx-fixtures/authored")
 
@@ -91,6 +93,44 @@ describe("a floating object past the page's edge", () => {
   it("is drawn whole when it fits the page, or when it is turned", () => {
     expect(pageClip(node({ width: 200, height: 100 }), 10, 10, metrics)).toBe("")
     expect(pageClip(node({ width: 2000, height: 100, rotate: 15 }), -300, 10, metrics)).toBe("")
+  })
+
+  it("is cut at its own page's size, a landscape section's wider sheet", () => {
+    const landscape = {
+      key: "wide",
+      marginTop: 25.4,
+      marginBottom: 25.4,
+      headerFromEdge: 12.7,
+      footerFromEdge: 12.7,
+      differentFirstPage: false,
+      parts: {},
+      opened: {},
+      orientation: "landscape" as const,
+    }
+    const before = useDocumentStore.getState()
+    useDocumentStore.setState({ pageSetup: DEFAULT_PAGE_SETUP, sections: [landscape] })
+    setDrawnPageKeys(["wide"])
+    try {
+      const wide = pageMetrics(sectionPageSetup(DEFAULT_PAGE_SETUP, landscape))
+      // From the sheet's left edge, wider than a portrait page but not than the landscape one.
+      const picture = { type: { name: "image" }, attrs: { wrap: "square", width: 1000, height: 100, page: 1, y: 0 } }
+      picture.attrs = { ...picture.attrs, x: -wide.marginLeft } as typeof picture.attrs
+      const dom = document.createElement("div")
+      dom.className = "image-frame object-frame"
+      applyFrame(dom, picture as unknown as ProseNode)
+      expect(wide.width).toBeGreaterThan(1000)
+      expect(dom.style.clipPath).toBe("")
+      // The pass after each layout places it on the same page, not the one-size grid's.
+      const placed = dom.style.left
+      const editor = document.createElement("div")
+      editor.append(dom)
+      dom.style.left = ""
+      placeObjectFrames(editor, 1, pageMetrics(DEFAULT_PAGE_SETUP))
+      expect(dom.style.left).toBe(placed)
+    } finally {
+      setDrawnPageKeys([])
+      useDocumentStore.setState({ pageSetup: before.pageSetup, sections: before.sections })
+    }
   })
 
   it("is not cut in a header or footer, whose editor is drawn off the page", () => {

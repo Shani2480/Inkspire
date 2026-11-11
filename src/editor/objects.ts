@@ -1362,13 +1362,16 @@ function frameStyle(node: ProseNode, dom?: HTMLElement) {
   }
   const place = dom ? flowPlace(dom, node) : { page: Number(node.attrs.page) || 1, y: Number(node.attrs.y) || 0 }
   const x = Number(node.attrs.x) || 0
+  // The page it is on is cut at its own size: a section's landscape or narrower sheet (see `objectCell`).
+  const cell = objectCell(place.page, metrics)
+  const own = "metrics" in cell ? cell.metrics : metrics
   return {
     position: "absolute",
-    left: `${Math.round(objectLeft(place.page, x, metrics))}px`,
-    top: `${objectTop(place.page, place.y, metrics)}px`,
+    left: `${Math.round(cell.left + x)}px`,
+    top: `${cell.top + place.y}px`,
     zIndex: wrap === "behind" ? String(-1000 + (Number(node.attrs.z) || 0)) : String(20 + (Number(node.attrs.z) || 0)),
     transform: Number(node.attrs.rotate) ? `rotate(${Number(node.attrs.rotate)}deg)` : "",
-    clipPath: pageClip(node, x, place.y, metrics, dom),
+    clipPath: pageClip(node, x, place.y, own, dom),
   }
 }
 

@@ -7,6 +7,25 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-11
 
+### A floating object on a section's page is drawn on that page and cut at its size
+
+- **What was wrong:** on a page of another size than the document's own (a portrait section in a landscape
+  document), a floating picture was drawn from the widest page's left edge, 164 px left of its sheet, and cut at
+  the document's page size, so a picture wider than the portrait page ran past it.
+- **What changed:**
+  - `editor/page-grid.ts`: `placeObjectFrames`, run after each layout, placed every frame on the one-size page grid,
+    undoing `applyFrame`. One page wide it now places them with `objectLeft`/`objectTop`, from each page's own place
+    in the stack.
+  - `editor/objects.ts`: `frameStyle` cuts the object at its own page's size (`pageClip` with that page's metrics).
+  - `editor/pages.ts`: a section's blocks moved to their page's text (`section-cell`, `section-span`) leave floating
+    objects out; they are placed on their page already.
+- **Tests:** `section-pages.test.ts`: a picture 1000 px wide on a landscape section's page of a portrait document is
+  not cut, and the pass after layout leaves it where `applyFrame` put it. Both fail without the fix.
+- **Checked:** in headless Chrome, a copy of `f15_sections.docx` with a 1000 px picture at the page's left edge: on
+  the portrait page it starts at the sheet's edge and is cut at 794 px; on the landscape page it is whole. Dragged on
+  the portrait page, it moves there and stays cut at that page.
+- **Open:** Multiple Pages and Side to Side still draw every page at the document's size.
+
 ### The ruler's column drags change the caret's section; equal columns on a narrower page fit it
 
 - **What was wrong:** dragging a column gap or edge on the horizontal ruler changed the document's (last section's)
