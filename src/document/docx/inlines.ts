@@ -112,8 +112,13 @@ export type Projection = {
   open: Set<number>
   notes: { footnote: number; endnote: number }
   theme: ThemeFonts
-  /** Top-level items of each numbering instance shown so far; Word keeps counting across interruptions. */
-  listItems: Map<number, number>
+  /**
+   * The number the next first-level item of each list takes, by its abstract numbering: Word counts every w:num of
+   * one w:abstractNum as one list, across interruptions, until a w:num that restarts it (w:startOverride).
+   */
+  listNext: Map<string, number>
+  /** The w:num instances shown so far: one with a w:startOverride restarts its list where it is first used. */
+  listSeen: Set<number>
   /** The paragraph being shown has text of its own, so a shape in it stays in place (21.35). */
   textParagraph?: boolean
 }
@@ -127,7 +132,8 @@ export function projectionFor(doc: WordDocument): Projection {
     open: new Set(),
     notes: { footnote: 0, endnote: 0 },
     theme: themeFontsOf(doc),
-    listItems: new Map(),
+    listNext: new Map(),
+    listSeen: new Set(),
   }
 }
 

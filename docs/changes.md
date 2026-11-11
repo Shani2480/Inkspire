@@ -7,6 +7,23 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-11
 
+### Lists that share an abstract numbering count as one, as in Word
+
+- **What was wrong:** every `w:num` was counted on its own. Word counts all the `w:num`s of one `w:abstractNum` as
+  one list, across interruptions, until a `w:num` with a `w:startOverride` restarts it where it is first used. So a
+  list Word continues (Continue Numbering, or a copied list) started again at 1 in the app.
+- **What changed:**
+  - `docx/inlines.ts`: the projection keeps the next first-level number per abstract numbering (`listNext`) and
+    the `w:num`s it has shown (`listSeen`).
+  - `docx/project.ts` (`listKey`, `listStart`): a run of list items starts from its list's next number. A `w:num`
+    whose level-1 override restarts it starts at its start the first time it is used.
+- **Tests:** `word-display.test.ts`. f05's list, a second `w:num` of the same abstract (goes on at 3), a third
+  that restarts (1, 2), then the first again (goes on at 3).
+- **Checked:** in headless Chrome, that document shows 1, 2 / 3 / 1, 2 / 3, as Word numbers it.
+- **Open:**
+  - Only the first level carries across a break in the list. A deeper level starts again in each run.
+  - Not opened in Word.
+
 ### Basic Cycle with many items: smaller shapes, arrows between them, text fitted
 
 - **What was wrong:**

@@ -7,6 +7,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Lists sharing an abstract numbering (2026-11-11)** — a Word document with a numbered list, a paragraph, then
+      the list continued with Continue Numbering, and another restarted at 1, opens in the app numbered as in Word.
+
 - [ ] **Picture bullets and restarted lists (2026-11-11)** — a Word document with a picture bullet list (Define New
       Bullet > Picture) and a numbered list restarted at 1 opens in the app with the picture as the bullet and the
       restart. Saved from the app after an edit, it opens in Word with both unchanged.

@@ -391,15 +391,37 @@ function shownProperties(pPr: ParagraphProperties) {
   return pPr.numPr?.numId ? withoutListIndent(pPr) : pPr
 }
 
+/** The list a w:num counts in: its abstract numbering's, which every w:num of that abstract shares. */
+function listKey(numId: number, ctx: Projection) {
+  const instance = ctx.doc.numbering.instances.find((item) => item.id === numId)
+  return instance ? `a${instance.abstractNumId}` : `n${numId}`
+}
+
+/**
+ * The number the first first-level item of this run of `numId` takes: on from the list's last item, or the level's
+ * start when the list has not been shown yet or when this w:num, first used here, restarts it (w:startOverride).
+ */
+function listStart(numId: number, ctx: Projection) {
+  const key = listKey(numId, ctx)
+  const first = !ctx.listSeen.has(numId)
+  ctx.listSeen.add(numId)
+  const instance = ctx.doc.numbering.instances.find((item) => item.id === numId)
+  const restarts = instance?.overrides?.some((item) => item.ilvl === 0 && item.startOverride !== undefined) ?? false
+  const next = ctx.listNext.get(key)
+  if (next === undefined || (first && restarts)) {
+    return numberingLevel(ctx.doc.numbering, numId, 0)?.start ?? 1
+  }
+  return next
+}
+
 /**
  * Where Word numbers the list from, and where its text starts: the paragraph's own left indent or else its numbering
  * level's, for the first level and as the step to each deeper one.
  */
 function listAttributes(tag: string, numId: number, items: Paragraph[], ctx: Projection) {
   const level = numberingLevel(ctx.doc.numbering, numId, 0)
-  const before = ctx.listItems.get(numId) ?? 0
-  ctx.listItems.set(numId, before + items.filter((item) => (item.pPr.numPr?.ilvl ?? 0) === 0).length)
-  const start = (level?.start ?? 1) + before
+  const start = listStart(numId, ctx)
+  ctx.listNext.set(listKey(numId, ctx), start + items.filter((item) => (item.pPr.numPr?.ilvl ?? 0) === 0).length)
   const leftOf = (item: Paragraph) =>
     item.pPr.ind?.left ?? numberingLevel(ctx.doc.numbering, numId, item.pPr.numPr?.ilvl ?? 0)?.pPr.ind?.left
   const first = items.find((item) => (item.pPr.numPr?.ilvl ?? 0) === 0) ?? items[0]

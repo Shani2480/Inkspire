@@ -713,7 +713,8 @@ and pictures flip (`flipH`/`flipV`). Open: picture bullets (`lvlPicBulletId`).
 Fixed 2026-11-11: picture bullets are drawn (the picture one font size high), and saving no longer drops
 `w:numPicBullet`, its pictures, `w:lvlPicBulletId`, `w:lvlOverride`/`w:startOverride` or `w:numIdMacAtCleanup`; a
 list restarted by an override counts from its start (`changes.md`). Open: EMF/WMF picture bullets; lists sharing an
-abstract across `numId`s count separately.
+abstract across `numId`s count separately. **Fixed** the same day: they count as one list until a `w:num` with a
+`w:startOverride` restarts it (`changes.md`).
 
 Fixed 2026-10-29: each Word section opens with its own top and bottom margins and headers and footers, editable
 per section with Link to Previous, and saved into its own section break (`changes.md`). Open: Page Setup, rulers
