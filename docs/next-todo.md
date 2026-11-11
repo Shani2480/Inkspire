@@ -739,8 +739,8 @@ own `w:sectPr` (`changes.md`). Open:
 - ~~The ribbon's Orientation, Size and Margins act on the document, not the caret's section.~~ **Fixed** the same day
   (`changes.md`); the horizontal ruler's margin drag still changes the document's side margins.
 - ~~Columns per section~~ **Fixed** the same day (`changes.md`). Open: columns changing at a continuous break. Different
-  counts above one and a section's own unequal widths **fixed** the same day (`changes.md`). Open: the Columns
-  dialog's Apply to has no "This section".
+  counts above one and a section's own unequal widths **fixed** the same day (`changes.md`). The Columns dialog's
+  Apply to has This section, fixed the same day.
 - ~~Columns and page breaks (also with one section): a page ended early is balanced by the browser, where Word
   fills the first column first, and the next page's text starts 10-43 px high.~~ **Fixed** the same day: a filler
   fills the page's columns (`changes.md`). Multiple Pages keeps each block in its column, fixed the same day.

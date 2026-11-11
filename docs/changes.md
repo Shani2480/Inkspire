@@ -7,6 +7,19 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-11
 
+### Columns dialog: Apply to This section
+
+- **What was wrong:** the Columns dialog could apply to the whole document, this point forward or the selected
+  text, not to the caret's section. Word lists This section first when the document has sections. Nothing else
+  could give one section unequal columns: the ribbon's gallery has only equal ones.
+- **What changed:** `columns-dialog.tsx`: with sections, Apply to has This section and starts on it. The dialog
+  then opens with the caret's section's columns (`useCaretSectionSetup`), at its own text width, and sets them
+  there: a section before the last its own, the last the document's own.
+- **Tests:** `columns-dialog.test.tsx` (This section by default and only that section changed; Whole document chosen
+  in the old test).
+- **Checked:** in headless Chrome on f15: with the caret in the first section, Left with This section draws page 1 in
+  169 and 386 px columns and leaves the landscape pages in two equal 442 px ones.
+
 ### Sections with different columns each keep their own
 
 - **What was wrong:** the body was one flow in the browser's columns, which are equal and as many all the way down.
@@ -30,7 +43,8 @@ in Word, Chrome or the desktop app.
 - **Open:**
   - Laid out block by block, a paragraph that does not fit the rest of a column goes whole to the next, as with
     unequal columns before.
-  - The Columns dialog has no "This section" in Apply to, as Word has when the document has sections.
+  - The Columns dialog has no "This section" in Apply to, as Word has when the document has sections. **Fixed**
+    the same day.
   - The ruler's drags still change the document's own columns.
 
 ### Multiple Pages keeps each block in its column
