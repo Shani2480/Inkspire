@@ -9066,7 +9066,7 @@ html.dark,
 .smartart-ring-arrow {
   fill: none;
   stroke: color-mix(in oklch, var(--smartart-line, #0f6cbd) 55%, #fff);
-  stroke-width: 6;
+  stroke-width: var(--smartart-arrow, 6);
 }
 .smartart-ring-head {
   fill: color-mix(in oklch, var(--smartart-line, #0f6cbd) 55%, #fff);
@@ -9076,14 +9076,20 @@ html.dark,
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 92px;
+  width: var(--smartart-node, 92px);
   min-width: 0;
-  height: 92px;
+  height: var(--smartart-node, 92px);
   min-height: 0;
   padding: 6px;
+  overflow: hidden;
   border-radius: 50%;
+  font-size: var(--smartart-font, 13px);
+  line-height: 1.15;
   text-align: center;
   transform: translate(-50%, -50%);
+}
+.smartart-ring[data-wrap-words] > .smartart-cell {
+  overflow-wrap: anywhere;
 }
 .smartart-hierarchy {
   flex-direction: column;

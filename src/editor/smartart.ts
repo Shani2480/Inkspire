@@ -197,8 +197,9 @@ function paintCycle(dom: HTMLElement, cells: HTMLElement[]) {
   const count = cells.length
   const center = CYCLE_SIZE / 2
   const angle = (index: number) => -Math.PI / 2 + (index * 2 * Math.PI) / Math.max(1, count)
-  // The arrows leave room for the shapes at each end: about a shape's half width along the ring.
-  const gap = Math.min(Math.PI / Math.max(2, count), 0.5)
+  // The arrows leave room for the shapes at each end: a shape's half width and a little more along the ring.
+  const node = cycleNodeSize(count)
+  const gap = Math.asin(Math.min(1, (node / 2 + 6) / CYCLE_RADIUS))
   if (count > 1) {
     for (let index = 0; index < count; index += 1) {
       const from = angle(index) + gap
@@ -216,12 +217,55 @@ function paintCycle(dom: HTMLElement, cells: HTMLElement[]) {
     }
   }
   ring.append(svg)
+  // Word keeps the graphic one size: with more items the shapes get smaller so neighbours do not touch.
+  ring.style.setProperty("--smartart-node", `${node}px`)
+  ring.style.setProperty("--smartart-arrow", `${Math.max(2.5, (6 * node) / CYCLE_NODE).toFixed(1)}`)
   cells.forEach((cell, index) => {
     cell.style.left = `${center + CYCLE_RADIUS * Math.cos(angle(index))}px`
     cell.style.top = `${center + CYCLE_RADIUS * Math.sin(angle(index))}px`
     ring.append(cell)
   })
   dom.append(ring)
+  requestAnimationFrame(() => fitCycleText(ring))
+  // Typing in a shape fits the text again.
+  ring.addEventListener("input", () => fitCycleText(ring))
+}
+
+const CYCLE_NODE = 92
+const CYCLE_FONT = 13
+const CYCLE_MIN_FONT = 7
+
+/** A Basic Cycle shape's diameter for `count` items: 92 px, or less so it leaves a gap to its neighbours on the ring. */
+export function cycleNodeSize(count: number) {
+  if (count < 2) {
+    return CYCLE_NODE
+  }
+  const neighbours = 2 * CYCLE_RADIUS * Math.sin(Math.PI / count)
+  return Math.round(Math.max(30, Math.min(CYCLE_NODE, neighbours * 0.62)))
+}
+
+/**
+ * The text of every shape in one size, the largest at which each one fits its shape, as Word's SmartArt shrinks all
+ * its shapes' text together. Nothing is laid out (a headless editor): the text keeps its size.
+ */
+function fitCycleText(ring: HTMLElement) {
+  const cells = [...ring.querySelectorAll<HTMLElement>(":scope > .smartart-cell")]
+  if (!ring.isConnected || cells.length === 0 || ring.offsetWidth === 0) {
+    return
+  }
+  const fits = () =>
+    cells.every((cell) => cell.scrollHeight <= cell.clientHeight + 1 && cell.scrollWidth <= cell.clientWidth + 1)
+  let size = CYCLE_FONT
+  ring.style.setProperty("--smartart-font", `${size}px`)
+  delete ring.dataset.wrapWords
+  while (size > CYCLE_MIN_FONT && !fits()) {
+    size -= 0.5
+    ring.style.setProperty("--smartart-font", `${size}px`)
+  }
+  // A word still too long for its shape at the smallest size is broken, as Word does.
+  if (!fits()) {
+    ring.dataset.wrapWords = "1"
+  }
 }
 
 /** The items from `start` to `end` as branches of `parent`, each holding its own block's items under it. */

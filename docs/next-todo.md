@@ -729,6 +729,8 @@ Next across sections and Link to Previous.
 
 Fixed 2026-10-29: Options dialog drawn light in dark mode; SmartArt Cycle, Organization Chart and Relationship
 drawn as a row of boxes in a dashed frame (`changes.md`).
+Fixed 2026-11-11: Basic Cycle with many items shrinks its shapes so neighbours stay apart, keeps an arrow between
+each pair, and fits all its text to one size (`changes.md`). Open: other Word layouts still open as a picture.
 
 Fixed 2026-10-29, from a contract built on Word's cover page: a Word section break did not start a new page (the
 next section ran on under the cover, and every later page break landed early, text into the gaps between pages); a

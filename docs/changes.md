@@ -7,6 +7,25 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-11
 
+### Basic Cycle with many items: smaller shapes, arrows between them, text fitted
+
+- **What was wrong:**
+  - Basic Cycle drew 92 px circles on its 105 px ring whatever the count. From 8 items neighbours overlapped, and the
+    arrows were sized from the count, so with 8 there were none and with 12 only their heads.
+  - Long text ran out of the circles.
+- **What changed:** `editor/smartart.ts`, `index.css`:
+  - `cycleNodeSize`: a shape is 0.62 of the distance to its neighbour (at most 92 px), as Word keeps the graphic one
+    size and shrinks its shapes.
+  - Each arrow leaves a shape's half width plus 6 px at each end, and is drawn thinner with smaller shapes.
+  - `fitCycleText` gives every shape's text one size, the largest at which all fit (13 px down to 7 px), as Word
+    shrinks a SmartArt's text together. It runs again as the text is typed. A word still too long is then broken.
+- **Tests:** `smartart.test.ts`: shapes never reach their neighbours from 6 to 12 items, and 4 items keep 92 px.
+- **Checked:** in headless Chrome with 4, 8 (long labels), 12 and 4 (long words) items. Shapes are apart, an arrow
+  runs between each pair, and the text is inside its shape.
+- **Open:**
+  - Eight long labels end at the 7 px minimum. The ring stays 300 px, smaller than Word's default graphic.
+  - Word layouts the app has no drawing for (Circle Relationship and others) still open as a picture.
+
 ### Picture bullets drawn and kept; list overrides and restarts kept on save
 
 - **What was wrong:**

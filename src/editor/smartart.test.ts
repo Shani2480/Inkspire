@@ -1,4 +1,5 @@
 import { createExtensions } from "@/editor/extensions"
+import { cycleNodeSize } from "@/editor/smartart"
 import { Editor } from "@tiptap/core"
 import { describe, expect, it } from "vitest"
 
@@ -35,6 +36,18 @@ describe("SmartArt layouts", () => {
     expect(ring.querySelectorAll(".smartart-ring-arrow")).toHaveLength(4)
     const tops = [...ring.querySelectorAll<HTMLElement>(".smartart-cell")].map((cell) => parseFloat(cell.style.top))
     expect(tops[0]).toBeLessThan(tops[2]!)
+    editor.destroy()
+  })
+
+  it("draws Basic Cycle's shapes smaller as items are added, so neighbours on the ring never touch", () => {
+    expect(cycleNodeSize(4)).toBe(92)
+    for (const count of [6, 8, 10, 12]) {
+      const neighbours = 2 * 105 * Math.sin(Math.PI / count)
+      expect(cycleNodeSize(count)).toBeLessThan(neighbours)
+    }
+    expect(cycleNodeSize(12)).toBeLessThan(cycleNodeSize(8))
+    const { editor, body } = inserted("cycle")
+    expect(body.querySelector<HTMLElement>(".smartart-ring")!.style.getPropertyValue("--smartart-node")).toBe("92px")
     editor.destroy()
   })
 })

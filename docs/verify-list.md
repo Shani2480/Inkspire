@@ -98,6 +98,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [ ] **Basic Cycle with many items (2026-11-11)** — in a real document, add shapes to a Basic Cycle up to 10 and
+      type long text in some: the shapes shrink apart, arrows stay between them, and the text shrinks together while
+      typing, in light and dark mode.
 - [ ] **Word list markers (2026-10-29)** — open Word files with `a)`, `i.`, `1.1` and bullet lists (Symbol,
       Wingdings, `o` in Courier New) next to Word: each marker reads and sits as Word's. Add, delete and Tab an item:
       the numbers follow.
