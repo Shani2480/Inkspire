@@ -22,7 +22,10 @@ import {
 import { SingleLineBar, type LineCommand, type LineGroup } from "@/components/ribbon/single-line"
 import { DEFAULT_TOC_INSTRUCTION } from "@/document/toc"
 import { chromeWithoutPageFields, pageFieldHtml } from "@/document/chrome-html"
-import { useDocumentStore } from "@/document/store"
+import { setSlotHtml, slotHtml, useDocumentStore } from "@/document/store"
+import { CHROME_SLOTS, type ChromeSlot } from "@/document/sections"
+import { pageAtPosition, pageStory, sectionOfPage, slotHome, slotOf } from "@/document/section-slots"
+import { pagePlacesOf, slotStateNow } from "@/components/chrome-section"
 import { useViewStore } from "@/document/view"
 import { addComment } from "@/editor/comments"
 import { useBodyEditor, useDocumentEditor } from "@/editor/document-editor"
@@ -1554,20 +1557,45 @@ function PageNumberMenu({ close }: { close: () => void }) {
   const editingChrome = useViewStore((state) => state.editingChrome)
   const editor = useDocumentEditor()
   const body = useBodyEditor()
+  /**
+   * The header and footer a page number goes in: the section and kind of page (first, even, odd) of the page whose
+   * header or footer is open, else of the caret's page; through Link to Previous to the section that has them.
+   */
+  const target = () => {
+    const view = useViewStore.getState()
+    const page = editingChrome
+      ? view.chromeTarget.page
+      : body
+        ? pageAtPosition(body.storage.pagination?.breaks ?? [], body.state.selection.from)
+        : 0
+    const slots = slotStateNow()
+    const places = pagePlacesOf(body)
+    const section = sectionOfPage(slots, places, page)
+    const story = pageStory(slots, places, page)
+    const at = (part: "header" | "footer") => {
+      const slot = slotOf(story, part)
+      return { home: slotHome(slots, section, slot), slot }
+    }
+    return { page, section, slots, at }
+  }
+  const strip = (home: string | null, slot: ChromeSlot) => {
+    const html = slotHtml(home, slot)
+    const stripped = chromeWithoutPageFields(html)
+    // A part no section has stays without one.
+    if (stripped !== html) {
+      setSlotHtml(home, slot, stripped)
+    }
+  }
   const place = (part: "header" | "footer", align: "center" | "right") => {
+    const { page, at } = target()
+    const { home, slot } = at(part)
+    setSlotHtml(home, slot, `${chromeWithoutPageFields(slotHtml(home, slot))}${pageFieldHtml("page", align)}`)
+    const other = at(part === "header" ? "footer" : "header")
+    strip(other.home, other.slot)
     const state = useDocumentStore.getState()
-    const set = part === "header" ? state.setHeader : state.setFooter
-    const html = chromeWithoutPageFields(part === "header" ? state.headerHtml : state.footerHtml)
-    set(`${html}${pageFieldHtml("page", align)}`)
-    removeFrom(part === "header" ? "footer" : "header")
     state.setPageSetup({ ...state.pageSetup, pageNumber: "none" })
     close()
-    editChromePart(part)
-  }
-  const removeFrom = (part: "header" | "footer") => {
-    const state = useDocumentStore.getState()
-    const set = part === "header" ? state.setHeader : state.setFooter
-    set(chromeWithoutPageFields(part === "header" ? state.headerHtml : state.footerHtml))
+    useViewStore.getState().editChrome(part, page)
   }
   return (
     <div className="flex w-48 flex-col">
@@ -1608,8 +1636,11 @@ function PageNumberMenu({ close }: { close: () => void }) {
       </MenuButton>
       <MenuButton
         onClick={() => {
-          removeFrom("header")
-          removeFrom("footer")
+          // As in Word, from the headers and footers of the section the caret (or the open header) is in.
+          const { section, slots } = target()
+          for (const slot of CHROME_SLOTS) {
+            strip(slotHome(slots, section, slot), slot)
+          }
           const state = useDocumentStore.getState()
           state.setPageSetup({ ...state.pageSetup, pageNumber: "none" })
           close()

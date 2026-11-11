@@ -74,7 +74,12 @@ export function useChromePart(
       editorProps: {
         attributes: { class: "page-editor chrome-editor", spellcheck: "false", "aria-label": latest.current.label },
       },
-      onUpdate: ({ editor: current }) => {
+      onUpdate: ({ editor: current, transaction }) => {
+        // Making the editor live or not (`setEditable`) also emits an update; with the part changed in the store in
+        // the same render (Link to Previous), it would write the old text back over the new.
+        if (!transaction.docChanged) {
+          return
+        }
         const next = current.getHTML()
         emitted.current = chromeHasContent(next) ? next : ""
         latest.current.setHtml(emitted.current)

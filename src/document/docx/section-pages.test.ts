@@ -215,6 +215,52 @@ describe("a section's own header", () => {
     // The last section has none of its own: it shows the first section's.
     expect(reopened.view.chrome.footer).toContain("NEW FOOTER")
   })
+
+  it("unlinked from the previous section, the last section saves its copy as its own part", async () => {
+    const { word, view } = await sectionWithHeader()
+    const linked = (view.chrome.linked ?? []).filter((slot) => slot !== "header")
+    // Unlinked and not yet changed: the copy of the header it showed.
+    const { bytes, xml } = await save(word, view, { ...view.chrome, linked })
+    const [first, last] = xml.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/g)!
+    expect(first).toMatch(/<w:headerReference w:type="default"/)
+    expect(last).toMatch(/<w:headerReference w:type="default"/)
+    const reopened = await openDocxBytes(bytes, "edited.docx")
+    expect(reopened.view.chrome.linked).not.toContain("header")
+    expect(reopened.view.chrome.header).toContain("HEADER-TEXT")
+  })
+
+  it("linked to the previous section again, the last section's own part is dropped", async () => {
+    const { word, view } = await sectionWithHeader()
+    const unlinked = await save(word, view, {
+      ...view.chrome,
+      linked: (view.chrome.linked ?? []).filter((slot) => slot !== "header"),
+    })
+    const reopened = await openDocxBytes(unlinked.bytes, "unlinked.docx")
+    const chrome = reopened.view.chrome
+    const { xml } = await save(reopened.word!, reopened.view, {
+      ...chrome,
+      linked: [...(chrome.linked ?? []), "header"],
+    })
+    const [first, last] = xml.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/g)!
+    expect(first).toMatch(/<w:headerReference w:type="default"/)
+    expect(last).not.toMatch(/headerReference/)
+  })
+
+  it("a section before the last that is linked again loses its own part", async () => {
+    // The first section has nothing to link to in the app; its w:sectPr is the only one f15 has before the last.
+    const { word, view, key } = await sectionWithHeader()
+    const sections = view.chrome.sections!.map((item) => {
+      if (item.key !== key) {
+        return item
+      }
+      const parts = { ...item.parts }
+      delete parts.header
+      return { ...item, parts }
+    })
+    const { xml } = await save(word, view, { ...view.chrome, sections })
+    const sectPrs = xml.match(/<w:sectPr\b[\s\S]*?<\/w:sectPr>/g)!
+    expect(sectPrs.join("")).not.toMatch(/headerReference/)
+  })
 })
 
 describe("a section's page setup and page numbers", () => {

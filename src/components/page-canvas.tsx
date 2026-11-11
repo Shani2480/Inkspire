@@ -17,7 +17,8 @@ import { chromeText } from "@/document/chrome-html"
 import { useChromeExtent } from "@/document/chrome-extent"
 import { applyPageChrome, pageBorderStyle, pageMetrics, setupColumns, showsPageBorder } from "@/document/page-setup"
 import { sectionPageLabels } from "@/document/page-numbers"
-import { sectionSetup, slotOwner, type ChromeSlot, type SectionChrome } from "@/document/sections"
+import { sectionSetup, type ChromeSlot, type SectionChrome } from "@/document/sections"
+import { slotHome, slotOf, type SlotState } from "@/document/section-slots"
 import { useDocumentStore } from "@/document/store"
 import { clampZoom, useViewStore } from "@/document/view"
 import { useBodyEditor } from "@/editor/document-editor"
@@ -39,17 +40,6 @@ function footerBoxes(footer: string) {
     center: text ? cssString(text) : "counter(page)",
     page: text ? "counter(page)" : "none",
   }
-}
-
-/** The header or footer slot a page shows, by which kind of page it is. */
-function slotOf(kind: "first" | "even" | "default", part: "header" | "footer"): ChromeSlot {
-  if (kind === "first") {
-    return part === "header" ? "firstHeader" : "firstFooter"
-  }
-  if (kind === "even") {
-    return part === "header" ? "evenHeader" : "evenFooter"
-  }
-  return part
 }
 
 export function PageCanvas() {
@@ -394,20 +384,21 @@ export function PageCanvas() {
     const kind = chromeKind(index)
     return kind === "first" ? `First Page ${part}` : kind === "even" ? `Even Page ${part}` : part
   }
+  const slotState: SlotState = {
+    sections,
+    linkedSlots,
+    differentFirstPage,
+    differentOddEven: pageSetup.differentOddEven,
+  }
   const chromeFor = (index: number, part: "header" | "footer") => {
     const kind = chromeKind(index)
     const header = part === "header"
-    const section = pageSection(index)
-    // The last section's part that is Linked to Previous is its previous section's.
-    const previous = sections[sections.length - 1]
-    const own = section ?? (previous && linkedSlots.includes(slotOf(kind, part)) ? previous : null)
-    if (own) {
-      // Linked to Previous: the part, and the editor that edits it, is the section's that has it.
-      const slot = slotOf(kind, part)
-      const owner = slotOwner(sections, own, slot)
-      if (section || owner.parts[slot] !== undefined) {
-        return { part: sectionParts[owner.key]?.[slot] ?? NO_PART, html: owner.parts[slot] ?? "" }
-      }
+    const slot = slotOf(kind, part)
+    // Linked to Previous: the part, and the editor that edits it, is the section's that has it.
+    const home = slotHome(slotState, pageSection(index), slot)
+    if (home !== null) {
+      const owner = sections.find((item) => item.key === home)
+      return { part: sectionParts[home]?.[slot] ?? NO_PART, html: owner?.parts[slot] ?? "" }
     }
     return kind === "first"
       ? { part: header ? firstHeaderPart : firstFooterPart, html: header ? firstHeaderHtml : firstFooterHtml }

@@ -7,6 +7,50 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-11
 
+### Page numbers, Previous/Next and Link to Previous work per section
+
+- **What was wrong:**
+  - Insert > Page Number > Top of Page / Bottom of Page (and Top/Bottom Right) always wrote into the document's
+    own (last section's) header or footer. In the contract only the last page got the number. Remove Page Numbers
+    did the same.
+  - On the Header & Footer tab, Previous and Next only stepped between the first-page, even and odd headers of one
+    section, and Link to Previous was always greyed.
+  - A header or footer editor turning live or off-page (`setEditable`) emitted an update with its old text. When the
+    store changed that part in the same render, the old text was written back over the new one.
+- **What changed:**
+  - `document/section-slots.ts` (new): which section and story (first, even, default) a page shows; where a part is
+    kept through Link to Previous (`slotHome`); `isLinked`, `canLink`; Previous/Next through every section's parts
+    in page order (`sectionChromeStep`); the page of a body position.
+  - `document/store.ts`: `setSlotLinked` (linking drops the section's own part; unlinking gives it a copy of the one it
+    showed, as Word does), `slotHtml` / `setSlotHtml`, `SLOT_FIELDS`.
+  - `ribbon/insert-tab.tsx`: the page number places and Remove Page Numbers act on the section and kind of page of
+    the open header (or of the caret's page), through Link to Previous, and open the header or footer on that page.
+  - `ribbon/context-tabs.tsx`: Previous/Next across sections; Link to Previous toggles, greyed on the first section.
+    Linking a part with content of its own asks first ("Do you want to delete this header and connect to the
+    header in the previous section?"), via the new `askConfirm` in `text-prompt.tsx`.
+  - `page-canvas.tsx` uses `slotHome` instead of its own copy of the lookup.
+  - `chrome-editors.tsx`: an update that does not change the document is not written to the store.
+  - `docx/project.ts`: a section linked since it was opened loses its `w:headerReference` / `w:footerReference` (also
+    in the continuous sections before it that it took the part from); the last section linked again loses its own;
+    an unlinked last section writes its copy even when unchanged.
+  - Removed `chromeStep` / `chromeStory` (one section only), replaced by `sectionChromeStep`.
+- **Tests:** `section-slots.test.ts` (new: lookups, steps, the store action), `section-pages.test.ts` (three save
+  tests: unlink the last section, link it again, drop a section's own part).
+- **Checked:**
+  - In headless Chrome on the contract. Bottom Right with the caret on page 2 numbers the body pages (the body is
+    linked to the cover, so both). Previous/Next go page 1 → 2 → 13 (one stop per section). Link to Previous is
+    greyed on the cover. Linking the last section's footer shows the body's number; unlinking keeps the copy. In
+    dark mode, linking the body's logo header asks first, No keeps it and Yes links it.
+  - Saved .docx (last section linked; a section's own first-page footer dropped) checked with docx-validate:
+    0 errors, and the references are as expected.
+- **Open:**
+  - Placing a number strips the page field from the part and adds a new paragraph. In the contract the cloud
+    shape loses its number and the footer grows, so the body runs one page longer. This was already so with one
+    section.
+  - A React "error during concurrent rendering" (recovered) shows when the contract's header or footer opens. It
+    also shows on the previous commit, so it is not from this change. Not looked into.
+  - Not opened in Word.
+
 ### Lists that share an abstract numbering count as one, as in Word
 
 - **What was wrong:** every `w:num` was counted on its own. Word counts all the `w:num`s of one `w:abstractNum` as

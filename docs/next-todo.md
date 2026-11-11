@@ -726,7 +726,10 @@ section / This point forward / Whole document. The vertical ruler draws and drag
 page box and the Header & Footer tab's options change the open page's section. A recovered draft keeps every
 section (`changes.md`). The print copy already followed each section. Open: a section's own paper size,
 orientation and side margins; Top / Bottom of Page numbers only in the last section's header or footer; Previous /
-Next across sections and Link to Previous.
+Next across sections and Link to Previous. **Fixed** the same day: page numbers go into the header or footer of
+the open (or caret's) page's section, through Link to Previous; Previous/Next step through every section's parts;
+Link to Previous toggles, asks before deleting a part with content, and is saved (`changes.md`). Open: a section's
+own paper size, orientation and side margins.
 
 Fixed 2026-10-29: Options dialog drawn light in dark mode; SmartArt Cycle, Organization Chart and Relationship
 drawn as a row of boxes in a dashed frame (`changes.md`).

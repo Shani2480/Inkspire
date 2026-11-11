@@ -7,6 +7,11 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Link to Previous and page numbers per section (2026-11-11)** — in the contract, unlink the last section's footer
+      and type in it, and link the body's header to the cover's. Saved from the app, it opens in Word with Link to
+      Previous off for that footer (with the text) and on for that header. Bottom of Page with the caret in the body
+      numbers the body's pages in Word too.
+
 - [ ] **Lists sharing an abstract numbering (2026-11-11)** — a Word document with a numbered list, a paragraph, then
       the list continued with Continue Numbering, and another restarted at 1, opens in the app numbered as in Word.
 

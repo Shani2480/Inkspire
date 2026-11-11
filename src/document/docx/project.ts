@@ -840,6 +840,10 @@ const SLOT_STORY: Record<ChromeSlot, { kind: "header" | "footer"; type: HeaderFo
   evenFooter: { kind: "footer", type: "even" },
 }
 
+function sameStory(story: HeaderFooterRef, slot: ChromeSlot) {
+  return story.kind === SLOT_STORY[slot].kind && story.type === SLOT_STORY[slot].type
+}
+
 /** Every section's properties in order: those ended by a paragraph's section break, then the document's last. */
 function sectionList(doc: WordDocument) {
   const list: SectionProps[] = []
@@ -918,14 +922,34 @@ function sectionStoriesFromChrome(
   shared: Build,
   nextId: () => string,
 ) {
+  // Continuous sections since the last section that starts a page: what they have of their own shows in the next one.
+  let carried: Paragraph[] = []
   for (const paragraph of paragraphsIn(blocks)) {
     const section = paragraph.key ? sections.find((item) => item.key === paragraph.key) : undefined
     if (!section || !paragraph.sectionBreak) {
+      if (paragraph.sectionBreak) {
+        carried.push(paragraph)
+      }
       continue
     }
     paragraph.sectionBreak = sectionSetupFromChrome(paragraph.sectionBreak, section, source?.section ?? null)
+    const before = carried
+    carried = []
     for (const slot of CHROME_SLOTS) {
       const html = section.parts[slot]
+      const { kind: storyKind, type: storyType } = SLOT_STORY[slot]
+      if (html === undefined && section.opened[slot] !== undefined) {
+        // Linked to Previous since it was opened: the section's own part is dropped, here and where it came from.
+        for (const item of [...before, paragraph]) {
+          const props = item.sectionBreak!
+          const references = props.references ?? []
+          const own = storyOf(references, storyKind, storyType)
+          if (own) {
+            item.sectionBreak = { ...props, references: references.filter((ref) => ref !== own) }
+          }
+        }
+        continue
+      }
       if (html === undefined || html === section.opened[slot]) {
         continue
       }
@@ -1429,8 +1453,17 @@ function storiesFromChrome(
       shared.usedParts?.add(part.name.toLowerCase())
     }
   }
-  const stories = existing.map((story) => ({ ...story, blocks: story.blocks.map((block) => ({ ...block })) }))
+  const linked = chrome.linked ?? []
+  // Linked to Previous where a section before has the part: the last section shows that one and has none of its own.
+  const follows = (slot: ChromeSlot) =>
+    linked.includes(slot) && (chrome.sections ?? []).some((section) => section.parts[slot] !== undefined)
+  const stories = existing
+    .filter((story) => !CHROME_SLOTS.some((slot) => follows(slot) && sameStory(story, slot)))
+    .map((story) => ({ ...story, blocks: story.blocks.map((block) => ({ ...block })) }))
   const ensure = (slot: ChromeSlot, html: string) => {
+    if (follows(slot)) {
+      return
+    }
     const { kind, type } = SLOT_STORY[slot]
     const current = stories.find((story) => story.kind === kind && story.type === type)
     const original = existing.find((story) => story.kind === kind && story.type === type)
@@ -1438,7 +1471,8 @@ function storiesFromChrome(
     const shown = original ?? (source?.section ? slotStory(source, source.section, slot) : undefined)
     const projected = source ? storyHtml(source, shown) : ""
     const page = pageFieldFor(kind, type, chrome, html, current, synthesizePageNumber)
-    if ((current || shown) && html === projected) {
+    // Unlinked since it was opened, the part is written as its own even when it is the one it showed.
+    if ((current || (shown && linked.includes(slot))) && html === projected) {
       return
     }
     const rebuilt = storyBlocks(html, original, source, shared, page)
