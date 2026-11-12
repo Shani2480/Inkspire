@@ -2111,4 +2111,8 @@ What it lacked, to do when it returns:
   Not done: dragging one picked object moves only it (Word moves them all), and the Selection Pane's Shift+click
   still starts a fresh pick rather than from the selected object.
 - **Keep with next and space after.** A paragraph's space after counts when deciding whether its last line fits
-  at a page foot. Compare with Word, which may let space after run past the foot.
+  at a page foot. Compare with Word, which may let space after run past the foot. **Done (2026-11-12):** as in Word, a paragraph's space
+  after need not fit at the foot: a paragraph whose lines fit stays, its space after runs past the foot, and the
+  next page still starts at its top margin (the gap is shorter by what ran past). Widow/orphan control, Keep lines
+  together and unequal columns' keep-whole leave it out too; Keep with next still counts it, since there it lies
+  between the paragraph and the next one on the same page.

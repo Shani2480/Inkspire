@@ -29,3 +29,16 @@ export function linesOnPage(heights: number[], used: number, contentHeight: numb
 export function keepWithNextMustMove(used: number, own: number, following: number, contentHeight: number) {
   return used > 0 && following > 0 && used + own + following > contentHeight + 1 && own + following <= contentHeight
 }
+
+/**
+ * Whether a block of `size` (after what is already `used`) runs past the page's foot. `spill`, a paragraph's space
+ * after, need not fit: Word lets it run past the foot rather than move the paragraph's last line on.
+ */
+export function overrunsFoot(used: number, size: number, spill: number, contentHeight: number) {
+  return used > 0 && used + size - Math.min(Math.max(0, spill), size) > contentHeight + 1
+}
+
+/** How much of a placed paragraph's space after runs past the foot: the next page's gap is that much shorter. */
+export function spillPastFoot(used: number, spill: number, contentHeight: number) {
+  return Math.max(0, Math.min(spill, used - contentHeight))
+}

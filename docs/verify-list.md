@@ -149,6 +149,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       a Division sign and drag its three handles. Saved, Word opens the shapes with the same corners, dots and bar,
       and its own yellow handles start where the app's were.
 
+- [ ] **Space after at the page foot (2026-11-12)** — a document of one-line paragraphs with 50 pt after each:
+      the same paragraph is the last on page 1 in Word and in the app (its space after runs past the foot).
+
 ## Needs Chrome (the web build in a browser)
 
 - [ ] **Multiple Pages with columns (2026-11-11)** — a two-column document long enough to reach the second column on

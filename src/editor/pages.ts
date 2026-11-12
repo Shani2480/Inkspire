@@ -1,5 +1,5 @@
 import { contourOf, contourPolygon, onContourReady } from "@/editor/wrap-contour"
-import { keepWithNextMustMove, linesOnPage } from "@/editor/page-breaking"
+import { keepWithNextMustMove, linesOnPage, overrunsFoot, spillPastFoot } from "@/editor/page-breaking"
 import { useChromeExtent } from "@/document/chrome-extent"
 import { pageMetrics, setupColumns, type LineNumberRestart } from "@/document/page-setup"
 import { drawnPageSetup, setDrawnPageKeys } from "@/document/page-frames"
@@ -1146,6 +1146,8 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   let used = 0
   // The bottom margin of the last block placed: the next block's top margin collapses into it.
   let trailing = 0
+  /** How much of the last paragraph's space after ran past the page's foot (see `place`). */
+  let spilled = 0
   let column = 0
   /**
    * A block of columns (`columnSection`) being laid out across pages: its columns, where they start on the page it is
@@ -1225,12 +1227,16 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     }
     if (breaks.some((item) => item.pos === pos)) {
       used = 0
+      spilled = 0
       section = following
       contentHeight = sectionMetrics[section]!.contentHeight
       columnCount = block?.columns ?? columns.counts[section]!
       return
     }
     const fill = Math.max(0, contentHeight - used)
+    // Space after that ran past the foot is already drawn above the gap: the next page starts where it would have.
+    const over = spilled
+    spilled = 0
     // The gap runs from this page's bottom margin to the next page's top margin, each its own section's.
     const below = sectionMetrics[section]!.marginBottom
     const above = sectionMetrics[following]!.marginTop
@@ -1243,9 +1249,9 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
         : 0
     breaks.push({
       pos,
-      height: Math.ceil(fill + PAGE_GAP + below + above),
+      height: Math.ceil(fill + PAGE_GAP + below + above - over),
       manual,
-      labelTop: Math.round(fill + below + PAGE_GAP / 2),
+      labelTop: Math.round(fill + below + PAGE_GAP / 2 - over),
       // `fill` is then drawn by the filler, not the gap (between table rows the gap keeps it: no filler there).
       ...(filler > 0 ? { filler: { height: Math.round(filler), fill, pos: fillAt } } : {}),
       ...(unequal ? { page: breaks.length + 1, column: ended } : {}),
@@ -1301,14 +1307,17 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     }
   }
 
-  /** `collapse` is how much of `height` is a top margin shared with the block above; a page's first block keeps it. */
-  const place = (pos: number, height: number, collapse = 0) => {
+  /**
+   * `collapse` is how much of `height` is a top margin shared with the block above; a page's first block keeps it.
+   * `spill` is how much of it (a paragraph's space after) may run past the page's foot, as Word lets it.
+   */
+  const place = (pos: number, height: number, collapse = 0, spill = 0) => {
     if (height <= 0) {
       return
     }
     reserveBands(pos, height)
     let size = used > 0 ? height - collapse : height
-    if (used > 0 && used + size > contentHeight + 1) {
+    if (overrunsFoot(used, size, spill, contentHeight)) {
       overflow(pos)
       reserveBands(pos, height)
       size = height
@@ -1318,14 +1327,15 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     }
     block?.units.push(size)
     used += size
+    spilled = spillPastFoot(used, spill, contentHeight)
   }
 
   /** Whether a block would run past the end of the page from where the text has got to. */
   const overruns = (height: number, top: number) =>
     !web && (used > 0 ? used + height - Math.min(trailing, top) : height) > contentHeight + 1
 
-  const placeBlock = (pos: number, height: number, top: number, bottom: number) => {
-    place(pos, height, Math.min(trailing, top))
+  const placeBlock = (pos: number, height: number, top: number, bottom: number, spill = 0) => {
+    place(pos, height, Math.min(trailing, top), spill)
     trailing = bottom
   }
 
@@ -1340,8 +1350,11 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     // when the lines land as predicted (no band or column change in between), or the extra break would be wrong.
     let forced = -1
     if (widowControl && lines.length > 1) {
-      const heights = lines.map((line, index) =>
-        index === 0 && used > 0 ? line.height - Math.min(trailing, top) : line.height,
+      // The space after the last line need not fit (see `place`).
+      const heights = lines.map(
+        (line, index) =>
+          (index === 0 && used > 0 ? line.height - Math.min(trailing, top) : line.height) -
+          (index === lines.length - 1 ? bottom : 0),
       )
       const fitting = linesOnPage(heights, used, contentHeight, false)
       const wanted = linesOnPage(heights, used, contentHeight, true)
@@ -1357,7 +1370,12 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
         trailing = 0
         reserveBands(index === 0 ? pos : line.pos, line.height)
       }
-      place(index === 0 ? pos : line.pos, line.height, index === 0 ? Math.min(trailing, top) : 0)
+      place(
+        index === 0 ? pos : line.pos,
+        line.height,
+        index === 0 ? Math.min(trailing, top) : 0,
+        index === lines.length - 1 ? bottom : 0,
+      )
       trailing = 0
     })
     trailing = bottom
@@ -1493,22 +1511,22 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   }
 
   /** Unequal columns (22.7): a paragraph that would be split by the column's end moves whole to the next column. */
-  const keepWhole = (pos: number, lines: { height: number }[], top: number) => {
+  const keepWhole = (pos: number, lines: { height: number }[], top: number, bottom: number) => {
     if (!unequal || used <= 0) {
       return
     }
-    const total = lines.reduce((sum, line) => sum + line.height, 0) - Math.min(trailing, top)
+    const total = lines.reduce((sum, line) => sum + line.height, 0) - Math.min(trailing, top) - bottom
     if (used + total > contentHeight + 1 && total <= contentHeight) {
       overflow(pos)
     }
   }
 
   /** "Keep lines together" (22.8): a paragraph that would be split by the page end moves whole to the next page. */
-  const keepLinesTogether = (node: ProseNode, pos: number, lines: { height: number }[]) => {
+  const keepLinesTogether = (node: ProseNode, pos: number, lines: { height: number }[], bottom: number) => {
     if (node.attrs.keepLines !== true) {
       return
     }
-    const total = lines.reduce((sum, line) => sum + line.height, 0)
+    const total = lines.reduce((sum, line) => sum + line.height, 0) - bottom
     if (mustMoveToNextPage(used, total, contentHeight)) {
       overflow(pos)
       trailing = 0
@@ -1695,15 +1713,15 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
 
     const hit = cached(pos, node)
     if (hit?.kind === "text") {
-      keepLinesTogether(node, pos, hit.lines)
-      keepWhole(pos, hit.lines, hit.top)
+      keepLinesTogether(node, pos, hit.lines, hit.bottom)
+      keepWhole(pos, hit.lines, hit.top, hit.bottom)
       keepWithNext(node, pos, hit.lines, following)
       placeLines(hit.lines, pos, hit.top, hit.bottom, node.attrs.widowControl !== false)
       return
     }
     // A table that no longer fits where it now starts is measured again, row by row.
     if (hit?.kind === "block" && !(node.type.name === "table" && overruns(hit.height, hit.top))) {
-      placeBlock(pos, hit.height, hit.top, hit.bottom)
+      placeBlock(pos, hit.height, hit.top, hit.bottom, node.isTextblock ? hit.bottom : 0)
       return
     }
 
@@ -1761,7 +1779,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
         const top = edgeMargin(dom, "top")
         const bottom = edgeMargin(dom, "bottom")
         remember(pos, { kind: "block", node, height, top, bottom })
-        placeBlock(pos, height, top, bottom)
+        placeBlock(pos, height, top, bottom, bottom)
         return
       }
       const style = getComputedStyle(dom)
@@ -1774,8 +1792,8 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       }
       lines = withMargins(lines)
       const at = whereNow()
-      keepLinesTogether(node, pos, lines)
-      keepWhole(pos, lines, top)
+      keepLinesTogether(node, pos, lines, bottom)
+      keepWhole(pos, lines, top, bottom)
       if (unequal && whereNow() !== at) {
         // Moved on to another column: its lines at that column's width.
         sizeTo(node, pos, dom)

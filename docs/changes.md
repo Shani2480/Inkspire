@@ -7,6 +7,18 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-12
 
+### A paragraph's space after may run past the page's foot
+
+- **What was wrong:** the paginator counted a paragraph's space after when deciding whether its last line fit
+  at the foot, so a paragraph whose text fit moved to the next page because its space after did not. Word lets
+  the space after run past the foot.
+- **What changed:** `place` in `pages.ts` takes how much of a block may spill (a paragraph's space after) through
+  `overrunsFoot`; what spilled (`spillPastFoot`) is taken off the gap to the next page, so that page still starts
+  at its top margin. Widow/orphan control, Keep lines together and unequal columns' keep-whole leave the space after
+  out too. Keep with next still counts it (it lies between the paragraph and the next on the same page).
+- **Tests:** `page-breaking.test.ts` (`overrunsFoot`, `spillPastFoot`). Checked in Chrome: one-line paragraphs with
+  50 pt after them: paragraph 12 now ends page 1 (it moved to page 2 before) and page 2 starts at its top margin.
+
 ### Several picked objects show their handles; Shift+click picks objects
 
 - **What was wrong:** Shift+click in the Selection Pane picked several objects for Align and Group, but only the
