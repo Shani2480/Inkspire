@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest"
 import { readWordShape } from "@/document/docx/shape-import"
-import { presetAdjust, presetSegments } from "@/document/docx/preset-geometry"
+import {
+  avListXml,
+  dragAdjustHandle,
+  hasAdjustHandles,
+  presetAdjust,
+  presetAdjustDefaults,
+  presetHandles,
+  presetSegments,
+} from "@/document/docx/preset-geometry"
+import { geometryPoints } from "@/editor/shape-adjust"
 import { pathBounds, type Segment } from "@/editor/shape-points"
 
 const ends = (segments: Segment[]) => segments.filter((item) => item.kind !== "Z").map((item) => item.to)
@@ -54,16 +63,63 @@ describe("Word's preset geometry (21.35)", () => {
       `<a:prstGeom prst="cloudCallout"><a:avLst/></a:prstGeom><a:solidFill><a:srgbClr val="FFC000"/></a:solidFill>` +
       `</wps:spPr></wps:wsp>`
     const shape = readWordShape(xml, null)
-    expect(shape).toMatchObject({ preset: "cloudCallout", variant: "rect", fill: "#ffc000" })
-    expect(shape?.points).toMatch(/^M[\d. ]+C/)
+    // It keeps the preset's name, not points, so its adjustment handles still work.
+    expect(shape).toMatchObject({ preset: "cloudCallout", variant: "rect", geometry: "cloudCallout", points: "" })
+    expect(shape?.fill).toBe("#ffc000")
+    expect(geometryPoints({ geometry: "cloudCallout" }, 192, 96)).toMatch(/^M[\d. ]+C/)
     // One the app draws keeps its own drawing, unless Word moved its handles.
     const heart = xml.replace("cloudCallout", "heart")
-    expect(readWordShape(heart, null)).toMatchObject({ variant: "heart", points: "" })
+    expect(readWordShape(heart, null)).toMatchObject({ variant: "heart", points: "", geometry: "" })
     const snipped = xml.replace(
       '<a:prstGeom prst="cloudCallout"><a:avLst/>',
       '<a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj" fmla="val 50000"/></a:avLst>',
     )
-    expect(readWordShape(snipped, null)).toMatchObject({ preset: "roundRect", variant: "rect" })
-    expect(readWordShape(snipped, null)?.points).not.toBe("")
+    expect(readWordShape(snipped, null)).toMatchObject({
+      preset: "roundRect",
+      variant: "round",
+      geometry: "roundRect",
+      adjust: '{"adj":50000}',
+      points: "",
+    })
+  })
+})
+
+describe("Word's adjustment handles", () => {
+  it("lists a preset's handles where Word draws them", () => {
+    expect(hasAdjustHandles("rect")).toBe(false)
+    expect(hasAdjustHandles("mathDivide")).toBe(true)
+    // The Division sign's three: the dots' size, the gap to the bar, and the bar's width.
+    expect(presetHandles("mathDivide", 200, 200)).toHaveLength(3)
+    // A rounded rectangle's one handle sits on the top edge where the corner's curve ends.
+    const [corner] = presetHandles("roundRect", 600, 300)
+    expect(corner![1]).toBe(0)
+    expect(corner![0]).toBeCloseTo((300 / 6 / 600) * 100, 1)
+    expect(presetAdjustDefaults("roundRect")).toEqual({ adj: 16667 })
+  })
+
+  it("moves a handle's adjust value so the handle follows the pointer, within its limits", () => {
+    // Dragged a quarter of the short side in: the corner's radius is a quarter of it.
+    const half = dragAdjustHandle("roundRect", 600, 300, {}, 0, [(75 / 600) * 100, 10])
+    expect(half.adj).toBeGreaterThan(24500)
+    expect(half.adj).toBeLessThan(25500)
+    // Dragged past the middle: no more than a half-round end (50000).
+    expect(dragAdjustHandle("roundRect", 600, 300, {}, 0, [90, 0]).adj).toBe(50000)
+    expect(dragAdjustHandle("roundRect", 600, 300, {}, 0, [-20, 0]).adj).toBe(0)
+    // The handle is then drawn where it was let go.
+    const [moved] = presetHandles("roundRect", 600, 300, half)
+    expect(moved![0]).toBeCloseTo((75 / 600) * 100, 0)
+  })
+
+  it("moves a two-way handle on both axes, as a callout's tail", () => {
+    const tail = dragAdjustHandle("wedgeRectCallout", 1000, 500, {}, 0, [70, 130])
+    expect(tail.adj1).toBeCloseTo(20000, -2)
+    expect(tail.adj2).toBeCloseTo(80000, -2)
+  })
+
+  it("writes the values as Word's a:avLst", () => {
+    expect(avListXml({})).toBe("<a:avLst/>")
+    expect(avListXml({ adj1: 20000.4, adj2: -5 })).toBe(
+      '<a:avLst><a:gd name="adj1" fmla="val 20000"/><a:gd name="adj2" fmla="val -5"/></a:avLst>',
+    )
   })
 })

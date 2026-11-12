@@ -1480,7 +1480,7 @@ export function bindDrag(
 ) {
   const onDown = (event: PointerEvent) => {
     const target = event.target instanceof Element ? event.target : null
-    if (event.button !== 0 || !target || target.closest("[data-rotate], [data-resize]")) {
+    if (event.button !== 0 || !target || target.closest("[data-rotate], [data-resize], [data-adjust]")) {
       return
     }
     const body = typeof options.body === "function" ? options.body(event) : Boolean(options.body)

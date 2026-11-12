@@ -2097,7 +2097,12 @@ What it lacked, to do when it returns:
   Not done: bevel and the transforms are not written to Word; a text box's text effects are still not written as
   Word's.
 - **Adjustment handles.** Shapes have no yellow adjustment handles (Word's Division sign has three). Word's `a:avLst`
-  values are read (`preset-geometry.ts`), so the handles would change those.
+  values are read (`preset-geometry.ts`), so the handles would change those. **Done (2026-11-12):** a selected shape shows Word's
+  yellow diamonds for every preset with handles (119 of 186, from Word's own `ahXY` / `ahPolar`); dragging one moves
+  the adjust values within their limits so the handle follows the pointer, previews without a history step, Esc puts
+  it back and letting go is one undo step. The shape is then drawn from Word's geometry (`geometry` + `adjust`) and
+  saved as its preset with an `a:avLst`. A Word shape the app has no drawing of, or with moved handles, now opens by
+  its preset name instead of baked-in points, so its handles work and it saves as the preset. Not checked in the browser: polar handles (arcs, pie, block arc), which go through the same search on their radius and angle.
 - **Several picked objects.** Shift+click in the Selection Pane picks several objects, and Align and Group act on
   them, but only the last one shows its handles on the page; Word frames each. Shift+click on the objects themselves
   does not pick them.

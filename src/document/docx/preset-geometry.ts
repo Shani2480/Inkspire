@@ -10,7 +10,10 @@ import PRESETS from "@/document/docx/preset-geometry.json"
 type Value = number | string
 type Command = [string, ...Value[]]
 type PresetPath = { w?: number; h?: number; f?: 0; s?: 0; c: Command[] }
-type Preset = { a?: [string, string][]; g?: [string, string][]; p: PresetPath[] }
+/** An adjustment handle: the adjust guides it moves (x/y, or radius and angle), their limits, and where it is drawn. */
+type Axis = [string, Value, Value]
+type PresetHandle = { x?: Axis; y?: Axis; r?: Axis; a?: Axis; pos: [Value, Value] }
+type Preset = { a?: [string, string][]; g?: [string, string][]; p: PresetPath[]; h?: PresetHandle[] }
 
 const SHAPES = PRESETS as unknown as Record<string, Preset>
 
@@ -135,6 +138,13 @@ export function presetSegments(
   if (!shape || !(w > 0) || !(h > 0)) {
     return null
   }
+  const lookup = guideValues(shape, w, h, adjust)
+  const read = (value: Value | undefined) => (typeof value === "number" ? value : lookup(value ?? "0"))
+  return pathsOf(shape, w, h, read)
+}
+
+/** Every guide of a preset at `w` by `h` with its adjust values, as a lookup by name (or a number written out). */
+function guideValues(shape: Preset, w: number, h: number, adjust: Record<string, number>) {
   const { values, sides } = builtIns(w, h)
   const lookup = (key: string): number => {
     if (/^-?\d+(?:\.\d+)?$/.test(key)) {
@@ -157,7 +167,10 @@ export function presetSegments(
   for (const [guide, formula] of shape.g ?? []) {
     values.set(guide, evaluate(formula, lookup))
   }
-  const read = (value: Value | undefined) => (typeof value === "number" ? value : lookup(value ?? "0"))
+  return lookup
+}
+
+function pathsOf(shape: Preset, w: number, h: number, read: (value: Value | undefined) => number) {
   const box = (x: number, y: number, pathW: number, pathH: number): Point => [
     Math.round((x / pathW) * POINTS_BOX * 100) / 100,
     Math.round((y / pathH) * POINTS_BOX * 100) / 100,
@@ -253,4 +266,94 @@ export function presetAdjust(xml: string): Record<string, number> {
     adjust[match[1]!] = Number(match[2])
   }
   return adjust
+}
+
+/** Whether a preset has Word's yellow adjustment handles. */
+export function hasAdjustHandles(name: string) {
+  return Boolean(SHAPES[name]?.h?.length)
+}
+
+/** A preset's own adjust values, as Word starts a new shape with them. */
+export function presetAdjustDefaults(name: string): Record<string, number> {
+  const defaults: Record<string, number> = {}
+  for (const [guide, formula] of SHAPES[name]?.a ?? []) {
+    defaults[guide] = Number(/^val (-?\d+)$/.exec(formula)?.[1] ?? 0)
+  }
+  return defaults
+}
+
+/** Where each of a preset's adjustment handles is drawn, in the app's 100 by 100 box, for the shape at `w` by `h`. */
+export function presetHandles(name: string, w: number, h: number, adjust: Record<string, number> = {}) {
+  const shape = SHAPES[name]
+  if (!shape?.h || !(w > 0) || !(h > 0)) {
+    return []
+  }
+  const lookup = guideValues(shape, w, h, adjust)
+  const read = (value: Value) => (typeof value === "number" ? value : lookup(value))
+  return shape.h.map(
+    (handle) => [(read(handle.pos[0]) / w) * POINTS_BOX, (read(handle.pos[1]) / h) * POINTS_BOX] as Point,
+  )
+}
+
+/**
+ * The adjust values after handle `index` is dragged to `target` (in the 100 by 100 box): each guide the handle moves
+ * takes the value, within its limits, that brings the handle nearest the pointer, as Word's handles follow it.
+ * Handle positions are guide formulas of these values, so the values are found by search, not by solving.
+ */
+export function dragAdjustHandle(
+  name: string,
+  w: number,
+  h: number,
+  adjust: Record<string, number>,
+  index: number,
+  target: Point,
+): Record<string, number> {
+  const shape = SHAPES[name]
+  const handle = shape?.h?.[index]
+  if (!shape || !handle || !(w > 0) || !(h > 0)) {
+    return adjust
+  }
+  const next = { ...presetAdjustDefaults(name), ...adjust }
+  const goal: Point = [(target[0] / POINTS_BOX) * w, (target[1] / POINTS_BOX) * h]
+  const miss = (values: Record<string, number>) => {
+    const lookup = guideValues(shape, w, h, values)
+    const at = (value: Value) => (typeof value === "number" ? value : lookup(value))
+    return Math.hypot(at(handle.pos[0]) - goal[0], at(handle.pos[1]) - goal[1])
+  }
+  const axes = [handle.x, handle.y, handle.r, handle.a].filter((axis): axis is Axis => Boolean(axis))
+  // A few rounds of one guide at a time: a coarse sweep of its range, then finer ones about the best value.
+  for (let round = 0; round < 3; round += 1) {
+    for (const [guide, minimum, maximum] of axes) {
+      const limits = guideValues(shape, w, h, next)
+      const bound = (value: Value) => (typeof value === "number" ? value : limits(value))
+      let low = Math.min(bound(minimum), bound(maximum))
+      let high = Math.max(bound(minimum), bound(maximum))
+      let best = next[guide] ?? low
+      let bestMiss = miss(next)
+      for (let pass = 0; pass < 12 && high - low > 1; pass += 1) {
+        const steps = 48
+        for (let step = 0; step <= steps; step += 1) {
+          const value = low + ((high - low) * step) / steps
+          const missed = miss({ ...next, [guide]: value })
+          if (missed < bestMiss - 1e-9) {
+            bestMiss = missed
+            best = value
+          }
+        }
+        const span = (high - low) / steps
+        low = Math.max(Math.min(bound(minimum), bound(maximum)), best - span)
+        high = Math.min(Math.max(bound(minimum), bound(maximum)), best + span)
+      }
+      next[guide] = Math.round(best)
+    }
+  }
+  return next
+}
+
+/** Adjust values as Word writes them in `a:avLst`. */
+export function avListXml(adjust: Record<string, number>) {
+  const entries = Object.entries(adjust)
+  return entries.length
+    ? `<a:avLst>${entries.map(([guide, value]) => `<a:gd name="${guide}" fmla="val ${Math.round(value)}"/>`).join("")}</a:avLst>`
+    : "<a:avLst/>"
 }

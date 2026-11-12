@@ -62,6 +62,10 @@ export type WordShape = {
   variant: string
   /** A freeform's outline as points (see `shape-points.ts`); empty for a preset. */
   points: string
+  /** The preset when it is drawn from Word's geometry (the app has no drawing of it, or its handles moved), else "". */
+  geometry: string
+  /** Its adjust values (`a:avLst`) as JSON; "" for the preset's defaults. */
+  adjust: string
   fill: string
   stroke: string
   /** The outline's weight in points. */
@@ -232,15 +236,15 @@ export function readWordShape(xml: string, themeXml: string | null): WordShape |
   const named = /<a:prstGeom prst="(\w+)"/.exec(shape)?.[1]
   // A preset the app has no drawing of, or one whose handles Word moved (its own adjust values), opens drawn from
   // Word's own geometry at the shape's size.
+  // It keeps the preset's name and adjust values, so its adjustment handles still move them.
   const adjust = named ? presetAdjust(shape) : {}
-  const drawn =
-    named && (!VARIANT_OF_PRESET[named] || Object.keys(adjust).length > 0)
-      ? presetSegments(named, ...shapeExtent(shape, xml), adjust)
-      : null
-  const outline = custom ?? drawn
-  const points = outline ? pathString(outline) : ""
+  const geometric =
+    Boolean(named) &&
+    (!VARIANT_OF_PRESET[named!] || Object.keys(adjust).length > 0) &&
+    presetSegments(named!, ...shapeExtent(shape, xml), adjust) !== null
+  const points = custom ? pathString(custom) : ""
   const preset = custom ? "custom" : named
-  const variant = points ? "rect" : preset ? VARIANT_OF_PRESET[preset] : undefined
+  const variant = points ? "rect" : preset ? (VARIANT_OF_PRESET[preset] ?? (geometric ? "rect" : undefined)) : undefined
   if (!preset || !variant) {
     return null
   }
@@ -259,6 +263,8 @@ export function readWordShape(xml: string, themeXml: string | null): WordShape |
     preset,
     variant,
     points,
+    geometry: geometric ? named! : "",
+    adjust: geometric && Object.keys(adjust).length > 0 ? JSON.stringify(adjust) : "",
     fill: look.fill,
     stroke: look.stroke,
     strokeWidth: look.strokeWidth,
@@ -356,6 +362,7 @@ export function shapeLook(look: Record<string, unknown>) {
     ...(look.textOutline || look.textEffect || look.textFill
       ? [look.textOutline || "", look.textEffect || "", look.textFill || ""]
       : []),
+    ...(look.geometry || look.adjust ? [look.geometry || "", look.adjust || ""] : []),
   ])
 }
 

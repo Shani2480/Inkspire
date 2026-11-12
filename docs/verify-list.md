@@ -145,6 +145,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       Outline blue, Text Effects → Shadow. Saved, Word shows the text red with a blue outline and a shadow, and no
       repair prompt.
 
+- [ ] **Adjustment handles (2026-11-12)** — Insert a Rounded Rectangle and drag its yellow handle; insert (or open)
+      a Division sign and drag its three handles. Saved, Word opens the shapes with the same corners, dots and bar,
+      and its own yellow handles start where the app's were.
+
 ## Needs Chrome (the web build in a browser)
 
 - [ ] **Multiple Pages with columns (2026-11-11)** — a two-column document long enough to reach the second column on
@@ -244,6 +248,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 - [ ] **Text to an equation (2026-11-12)** — type `(a+b)/2` in a line, select it and press Alt+=: it becomes a
       built-up fraction. In the desktop app check Alt+= is not taken by the system.
+
+- [ ] **Adjustment handles in the browser (2026-11-12)** — select a shape with handles (rounded rectangle, callout,
+      arrow, Division sign): the yellow diamonds show; a drag reshapes it smoothly, Esc mid-drag puts it back, Ctrl+Z
+      undoes the whole drag at once. A rotated or flipped shape's handles follow the pointer too.
 
 ## Needs the desktop app (Tauri build)
 

@@ -7,6 +7,25 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-12
 
+### Yellow adjustment handles on shapes
+
+- **What was missing:** shapes had no adjustment handles. Word's Division sign has three, a rounded rectangle one,
+  a callout one for its tail; the app read Word's `a:avLst` values but nothing could change them.
+- **What changed:** the preset build script (`docs/shapes/build-preset-geometry.mjs`) now takes each preset's
+  handles from Word's `presetShapeDefinitions.xml` (119 of 186 presets have them). `preset-geometry.ts` places them
+  (`presetHandles`) and works out the adjust values for a dragged handle (`dragAdjustHandle`: a search within the
+  handle's limits, since a handle's place is a formula of the values), and writes `a:avLst` (`avListXml`). The new
+  `shape-adjust.ts` draws the diamonds on a selected shape and runs the drag (live preview without a history step,
+  Esc, one undo step on release; rotation, flips and zoom taken into account). A shape whose handles moved is drawn
+  from Word's geometry (`geometry` and `adjust` attributes) and saved as its preset with those values.
+- **What else changed:** a Word shape the app has no drawing of (or whose handles Word moved) opens by its preset
+  name instead of baked-in points, so it keeps its handles; Convert to Freeform and Edit Points start from its
+  outline.
+- **Tests:** `preset-geometry.test.ts` (handle places, drag within limits, a two-way callout tail, `a:avLst`),
+  `shape-adjust.test.ts`, `shape-write.test.ts` and `shape-import.test.ts` (a Division sign saved with a moved handle
+  and opened again). Checked in Chrome: three handles on a Division sign, drag, undo/redo and Esc. The saved file
+  passes the Open XML SDK validator.
+
 ### WordArt Styles for a shape's text; a shape with text opens as a shape again
 
 - **What was missing:** Text Fill, Text Outline and Text Effects (and Quick Styles) on Shape Format were on only for

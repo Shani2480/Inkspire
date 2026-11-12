@@ -3658,6 +3658,30 @@ button.line-menu-row:focus-visible {
   cursor: ew-resize;
 }
 
+/* Word's adjustment handles: yellow diamonds on the shape that change its proportions, not its size. */
+.shape-adjust-handle {
+  position: absolute;
+  z-index: 4;
+  display: none;
+  box-sizing: border-box;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  transform: rotate(45deg);
+  background: #ffd400;
+  border: 1px solid #5c4a00;
+  cursor: default;
+  touch-action: none;
+}
+
+.ProseMirror-selectednode > .shape-adjust-handle {
+  display: block;
+}
+
+.is-adjusting {
+  cursor: default;
+}
+
 /* Word's rotate handle: a round grip above the middle of the top edge, joined to it by a short stem. */
 .object-rotate {
   position: absolute;

@@ -28,6 +28,7 @@ import {
 } from "@/editor/shape-points"
 import { Extension, type Editor } from "@tiptap/core"
 import { closeHistory } from "@tiptap/pm/history"
+import { geometryPoints } from "@/editor/shape-adjust"
 import { NodeSelection, Plugin, PluginKey } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
 
@@ -48,7 +49,12 @@ export function canEditPoints(editor: Editor | null) {
     return false
   }
   const { kind, variant, points } = selection.node.attrs
-  return kind === "shape" && (Boolean(points) || pointsFromMarkup(shapeMarkup(String(variant)), "0 0 80 56") !== null)
+  return (
+    kind === "shape" &&
+    (Boolean(points) ||
+      Boolean(selection.node.attrs.geometry) ||
+      pointsFromMarkup(shapeMarkup(String(variant)), "0 0 80 56") !== null)
+  )
 }
 
 /**
@@ -64,11 +70,18 @@ function toPoints(editor: Editor) {
   const tr = editor.state.tr
   if (!node.attrs.points) {
     const variant = String(node.attrs.variant)
-    const segments = pointsFromMarkup(shapeMarkup(variant), shapeViewBox(variant))
+    // A shape drawn from Word's geometry keeps that outline, handles and all, as its points.
+    const drawn = geometryPoints(node.attrs, Number(node.attrs.width) || 120, Number(node.attrs.height) || 72)
+    const segments = drawn ? parsePath(drawn) : pointsFromMarkup(shapeMarkup(variant), shapeViewBox(variant))
     if (!segments) {
       return null
     }
-    tr.setNodeMarkup(selection.from, undefined, { ...node.attrs, points: pathString(segments) })
+    tr.setNodeMarkup(selection.from, undefined, {
+      ...node.attrs,
+      points: pathString(segments),
+      geometry: "",
+      adjust: "",
+    })
     tr.setSelection(NodeSelection.create(tr.doc, selection.from))
   }
   return tr

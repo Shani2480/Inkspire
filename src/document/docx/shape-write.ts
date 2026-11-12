@@ -5,6 +5,8 @@ import { shapeMarkup } from "@/editor/insert-blocks"
 import { PRESET_DASH, effectListXml, plainEffects } from "@/document/docx/shape-effects"
 import { gradientStopList, gradientVector, parseWordGradient } from "@/editor/shape-style"
 import { custGeomXml, parsePath } from "@/editor/shape-points"
+import { avListXml } from "@/document/docx/preset-geometry"
+import { adjustOf } from "@/editor/shape-adjust"
 
 /**
  * A shape made or formatted in the app, written as Word's own drawing (a `wps:wsp` with a preset geometry, a solid
@@ -50,7 +52,8 @@ function colorOf(value: unknown, fallback: string) {
 export function plainShapePreset(attrs: Attrs) {
   // A shape with edited points is Word's freeform (custom geometry), whatever it was drawn from.
   const points = typeof attrs.points === "string" && attrs.points ? parsePath(attrs.points) : []
-  const preset = points.length > 0 ? CUSTOM : PRESET_OF_VARIANT.get(String(attrs.variant ?? ""))
+  const preset =
+    points.length > 0 ? CUSTOM : String(attrs.geometry || "") || PRESET_OF_VARIANT.get(String(attrs.variant ?? ""))
   if (!preset || NOT_PLAIN.some((key) => attrs[key]) || !plainEffects(attrs)) {
     return null
   }
@@ -181,7 +184,7 @@ export function wordShapeGraphic(attrs: Attrs, cx: number, cy: number, rot = 0):
     `<a:xfrm${rot ? ` rot="${rot}"` : ""}${flips}><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>` +
     (preset === CUSTOM
       ? custGeomXml(parsePath(String(attrs.points)))
-      : `<a:prstGeom prst="${preset}"><a:avLst/></a:prstGeom>`) +
+      : `<a:prstGeom prst="${preset}">${avListXml(adjustOf(attrs))}</a:prstGeom>`) +
     `${gradient ? gradientFill(fill, gradient) : fill === "none" ? "<a:noFill/>" : solid(fill)}${line}${effectListXml(attrs)}</wps:spPr>${textBody(attrs)}</wps:wsp></a:graphicData>`
   )
 }

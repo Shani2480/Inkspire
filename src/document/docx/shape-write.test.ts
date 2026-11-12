@@ -61,6 +61,19 @@ describe("shapes written as Word's own (22.11)", () => {
     }
   })
 
+  it("writes the adjust values the yellow handles set as the preset's a:avLst, and reads them back", () => {
+    const attrs = { variant: "round", geometry: "roundRect", adjust: '{"adj":40000}', fill: "#FFC000" }
+    const xml = wordShapeGraphic(attrs, 1000, 500)!
+    expect(xml).toContain(
+      '<a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj" fmla="val 40000"/></a:avLst></a:prstGeom>',
+    )
+    expect(readWordShape(xml, null)).toMatchObject({ variant: "round", geometry: "roundRect", adjust: '{"adj":40000}' })
+    // A preset the app has no drawing of saves as itself, not as a freeform.
+    const divide = wordShapeGraphic({ variant: "rect", geometry: "mathDivide", fill: "#FFC000" }, 1000, 1000)!
+    expect(divide).toContain('<a:prstGeom prst="mathDivide"><a:avLst/></a:prstGeom>')
+    expect(divide).not.toContain("custGeom")
+  })
+
   it("writes the preset, fill and outline as a wps shape", () => {
     const xml = wordShapeGraphic({ variant: "ellipse", fill: "#FFC000", stroke: "#c00000", strokeWidth: 2 }, 1000, 500)!
     expect(xml).toContain('prst="ellipse"')
