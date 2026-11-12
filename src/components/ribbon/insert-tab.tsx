@@ -437,6 +437,12 @@ export function InsertTab() {
   const [symbolOpen, setSymbolOpen] = useState(false)
   const [videoOpen, setVideoOpen] = useState(false)
   const [equationTex, setEquationTex] = useState<string | null>(null)
+  // With text selected, Insert → Equation turns that text into the equation, as Word does; otherwise it asks.
+  const newEquation = () => {
+    if (!editor?.chain().focus().convertTextToEquation().run()) {
+      setEquationTex("x=y")
+    }
+  }
   const ribbonLayout = useViewStore((state) => state.ribbonLayout)
   const targets = useEditorState({
     editor,
@@ -761,7 +767,7 @@ export function InsertTab() {
       </MenuButton>
       <MenuButton
         onClick={() => {
-          setEquationTex("x=y")
+          newEquation()
           close()
         }}
       >
@@ -788,7 +794,7 @@ export function InsertTab() {
       ))}
       <MenuButton
         onClick={() => {
-          setEquationTex("x=y")
+          newEquation()
           close()
         }}
       >
@@ -917,7 +923,7 @@ export function InsertTab() {
         icon: <LinePageNumberIcon />,
         menu: (close) => <PageNumberMenu close={close} />,
       },
-      { id: "equation", label: "Equation", icon: <LineEquationIcon />, onClick: () => setEquationTex("x=y") },
+      { id: "equation", label: "Equation", icon: <LineEquationIcon />, onClick: () => newEquation() },
       { id: "symbol", label: "Symbol", icon: <LineSymbolIcon />, menu: symbolMenu },
       {
         id: "emoji",
@@ -1072,7 +1078,7 @@ export function InsertTab() {
         </RibbonCommand>
       </RibbonGroup>
       <RibbonGroup label="Symbols">
-        <RibbonCommand label="Equation" disabled={off} menu={equationMenu}>
+        <RibbonCommand label="Equation" disabled={off} onClick={newEquation} menu={equationMenu}>
           <EquationIcon />
         </RibbonCommand>
         <RibbonCommand label="Symbol" disabled={off} menu={symbolMenu}>

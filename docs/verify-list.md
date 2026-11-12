@@ -238,6 +238,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       backdrop transparent on the page; Reset Picture brings it back. Saved, the picture opens in Word without its
       backdrop.
 
+- [ ] **Text to an equation (2026-11-12)** — type `(a+b)/2` in a line, select it and press Alt+=: it becomes a
+      built-up fraction. In the desktop app check Alt+= is not taken by the system.
+
 ## Needs the desktop app (Tauri build)
 
 - [ ] **Options in dark mode; SmartArt layouts (2026-10-29)** — in the desktop app in dark mode open File → Options:

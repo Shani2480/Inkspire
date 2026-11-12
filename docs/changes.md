@@ -7,6 +7,23 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-12
 
+### Selected text becomes an equation (Insert → Equation, Alt+=)
+
+- **What was missing:** Convert went only from an equation to text. In Word, selected linear text such as
+  `a^2+b^2=c^2` becomes a built-up equation with Insert → Equation or Alt+=.
+- **What changed:** `texFromLinear` in `src/editor/equation-gallery.ts` reads Word's linear format (scripts,
+  fractions taking the run up to an operator, roots, Unicode symbols; grouping brackets dropped; LaTeX passed
+  through). `convertTextToEquation` in `src/editor/equation.ts` replaces the selected text in one paragraph with the
+  equation (display when it is the whole paragraph) and selects it; Alt+= runs it. The Insert tab's Equation is a
+  split button whose top converts the selection or opens Insert New Equation, as do Insert New Equation… and the
+  single-line ribbon.
+- **Tests:** `equation-gallery.test.ts` (linear to LaTeX, the way back from Convert's Unicode), new
+  `equation.test.ts` (inline and display conversion, nothing without a selection or across paragraphs).
+- **Checked:** in headless Chrome: typed `a^2+b^2=c^2`, selected it, Alt+= gave the built-up equation inline; a
+  paragraph `x=(-b±√(b^2-4ac))/(2a)` selected and Insert → Equation gave the quadratic formula as a centred,
+  selected display equation; no console errors.
+- **Open:** the Professional/Linear switch within an equation; ∑, matrices and accents in linear text.
+
 ### Remove Background
 
 - **What was missing:** Word's Picture Format → Adjust → Remove Background.
