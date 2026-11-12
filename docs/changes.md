@@ -7,6 +7,18 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-12
 
+### Crop mode shows the faint picture around a Crop to Shape outline
+
+- **What was wrong:** in crop mode a picture cropped to a shape hid everything outside the shape, so the cut-away
+  parts Word shows faint were missing; an oval or rounded frame was drawn square while cropping.
+- **What changed:** `paintImage` in `src/editor/objects.ts` puts the shape's mask on the sharp picture in crop mode,
+  sized and placed at the part that shows, instead of on the shell that also holds the faint copy; oval and
+  rounded frames round the picture's crop `clip-path`. Out of crop mode nothing changes. A flipped picture keeps
+  the mask on the frame (the flip would mirror it).
+- **Checked:** in headless Chrome, a picture cropped to Ellipse and to Heart from both sides: in crop mode the shape
+  is sharp and the rest of the picture faint around it; after Apply the picture shows only the shape; no console
+  errors.
+
 ### Crop is a split button on the picture's bar, which follows crop mode
 
 - **What was missing:** the picture's floating bar had Crop as a plain button, without Word's Crop menu (Crop to

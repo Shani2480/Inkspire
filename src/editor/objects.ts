@@ -1209,6 +1209,11 @@ function paintImage(dom: HTMLElement, node: ProseNode) {
     trace?.remove()
   }
   shape.style.borderRadius = frame === "oval" ? "50%" : frame === "rounded" ? "12%" : ""
+  // In crop mode the shell lets the faint picture out, so the part that shows is rounded by its own clip.
+  const corner = frame === "oval" ? 0.5 : frame === "rounded" ? 0.12 : 0
+  if (shell && cropping && corner && width > 0 && height > 0) {
+    image.style.clipPath = `inset(${crop.t * 100}% ${crop.r * 100}% ${crop.b * 100}% ${crop.l * 100}% round ${corner * width}px / ${corner * height}px)`
+  }
   image.style.filter = pictureFilter(node.attrs)
   // Flip Horizontal and Vertical mirror the picture inside its frame; the frame keeps its place and turn.
   const flipX = node.attrs.flipH ? -1 : 1
@@ -1229,11 +1234,23 @@ function paintImage(dom: HTMLElement, node: ProseNode) {
         ]
       : []),
   ].filter((layer): layer is string => Boolean(layer))
-  shape.style.setProperty("mask-image", layers.join(", "))
-  shape.style.setProperty("mask-size", layers.length ? layers.map(() => "100% 100%").join(", ") : "")
-  shape.style.setProperty("mask-repeat", layers.length ? "no-repeat" : "")
-  shape.style.setProperty("mask-composite", layers.length > 1 ? "intersect" : "")
-  shape.style.setProperty("-webkit-mask-composite", layers.length > 1 ? "source-in" : "")
+  // In crop mode the faint whole picture shows around the shape: the mask is then the sharp picture's own, at the
+  // part that shows (a flipped picture keeps it on the frame, where the flip cannot move it).
+  const own = Boolean(shell) && cropping && flipX > 0 && flipY > 0 && width > 0 && height > 0
+  const whole = wholeSize(width, height, crop)
+  const masks = (target: HTMLElement, on: boolean, size: string, position: string) => {
+    const list = on ? layers : []
+    target.style.setProperty("mask-image", list.join(", "))
+    target.style.setProperty("mask-size", list.map(() => size).join(", "))
+    target.style.setProperty("mask-position", list.length ? list.map(() => position).join(", ") : "")
+    target.style.setProperty("mask-repeat", list.length ? "no-repeat" : "")
+    target.style.setProperty("mask-composite", list.length > 1 ? "intersect" : "")
+    target.style.setProperty("-webkit-mask-composite", list.length > 1 ? "source-in" : "")
+  }
+  masks(shape, !own, "100% 100%", "")
+  if (shell) {
+    masks(image, own, `${width}px ${height}px`, `${crop.l * whole.width}px ${crop.t * whole.height}px`)
+  }
   const effects = effectStyle(node.attrs)
   dom.style.filter = effects.filter
   dom.style.setProperty("-webkit-box-reflect", effects.webkitBoxReflect)
