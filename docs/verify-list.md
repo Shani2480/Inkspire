@@ -275,6 +275,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **Google Docs form (2026-11-12)** — open a .docx exported from Google Docs whose tables are wider than the
+      text and pulled into the left margin: the page has the file's margins (not 1 in) and every table ends inside
+      the paper, as in Word.
 - [ ] **Options in dark mode; SmartArt layouts (2026-10-29)** — in the desktop app in dark mode open File → Options:
       every page reads light on dark. Insert → SmartArt → Basic Cycle, Organization Chart, Basic Relationship: a ring
       with arrows, a tree, overlapping circles; no dashed frame until hovered.

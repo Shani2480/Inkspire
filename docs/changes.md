@@ -7,6 +7,23 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-12
 
+### Google Docs forms keep their margins; tables pulled into the margin stay on the page
+
+- **What was wrong:** a form exported from Google Docs opened with its tables running past the right edge of the
+  page. Google Docs writes twips with fractions (`w:left="1137.6000000000001"`, `w:w="10605.0"`), which the reader
+  refused: the page fell back to 1-inch margins, and the tables' widths, cell margins and indents were lost. Its
+  tables also have a negative `w:tblInd` (pulled left into the margin, as Word draws them), which went through the
+  unsigned reader and was dropped.
+- **What changed:** `readMeasure` in `wml-read.ts` takes a plain number with a fraction, rounded to whole twips
+  (still not exponents or other text); `readTableWidth` reads `w:tblInd` signed, while widths and cell spacing stay
+  unsigned.
+- **Tests:** `fractional-twips.test.ts` (4): page margins, table width, negative table indent, cell margin and
+  paragraph indents with fractions; a negative width and `3.6e2` are still refused. 198 files, 1357 tests pass.
+- **Checked:** in Chrome (headless) on the form, before and after: margins 0.79 in instead of 1 in; the five
+  tables start 19 px left of the margin and end inside the paper (they ran 11 px past it). The header logo stays
+  at the top edge, as the file's header distance of 0 asks and Word draws it.
+- **Open:** not looked at in the desktop app; the next release carries it.
+
 ### No personal name or account in the code or packages
 
 - **What was wrong:** the author's name stood as publisher, copyright holder and author in `LICENSE`,
