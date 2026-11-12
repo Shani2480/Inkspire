@@ -1,6 +1,7 @@
 import { Extension, type Editor } from "@tiptap/core"
 import type { Node as ProseNode } from "@tiptap/pm/model"
-import { Plugin } from "@tiptap/pm/state"
+import { NodeSelection, Plugin } from "@tiptap/pm/state"
+import type { EditorView } from "@tiptap/pm/view"
 import { create } from "zustand"
 
 const OBJECT_TYPES = new Set(["image", "textBox", "figure", "wordArt", "drawingCanvas", "signatureLine"])
@@ -186,8 +187,33 @@ export const ObjectGrouping = Extension.create({
   addProseMirrorPlugins() {
     return [
       new Plugin({
+        // The picked objects follow edits; one deleted drops out. Picking ends when the selection leaves them.
+        appendTransaction(transactions, before, after) {
+          const { picked } = useObjectSelection.getState()
+          if (picked.length === 0) {
+            return null
+          }
+          let next = picked
+          if (transactions.some((tr) => tr.docChanged)) {
+            next = picked
+              .map((pos) => transactions.reduce((at, tr) => tr.mapping.map(at, 1), pos))
+              .filter((pos) => OBJECT_TYPES.has(after.doc.nodeAt(pos)?.type.name ?? ""))
+          }
+          const selection = after.selection
+          const moved = !before.selection.eq(selection)
+          if (moved && !(selection instanceof NodeSelection && next.includes(selection.from))) {
+            next = []
+          }
+          if (next.length !== picked.length || next.some((pos, index) => pos !== picked[index])) {
+            useObjectSelection.setState({ picked: next })
+          }
+          return null
+        },
         view(view) {
           const paint = () => {
+            const { picked } = useObjectSelection.getState()
+            // One picked object is just the selection; two or more are each framed with their handles.
+            const framed = picked.length > 1 ? new Set(picked) : new Set<number>()
             view.state.doc.descendants((node, pos) => {
               if (!OBJECT_TYPES.has(node.type.name)) {
                 return
@@ -206,17 +232,85 @@ export const ObjectGrouping = Extension.create({
               } else {
                 dom.removeAttribute("data-group")
               }
+              if (framed.has(pos)) {
+                dom.setAttribute("data-picked", "")
+              } else {
+                dom.removeAttribute("data-picked")
+              }
             })
           }
           paint()
+          const stopPicks = useObjectSelection.subscribe(paint)
+          const onDown = (event: PointerEvent) => shiftPick(view, event)
+          view.dom.addEventListener("pointerdown", onDown, true)
           return {
             update: paint,
+            destroy() {
+              stopPicks()
+              view.dom.removeEventListener("pointerdown", onDown, true)
+            },
           }
         },
       }),
     ]
   },
 })
+
+/**
+ * Shift+click on an object adds it to the picked objects, or takes it out, as in Word; the object selected before
+ * is the first. The one clicked becomes the selection, so the ribbon shows it. Before the object's own drag starts.
+ */
+function shiftPick(view: EditorView, event: PointerEvent) {
+  const target = event.target instanceof Element ? event.target : null
+  if (
+    !event.shiftKey ||
+    event.button !== 0 ||
+    !target ||
+    target.closest("[data-rotate], [data-resize], [data-adjust]")
+  ) {
+    return
+  }
+  let hit = -1
+  view.state.doc.descendants((node, pos) => {
+    if (hit >= 0) {
+      return false
+    }
+    if (!OBJECT_TYPES.has(node.type.name)) {
+      return true
+    }
+    const dom = view.nodeDOM(pos)
+    if (dom instanceof HTMLElement && dom.contains(target)) {
+      hit = pos
+    }
+    return false
+  })
+  if (hit < 0) {
+    return
+  }
+  // Shift+click in the text of a text box being typed in extends that text's selection, not the objects.
+  const node = view.state.doc.nodeAt(hit)
+  const { from, to } = view.state.selection
+  if (node && !(view.state.selection instanceof NodeSelection) && from > hit && to < hit + node.nodeSize) {
+    return
+  }
+  event.preventDefault()
+  event.stopPropagation()
+  const store = useObjectSelection.getState()
+  const selection = view.state.selection
+  const first =
+    store.picked.length > 0
+      ? store.picked
+      : selection instanceof NodeSelection && OBJECT_TYPES.has(selection.node.type.name)
+        ? [selection.from]
+        : []
+  const next = first.includes(hit) ? first.filter((pos) => pos !== hit) : [...first, hit]
+  useObjectSelection.setState({ picked: next })
+  const focus = next.includes(hit) ? hit : next[next.length - 1]
+  if (focus !== undefined) {
+    view.dispatch(view.state.tr.setSelection(NodeSelection.create(view.state.doc, focus)))
+  }
+  view.focus()
+}
 
 function objectLabel(node: ProseNode) {
   if (node.type.name === "image") {

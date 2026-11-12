@@ -253,6 +253,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       arrow, Division sign): the yellow diamonds show; a drag reshapes it smoothly, Esc mid-drag puts it back, Ctrl+Z
       undoes the whole drag at once. A rotated or flipped shape's handles follow the pointer too.
 
+- [ ] **Shift+click several objects (2026-11-12)** — select a shape, Shift+click a picture and a text box: each is
+      framed with its handles; Shift+click one again drops it; Shape Format → Group groups them; a click in the text
+      lets go. Shift+click inside a text box being typed in still extends its text selection.
+
 ## Needs the desktop app (Tauri build)
 
 - [ ] **Options in dark mode; SmartArt layouts (2026-10-29)** — in the desktop app in dark mode open File → Options:

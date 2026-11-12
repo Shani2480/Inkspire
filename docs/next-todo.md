@@ -2105,6 +2105,10 @@ What it lacked, to do when it returns:
   its preset name instead of baked-in points, so its handles work and it saves as the preset. Not checked in the browser: polar handles (arcs, pie, block arc), which go through the same search on their radius and angle.
 - **Several picked objects.** Shift+click in the Selection Pane picks several objects, and Align and Group act on
   them, but only the last one shows its handles on the page; Word frames each. Shift+click on the objects themselves
-  does not pick them.
+  does not pick them. **Done (2026-11-12):** every picked object is framed with its sizing and rotate handles (`data-picked`,
+  which survives a node view repainting), Shift+click on an object adds it (starting from the selected one) or takes
+  it out, the clicked one is the selection the ribbon shows, the picks follow edits, and a click elsewhere lets go.
+  Not done: dragging one picked object moves only it (Word moves them all), and the Selection Pane's Shift+click
+  still starts a fresh pick rather than from the selected object.
 - **Keep with next and space after.** A paragraph's space after counts when deciding whether its last line fits
   at a page foot. Compare with Word, which may let space after run past the foot.

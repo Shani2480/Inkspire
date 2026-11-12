@@ -7,6 +7,18 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-12
 
+### Several picked objects show their handles; Shift+click picks objects
+
+- **What was wrong:** Shift+click in the Selection Pane picked several objects for Align and Group, but only the
+  selected one was framed on the page, and Shift+click on the objects themselves did nothing more than a click.
+- **What changed:** `object-group.ts` marks every picked object (when two or more are picked) with `data-picked`,
+  which the CSS frames with its sizing and rotate handles, as Word frames each. Shift+click on an object adds it
+  to the pick (starting from the object already selected) or takes it out, before the object's own drag starts, and
+  makes it the selection. The picks follow edits (mapped through each change) and end when the selection leaves
+  them. Shift+click in the text of a text box being typed in is left to the text.
+- **Tests:** `object-group.test.ts` (adding and removing picks, framing, mapping through an edit, letting go, a plain
+  click). Checked in Chrome: two shapes framed with handles, Group available, a text click lets go.
+
 ### Yellow adjustment handles on shapes
 
 - **What was missing:** shapes had no adjustment handles. Word's Division sign has three, a rounded rectangle one,

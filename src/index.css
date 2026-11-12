@@ -4252,6 +4252,21 @@ button.line-menu-row:focus-visible {
   cursor: move;
 }
 
+/* Several objects picked with Shift+click: Word frames each one with its handles, not only the last. */
+[data-picked] {
+  clip-path: none !important;
+  outline: 1px solid #1d4ed8;
+  outline-offset: 1px;
+}
+
+[data-picked] > .image-resize {
+  display: block;
+}
+
+[data-picked] > .object-rotate {
+  display: inline-flex;
+}
+
 [data-dragging] {
   cursor: move;
   opacity: 0.85;
