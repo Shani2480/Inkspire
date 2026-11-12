@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import { DEFAULT_PAGE_SETUP, pageMetrics } from "@/document/page-setup"
 import {
   drawnPageSetup,
+  gridFrames,
   hasMixedPages,
   pageMetricsList,
   setDrawnPageKeys,
@@ -85,5 +86,30 @@ describe("pages of different sizes", () => {
     expect(rules[0]).toContain("size: 1123px 794px")
     const pages = [...root.children] as HTMLElement[]
     expect(pages.map((page) => page.style.getPropertyValue("page"))).toEqual(["", "paper-1", "", "paper-1"])
+  })
+})
+
+describe("Multiple Pages with pages of other sizes", () => {
+  const portrait = pageMetrics({ ...DEFAULT_PAGE_SETUP, paper: "a4", orientation: "portrait" })
+  const landscape = pageMetrics({ ...DEFAULT_PAGE_SETUP, paper: "a4", orientation: "landscape" })
+
+  it("centres each page in cells as big as the biggest page", () => {
+    const { frames, cellWidth, cellHeight } = gridFrames([portrait, landscape, landscape], 4, 20)
+    expect(cellWidth).toBe(landscape.width)
+    expect(cellHeight).toBe(portrait.height)
+    // The portrait page is centred across its cell, the landscape ones down theirs.
+    expect(frames[0]).toMatchObject({ top: 0, left: (landscape.width - portrait.width) / 2, width: portrait.width })
+    expect(frames[1]).toMatchObject({ left: landscape.width + 20, top: (portrait.height - landscape.height) / 2 })
+    expect(frames[2]!.left).toBe(2 * (landscape.width + 20))
+  })
+
+  it("draws pages of one size as the grid always has", () => {
+    const { frames } = gridFrames([portrait, portrait, portrait], 2, 20)
+    // Two pages: the first alone on the right, then a spread.
+    expect(frames.map((frame) => [frame.left, frame.top])).toEqual([
+      [portrait.width + 20, 0],
+      [0, portrait.height + 20],
+      [portrait.width + 20, portrait.height + 20],
+    ])
   })
 })

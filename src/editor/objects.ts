@@ -1,5 +1,5 @@
 import { pageGridCell } from "@/document/page-grid"
-import { drawsSectionPaper, stackedPageCell } from "@/document/page-frames"
+import { drawsSectionPaper, gridPageCell, stackedPageCell } from "@/document/page-frames"
 import { pageMetrics, type PageMetrics } from "@/document/page-setup"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
@@ -1426,14 +1426,17 @@ export function objectLeft(page: number, x: number, metrics: PageMetrics) {
 }
 
 function objectCell(page: number, metrics: PageMetrics) {
-  // One page wide, each page is drawn at its own size (page-frames.ts), so its place comes from the pages above it.
+  // Each page is drawn at its own size (page-frames.ts), so its place comes from the pages before it: down the
+  // screen, or in Multiple Pages' grid.
+  const pageView = useViewStore.getState().movement === "side" ? 1 : useViewStore.getState().pageView
   if (drawsSectionPaper()) {
     const store = useDocumentStore.getState()
     if (store.sections.length) {
-      return stackedPageCell(store.pageSetup, store.sections, Math.max(0, page - 1), PAGE_GAP)
+      return pageView > 1
+        ? gridPageCell(store.pageSetup, store.sections, Math.max(0, page - 1), pageView, PAGE_GAP)
+        : stackedPageCell(store.pageSetup, store.sections, Math.max(0, page - 1), PAGE_GAP)
     }
   }
-  const pageView = useViewStore.getState().movement === "side" ? 1 : useViewStore.getState().pageView
   return pageGridCell(Math.max(0, page - 1), pageView, metrics.width + PAGE_GAP, metrics.height + PAGE_GAP)
 }
 

@@ -269,6 +269,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       starting a page), caret in the first, Layout → Columns → More Columns, Three, This section: the first section
       flows in three columns, the second keeps two; Ctrl+Z puts it back.
 
+- [ ] **Multiple Pages with a landscape section (2026-11-12)** — a document of portrait pages with a landscape
+      section: View → Multiple Pages → 4 pages draws the landscape pages wide, centred in their cells; typing on one
+      wraps at its width; a floating picture on a landscape page stays on it.
+
 ## Needs the desktop app (Tauri build)
 
 - [ ] **Options in dark mode; SmartArt layouts (2026-10-29)** — in the desktop app in dark mode open File → Options:

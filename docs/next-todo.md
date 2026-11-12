@@ -734,7 +734,7 @@ own `w:sectPr` (`changes.md`). Open:
 
 - ~~Drawing pages of different sizes~~ **Fixed** the same day in the usual view: each section's pages are drawn,
   ruled, zoomed and printed at their own size (`changes.md`). Open: Multiple Pages and Side to Side keep one page
-  size. A multi-column section on a narrower page laid out at the widest page's text width, and a floating object
+  size. **Fixed** for Multiple Pages 2026-11-12 (`changes.md`); Side to Side still keeps one. A multi-column section on a narrower page laid out at the widest page's text width, and a floating object
   placed and cut by the document's page, fixed the same day (`changes.md`).
 - ~~The ribbon's Orientation, Size and Margins act on the document, not the caret's section.~~ **Fixed** the same day
   (`changes.md`); the horizontal ruler's margin drag still changes the document's side margins.

@@ -24,7 +24,7 @@ import {
   type PageMetrics,
   type PageSetup,
 } from "@/document/page-setup"
-import { drawnPageSetup, pageMetricsList, stackFrames } from "@/document/page-frames"
+import { drawnPageSetup, gridFrames, pageMetricsList, stackFrames } from "@/document/page-frames"
 import { sectionPageLabels } from "@/document/page-numbers"
 import { drawnColumns, sectionSetup, type ChromeSlot, type SectionChrome } from "@/document/sections"
 import { slotHome, slotOf, type SlotState } from "@/document/section-slots"
@@ -137,16 +137,18 @@ export function PageCanvas() {
   // One page wide down the screen, each section's pages have its own paper, centred in a stack as wide as the widest.
   const stacked = !web && !side && !grid
   const stack = stackFrames(stacked ? pageMetricsList(pageSetup, sections, pageKeys, pageCount) : [metrics], PAGE_GAP)
+  // Multiple Pages: each page its section's size, centred in cells as big as the biggest page.
+  const tiles = grid ? gridFrames(pageMetricsList(pageSetup, sections, pageKeys, pageCount), pageView, PAGE_GAP) : null
   const fitPageWidth = stack.width
   const stackHeight = side
     ? metrics.height
     : stacked
       ? stack.height
-      : gridRows * metrics.height + Math.max(0, gridRows - 1) * PAGE_GAP
+      : gridRows * (tiles?.cellHeight ?? metrics.height) + Math.max(0, gridRows - 1) * PAGE_GAP
   const stackWidth = side
     ? pageCount * metrics.width + Math.max(0, pageCount - 1) * PAGE_GAP
     : grid
-      ? gridColumns * metrics.width + Math.max(0, gridColumns - 1) * PAGE_GAP
+      ? gridColumns * (tiles?.cellWidth ?? metrics.width) + Math.max(0, gridColumns - 1) * PAGE_GAP
       : stacked
         ? stack.width
         : metrics.width
@@ -480,7 +482,7 @@ export function PageCanvas() {
           ))}
           {Array.from({ length: pageCount }, (_, index) => {
             const section = pageSection(index)
-            const frame = stacked ? stack.frames[index] : undefined
+            const frame = stacked ? stack.frames[index] : tiles?.frames[index]
             const sheet = frame ? frame.metrics : metricsFor(section)
             return (
               <div

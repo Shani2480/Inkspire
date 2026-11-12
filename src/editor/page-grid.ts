@@ -1,5 +1,7 @@
 import { pageGridCell, pageGridColumns, type PageView } from "@/document/page-grid"
+import { drawnPageKeys, gridFrames, pageMetricsList, stackFrames, type PageFrame } from "@/document/page-frames"
 import type { PageMetrics } from "@/document/page-setup"
+import { useDocumentStore } from "@/document/store"
 import { objectLeft, objectTop } from "@/editor/objects"
 import { PAGE_GAP } from "@/editor/pages"
 import type { EditorView } from "@tiptap/pm/view"
@@ -76,12 +78,51 @@ export function finishPageGrid(view: EditorView, pageView: PageView, metrics: Pa
   })
 }
 
+/**
+ * Each page as the editor's flow has it (one under another, each its section's size: `stackFrames`) and as Multiple
+ * Pages draws it (`gridFrames`), with the grid's cell width. `page(top)` is the page a flow position is on.
+ */
+export function pagePlaces(pageView: PageView, metrics: PageMetrics) {
+  const store = useDocumentStore.getState()
+  const keys = drawnPageKeys()
+  const list = keys.length > 0 ? pageMetricsList(store.pageSetup, store.sections, keys, keys.length) : [metrics]
+  const flow = stackFrames(list, PAGE_GAP).frames
+  const grid = gridFrames(list, pageView, PAGE_GAP)
+  const page = (top: number) => {
+    let index = 0
+    while (index + 1 < flow.length && flow[index + 1]!.top <= top + 1) {
+      index += 1
+    }
+    // Past the pages the paginator last counted: as many more of the last page's size.
+    const last = flow[flow.length - 1]!
+    const stride = last.height + PAGE_GAP
+    const beyond = index === flow.length - 1 ? Math.max(0, Math.floor((top + 1 - last.top) / stride)) : 0
+    return { index: index + beyond }
+  }
+  /** Where page `index` is in the flow and in the grid (pages past the counted ones repeat the last's size). */
+  const at = (index: number): { flow: PageFrame; grid: PageFrame } => {
+    if (index < flow.length) {
+      return { flow: flow[index]!, grid: grid.frames[index]! }
+    }
+    const more = gridFrames(
+      [...list, ...Array.from({ length: index + 1 - list.length }, () => list[list.length - 1]!)],
+      pageView,
+      PAGE_GAP,
+    )
+    const last = flow[flow.length - 1]!
+    const extra = index - (flow.length - 1)
+    return {
+      flow: { ...last, top: last.top + extra * (last.height + PAGE_GAP) },
+      grid: more.frames[index]!,
+    }
+  }
+  return { page, at, cellWidth: grid.cellWidth, own: metrics }
+}
+
 function applyPageGrid(dom: HTMLElement, pageView: PageView, metrics: PageMetrics) {
   const columns = pageGridColumns(pageView)
-  const xStride = metrics.width + PAGE_GAP
-  const yStride = metrics.height + PAGE_GAP
   const contentWidth = Math.max(1, metrics.width - metrics.marginLeft - metrics.marginRight)
-  const columnGap = metrics.marginLeft + metrics.marginRight + PAGE_GAP
+  const places = pagePlaces(pageView, metrics)
   dom.style.width = `${contentWidth}px`
   dom.style.maxWidth = `${contentWidth}px`
 
@@ -109,9 +150,17 @@ function applyPageGrid(dom: HTMLElement, pageView: PageView, metrics: PageMetric
     if (el.classList.contains("ProseMirror-separator") || el.classList.contains("ProseMirror-trailingBreak")) {
       continue
     }
-    const page = Math.max(0, Math.floor((top + 1) / yStride))
-    const within = Math.max(0, top - page * yStride)
-    const cell = pageGridCell(page, pageView, xStride, yStride)
+    // The page it is on in the flow, and that page's place in the grid: its text's top left from the document's own.
+    const { index: page } = places.page(top)
+    const { flow, grid } = places.at(page)
+    const within = Math.max(0, top - flow.top)
+    const sheet = grid.metrics
+    const cell = {
+      left: grid.left + sheet.marginLeft - metrics.marginLeft,
+      top: grid.top,
+      column: pageGridCell(page, pageView, 1, 1).column,
+    }
+    const textWidth = Math.max(1, sheet.width - sheet.marginLeft - sheet.marginRight)
     const style = getComputedStyle(el)
     const marginTop = parseFloat(style.marginTop) || 0
     const marginLeft = parseFloat(style.marginLeft) || 0
@@ -127,10 +176,12 @@ function applyPageGrid(dom: HTMLElement, pageView: PageView, metrics: PageMetric
 
     el.dataset.gridPlaced = "1"
     el.style.position = "absolute"
+    // Page-wide blocks take their page's text width; a block in columns keeps its column's.
+    const own = width === contentWidth ? textWidth : width
     el.style.left = `${cell.left + x - marginLeft}px`
     el.style.top = `${cell.top + within - marginTop}px`
-    el.style.width = `${width}px`
-    el.style.maxWidth = `${width}px`
+    el.style.width = `${own}px`
+    el.style.maxWidth = `${own}px`
 
     const gaps = [...el.querySelectorAll(".page-gap")].filter(
       (node): node is HTMLElement => node instanceof HTMLElement,
@@ -143,13 +194,15 @@ function applyPageGrid(dom: HTMLElement, pageView: PageView, metrics: PageMetric
       continue
     }
     const span = Math.min(room, gaps.length + 1)
-    const spanWidth = span * contentWidth + (span - 1) * columnGap
+    // From one page's text to the next one's across: the rest of the cell and the gap.
+    const columnGap = places.cellWidth + PAGE_GAP - textWidth
+    const spanWidth = span * textWidth + (span - 1) * columnGap
     el.style.width = `${spanWidth}px`
     el.style.maxWidth = `${spanWidth}px`
-    el.style.columnWidth = `${contentWidth}px`
+    el.style.columnWidth = `${textWidth}px`
     el.style.columnGap = `${columnGap}px`
     el.style.columnFill = "auto"
-    el.style.height = `${Math.max(24, metrics.height - metrics.marginTop - metrics.marginBottom - within)}px`
+    el.style.height = `${Math.max(24, sheet.height - sheet.marginTop - sheet.marginBottom - within)}px`
     el.style.overflow = "visible"
     for (const gap of gaps.slice(0, span - 1)) {
       collapseGap(gap, false)
@@ -199,8 +252,7 @@ export function clearPageGrid(dom: HTMLElement) {
 }
 
 export function placeObjectFrames(dom: HTMLElement, pageView: PageView, metrics: PageMetrics) {
-  const xStride = metrics.width + PAGE_GAP
-  const yStride = metrics.height + PAGE_GAP
+  const places = pageView > 1 ? pagePlaces(pageView, metrics) : null
   dom.querySelectorAll<HTMLElement>(".object-frame").forEach((el) => {
     const page = Math.max(1, Number(el.dataset.page) || 1)
     const x = Number(el.dataset.x) || 0
@@ -211,8 +263,10 @@ export function placeObjectFrames(dom: HTMLElement, pageView: PageView, metrics:
       el.style.top = `${Math.round(objectTop(page, y, metrics))}px`
       return
     }
-    const cell = pageGridCell(page - 1, pageView, xStride, yStride)
-    el.style.left = `${Math.round(cell.left + x)}px`
+    // The page's text left from the document's own, as `objectLeft` has it (the same as the cell's for one size).
+    const cell = places!.at(page - 1).grid
+    const left = cell.left + cell.metrics.marginLeft - metrics.marginLeft
+    el.style.left = `${Math.round(left + x)}px`
     el.style.top = `${Math.round(cell.top + y)}px`
   })
 }

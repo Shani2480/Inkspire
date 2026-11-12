@@ -7,6 +7,22 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-12
 
+### Multiple Pages draws each section's pages at their own size
+
+- **What was wrong:** Multiple Pages drew every page on the document's paper, so a landscape section among portrait
+  ones showed as portrait pages, its text laid out at the document's width.
+- **What changed:** `drawsSectionPaper` is now true in Multiple Pages too, so the pages are laid out with their own
+  paper and margins as one page wide. `gridFrames` (`page-frames.ts`) places them: each grid cell is as big as the
+  biggest page and each page is centred in its cell, as Word does; pages of one size fill their cells exactly as
+  before. The editor's grid (`pagePlaces` in `page-grid.ts`) finds each block's page in the flow by the pages' own
+  heights and puts it on that page's text in the grid, at its width; floating objects use the same place
+  (`gridPageCell`). The canvas draws each sheet at its size.
+- **Tests:** `page-frames.test.ts` (`gridFrames`: mixed sizes centred in their cells, one size unchanged). Checked in
+  Chrome: f15 (A4 portrait, then two landscape pages) in 4 pages: a portrait sheet and two landscape ones, every line
+  inside its sheet; a document of one page size draws the same sheets and lines as before the change.
+- **Open:** Side to Side, which flows the pages through the browser's columns, still draws every page at the
+  document's size. Floating objects on pages of other sizes in Multiple Pages were not checked in the browser.
+
 ### A deleted section break takes its section with it
 
 - **What was wrong:** deleting a section break left its section in the store, unused, where it still counted: its
@@ -291,7 +307,8 @@ in Word, Chrome or the desktop app.
 - **Checked:** in headless Chrome, a copy of `f15_sections.docx` with a 1000 px picture at the page's left edge: on
   the portrait page it starts at the sheet's edge and is cut at 794 px; on the landscape page it is whole. Dragged on
   the portrait page, it moves there and stays cut at that page.
-- **Open:** Multiple Pages and Side to Side still draw every page at the document's size.
+- **Open:** Multiple Pages and Side to Side still draw every page at the document's size. **Fixed** for Multiple Pages
+  2026-11-12 (see that day's entry); Side to Side still does.
 
 ### The ruler's column drags change the caret's section; equal columns on a narrower page fit it
 
@@ -412,7 +429,8 @@ in Word, Chrome or the desktop app.
 - **Checked:** in headless Chrome, f15 with 18 lines typed at the end, View > Multiple Pages > 2 pages: lines 1-16
   in the left column of the last page, 17 and 18 at the top of the right one. The contract (no columns) is drawn as
   before.
-- **Open:** Multiple Pages still draws every page on the document's own paper.
+- **Open:** Multiple Pages still draws every page on the document's own paper. **Fixed** for Multiple Pages
+  2026-11-12 (see that day's entry); Side to Side still does.
 
 ### Columns fill from the first, as Word's do
 

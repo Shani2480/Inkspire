@@ -1,15 +1,41 @@
 import { pageMetrics, type PageMetrics, type PageSetup } from "@/document/page-setup"
 import { sectionPageSetup, sectionSetup, type SectionChrome } from "@/document/sections"
+import { pageGridCell } from "@/document/page-grid"
 import { useViewStore } from "@/document/view"
 
 /**
- * Whether pages are drawn with their own section's paper and side margins. They are in the usual view, one page
- * wide down the screen; Multiple Pages, Side to Side and Web Layout draw every page with the document's paper, as
- * their grids are one page size.
+ * Whether pages are drawn with their own section's paper and side margins: one page wide down the screen and in
+ * Multiple Pages (`gridFrames`). Side to Side, which flows the pages through the browser's columns, and Web Layout
+ * draw every page with the document's paper.
  */
 export function drawsSectionPaper() {
   const view = useViewStore.getState()
-  return view.layoutMode !== "web" && view.movement !== "side" && view.pageView <= 1
+  return view.layoutMode !== "web" && view.movement !== "side"
+}
+
+/**
+ * Multiple Pages: where each page is drawn in the grid. Every cell is as big as the biggest page and each page is
+ * centred in its cell, as Word draws a landscape page among portrait ones; pages of one size fill their cells.
+ */
+export function gridFrames(metrics: PageMetrics[], pageView: number, gap: number) {
+  const cellWidth = Math.max(0, ...metrics.map((item) => item.width))
+  const cellHeight = Math.max(0, ...metrics.map((item) => item.height))
+  const frames: PageFrame[] = metrics.map((item, index) => {
+    const cell = pageGridCell(index, pageView, cellWidth + gap, cellHeight + gap)
+    return {
+      top: cell.top + (cellHeight - item.height) / 2,
+      left: cell.left + (cellWidth - item.width) / 2,
+      width: item.width,
+      height: item.height,
+      metrics: item,
+    }
+  })
+  return { frames, cellWidth, cellHeight }
+}
+
+/** The paginator's latest page keys (see `setDrawnPageKeys`). */
+export function drawnPageKeys() {
+  return drawnKeys
 }
 
 /** The page setup a section's pages are drawn with (see `drawsSectionPaper`); `null` is the document's own section. */
@@ -122,4 +148,22 @@ export function stackedPageCell(setup: PageSetup, sections: SectionChrome[], ind
     cached = { setup, sections, keys: drawnKeys, count, gap, cells }
   }
   return cached.cells[index]!
+}
+
+/**
+ * Where page `index` (from 0) is in Multiple Pages (`gridFrames`), as `stackedPageCell` gives it one page wide: its
+ * sheet's top, and how far its text's left edge is from the document's own section's on the first page.
+ */
+export function gridPageCell(
+  setup: PageSetup,
+  sections: SectionChrome[],
+  index: number,
+  pageView: number,
+  gap: number,
+): PageCell {
+  const count = Math.max(drawnKeys.length, index + 1)
+  const list = pageMetricsList(setup, sections, drawnKeys, count)
+  const frame = gridFrames(list, pageView, gap).frames[index]!
+  const own = pageMetrics(setup)
+  return { top: frame.top, left: frame.left + frame.metrics.marginLeft - own.marginLeft, metrics: frame.metrics }
 }
