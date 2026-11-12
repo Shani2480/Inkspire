@@ -2089,7 +2089,13 @@ What it lacked, to do when it returns:
   is the CSS line-height here; that is a separate fidelity question.
 - **WordArt row for shape text.** Text Fill, Text Outline and Text Effects on Shape Format are on only for text
   boxes; Word turns them on for any shape with text. Shape text has `textColor` (from Font Color) but no outline
-  or effects yet.
+  or effects yet. **Done (2026-11-12):** the row (and Quick Styles) is on for drawn shapes; Text Fill, Text Outline
+  and Text Effects are the shape's own `textFill`, `textOutline`, `textEffect`, drawn as in a text box, saved as the
+  run's colour and Word 2010's `w14:glow` / `w14:shadow` / `w14:reflection` / `w14:textOutline` / `w14:textFill`
+  (namespace declared on the run) and read back. Fixed on the way: a paragraph holding only a shape with text
+  counted the shape's text as its own, so the shape opened as a raw drawing instead of a shape (Word's files too).
+  Not done: bevel and the transforms are not written to Word; a text box's text effects are still not written as
+  Word's.
 - **Adjustment handles.** Shapes have no yellow adjustment handles (Word's Division sign has three). Word's `a:avLst`
   values are read (`preset-geometry.ts`), so the handles would change those.
 - **Several picked objects.** Shift+click in the Selection Pane picks several objects, and Align and Group act on

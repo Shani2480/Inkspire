@@ -141,6 +141,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       lines together, Page break before, Collapsed by default: each round-trips to .docx
       (`w:suppressLineNumbers`, `w:suppressAutoHyphens`, `w:textboxTightWrap`) and Word shows the same.
 
+- [ ] **Shape text WordArt Styles (2026-11-12)** — give a shape text, then Shape Format → Text Fill red, Text
+      Outline blue, Text Effects → Shadow. Saved, Word shows the text red with a blue outline and a shadow, and no
+      repair prompt.
+
 ## Needs Chrome (the web build in a browser)
 
 - [ ] **Multiple Pages with columns (2026-11-11)** — a two-column document long enough to reach the second column on

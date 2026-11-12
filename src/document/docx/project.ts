@@ -766,7 +766,8 @@ function blockHtml(block: Block, ctx: Projection) {
 }
 
 function paragraphHtml(paragraph: Paragraph, ctx: Projection) {
-  ctx.textParagraph = paragraphText(paragraph).trim() !== ""
+  // Text of its own, not a shape's or a text box's: a paragraph holding only a shape with text is not a line of text.
+  ctx.textParagraph = paragraphText(paragraph, false).trim() !== ""
   const floatingOnly = paragraph.inlines.every(
     (inline) => inline.kind !== "run" || inline.content.every((item) => item.kind !== "drawing" || item.layout),
   )

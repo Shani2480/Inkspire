@@ -5,7 +5,7 @@ import { applyFrame, bindDrag, floatingAttributes, inlineMaxWidth, isFloating, r
 import { bindObjectResize } from "@/editor/object-resize"
 import { bindRotate, ensureRotateHandle } from "@/editor/object-rotate"
 import { chainWithSelection } from "@/editor/selection-memory"
-import { paintShapeSvg, shapeStyleAttributes } from "@/editor/shape-style"
+import { paintShapeSvg, shapeStyleAttributes, stringAttr, textStyle } from "@/editor/shape-style"
 import { WORD_ART_PRESETS } from "@/editor/text-effects"
 import { POINTS_BOX } from "@/editor/shape-points"
 import { Mark, Node, mergeAttributes } from "@tiptap/core"
@@ -333,6 +333,15 @@ function styleShapeText(holder: HTMLElement, node: ProseNode) {
   const align = String(node.attrs.textAlign || "center")
   holder.style.textAlign = align
   holder.style.justifyContent = align === "center" ? "" : align === "right" ? "flex-end" : "flex-start"
+  // Text Fill (over the font colour), Text Outline and Text Effects, drawn as in a text box.
+  const look = textStyle(node.attrs)
+  if (look.color) {
+    holder.style.color = look.color
+  }
+  holder.style.setProperty("-webkit-text-stroke", look.webkitTextStroke ?? "")
+  holder.style.textShadow = look.textShadow ?? ""
+  holder.style.setProperty("-webkit-box-reflect", look.webkitBoxReflect ?? "")
+  holder.style.transform = look.transform ?? ""
 }
 
 function paintFigure(dom: HTMLElement, node: ProseNode) {
@@ -553,6 +562,10 @@ export const Figure = Node.create({
         renderHTML: (attributes) =>
           attributes.textHighlight ? { "data-text-highlight": attributes.textHighlight } : {},
       },
+      /** WordArt Styles on the shape's text (Shape Format): Text Fill, Text Outline and Text Effects, as a text box's. */
+      textFill: stringAttr("textFill"),
+      textOutline: stringAttr("textOutline"),
+      textEffect: stringAttr("textEffect"),
       /** left, right or justify; empty is centred, the app's default for shape text. */
       textAlign: {
         default: "",

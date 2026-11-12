@@ -78,6 +78,10 @@ export type WordShape = {
   textHighlight: string
   /** left, right or justify; empty is centred. */
   textAlign: string
+  /** WordArt Styles on the text: Text Outline's colour, Text Effects' name, Text Fill's "none"; empty when not set. */
+  textOutline: string
+  textEffect: string
+  textFill: string
   dash: string
   gradient: string
   shadow: string
@@ -349,6 +353,9 @@ export function shapeLook(look: Record<string, unknown>) {
     ...(look.textItalic || look.textUnderline || look.textHighlight || look.textAlign
       ? [Boolean(look.textItalic), look.textUnderline || "", look.textHighlight || "", look.textAlign || ""]
       : []),
+    ...(look.textOutline || look.textEffect || look.textFill
+      ? [look.textOutline || "", look.textEffect || "", look.textFill || ""]
+      : []),
   ])
 }
 
@@ -440,5 +447,26 @@ export function readShapeTextLook(body: string, themeXml: string | null) {
         : "",
     textHighlight: WORD_HIGHLIGHTS[highlight] ?? (shading ? `#${shading.toLowerCase()}` : ""),
     textAlign: jc === "center" ? "" : jc === "right" || jc === "end" ? "right" : jc === "both" ? "justify" : "left",
+    ...readWordArtRun(run),
+  }
+}
+
+/**
+ * WordArt Styles on a run (Word 2010's `w14` run effects), as the app's Text Outline (its colour), Text Effects (shadow,
+ * glow or reflection) and Text Fill's No Fill.
+ */
+export function readWordArtRun(run: string) {
+  const outline = /<w14:textOutline\b[\s\S]*?<w14:srgbClr w14:val="([0-9A-Fa-f]{6})"/.exec(run)?.[1]
+  const effect = /<w14:shadow\b/.test(run)
+    ? "shadow"
+    : /<w14:glow\b/.test(run)
+      ? "glow"
+      : /<w14:reflection\b/.test(run)
+        ? "reflection"
+        : ""
+  return {
+    textOutline: outline ? `#${outline.toLowerCase()}` : "",
+    textEffect: effect,
+    textFill: /<w14:textFill>\s*<w14:noFill\s*\/>/.test(run) ? "none" : "",
   }
 }

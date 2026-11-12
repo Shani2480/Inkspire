@@ -91,6 +91,38 @@ describe("shapes written as Word's own (22.11)", () => {
     })
   })
 
+  it("writes WordArt Styles on a shape's text as Word's run effects, and opens them again", async () => {
+    const { bytes, xml } = await save([
+      shapeImage({
+        variant: "round",
+        text: "Sale",
+        textColor: "#000000",
+        textFill: "#c00000",
+        textOutline: "#1f4e79",
+        textEffect: "shadow",
+      }),
+    ])
+    if (process.env.DUMP) {
+      ;(await import("node:fs")).writeFileSync(`${process.env.DUMP}/shape-text.docx`, bytes)
+    }
+    const run = /<w:rPr[ >](?:(?!<\/w:rPr>).)*<\/w:rPr><w:t xml:space="preserve">Sale/.exec(xml)?.[0] ?? ""
+    expect(run).toContain('<w:color w:val="C00000"/>')
+    expect(run).toMatch(
+      /<w14:shadow [^>]*>.*<\/w14:shadow><w14:textOutline [^>]*><w14:solidFill><w14:srgbClr w14:val="1F4E79"\/>/,
+    )
+    const reopened = await openDocxBytes(bytes, "s.docx")
+    // A paragraph holding only the shape opens it as the shape again, its text and WordArt Styles with it.
+    const object = /data-inkspire-object="([^"]*)"/.exec(reopened.view.html)?.[1] ?? ""
+    const figure = JSON.parse(atob(object)) as { attrs: Record<string, unknown> }
+    // Text Fill is the text's colour in Word, so it comes back as the font colour.
+    expect(figure.attrs).toMatchObject({
+      text: "Sale",
+      textColor: "#c00000",
+      textOutline: "#1f4e79",
+      textEffect: "shadow",
+    })
+  })
+
   it("saves a shape with edited points as Word's freeform, and opens it again with them", async () => {
     const points = "M0 0 L100 20 L80 100 L10 90 Z"
     const { bytes, xml } = await save([shapeImage({ variant: "rect", points, fill: "#70ad47" })])

@@ -7,6 +7,27 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-12
 
+### WordArt Styles for a shape's text; a shape with text opens as a shape again
+
+- **What was missing:** Text Fill, Text Outline and Text Effects (and Quick Styles) on Shape Format were on only for
+  text boxes; Word has them for any shape's text.
+- **What was wrong (found on the way):** a paragraph holding only a shape with text took the shape's text for its
+  own (`paragraphText` counts drawings), so the shape was treated as one in a line of text and opened as a raw
+  drawing that cannot be edited, for a shape saved by the app and one from Word alike.
+- **What changed:** the figure node has `textFill`, `textOutline`, `textEffect`, drawn by `styleShapeText` with
+  `textStyle` (`src/editor/insert-blocks.ts`); the ribbon enables the row for drawn shapes. `wordArtRun` in
+  `src/document/docx/shape-write.ts` writes them as the run's colour and `w14` run effects in schema order, with
+  `xmlns:w14` on the run (a new document's root does not declare it); `readWordArtRun` in `shape-import.ts` reads
+  them back and they join the shape's change mark. `paragraphText(paragraph, false)` leaves out drawing text, and
+  `project.ts` uses it to decide whether a paragraph is a line of text.
+- **Tests:** `shape-write.test.ts` (the run's colour, shadow and outline in order, and reopening as the same shape
+  with them).
+- **Checked:** the saved file passes the Open XML SDK validator; in headless Chrome it opens with "Sale" in dark red
+  with a blue outline and a shadow, the WordArt Styles row is on for the selected shape, and Text Effects → Glow
+  applies; no console errors.
+- **Open:** bevel and the arch and wave transforms are not written to Word; a text box's text effects are still not
+  written as Word's own.
+
 ### The Paragraph dialog shows the line spacing the page draws
 
 - **What was wrong:** for a paragraph with no spacing of its own the dialog showed Multiple 1.15 and 8 pt after,

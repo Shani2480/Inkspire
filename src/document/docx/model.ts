@@ -1024,11 +1024,12 @@ export function paragraphsIn(blocks: Block[]): Paragraph[] {
   return paragraphs
 }
 
-export function paragraphText(paragraph: Paragraph) {
-  return inlineText(paragraph.inlines)
+/** A paragraph's text; `drawings` false leaves out the text inside its shapes and text boxes. */
+export function paragraphText(paragraph: Paragraph, drawings = true) {
+  return inlineText(paragraph.inlines, drawings)
 }
 
-function inlineText(inlines: Inline[]): string {
+function inlineText(inlines: Inline[], drawings = true): string {
   let text = ""
   for (const inline of inlines) {
     if (
@@ -1037,7 +1038,7 @@ function inlineText(inlines: Inline[]): string {
       inline.kind === "ins" ||
       inline.kind === "del"
     ) {
-      text += inlineText(inline.inlines)
+      text += inlineText(inline.inlines, drawings)
       continue
     }
     if (inline.kind === "raw") {
@@ -1048,7 +1049,7 @@ function inlineText(inlines: Inline[]): string {
       continue
     }
     for (const content of inline.content) {
-      if (content.kind === "text" || content.kind === "delText" || content.kind === "drawing") {
+      if (content.kind === "text" || content.kind === "delText" || (drawings && content.kind === "drawing")) {
         text += content.text
       }
     }
