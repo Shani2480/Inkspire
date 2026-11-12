@@ -11882,6 +11882,11 @@ textarea.text-prompt-field {
   display: block;
 }
 
+/* In crop mode the picture slides under its frame when dragged. */
+.is-cropping {
+  cursor: move;
+}
+
 .is-cropping > :is(.image-resize, .object-rotate, .object-handle) {
   display: none;
 }

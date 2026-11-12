@@ -7,6 +7,20 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-12
 
+### Crop mode: drag the picture under its crop frame
+
+- **What was missing:** in Word's crop mode the picture can be dragged to choose which part shows; in the app a
+  drag on a picture in crop mode tried to move the picture itself.
+- **What changed:** `pannedBy` in `src/editor/picture-crop.ts` shifts each side's crop by the drag, keeping the
+  visible size, and stops at the picture's edge (or, for Fit, at the frame's). `bindPictureCrop` listens first
+  (capture) and, in crop mode, a drag on the body slides the picture live without history; Esc puts it back, and
+  Apply makes the whole crop one undo step. The picture shows a move cursor in crop mode.
+- **Tests:** `picture-crop.test.ts` (slide, stop at the edge, fitted picture).
+- **Checked:** in headless Chrome on a 256 × 128 picture cropped from the left and top: the frame stayed at its
+  place and size while the picture slid 30 × 20 px, a long drag stopped at the picture's edge, Apply then Undo
+  returned the uncropped picture in one step; no console errors.
+- **Open:** the cropped-away parts outside a Crop to Shape outline are still not shown faint.
+
 ### Word's picture formatting opens on the picture; effects are written in schema order
 
 - **What was wrong:** brightness, contrast, recolour, transparency, a border or a shadow, glow, soft edges or

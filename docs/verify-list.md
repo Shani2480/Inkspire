@@ -225,6 +225,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       Paragraph, Borders and Shading and Options dialogs against the screenshots.
 - [ ] **Native shapes (see Word section)** — also not looked at in Chrome after the preset batch.
 
+- [ ] **Drag a picture under its crop (2026-11-12)** — crop a picture from two sides, then drag the picture in crop
+      mode: the crop frame stays and the picture slides under it, stopping at its edge; Enter applies, Ctrl+Z undoes
+      the crop and the slide together.
+
 ## Needs the desktop app (Tauri build)
 
 - [ ] **Options in dark mode; SmartArt layouts (2026-10-29)** — in the desktop app in dark mode open File → Options:
