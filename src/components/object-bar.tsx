@@ -2,6 +2,7 @@ import { applyCrop, cancelCrop, resetPendingCrop, useCropMode } from "@/editor/p
 import { ChartSheetDialog } from "@/components/chart-sheet-dialog"
 import { openModelFormat } from "@/components/model-format-dialog"
 import { CurrentWrapIcon } from "@/components/object-layout-icons"
+import { CropMenu } from "@/components/picture-menus"
 import {
   AlignTextMenu,
   ChangeIconMenu,
@@ -249,7 +250,9 @@ export function ObjectBar({ editor }: { editor: Editor }) {
   const tool = useDrawStore((state) => state.tool)
   const drawColor = useDrawStore((state) => activeColor(state))
   const setTool = useDrawStore((state) => state.setTool)
-  const commands = selected ? barCommands(editor, selected, { tool, drawColor, setTool, setChartData }) : []
+  // Crop becomes Apply, with Cancel and Reset beside it, as soon as crop mode begins.
+  const cropping = useCropMode((state) => state.active)
+  const commands = selected ? barCommands(editor, selected, { tool, drawColor, setTool, setChartData, cropping }) : []
 
   const dialog = chartData ? <ChartSheetDialog editor={editor} onClose={() => setChartData(false)} /> : null
   if (hidden || commands.length === 0) {
@@ -333,6 +336,37 @@ function BarButton({ command, first }: { command: BarCommand; first: boolean }) 
   )
   // Roving tab index: Tab reaches the first button, the arrow keys the rest.
   const focus = { "data-bar-item": "", tabIndex: first ? 0 : -1 }
+  // A split button, as Word's large ones: the top half runs the command, the label below opens its menu.
+  if (command.menu && command.onClick) {
+    return (
+      <span className="object-bar-split is-split" data-bar-split="">
+        <Tooltip>
+          <TooltipTrigger
+            type="button"
+            aria-label={command.label}
+            aria-pressed={command.active || undefined}
+            className={`object-bar-button is-split-main${command.active ? " is-active" : ""}`}
+            {...focus}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => command.onClick?.()}
+          >
+            <span className="object-bar-icon">{command.icon}</span>
+          </TooltipTrigger>
+          <RibbonTipContent label={command.label} description={command.description} shortcut={command.shortcut} />
+        </Tooltip>
+        <RibbonPopover
+          label={`${command.label} options`}
+          className="object-bar-button has-menu is-split-menu"
+          content={command.menu}
+        >
+          <span className="object-bar-label">{command.label}</span>
+          <svg className="object-bar-chevron" viewBox="0 0 8 5" aria-hidden>
+            <path d="M1.6 1 4 3.4 6.4 1" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+          </svg>
+        </RibbonPopover>
+      </span>
+    )
+  }
   if (command.menu) {
     return (
       <span className="object-bar-split" {...focusProps(focus)}>
@@ -415,6 +449,7 @@ function barCommands(
     drawColor: string
     setTool: (tool: DrawTool) => void
     setChartData: (open: boolean) => void
+    cropping: boolean
   },
 ): BarCommand[] {
   const menu = (Menu: (props: { editor: Editor | null; close: () => void }) => ReactNode) => (close: () => void) => (
@@ -456,7 +491,7 @@ function barCommands(
     menu: menu(ShapeStylesMenu),
   }
   const sep: BarCommand = { id: "|", label: "", icon: null }
-  const cropping = useCropMode.getState().active
+  const cropping = state.cropping
   switch (selected.kind) {
     case "image":
       return [
@@ -468,6 +503,7 @@ function barCommands(
           icon: <LineCropIcon />,
           active: cropping,
           onClick: () => (cropping ? applyCrop() : useCropMode.getState().set(true)),
+          menu: menu(CropMenu),
         },
         ...(cropping
           ? [

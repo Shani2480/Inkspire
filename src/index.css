@@ -3743,6 +3743,30 @@ button.line-menu-row:focus-visible {
   display: flex;
 }
 
+/* A split button: the icon runs the command, the label with its arrow opens the menu. */
+.object-bar-split.is-split {
+  flex-direction: column;
+}
+
+.object-bar .object-bar-split.is-split > .object-bar-button {
+  width: 100%;
+}
+
+.object-bar .object-bar-button.is-split-main {
+  height: 26px;
+  padding: 0;
+  border-radius: 4px 4px 0 0;
+}
+
+.object-bar .object-bar-button.is-split-menu {
+  height: 18px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2px;
+  border-radius: 0 0 4px 4px;
+}
+
 .object-bar .object-bar-button {
   display: flex;
   width: min-content;

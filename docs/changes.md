@@ -7,6 +7,17 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-12
 
+### Crop is a split button on the picture's bar, which follows crop mode
+
+- **What was missing:** the picture's floating bar had Crop as a plain button, without Word's Crop menu (Crop to
+  Shape, Aspect Ratio, Fill, Fit). Entering crop mode left the bar showing Crop until the next edit, so Apply,
+  Cancel and Reset were missing at first.
+- **What changed:** `BarButton` in `src/components/object-bar.tsx` draws a command with both an action and a menu
+  as a split button (icon above runs it, the label with its arrow opens the menu; CSS `.is-split`); Crop uses
+  `CropMenu`. The bar subscribes to `useCropMode`.
+- **Checked:** in headless Chrome: the icon enters crop mode and the label turns to Apply with Cancel and Reset
+  beside it; the label opens Crop, Crop to Shape, Aspect Ratio, Fill and Fit; no console errors.
+
 ### Crop mode: drag the picture under its crop frame
 
 - **What was missing:** in Word's crop mode the picture can be dragged to choose which part shows; in the app a
