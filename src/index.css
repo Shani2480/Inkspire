@@ -5805,6 +5805,17 @@ html[data-theme="dark"] .drawing-canvas::after {
   display: none;
 }
 
+/* Find in Read Mode: every match, and the current one. */
+::highlight(read-find) {
+  background-color: rgb(255 214 0 / 0.55);
+  color: inherit;
+}
+
+::highlight(read-find-current) {
+  background-color: rgb(255 140 0 / 0.85);
+  color: #000;
+}
+
 .read-end {
   position: absolute;
   top: 0;

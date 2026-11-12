@@ -59,3 +59,24 @@ describe("Read Mode", () => {
     expect(useViewStore.getState().layoutMode).toBe("print")
   })
 })
+
+describe("Find in Read Mode", () => {
+  it("opens from Tools and counts what it finds", async () => {
+    const { useReadFind } = await import("@/document/read-pages")
+    useViewStore.setState({ layoutMode: "read" })
+    render(
+      <>
+        <ReadBar headings={[]} onHeading={() => undefined} />
+        <ReadView onHeadings={() => undefined} />
+      </>,
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Tools" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Find" }))
+    const box = await screen.findByRole("searchbox", { name: "Find in document" })
+    fireEvent.change(box, { target: { value: "body" } })
+    expect(useReadFind.getState().count).toBe(1)
+    expect(screen.getByText("1 of 1")).toBeTruthy()
+    fireEvent.keyDown(box, { key: "Escape" })
+    expect(useReadFind.getState().open).toBe(false)
+  })
+})

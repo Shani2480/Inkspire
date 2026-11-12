@@ -12,6 +12,7 @@ import {
   saveDocumentAs,
 } from "@/document/commands"
 import { documentName, useDocumentStore } from "@/document/store"
+import { useReadFind } from "@/document/read-pages"
 import { useHelp } from "@/document/help"
 import { useViewStore } from "@/document/view"
 import { notePointer, zoomGesture } from "@/document/zoom-gesture"
@@ -99,7 +100,13 @@ export function useDocumentCommands() {
 
       if (key === "f" && !event.shiftKey) {
         event.preventDefault()
-        useViewStore.getState().openFind(false)
+        // Read Mode has its own Find, in the read bar.
+        const view = useViewStore.getState()
+        if (view.layoutMode === "read" && view.readLayout === "columns") {
+          useReadFind.getState().show()
+        } else {
+          view.openFind(false)
+        }
         return
       }
 

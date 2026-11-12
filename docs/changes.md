@@ -7,6 +7,20 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-12
 
+### Find in Read Mode
+
+- **What was missing:** Read Mode had no Find; Ctrl+F opened the editing Find, which is hidden there.
+- **What changed:** `findInPieces` and the `useReadFind` store in `src/document/read-pages.ts`; the read bar's Tools
+  menu has Find, and in Read Mode's column layout Ctrl+F opens it (`app-menu.ts`). `ReadFindBox` in
+  `src/components/read-mode.tsx` shows the box, "n of m", previous and next; `ReadView` highlights every match with
+  the CSS Custom Highlight API (`::highlight(read-find)`, the current one `read-find-current`) and turns to the page
+  of the current one. Esc in the box or leaving Read Mode closes Find.
+- **Tests:** `read-pages.test.ts` (matches across text pieces and case, stepping round), `read-mode.test.tsx` (Tools
+  → Find, the count, Esc).
+- **Checked:** in headless Chrome on a 3-page read: "33." found once and the page turned to page 3; "screen" found
+  152 times, Shift+Enter from the first went to the last on page 3; Esc closed the box and stayed in Read Mode; no
+  console errors.
+
 ### Read Mode's last page no longer shows part of the page before
 
 - **What was wrong:** when the last screen of columns was not full, the scroller could only go as far as the text
