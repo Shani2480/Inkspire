@@ -5794,6 +5794,7 @@ html[data-theme="dark"] .drawing-canvas::after {
 }
 
 .read-scroller {
+  position: relative;
   overflow-x: auto;
   overflow-y: hidden;
   outline: none;
@@ -5802,6 +5803,14 @@ html[data-theme="dark"] .drawing-canvas::after {
 
 .read-scroller::-webkit-scrollbar {
   display: none;
+}
+
+.read-end {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
 }
 
 .read-body {

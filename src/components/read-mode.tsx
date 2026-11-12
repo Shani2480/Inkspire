@@ -186,7 +186,8 @@ export function ReadView({ onHeadings }: { onHeadings: (headings: string[], go: 
     if (!scroller) {
       return
     }
-    setPages(readPageCount(scroller.scrollWidth, scroller.clientWidth))
+    // The text's own width, not the scroller's: the spacer below must not hold the count up when the text shrinks.
+    setPages(readPageCount(bodyRef.current?.scrollWidth ?? scroller.scrollWidth, scroller.clientWidth))
     setPage(readPageAt(scroller.scrollLeft, scroller.clientWidth))
   }, [])
 
@@ -195,7 +196,7 @@ export function ReadView({ onHeadings }: { onHeadings: (headings: string[], go: 
     if (!scroller) {
       return
     }
-    const last = readPageCount(scroller.scrollWidth, scroller.clientWidth) - 1
+    const last = readPageCount(bodyRef.current?.scrollWidth ?? scroller.scrollWidth, scroller.clientWidth) - 1
     const target = Math.max(0, Math.min(last, next))
     scroller.scrollTo({ left: target * readPageStep(scroller.clientWidth), behavior: "smooth" })
   }, [])
@@ -323,6 +324,12 @@ export function ReadView({ onHeadings }: { onHeadings: (headings: string[], go: 
             className="read-body page-editor"
             style={{ columnWidth: colWidth, columnGap: gap }}
             dangerouslySetInnerHTML={{ __html: html ?? "" }}
+          />
+          {/* The last page is a whole screen even when its columns do not fill it, so it never shows the one before. */}
+          <span
+            aria-hidden
+            className="read-end"
+            style={{ left: Math.max(0, pages * readPageStep(scrollerRef.current?.clientWidth ?? 0) - gap - 1) }}
           />
         </div>
         <button

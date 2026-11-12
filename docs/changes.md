@@ -7,6 +7,17 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-12
 
+### Read Mode's last page no longer shows part of the page before
+
+- **What was wrong:** when the last screen of columns was not full, the scroller could only go as far as the text
+  reached, so End or the last page turn stopped short of the page step and the left of the screen showed the
+  previous page's columns (2061 px instead of 2748 px on a 3-page document at 1400 px).
+- **What changed:** `ReadView` (`src/components/read-mode.tsx`) puts a 1 px `.read-end` spacer at the end of the last
+  whole page and counts pages from the text's own width, so the spacer never keeps a page the text no longer has.
+- **Checked:** in headless Chrome, before and after on the same 38-paragraph document: the last page now lands on
+  a whole page step and shows only its own columns; no console errors. Layout-only, so no unit test (jsdom lays
+  out no columns).
+
 ### Selected text becomes an equation (Insert → Equation, Alt+=)
 
 - **What was missing:** Convert went only from an equation to text. In Word, selected linear text such as
