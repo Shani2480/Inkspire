@@ -1,6 +1,7 @@
 import { Schema } from "@tiptap/pm/model"
 import { describe, expect, it } from "vitest"
 import {
+  balancedHeight,
   columnFiller,
   firstContentDiff,
   mustMoveToNextPage,
@@ -206,5 +207,23 @@ describe("columnFiller", () => {
     expect(columnFiller(300, 600, 2, 1)).toBe(300)
     expect(columnFiller(0, 600, 3, 0)).toBe(1200)
     expect(columnFiller(-5, 600, 1, 0)).toBe(0)
+  })
+})
+
+describe("balancedHeight", () => {
+  it("is the least height that holds a block's last lines in its columns, whole lines to a column", () => {
+    // Ten lines of 20 px in two columns: five each.
+    expect(balancedHeight(Array(10).fill(20), 2, 900)).toBe(100)
+    // Nine: the first column takes five, the second four.
+    expect(balancedHeight(Array(9).fill(20), 2, 900)).toBe(100)
+    // A taller line sets the least height.
+    expect(balancedHeight([20, 120, 20], 3, 900)).toBe(120)
+    // One column is the lines' total.
+    expect(balancedHeight([20, 30], 1, 900)).toBe(50)
+    expect(balancedHeight([], 2, 900)).toBe(0)
+  })
+
+  it("is no more than the page's room", () => {
+    expect(balancedHeight(Array(100).fill(20), 2, 600)).toBe(600)
   })
 })

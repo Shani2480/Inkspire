@@ -12,6 +12,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       the same breaks (Next Page on a new page, Continuous on the same page) and that paragraph in three columns. A
       Word file with a one-column title, a continuous break and two columns opens in the app with the title across.
 
+- [ ] **Long continuous section of columns (2026-11-12)** — a Word document with a long three-column section ending
+      in a continuous break, then one column: the app's pages break where Word's do, within a line or two, and the
+      last page's columns are balanced as in Word.
 - [ ] **Picture on a section's page (2026-11-11)** — a Word document with a portrait section and a landscape one, and a
       picture wider than the portrait page on it: the app draws it from the same place as Word and cut at the
       portrait sheet's edge.

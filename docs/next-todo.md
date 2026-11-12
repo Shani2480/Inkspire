@@ -739,14 +739,24 @@ own `w:sectPr` (`changes.md`). Open:
 - ~~The ribbon's Orientation, Size and Margins act on the document, not the caret's section.~~ **Fixed** the same day
   (`changes.md`); the horizontal ruler's margin drag still changes the document's side margins.
 - ~~Columns per section~~ **Fixed** the same day (`changes.md`). Columns changing at a continuous break **fixed** the same day: such a section opens as a block of its columns, and
-  section breaks and blocks of columns made in the editor are saved (they were lost) (`changes.md`). Open: a long
-  continuous section of other columns. A new section's own Page Setup, fixed the same day. Different
+  section breaks and blocks of columns made in the editor are saved (they were lost) (`changes.md`). A long
+  continuous section of other columns, fixed 2026-11-12: a block of columns goes on across pages. A new section's own Page Setup, fixed the same day. Different
   counts above one and a section's own unequal widths **fixed** the same day (`changes.md`). The Columns dialog's
   Apply to has This section, fixed the same day. The ruler's column drags change the caret's section, fixed the
   same day.
 - ~~Columns and page breaks (also with one section): a page ended early is balanced by the browser, where Word
   fills the first column first, and the next page's text starts 10-43 px high.~~ **Fixed** the same day: a filler
   fills the page's columns (`changes.md`). Multiple Pages keeps each block in its column, fixed the same day.
+- **Sections with other columns as their own column flow (option 2, 2026-11-12).** Where sections' columns differ,
+  the paginator lays the blocks out one by one, each moved whole into its column, so a paragraph that does not fit
+  the rest of a column goes whole to the next one (Word splits it). The plan is to give such a section a real column
+  container, the block of columns (`columnSection`), so its text flows through the browser's columns:
+  - Phase 1, **done** 2026-11-12: a block of columns runs on across pages (filled from the first column, the page's
+    end spanning its columns, its last page balanced); a long continuous section opens as one (`changes.md`).
+  - Phase 2: a Word section of other columns that starts a page opens as a block of columns after its break, and
+    Columns > This section makes one; saved as that section's own w:cols, not an extra continuous section.
+  - Phase 3: unequal widths (Left, Right, custom), which the browser's columns cannot draw, keep the blockwise
+    layout; decide then whether they need more.
 
 Fixed 2026-10-29: Options dialog drawn light in dark mode; SmartArt Cycle, Organization Chart and Relationship
 drawn as a row of boxes in a dashed frame (`changes.md`).

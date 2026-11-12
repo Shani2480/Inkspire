@@ -649,8 +649,8 @@ function columnsKey(props: SectionProps) {
  * The body, with Word's continuous sections of other columns as blocks of columns. The editor's pages between two
  * breaks that start a page have one section's columns, the last Word section's there (its w:sectPr starts the next
  * page). A section before it on those pages with other columns (a title of one column above two) is drawn as a block
- * of its own columns, balanced as Word balances columns before a continuous break. A block is laid out whole, so a
- * section longer than the page's own (in blocks) is left in the page's columns.
+ * of its own columns, balanced as Word balances columns before a continuous break; one longer than a page goes on
+ * across the pages (pages.ts, `placeColumnBlock`).
  */
 function sectionsHtml(doc: WordDocument, ctx: Projection) {
   const blocks = doc.blocks
@@ -680,7 +680,7 @@ function sectionsHtml(doc: WordDocument, ctx: Projection) {
     }
     for (let at = start; at < index; at += 1) {
       const item = sections[at]!
-      if (columnsKey(item.props) !== columnsKey(section.props) && item.to - item.from <= section.to - section.from) {
+      if (columnsKey(item.props) !== columnsKey(section.props)) {
         wrapped.add(at)
         quietEnds.add(blocks[item.to - 1] as Paragraph)
         if (at > start) {

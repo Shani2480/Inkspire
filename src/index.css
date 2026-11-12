@@ -3359,6 +3359,24 @@ button.line-menu-row:focus-visible {
   column-count: var(--cols, 2);
   column-gap: var(--gap, 1.25cm);
   column-fill: balance;
+  /* The paginator breaks the columns after any line (pages.ts, `placeColumnBlock`): the browser must too. */
+  orphans: 1;
+  widows: 1;
+}
+
+/* A block of columns that runs on to the next page: the page's end spans its columns. */
+.column-section .page-gap {
+  column-span: all;
+}
+
+/* Where its next column starts on such a page: the browser breaks there, not where its balancing would. */
+.column-section .column-start {
+  display: block;
+  height: 0;
+  margin: 0;
+  break-before: column;
+  pointer-events: none;
+  user-select: none;
 }
 
 .column-section[data-line] .column-section-body,

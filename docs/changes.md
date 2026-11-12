@@ -5,6 +5,37 @@ wrong or missing, what changed, where (files, tests), how it was checked, and wh
 story of each feature stays in `next-todo.md` under its section; `verify-list.md` holds what still needs a check
 in Word, Chrome or the desktop app.
 
+## 2026-11-12
+
+### A block of columns runs on across pages; a long continuous section opens as one
+
+- **What was wrong:** a block of columns (Columns > Selected text, or a Word continuous section of other columns)
+  was laid out whole: one taller than the rest of the page moved to the next page and ran on through the gap into the
+  one after, its columns balanced over all of it. A long continuous section was therefore opened in the page's
+  columns instead.
+- **What changed:**
+  - `editor/pages.ts`: `placeColumnBlock` lays a block that does not fit out line by line in its own columns: each
+    column fills from where the block starts (the page's top after its first page), the page's end is a gap
+    spanning its columns with a filler before it, and its last page's columns are balanced (`balancedHeight`) with
+    the text after it below them. On the pages it runs on from, each column's start is a forced column break
+    (`column-start`), so the browser breaks where the paginator did. `measureLines` reads a paragraph split across
+    columns in text order, and `gapBetween` counts fillers.
+  - `editor/page-grid.ts`: `fitColumnBlockGaps` fits each such filler once drawn so its gap starts at the page's
+    bottom margin (the browser drops margins at a column's end that the paginator counts);
+    `cutColumnGuides` cuts the block's blue column outlines at each page gap.
+  - `index.css`: the block's gaps span its columns; `orphans`/`widows` 1 in it, as the paginator breaks after any
+    line.
+  - `docx/project.ts`: a continuous section of other columns opens as a block however long it is.
+- **Tests:** `pages.test.ts`: `balancedHeight`. `section-pages.test.ts`: forty paragraphs of three columns above a
+  continuous break open as one block. It fails without the fix.
+- **Checked:** in headless Chrome: 70 short and 30 wrapping paragraphs made Two columns with Selected text start
+  under the text above, fill page 1's columns and go on at page 2's top, the last page balanced and the text after
+  below. No line is past a page's text area, also after typing in the block. Three columns the same. A Word file
+  with 100 paragraphs in a continuous three-column section opens over four pages. Printed to PDF, three pages with
+  the columns as on screen and no outlines. Typing in page-wide columns and Multiple Pages unchanged.
+- **Open:** a block starting in a page's second column (page-wide columns above it) starts below them as before.
+  Sections of other columns that start a page are still laid out block by block (phase 2 in `next-todo.md`).
+
 ## 2026-11-11
 
 ### A floating object on a section's page is drawn on that page and cut at its size

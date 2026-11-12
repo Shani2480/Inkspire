@@ -257,6 +257,78 @@ export function cutShadedBlocks(view: EditorView) {
 }
 
 /**
+ * A block of columns that runs on to the next page ends each page with a filler and the gap (`placeColumnBlock`). The
+ * browser drops margins at a column's end that the paginator counted, so the gap would start a little above the
+ * page's foot and the next page's text above its top margin: each filler is fitted, once drawn, so its gap starts at
+ * its page's bottom margin (`data-foot`).
+ */
+export function fitColumnBlockGaps(view: EditorView) {
+  const dom = view.dom
+  const gaps = [...dom.querySelectorAll<HTMLElement>(".column-section .page-gap[data-foot]")]
+  if (gaps.length === 0 || dom.querySelector("[data-grid-placed]")) {
+    return
+  }
+  const scope = dom.closest("#document-scroll") ?? document
+  const sheets = [...scope.querySelectorAll(".page-sheet")].map((sheet) => sheet.getBoundingClientRect())
+  const zoom = dom.offsetHeight > 0 ? dom.getBoundingClientRect().height / dom.offsetHeight || 1 : 1
+  holdObserver(view, () => {
+    for (const gap of gaps) {
+      const filler = gap.previousElementSibling
+      if (!(filler instanceof HTMLElement) || !filler.classList.contains("column-filler")) {
+        continue
+      }
+      const top = gap.getBoundingClientRect().top
+      const sheet = sheets.find((rect) => top >= rect.top - 2 && top < rect.bottom + 2)
+      if (!sheet) {
+        continue
+      }
+      const delta = (sheet.bottom - (Number(gap.dataset.foot) || 0) * zoom - top) / zoom
+      if (Math.abs(delta) >= 0.5) {
+        filler.style.height = `${Math.max(0, Math.round((parseFloat(filler.style.height) || 0) + delta))}px`
+      }
+    }
+  })
+}
+
+/**
+ * A block of columns that runs on to the next page: its column outlines (`.column-guides`, an editing guide) would
+ * cross the grey between the pages, so each page gap in it is cut out of them, as `cutShadedBlocks` cuts shading.
+ */
+export function cutColumnGuides(view: EditorView) {
+  const dom = view.dom
+  const zoom = dom.offsetHeight > 0 ? dom.getBoundingClientRect().height / dom.offsetHeight || 1 : 1
+  const cuts = new Map<HTMLElement, [number, number][]>()
+  dom.querySelectorAll<HTMLElement>(".column-section .page-gap").forEach((gap) => {
+    const guides = gap.closest(".column-section")?.querySelector<HTMLElement>(":scope > .column-guides")
+    if (!guides) {
+      return
+    }
+    const top = (gap.getBoundingClientRect().top - guides.getBoundingClientRect().top) / zoom
+    const list = cuts.get(guides) ?? []
+    list.push([Math.round(top * 10) / 10, Math.round((top + gap.offsetHeight) * 10) / 10])
+    cuts.set(guides, list)
+  })
+  holdObserver(view, () => {
+    dom.querySelectorAll<HTMLElement>(".column-guides[data-gap-cut]").forEach((guides) => {
+      if (!cuts.has(guides)) {
+        guides.removeAttribute("data-gap-cut")
+        guides.style.removeProperty("mask-image")
+        guides.style.removeProperty("-webkit-mask-image")
+      }
+    })
+    cuts.forEach((list, guides) => {
+      const stops = list
+        .sort((a, b) => a[0] - b[0])
+        .map(([from, to]) => `#000 ${from}px, transparent ${from}px, transparent ${to}px, #000 ${to}px`)
+      const mask = `linear-gradient(to bottom, ${stops.join(", ")})`
+      guides.dataset.gapCut = ""
+      guides.style.setProperty("mask-image", mask)
+      guides.style.setProperty("-webkit-mask-image", mask)
+    })
+  })
+}
+
+/**
  * A table row broken across pages (Allow row to break across pages) runs on through the grey between the pages: each
  * gap in its cells is cut out of the table from where the page's foot is (the gap's `keep`) to the next page's top,
  * so its borders and shading end at one page's foot and start again at the next one's top, as Word draws them. The

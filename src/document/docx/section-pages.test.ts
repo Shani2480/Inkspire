@@ -469,6 +469,27 @@ describe("sections made in the editor and continuous ones", () => {
     return openDocxBytes(await writePackage(pkg), "title.docx")
   }
 
+  it("opens a long section of other columns above a continuous break as a block of them, however long", async () => {
+    const pkg = await openPackage(new Uint8Array(readFileSync(path.join(AUTHORED, "f15_sections.docx"))), "f15.docx")
+    const part = findPart(pkg, pkg.mainPartName)!
+    const paper = '<w:pgSz w:w="11906" w:h="16838"/>'
+    const text = (value: string) => `<w:p><w:r><w:t>${value}</w:t></w:r></w:p>`
+    // Forty paragraphs in three columns, then two in one: the long one is the block, not left in one column.
+    const long = Array.from({ length: 40 }, (_, index) => text(`three ${index + 1}`))
+    const last = long
+      .pop()!
+      .replace("<w:p>", `<w:p><w:pPr><w:sectPr>${paper}<w:cols w:num="3" w:space="708"/></w:sectPr></w:pPr>`)
+    const xml = decodeXml(part.data).replace(
+      /<w:body>.*<\/w:body>/s,
+      `<w:body>${long.join("")}${last}${text("one A")}${text("one B")}` +
+        `<w:sectPr><w:type w:val="continuous"/>${paper}<w:cols w:space="708"/></w:sectPr></w:body>`,
+    )
+    part.data = new TextEncoder().encode(xml)
+    const opened = await openDocxBytes(await writePackage(pkg), "long.docx")
+    expect(opened.view.html).toMatch(/^<div data-column-section="" data-columns="3"[^>]*>(<p[^>]*>.*?<\/p>){40}<\/div>/)
+    expect(opened.view.html).toMatch(/<\/div><p[^>]*><span[^>]*>one A/)
+  })
+
   it("opens a title of one column above a continuous break as a block of one column, without a new page", async () => {
     const opened = await titleAboveColumns()
     expect(opened.view.html).toMatch(
