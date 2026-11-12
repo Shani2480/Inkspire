@@ -7,6 +7,16 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-12
 
+### v0.1.6: Google Docs forms keep their margins; no personal name in the installers
+
+- **What was missing:** v0.1.5 opened Google Docs forms with 1-inch margins and tables past the page's edge, and
+  its installers named a person as publisher and maintainer (both fixed in the entries below).
+- **What changed:** version 0.1.6 in `package.json`, `package-lock.json`, `Cargo.toml`, `Cargo.lock`,
+  `tauri.conf.json` and the Flatpak metainfo; the android branch merges main; tagged `v0.1.6`.
+- **Tests:** 198 files, 1357 tests pass on main; typecheck clean.
+- **Checked:** the release workflow's jobs and the assets on the release.
+- **Open:** the form check in the desktop app (verify list).
+
 ### Google Docs forms keep their margins; tables pulled into the margin stay on the page
 
 - **What was wrong:** a form exported from Google Docs opened with its tables running past the right edge of the
