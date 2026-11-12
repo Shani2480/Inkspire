@@ -1,4 +1,4 @@
-import { useStyleStore } from "@/document/styles"
+import { builtInStyle, useStyleStore, type StyleDef } from "@/document/styles"
 import { updateBlocks } from "@/editor/block-format"
 import { useDocumentEditor } from "@/editor/document-editor"
 import { INDENT_MAX, INDENT_STEP_PX, clampIndent } from "@/editor/indent"
@@ -88,6 +88,29 @@ function lineSpacingOf(rule: LineRule, at: string): LineSpacing {
   return value === 1 ? "single" : value === 1.5 ? "1.5" : value === 2 ? "double" : "multiple"
 }
 
+/**
+ * The spacing a paragraph gets from its style (Normal, a heading or a named style, through what each is based on),
+ * so the dialog shows what the page draws for a paragraph with no spacing of its own.
+ */
+export function styleSpacing(editor: Editor) {
+  const level = editor.isActive("heading") ? Number(editor.getAttributes("heading").level) : 0
+  const named = editor.getAttributes(level ? "heading" : "paragraph").namedStyle
+  const styles = useStyleStore.getState().styles
+  let id: string | undefined = level ? `heading-${level}` : typeof named === "string" && named ? named : "normal"
+  const spacing: { before?: number; after?: number; line?: number } = {}
+  for (let depth = 0; id && depth < 10; depth += 1) {
+    const style: StyleDef | undefined = styles.find((item) => item.id === id) ?? builtInStyle(id)
+    if (!style) {
+      break
+    }
+    spacing.before ??= style.paragraph.before
+    spacing.after ??= style.paragraph.after
+    spacing.line ??= style.paragraph.line
+    id = style.basedOn ?? (style.id === "normal" ? undefined : "normal")
+  }
+  return spacing
+}
+
 function readDraft(editor: Editor): ParagraphDraft {
   const source = editor.isActive("heading") ? "heading" : "paragraph"
   const attrs = editor.getAttributes(source)
@@ -104,7 +127,8 @@ function readDraft(editor: Editor): ParagraphDraft {
     (attrs.spaceBefore == null || attrs.spaceBefore === "" || Number(attrs.spaceBefore) === 0) &&
     (attrs.spaceAfter == null || Number(attrs.spaceAfter) === 8 || attrs.spaceAfter === "")
   const stored = plain ? loadDefault() : null
-  const lineAt = lineHeight || (stored?.lineAt ?? (rule === "multiple" ? "1.15" : "12"))
+  const own = styleSpacing(editor)
+  const lineAt = lineHeight || (stored?.lineAt ?? (rule === "multiple" ? trimNumber(own.line ?? 1.15) : "12"))
   const special: Special = specialKind === "first" || specialKind === "hanging" ? specialKind : "none"
   const tightWrap = typeof attrs.tightWrap === "string" && attrs.tightWrap ? attrs.tightWrap : "none"
   return {
@@ -122,8 +146,14 @@ function readDraft(editor: Editor): ParagraphDraft {
           ? String(specialAmount)
           : (stored?.specialBy ?? "1.27"),
     mirror: Boolean(attrs.mirrorIndents),
-    before: attrs.spaceBefore == null || attrs.spaceBefore === "" ? (stored?.before ?? "0") : String(attrs.spaceBefore),
-    after: attrs.spaceAfter == null || attrs.spaceAfter === "" ? (stored?.after ?? "8") : String(attrs.spaceAfter),
+    before:
+      attrs.spaceBefore == null || attrs.spaceBefore === ""
+        ? (stored?.before ?? trimNumber(own.before ?? 0))
+        : String(attrs.spaceBefore),
+    after:
+      attrs.spaceAfter == null || attrs.spaceAfter === ""
+        ? (stored?.after ?? trimNumber(own.after ?? 8))
+        : String(attrs.spaceAfter),
     lineSpacing: lineSpacingOf(rule, lineAt),
     lineAt,
     contextual: Boolean(attrs.contextualSpacing),

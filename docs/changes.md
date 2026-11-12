@@ -7,6 +7,17 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-12
 
+### The Paragraph dialog shows the line spacing the page draws
+
+- **What was wrong:** for a paragraph with no spacing of its own the dialog showed Multiple 1.15 and 8 pt after,
+  while the page drew Normal's 1.65 and 9 pt; choosing the "unchanged" 1.15 made the lines visibly tighter.
+- **What changed:** `styleSpacing` in `src/components/paragraph-dialog.tsx` reads the paragraph's style (heading
+  level, named style or Normal, then what it is based on) and the dialog's empty Before, After and At take its
+  values. The user's Set As Default values still come first.
+- **Tests:** `paragraph-dialog.test.ts` (a plain paragraph takes Normal's spacing, a heading its own line).
+- **Checked:** in headless Chrome on a new document: the page draws 1.65 and the dialog shows Before 0 pt, After
+  9 pt, Multiple 1.65.
+
 ### Find in Read Mode
 
 - **What was missing:** Read Mode had no Find; Ctrl+F opened the editing Find, which is hidden there.

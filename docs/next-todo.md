@@ -2083,7 +2083,10 @@ What it lacked, to do when it returns:
 - **Default line spacing.** The Paragraph dialog shows Multiple 1.15 for a paragraph with no line spacing of its own,
   but the editor draws such paragraphs at `line-height: 1.65` (body CSS). Choosing 1.15 there makes the lines
   visibly tighter. Make the two agree (the editor's default as Word's Normal style for a new document, or the
-  dialog showing what is drawn).
+  dialog showing what is drawn). **Done (2026-11-12):** the dialog shows what is drawn: a paragraph with no
+  spacing of its own shows its style's (Normal, a heading or a named style, through `basedOn`): 1.65 and 9 pt after
+  for a new document's Normal (`styleSpacing`). Word's own 1.15 still draws tighter than in Word, since a multiple
+  is the CSS line-height here; that is a separate fidelity question.
 - **WordArt row for shape text.** Text Fill, Text Outline and Text Effects on Shape Format are on only for text
   boxes; Word turns them on for any shape with text. Shape text has `textColor` (from Font Color) but no outline
   or effects yet.
