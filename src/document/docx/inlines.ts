@@ -48,6 +48,7 @@ import { readItems, writeItems } from "@/editor/smartart-model"
 import { pointsMarkup, shapeMarkup } from "@/editor/insert-blocks"
 import { hasPictureFormat } from "@/editor/picture-format"
 import { fontOf, fontStack, themeFontsOf, type ThemeFonts } from "@/document/docx/word-styles"
+import { pictureLookHtml, readPictureLook } from "@/document/docx/picture-look"
 import { runBoxOf, textBoxAttributes, textBoxOfRun, type TextBox } from "@/document/docx/text-box"
 import { expandSpec } from "@/editor/chart-expand"
 import { chartSpecOf, renderChart, serializeChartSpec, variantOf, type ChartSpec } from "@/editor/chart-spec"
@@ -343,6 +344,8 @@ function runContentHtml(content: RunContent, run: Run, ctx: Projection) {
         return ""
       }
       const layout = content.layout ? floatingLayout(content.layout, content.cx, ctx.doc.section, content.cy) : null
+      const theme = ctx.doc.preserved?.parts.find((item) => item.name.toLowerCase() === "/word/theme/theme1.xml")
+      const look = readPictureLook(content.xml, theme ? decodeXml(theme.data) : null)
       return imageHtml(
         media,
         content.cx,
@@ -355,6 +358,7 @@ function runContentHtml(content: RunContent, run: Run, ctx: Projection) {
         content.crop,
         content.geometry,
         content,
+        look,
       )
     }
     case "text":
@@ -1111,6 +1115,8 @@ function imageHtml(
   crop?: { l: number; t: number; r: number; b: number },
   geometry?: string,
   flip?: { flipH?: boolean; flipV?: boolean },
+  /** The picture's formatting as Word wrote it (`readPictureLook`). */
+  look: Record<string, string | number> = {},
 ) {
   const mime = media.contentType || "image/png"
   const kept = object && /^[A-Za-z0-9+/=]+$/.test(object) ? ` data-inkspire-object="${object}"` : ""
@@ -1131,7 +1137,7 @@ function imageHtml(
   const frame = frameOfPreset(geometry)
   const shaped = frame ? ` data-frame="${escapeHtml(frame)}"` : ""
   const flipped = `${flip?.flipH ? ' data-flip-h="1"' : ""}${flip?.flipV ? ' data-flip-v="1"' : ""}`
-  return `<img src="data:${mime};base64,${encodeBase64(media.data)}"${width}${height}${alt}${anchor}${floating}${rotate}${cropped}${shaped}${flipped}${kept}>`
+  return `<img src="data:${mime};base64,${encodeBase64(media.data)}"${width}${height}${alt}${anchor}${floating}${rotate}${cropped}${shaped}${flipped}${pictureLookHtml(look)}${kept}>`
 }
 
 /** The data attributes the editor reads a floating object's layout from. */
@@ -1786,7 +1792,20 @@ export function imageRun(node: JsonNode, build: InlineBuild, asPicture = false):
   // Picture formatting made in the app (corrections, a frame, effects) is not in the source drawing: write it anew.
   // The shape Word gave the picture is in the source drawing; only a different one is the app's formatting.
   const ownFrame = drawing?.kind === "drawing" ? frameOfPreset(drawing.geometry) : ""
-  const formatted = { ...node.attrs, frame: node.attrs?.frame === ownFrame ? "" : node.attrs?.frame }
+  const formatted: Record<string, unknown> = {
+    ...node.attrs,
+    frame: node.attrs?.frame === ownFrame ? "" : node.attrs?.frame,
+  }
+  // Likewise the formatting Word wrote (brightness, a border, a shadow…): only a change to it is the app's.
+  if (drawing?.kind === "drawing") {
+    const theme = build.preserved?.parts.find((item) => item.name.toLowerCase() === "/word/theme/theme1.xml")
+    const look = readPictureLook(drawing.xml, theme ? decodeXml(theme.data) : null)
+    for (const [name, value] of Object.entries(look)) {
+      if (formatted[name] === value) {
+        formatted[name] = typeof value === "number" ? 0 : ""
+      }
+    }
+  }
   if (origin && drawing?.kind === "drawing" && !hasPictureFormat(formatted)) {
     const media = build.media.find((item) => item.relId === drawing.relId)
     const sameSize =
@@ -2643,14 +2662,8 @@ export function pictureDrawingFormat(attrs: Record<string, unknown>): PictureDra
     ? `<a:ln w="${Math.round(width * EMU_PER_PT)}"><a:solidFill><a:srgbClr val="${border}"/></a:solidFill>` +
       `${dash === "dot" ? '<a:prstDash val="sysDot"/>' : dash === "dash" ? '<a:prstDash val="dash"/>' : ""}</a:ln>`
     : ""
+  // In the order a:effectLst takes them: glow, shadow, reflection, soft edges.
   const effects: string[] = []
-  const shadow = String(attrs.shadow || "") || (attrs.effect === "shadow" ? "outer-br" : "")
-  if (shadow) {
-    effects.push(
-      '<a:outerShdw blurRad="50800" dist="38100" dir="2700000" algn="tl" rotWithShape="0">' +
-        '<a:prstClr val="black"><a:alpha val="40000"/></a:prstClr></a:outerShdw>',
-    )
-  }
   const [glowColor, glowSize] = String(attrs.glow || "").split(":")
   if (glowColor && /^#[0-9a-f]{6}$/i.test(glowColor)) {
     effects.push(
@@ -2658,14 +2671,21 @@ export function pictureDrawingFormat(attrs: Record<string, unknown>): PictureDra
         '<a:alpha val="40000"/></a:srgbClr></a:glow>',
     )
   }
-  const soft = Number(attrs.softEdge) || 0
-  if (soft) {
-    effects.push(`<a:softEdge rad="${Math.round(soft * EMU_PER_PT)}"/>`)
+  const shadow = String(attrs.shadow || "") || (attrs.effect === "shadow" ? "outer-br" : "")
+  if (shadow) {
+    effects.push(
+      '<a:outerShdw blurRad="50800" dist="38100" dir="2700000" algn="tl" rotWithShape="0">' +
+        '<a:prstClr val="black"><a:alpha val="40000"/></a:prstClr></a:outerShdw>',
+    )
   }
   if (attrs.reflection) {
     effects.push(
       '<a:reflection blurRad="6350" stA="52000" endA="300" endPos="35000" dir="5400000" sy="-100000" algn="bl" rotWithShape="0"/>',
     )
+  }
+  const soft = Number(attrs.softEdge) || 0
+  if (soft) {
+    effects.push(`<a:softEdge rad="${Math.round(soft * EMU_PER_PT)}"/>`)
   }
   const crop = cropRect(attrs)
   const srcRect =

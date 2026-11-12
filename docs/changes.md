@@ -7,6 +7,25 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-12
 
+### Word's picture formatting opens on the picture; effects are written in schema order
+
+- **What was wrong:** brightness, contrast, recolour, transparency, a border or a shadow, glow, soft edges or
+  reflection set on a picture in Word was written by the app but never read: the picture opened plain. The app's
+  `a:effectLst` put soft edges before the reflection (pictures) and the shadow before the glow (shapes), which the
+  schema does not allow.
+- **What changed:** `src/document/docx/picture-look.ts` reads `a:lum`, `a:grayscl`, `a:biLevel`, `a:alphaModFix`,
+  the `a:ln` of `pic:spPr` (theme colours resolved) and `a:effectLst` into the picture's own attributes; Word's
+  shadow presets map to the nearest of the app's eight directions. `inlines.ts` puts them on the image on open, and
+  on save treats values equal to Word's as unchanged, so an untouched picture keeps Word's drawing (its ids and
+  extensions). Both effect writers (`inlines.ts`, `shape-effects.ts`) now write glow, shadow, reflection, soft
+  edges.
+- **Tests:** `picture-look.test.ts` (reader, open and unchanged save, changed save); `picture-format.test.ts` now
+  expects schema order.
+- **Checked:** in headless Chrome a Word-formatted picture shows its filter, opacity, dotted border, shadow and
+  glow; saved files with every effect pass the Open XML SDK validator.
+- **Open:** Word's saturation, colour temperature and artistic
+  effects are still kept only as Word wrote them.
+
 ### A block of columns runs on across pages; a long continuous section opens as one
 
 - **What was wrong:** a block of columns (Columns > Selected text, or a Word continuous section of other columns)

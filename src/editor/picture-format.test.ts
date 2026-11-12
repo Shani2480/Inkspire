@@ -46,6 +46,8 @@ describe("picture formatting", () => {
     expect(format.line).toBe(
       '<a:ln w="38100"><a:solidFill><a:srgbClr val="0f6cbd"/></a:solidFill><a:prstDash val="dash"/></a:ln>',
     )
-    expect(format.effects).toMatch(/^<a:effectLst><a:outerShdw .*<a:softEdge rad="63500"\/><a:reflection /)
+    expect(format.effects).toMatch(
+      /^<a:effectLst><a:outerShdw .*<a:reflection .*<a:softEdge rad="63500"\/><\/a:effectLst>$/,
+    )
   })
 })
