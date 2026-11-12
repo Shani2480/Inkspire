@@ -104,8 +104,8 @@
     "category": "Productivity",
     "shortDescription": "Local, AI-first desktop word processor",
     "longDescription": "A word processor with a Word-style ribbon: pages, tables, charts, SmartArt, shapes, equations, track changes and native .docx open and save.",
-    "publisher": "Shani",
-    "copyright": "Copyright (c) 2026 Shani",
+    "publisher": "Inkspire",
+    "copyright": "Copyright (c) 2026 The Inkspire authors",
     "homepage": "https://github.com/Shani2480/Inkspire",
     "licenseFile": "../LICENSE",
     "macOS": {

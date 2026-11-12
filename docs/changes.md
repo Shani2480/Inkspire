@@ -7,6 +7,18 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-12
 
+### No personal name or account in the code or packages
+
+- **What was wrong:** the author's name stood as publisher, copyright holder and author in `LICENSE`,
+  `package.json`, `Cargo.toml`, `tauri.conf.json` (so also the .deb Maintainer and the Windows publisher) and the
+  Flatpak metainfo; a real account name was the example in `user-settings.ts` and its test; five test fixtures
+  (`f20`–`f24`) carried it as their creator.
+- **What changed:** "The Inkspire authors" (publisher "Inkspire") in those files; the example account is `alex99`;
+  the fixtures' creator and last-modified-by are "Author Name", like the other fixtures. Only the GitHub links
+  and the Flatpak developer id keep the GitHub handle.
+- **Tests:** 197 files, 1353 tests pass on main; typecheck clean.
+- **Open:** commit history before 2026-11-12 still carries the old author email.
+
 ### v0.1.5: Word sections, lists and SmartArt open as written, with the Android APK on the same code
 
 - **What was missing:** v0.1.4 lacked the Word list, section, cover-page and SmartArt work on main and the
