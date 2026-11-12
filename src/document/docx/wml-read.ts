@@ -1228,7 +1228,7 @@ function readTable(node: MarkupNode, notes: WordNote[], raw: RawCursor = NO_RAW)
   if (overlap) {
     table.overlap = overlap
   }
-  const indent = readTableWidth(wordChild(properties, "tblInd"))
+  const indent = readTableWidth(wordChild(properties, "tblInd"), true)
   if (indent) {
     table.indent = indent
   }
@@ -1567,14 +1567,15 @@ function readTablePosition(node: MarkupNode | undefined) {
   return position
 }
 
-function readTableWidth(node: MarkupNode | undefined) {
+/** A table width; `signed` for w:tblInd, which may pull the table left past the margin. */
+function readTableWidth(node: MarkupNode | undefined, signed = false) {
   if (!node) {
     return undefined
   }
   const type = oneOf(attr(node, "type"), TABLE_WIDTH_TYPES)
   const raw = attr(node, "w")
   // Strict writes percentages as "50%"; Transitional counts fiftieths of a percent.
-  const value = type === "pct" && raw?.endsWith("%") ? readPercent(raw) : readUMeasure(raw)
+  const value = type === "pct" && raw?.endsWith("%") ? readPercent(raw) : signed ? readMeasure(raw) : readUMeasure(raw)
   if (!type || value === undefined) {
     return undefined
   }
@@ -3030,11 +3031,18 @@ function readInt(value: string | undefined) {
 const UNIVERSAL_MEASURE = /^(-?\d+(?:\.\d+)?)(mm|cm|in|pt|pc|pi)$/
 const TWIPS_PER_UNIT: Record<string, number> = { mm: 1440 / 25.4, cm: 1440 / 2.54, in: 1440, pt: 20, pc: 240, pi: 240 }
 
-/** Twips, from a plain number or a Strict universal measure such as "36pt" or "2.54cm". */
+/**
+ * Twips, from a plain number or a Strict universal measure such as "36pt" or "2.54cm". A plain number may have
+ * a fraction ("1137.6000000000001", "10605.0", as Google Docs writes them); Word opens those, rounded.
+ */
 function readMeasure(value: string | undefined) {
   const match = value === undefined ? null : UNIVERSAL_MEASURE.exec(value)
   if (match) {
     return Math.round(Number(match[1]) * (TWIPS_PER_UNIT[match[2]!] ?? 0))
+  }
+  if (value !== undefined && /^-?\d+\.\d*$/.test(value)) {
+    const number = Math.round(Number(value))
+    return Number.isSafeInteger(number) ? number : undefined
   }
   return readInt(value)
 }
