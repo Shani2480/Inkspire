@@ -7,6 +7,18 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-12
 
+### v0.1.5: Word sections, lists and SmartArt open as written, with the Android APK on the same code
+
+- **What was missing:** v0.1.4 lacked the Word list, section, cover-page and SmartArt work on main and the
+  `sections-lists-smartart` branch (Multiple Pages at each section's size, columns by section, several picked
+  objects, Remove Background, Read Mode find, WordArt Styles, crop and Picture Layout).
+- **What changed:** `sections-lists-smartart` fast-forwarded into main; version 0.1.5 in `package.json`,
+  `package-lock.json`, `Cargo.toml`, `Cargo.lock`, `tauri.conf.json` and the Flatpak metainfo; the android branch
+  merges main; tagged `v0.1.5`.
+- **Tests:** 197 files, 1353 tests pass on main; typecheck clean.
+- **Checked:** the release workflow's jobs and the assets on the release.
+- **Open:** the new work is not yet looked at on the tablet.
+
 ### Multiple Pages draws each section's pages at their own size
 
 - **What was wrong:** Multiple Pages drew every page on the document's paper, so a landscape section among portrait
