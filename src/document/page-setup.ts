@@ -66,6 +66,12 @@ export type PageSetup = {
   lineNumberStart: number
   lineNumberCountBy: number
   lineNumberDistance: number
+  /**
+   * Format Page Numbers: the number the section's first page takes, or null to go on from the previous section
+   * (Word's `w:pgNumType/@w:start`), and how the numbers are written (`@w:fmt`: decimal, lowerRoman, …).
+   */
+  pageNumberStart: number | null
+  pageNumberFormat: string
   watermark: string
   border: PageBorder
   borderColor: string
@@ -173,6 +179,8 @@ export const DEFAULT_PAGE_SETUP: PageSetup = {
   lineNumberStart: 1,
   lineNumberCountBy: 1,
   lineNumberDistance: 0,
+  pageNumberStart: null,
+  pageNumberFormat: "decimal",
   watermark: "",
   border: "none",
   borderColor: "#1c1c1c",
@@ -226,6 +234,12 @@ export function normalizePageSetup(setup: Partial<PageSetup> | null | undefined)
     lineNumberStart: Math.max(1, Math.round(Number(setup?.lineNumberStart) || 1)),
     lineNumberCountBy: Math.max(1, Math.min(100, Math.round(Number(setup?.lineNumberCountBy) || 1))),
     lineNumberDistance: clampNonNeg(setup?.lineNumberDistance, 0),
+    pageNumberStart:
+      setup?.pageNumberStart === null || setup?.pageNumberStart === undefined
+        ? null
+        : Math.max(0, Math.round(Number(setup.pageNumberStart) || 0)),
+    pageNumberFormat:
+      typeof setup?.pageNumberFormat === "string" && setup.pageNumberFormat ? setup.pageNumberFormat : "decimal",
     columns: columnCount(setup?.columns ?? DEFAULT_PAGE_SETUP.columns),
     columnLine: Boolean(setup?.columnLine),
     columnWidths: columnWidths(setup?.columnWidths, columnCount(setup?.columns ?? DEFAULT_PAGE_SETUP.columns)),
@@ -270,6 +284,8 @@ export function samePageSetup(left: PageSetup, right: PageSetup) {
     left.lineNumberStart === right.lineNumberStart &&
     left.lineNumberCountBy === right.lineNumberCountBy &&
     left.lineNumberDistance === right.lineNumberDistance &&
+    left.pageNumberStart === right.pageNumberStart &&
+    left.pageNumberFormat === right.pageNumberFormat &&
     left.watermark === right.watermark &&
     left.border === right.border &&
     left.borderColor === right.borderColor &&
@@ -357,8 +373,11 @@ export function webMetrics(width: number): PageMetrics {
   }
 }
 
-/** The page's size and margins in pixels; `paper` asks for the sheet itself, even where the view has no pages. */
-export function pageMetrics(setup: PageSetup, paper = false): PageMetrics {
+/**
+ * The page's size and margins in pixels; `paper` asks for the sheet itself, even where the view has no pages, and
+ * `section` names the section before the last whose headers and footers push its margins.
+ */
+export function pageMetrics(setup: PageSetup, paper = false, section = ""): PageMetrics {
   if (!paper) {
     const { layoutMode, webWidth } = useViewStore.getState()
     if (layoutMode === "web" && webWidth > 0) {
@@ -369,7 +388,9 @@ export function pageMetrics(setup: PageSetup, paper = false): PageMetrics {
   const width = box.width * MM_TO_PX
   const height = box.height * MM_TO_PX
   // A header or footer taller than its margin pushes the body away from the edge, as in Word.
-  const reach = useChromeExtent.getState()
+  // A section before the last is pushed by its own headers and footers (`section` is its key).
+  const extent = useChromeExtent.getState()
+  const reach = section ? (extent.sections[section] ?? { header: 0, footer: 0 }) : extent
   const marginTop = Math.max(setup.marginTop * MM_TO_PX, reach.header)
   const marginRight = setup.marginRight * MM_TO_PX
   const marginBottom = Math.max(setup.marginBottom * MM_TO_PX, reach.footer)

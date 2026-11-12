@@ -19,9 +19,11 @@ import {
   spacingPreset,
   type PageSetup,
 } from "@/document/page-setup"
+import type { ColumnWidth } from "@/document/column-widths"
+import type { ChromeSlot, SectionChrome } from "@/document/sections"
 
 const CHROME_MARK =
-  /^<!-- aiword-(header|footer|first-header|first-footer|even-header|even-footer|first|oddeven|page|columns|colgap|colline|colwidths|lines|watermark|border|borderwidth|borderline|borderplace|pagecolor|pagenum|hyphens|language|fonts|spacing|headerstyle|footerstyle|colors|effects):([^\n>]*) -->\n?/
+  /^<!-- aiword-(header|footer|first-header|first-footer|even-header|even-footer|first|oddeven|page|columns|colgap|colline|colwidths|lines|watermark|border|borderwidth|borderline|borderplace|pagecolor|pagenum|hyphens|language|fonts|spacing|headerstyle|footerstyle|colors|effects|pagenumbers|sections):([^\n>]*) -->\n?/
 
 export type DocumentChrome = {
   /** The header and footer of each kind of page, as editor HTML. */
@@ -34,6 +36,10 @@ export type DocumentChrome = {
   evenHeader: string
   evenFooter: string
   pageSetup: PageSetup
+  /** A Word document's sections before the last, each with its own margins and headers and footers. */
+  sections?: SectionChrome[]
+  /** The headers and footers the last section has none of: it shows, and edits, the previous section's. */
+  linked?: ChromeSlot[]
 }
 
 export function emptyChrome(): DocumentChrome {
@@ -103,6 +109,14 @@ export function packDocument(html: string, chrome: DocumentChrome) {
     chrome.pageSetup.colorScheme ? `<!-- aiword-colors:${encodeURIComponent(chrome.pageSetup.colorScheme)} -->` : "",
     chrome.pageSetup.effects ? `<!-- aiword-effects:${chrome.pageSetup.effects} -->` : "",
     chrome.pageSetup.spacing === "default" ? "" : `<!-- aiword-spacing:${chrome.pageSetup.spacing} -->`,
+    chrome.pageSetup.pageNumberStart === null && chrome.pageSetup.pageNumberFormat === "decimal"
+      ? ""
+      : `<!-- aiword-pagenumbers:${chrome.pageSetup.pageNumberStart ?? ""}|${encodeURIComponent(chrome.pageSetup.pageNumberFormat)} -->`,
+    // A Word document's sections before the last (margins, page numbers, headers and footers), so a recovered
+    // draft keeps them.
+    chrome.sections?.length
+      ? `<!-- aiword-sections:${encodeURIComponent(JSON.stringify({ sections: chrome.sections, linked: chrome.linked ?? [] }))} -->`
+      : "",
     chrome.pageSetup.headerStyle === "blank" ? "" : `<!-- aiword-headerstyle:${chrome.pageSetup.headerStyle} -->`,
     chrome.pageSetup.footerStyle === "blank" ? "" : `<!-- aiword-footerstyle:${chrome.pageSetup.footerStyle} -->`,
   ].filter(Boolean)
@@ -127,6 +141,86 @@ function borderFlags(setup: PageSetup) {
   ]
     .filter(Boolean)
     .join(" ")
+}
+
+const SLOTS: ChromeSlot[] = ["header", "footer", "firstHeader", "firstFooter", "evenHeader", "evenFooter"]
+
+/** A packed section's own paper, side margins and columns; one without them (an older file) takes the document's. */
+function sectionPaperOf(item: Record<string, unknown>): Partial<SectionChrome> {
+  const out: Partial<SectionChrome> = {}
+  if (item.paper === "letter" || item.paper === "a4" || item.paper === "legal") {
+    out.paper = item.paper
+  }
+  if (item.orientation === "portrait" || item.orientation === "landscape") {
+    out.orientation = item.orientation
+  }
+  for (const field of ["paperWidth", "paperHeight", "marginLeft", "marginRight", "columnGap"] as const) {
+    const value = item[field]
+    if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+      out[field] = value
+    }
+  }
+  if (typeof item.columns === "number" && Number.isFinite(item.columns)) {
+    out.columns = columnCount(item.columns)
+  }
+  if (typeof item.columnLine === "boolean") {
+    out.columnLine = item.columnLine
+  }
+  if (Array.isArray(item.columnWidths)) {
+    const widths = item.columnWidths.filter(
+      (column): column is ColumnWidth =>
+        typeof column?.width === "number" && Number.isFinite(column.width) && typeof column?.space === "number",
+    )
+    if (widths.length === out.columns && widths.length > 1) {
+      out.columnWidths = widths.map((column) => ({ width: column.width, space: column.space }))
+    }
+  }
+  return out
+}
+
+/** The `sections` mark: each section's setup and its own headers and footers, with anything malformed left out. */
+function readSections(value: string): { sections: SectionChrome[]; linked: ChromeSlot[] } {
+  let data: unknown
+  try {
+    data = JSON.parse(value)
+  } catch {
+    return { sections: [], linked: [] }
+  }
+  const record = (data ?? {}) as { sections?: unknown; linked?: unknown }
+  const parts = (input: unknown) => {
+    const out: Partial<Record<ChromeSlot, string>> = {}
+    for (const slot of SLOTS) {
+      const html = (input as Record<string, unknown> | null)?.[slot]
+      if (typeof html === "string") {
+        out[slot] = html
+      }
+    }
+    return out
+  }
+  const mm = (input: unknown, fallback: number) =>
+    typeof input === "number" && Number.isFinite(input) && input >= 0 ? input : fallback
+  const sections = (Array.isArray(record.sections) ? record.sections : [])
+    .filter((item): item is Record<string, unknown> => typeof item?.key === "string" && item.key !== "")
+    .map((item) => ({
+      key: String(item.key),
+      marginTop: mm(item.marginTop, 25.4),
+      marginBottom: mm(item.marginBottom, 25.4),
+      headerFromEdge: mm(item.headerFromEdge, 12.5),
+      footerFromEdge: mm(item.footerFromEdge, 12.5),
+      differentFirstPage: item.differentFirstPage === true,
+      pageNumberStart:
+        typeof item.pageNumberStart === "number" && Number.isFinite(item.pageNumberStart)
+          ? Math.max(0, Math.round(item.pageNumberStart))
+          : null,
+      pageNumberFormat: typeof item.pageNumberFormat === "string" ? item.pageNumberFormat : "decimal",
+      ...sectionPaperOf(item),
+      parts: parts(item.parts),
+      opened: parts(item.opened),
+    }))
+  const linked = (Array.isArray(record.linked) ? record.linked : []).filter((slot): slot is ChromeSlot =>
+    SLOTS.includes(slot as ChromeSlot),
+  )
+  return { sections, linked }
 }
 
 export function unpackDocument(raw: string) {
@@ -240,6 +334,18 @@ export function unpackDocument(raw: string) {
       chrome.pageSetup = { ...chrome.pageSetup, effects: effectPreset(value) }
     } else if (match[1] === "spacing") {
       chrome.pageSetup = { ...chrome.pageSetup, spacing: spacingPreset(value) }
+    } else if (match[1] === "pagenumbers") {
+      const [start, format] = value.split("|")
+      const number = Number(start)
+      chrome.pageSetup = {
+        ...chrome.pageSetup,
+        pageNumberStart: start === "" || !Number.isFinite(number) ? null : Math.max(0, Math.round(number)),
+        pageNumberFormat: decodeMark(format ?? "") || "decimal",
+      }
+    } else if (match[1] === "sections") {
+      const read = readSections(value)
+      chrome.sections = read.sections
+      chrome.linked = read.linked
     } else if (match[1] === "headerstyle") {
       chrome.pageSetup = { ...chrome.pageSetup, headerStyle: builtInHeader(value) }
     } else if (match[1] === "footerstyle") {

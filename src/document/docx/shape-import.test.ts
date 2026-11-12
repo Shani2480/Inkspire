@@ -167,8 +167,8 @@ describe("Word's drawn shapes (21.35)", () => {
     part.data = new TextEncoder().encode(decodeXml(part.data).replace('prst="heart"', 'prst="wedgeRoundRectCallout"'))
     const opened = await openDocxBytes(await writePackage(pkg), "callout.docx")
     const callout = objects(opened.view.html)[1]?.figure.attrs
-    expect(callout).toMatchObject({ kind: "shape", variant: "rect" })
-    expect(String(callout?.points)).toMatch(/^M/)
+    // Drawn from Word's geometry by name, so its yellow handles work; not baked into points.
+    expect(callout).toMatchObject({ kind: "shape", variant: "rect", geometry: "wedgeRoundRectCallout", points: "" })
     const extensions = createExtensions().filter((extension) => extension.name !== "spellcheck")
     const editor = new Editor({ extensions, content: opened.view.html })
     try {
@@ -183,6 +183,48 @@ describe("Word's drawn shapes (21.35)", () => {
       const xml = decodeXml(findPart(await openPackage(saved.bytes, "edited.docx"), "/word/document.xml")!.data)
       expect(xml).toContain('prst="wedgeRoundRectCallout"')
       expect(xml).not.toContain("<a:custGeom")
+    } finally {
+      editor.destroy()
+    }
+  })
+
+  it("saves a Division sign's handles where they were dragged, and opens them there again", async () => {
+    const bytes = new Uint8Array(readFileSync(path.join(AUTHORED, "f20_word_shapes.docx")))
+    const pkg = await openPackage(bytes, "f20_word_shapes.docx")
+    const part = findPart(pkg, "/word/document.xml")!
+    part.data = new TextEncoder().encode(decodeXml(part.data).replace('prst="heart"', 'prst="mathDivide"'))
+    const opened = await openDocxBytes(await writePackage(pkg), "divide.docx")
+    // The handle moved: the shape's object record (as the app keeps it on its picture) has the new value.
+    const divide = objects(opened.view.html).find((item) => item.figure.attrs.geometry === "mathDivide")!
+    expect(divide).toBeTruthy()
+    const record = JSON.parse(atob(divide.image.getAttribute("data-inkspire-object")!)) as {
+      attrs: Record<string, unknown>
+    }
+    record.attrs.adjust = JSON.stringify({ adj3: 4000 })
+    const html = opened.view.html.replace(
+      divide.image.getAttribute("data-inkspire-object")!,
+      btoa(JSON.stringify(record)),
+    )
+    const extensions = createExtensions().filter((extension) => extension.name !== "spellcheck")
+    const editor = new Editor({ extensions, content: html })
+    try {
+      const saved = await saveDocxBytes({
+        json: editor.getJSON(),
+        chrome: opened.view.chrome,
+        props: opened.view.props,
+        word: opened.word,
+        unchanged: false,
+        fileName: "edited.docx",
+      })
+      if (process.env.SAVE_SHAPE_DOCX) {
+        const { writeFileSync } = await import("node:fs")
+        writeFileSync(process.env.SAVE_SHAPE_DOCX, saved.bytes)
+      }
+      const xml = decodeXml(findPart(await openPackage(saved.bytes, "edited.docx"), "/word/document.xml")!.data)
+      expect(xml).toContain('<a:prstGeom prst="mathDivide"><a:avLst><a:gd name="adj3" fmla="val 4000"/></a:avLst>')
+      const again = await openDocxBytes(saved.bytes, "edited.docx")
+      const reopened = objects(again.view.html).find((item) => item.figure.attrs.geometry === "mathDivide")
+      expect(reopened?.figure.attrs.adjust).toBe('{"adj3":4000}')
     } finally {
       editor.destroy()
     }

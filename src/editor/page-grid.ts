@@ -1,5 +1,8 @@
 import { pageGridCell, pageGridColumns, type PageView } from "@/document/page-grid"
+import { drawnPageKeys, gridFrames, pageMetricsList, stackFrames, type PageFrame } from "@/document/page-frames"
 import type { PageMetrics } from "@/document/page-setup"
+import { useDocumentStore } from "@/document/store"
+import { objectLeft, objectTop } from "@/editor/objects"
 import { PAGE_GAP } from "@/editor/pages"
 import type { EditorView } from "@tiptap/pm/view"
 
@@ -75,43 +78,110 @@ export function finishPageGrid(view: EditorView, pageView: PageView, metrics: Pa
   })
 }
 
+/**
+ * Each page as the editor's flow has it (one under another, each its section's size: `stackFrames`) and as Multiple
+ * Pages draws it (`gridFrames`), with the grid's cell width. `page(top)` is the page a flow position is on.
+ */
+export function pagePlaces(pageView: PageView, metrics: PageMetrics) {
+  const store = useDocumentStore.getState()
+  const keys = drawnPageKeys()
+  const list = keys.length > 0 ? pageMetricsList(store.pageSetup, store.sections, keys, keys.length) : [metrics]
+  const flow = stackFrames(list, PAGE_GAP).frames
+  const grid = gridFrames(list, pageView, PAGE_GAP)
+  const page = (top: number) => {
+    let index = 0
+    while (index + 1 < flow.length && flow[index + 1]!.top <= top + 1) {
+      index += 1
+    }
+    // Past the pages the paginator last counted: as many more of the last page's size.
+    const last = flow[flow.length - 1]!
+    const stride = last.height + PAGE_GAP
+    const beyond = index === flow.length - 1 ? Math.max(0, Math.floor((top + 1 - last.top) / stride)) : 0
+    return { index: index + beyond }
+  }
+  /** Where page `index` is in the flow and in the grid (pages past the counted ones repeat the last's size). */
+  const at = (index: number): { flow: PageFrame; grid: PageFrame } => {
+    if (index < flow.length) {
+      return { flow: flow[index]!, grid: grid.frames[index]! }
+    }
+    const more = gridFrames(
+      [...list, ...Array.from({ length: index + 1 - list.length }, () => list[list.length - 1]!)],
+      pageView,
+      PAGE_GAP,
+    )
+    const last = flow[flow.length - 1]!
+    const extra = index - (flow.length - 1)
+    return {
+      flow: { ...last, top: last.top + extra * (last.height + PAGE_GAP) },
+      grid: more.frames[index]!,
+    }
+  }
+  return { page, at, cellWidth: grid.cellWidth, own: metrics }
+}
+
 function applyPageGrid(dom: HTMLElement, pageView: PageView, metrics: PageMetrics) {
   const columns = pageGridColumns(pageView)
-  const xStride = metrics.width + PAGE_GAP
-  const yStride = metrics.height + PAGE_GAP
   const contentWidth = Math.max(1, metrics.width - metrics.marginLeft - metrics.marginRight)
-  const columnGap = metrics.marginLeft + metrics.marginRight + PAGE_GAP
+  const places = pagePlaces(pageView, metrics)
   dom.style.width = `${contentWidth}px`
   dom.style.maxWidth = `${contentWidth}px`
 
   const kids = [...dom.children].filter((node): node is HTMLElement => node instanceof HTMLElement)
-  const snapshot = kids.map((el) => ({ el, top: el.offsetTop }))
+  // In columns (data-columns) a block keeps the column it is laid out in: how far right of the text's left edge,
+  // and its column's width, both read before any block is moved out of the flow.
+  const inColumns = dom.hasAttribute("data-columns")
+  const origin = dom.getBoundingClientRect()
+  const scale = dom.offsetWidth > 0 ? origin.width / dom.offsetWidth || 1 : 1
+  const padLeft = parseFloat(getComputedStyle(dom).paddingLeft) || 0
+  const snapshot = kids.map((el) => {
+    if (!inColumns || getComputedStyle(el).columnSpan === "all") {
+      return { el, top: el.offsetTop, x: 0, width: contentWidth }
+    }
+    const style = getComputedStyle(el)
+    const x = (el.getBoundingClientRect().left - origin.left) / scale - dom.clientLeft - padLeft
+    const width = parseFloat(style.width) || contentWidth
+    return { el, top: el.offsetTop, x: Math.max(0, x - (parseFloat(style.marginLeft) || 0)), width }
+  })
 
-  for (const { el, top } of snapshot) {
+  for (const { el, top, x, width } of snapshot) {
     if (el.classList.contains("object-frame") || el.tagName === "BR") {
       continue
     }
     if (el.classList.contains("ProseMirror-separator") || el.classList.contains("ProseMirror-trailingBreak")) {
       continue
     }
-    const page = Math.max(0, Math.floor((top + 1) / yStride))
-    const within = Math.max(0, top - page * yStride)
-    const cell = pageGridCell(page, pageView, xStride, yStride)
+    // The page it is on in the flow, and that page's place in the grid: its text's top left from the document's own.
+    const { index: page } = places.page(top)
+    const { flow, grid } = places.at(page)
+    const within = Math.max(0, top - flow.top)
+    const sheet = grid.metrics
+    const cell = {
+      left: grid.left + sheet.marginLeft - metrics.marginLeft,
+      top: grid.top,
+      column: pageGridCell(page, pageView, 1, 1).column,
+    }
+    const textWidth = Math.max(1, sheet.width - sheet.marginLeft - sheet.marginRight)
     const style = getComputedStyle(el)
     const marginTop = parseFloat(style.marginTop) || 0
     const marginLeft = parseFloat(style.marginLeft) || 0
 
-    if (el.classList.contains("page-gap") || el.classList.contains("object-band")) {
+    if (
+      el.classList.contains("page-gap") ||
+      el.classList.contains("object-band") ||
+      el.classList.contains("column-filler")
+    ) {
       collapseGap(el, true)
       continue
     }
 
     el.dataset.gridPlaced = "1"
     el.style.position = "absolute"
-    el.style.left = `${cell.left - marginLeft}px`
+    // Page-wide blocks take their page's text width; a block in columns keeps its column's.
+    const own = width === contentWidth ? textWidth : width
+    el.style.left = `${cell.left + x - marginLeft}px`
     el.style.top = `${cell.top + within - marginTop}px`
-    el.style.width = `${contentWidth}px`
-    el.style.maxWidth = `${contentWidth}px`
+    el.style.width = `${own}px`
+    el.style.maxWidth = `${own}px`
 
     const gaps = [...el.querySelectorAll(".page-gap")].filter(
       (node): node is HTMLElement => node instanceof HTMLElement,
@@ -124,13 +194,15 @@ function applyPageGrid(dom: HTMLElement, pageView: PageView, metrics: PageMetric
       continue
     }
     const span = Math.min(room, gaps.length + 1)
-    const spanWidth = span * contentWidth + (span - 1) * columnGap
+    // From one page's text to the next one's across: the rest of the cell and the gap.
+    const columnGap = places.cellWidth + PAGE_GAP - textWidth
+    const spanWidth = span * textWidth + (span - 1) * columnGap
     el.style.width = `${spanWidth}px`
     el.style.maxWidth = `${spanWidth}px`
-    el.style.columnWidth = `${contentWidth}px`
+    el.style.columnWidth = `${textWidth}px`
     el.style.columnGap = `${columnGap}px`
     el.style.columnFill = "auto"
-    el.style.height = `${Math.max(24, metrics.height - metrics.marginTop - metrics.marginBottom - within)}px`
+    el.style.height = `${Math.max(24, sheet.height - sheet.marginTop - sheet.marginBottom - within)}px`
     el.style.overflow = "visible"
     for (const gap of gaps.slice(0, span - 1)) {
       collapseGap(gap, false)
@@ -180,14 +252,21 @@ export function clearPageGrid(dom: HTMLElement) {
 }
 
 export function placeObjectFrames(dom: HTMLElement, pageView: PageView, metrics: PageMetrics) {
-  const xStride = metrics.width + PAGE_GAP
-  const yStride = metrics.height + PAGE_GAP
+  const places = pageView > 1 ? pagePlaces(pageView, metrics) : null
   dom.querySelectorAll<HTMLElement>(".object-frame").forEach((el) => {
     const page = Math.max(1, Number(el.dataset.page) || 1)
     const x = Number(el.dataset.x) || 0
     const y = Number(el.dataset.y) || 0
-    const cell = pageGridCell(page - 1, pageView, xStride, yStride)
-    el.style.left = `${Math.round(cell.left + x)}px`
+    // One page wide, a section's pages are drawn at their own size, so the object's page is placed as `applyFrame` does.
+    if (pageView <= 1) {
+      el.style.left = `${Math.round(objectLeft(page, x, metrics))}px`
+      el.style.top = `${Math.round(objectTop(page, y, metrics))}px`
+      return
+    }
+    // The page's text left from the document's own, as `objectLeft` has it (the same as the cell's for one size).
+    const cell = places!.at(page - 1).grid
+    const left = cell.left + cell.metrics.marginLeft - metrics.marginLeft
+    el.style.left = `${Math.round(left + x)}px`
     el.style.top = `${Math.round(cell.top + y)}px`
   })
 }
@@ -227,6 +306,78 @@ export function cutShadedBlocks(view: EditorView) {
       block.dataset.gapCut = ""
       block.style.setProperty("mask-image", mask)
       block.style.setProperty("-webkit-mask-image", mask)
+    })
+  })
+}
+
+/**
+ * A block of columns that runs on to the next page ends each page with a filler and the gap (`placeColumnBlock`). The
+ * browser drops margins at a column's end that the paginator counted, so the gap would start a little above the
+ * page's foot and the next page's text above its top margin: each filler is fitted, once drawn, so its gap starts at
+ * its page's bottom margin (`data-foot`).
+ */
+export function fitColumnBlockGaps(view: EditorView) {
+  const dom = view.dom
+  const gaps = [...dom.querySelectorAll<HTMLElement>(".column-section .page-gap[data-foot]")]
+  if (gaps.length === 0 || dom.querySelector("[data-grid-placed]")) {
+    return
+  }
+  const scope = dom.closest("#document-scroll") ?? document
+  const sheets = [...scope.querySelectorAll(".page-sheet")].map((sheet) => sheet.getBoundingClientRect())
+  const zoom = dom.offsetHeight > 0 ? dom.getBoundingClientRect().height / dom.offsetHeight || 1 : 1
+  holdObserver(view, () => {
+    for (const gap of gaps) {
+      const filler = gap.previousElementSibling
+      if (!(filler instanceof HTMLElement) || !filler.classList.contains("column-filler")) {
+        continue
+      }
+      const top = gap.getBoundingClientRect().top
+      const sheet = sheets.find((rect) => top >= rect.top - 2 && top < rect.bottom + 2)
+      if (!sheet) {
+        continue
+      }
+      const delta = (sheet.bottom - (Number(gap.dataset.foot) || 0) * zoom - top) / zoom
+      if (Math.abs(delta) >= 0.5) {
+        filler.style.height = `${Math.max(0, Math.round((parseFloat(filler.style.height) || 0) + delta))}px`
+      }
+    }
+  })
+}
+
+/**
+ * A block of columns that runs on to the next page: its column outlines (`.column-guides`, an editing guide) would
+ * cross the grey between the pages, so each page gap in it is cut out of them, as `cutShadedBlocks` cuts shading.
+ */
+export function cutColumnGuides(view: EditorView) {
+  const dom = view.dom
+  const zoom = dom.offsetHeight > 0 ? dom.getBoundingClientRect().height / dom.offsetHeight || 1 : 1
+  const cuts = new Map<HTMLElement, [number, number][]>()
+  dom.querySelectorAll<HTMLElement>(".column-section .page-gap").forEach((gap) => {
+    const guides = gap.closest(".column-section")?.querySelector<HTMLElement>(":scope > .column-guides")
+    if (!guides) {
+      return
+    }
+    const top = (gap.getBoundingClientRect().top - guides.getBoundingClientRect().top) / zoom
+    const list = cuts.get(guides) ?? []
+    list.push([Math.round(top * 10) / 10, Math.round((top + gap.offsetHeight) * 10) / 10])
+    cuts.set(guides, list)
+  })
+  holdObserver(view, () => {
+    dom.querySelectorAll<HTMLElement>(".column-guides[data-gap-cut]").forEach((guides) => {
+      if (!cuts.has(guides)) {
+        guides.removeAttribute("data-gap-cut")
+        guides.style.removeProperty("mask-image")
+        guides.style.removeProperty("-webkit-mask-image")
+      }
+    })
+    cuts.forEach((list, guides) => {
+      const stops = list
+        .sort((a, b) => a[0] - b[0])
+        .map(([from, to]) => `#000 ${from}px, transparent ${from}px, transparent ${to}px, #000 ${to}px`)
+      const mask = `linear-gradient(to bottom, ${stops.join(", ")})`
+      guides.dataset.gapCut = ""
+      guides.style.setProperty("mask-image", mask)
+      guides.style.setProperty("-webkit-mask-image", mask)
     })
   })
 }

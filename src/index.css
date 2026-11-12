@@ -1425,6 +1425,15 @@ button.line-menu-row:focus-visible {
   z-index: 1;
 }
 
+/* The empty end of a page's columns (pages.ts, PageBreak.filler): breaks across the columns it fills. */
+.column-filler {
+  display: block;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  pointer-events: none;
+}
+
 .page-gap {
   display: block;
   clear: both;
@@ -1614,7 +1623,8 @@ button.line-menu-row:focus-visible {
   line-height: 2;
 }
 
-.page-sheet:has(.page-footer.has-content) .page-footer {
+/* Room for the app's own page number beside a footer; none when it is not shown (a Word file's footer numbers itself). */
+.page-sheet:has(.page-footer.has-content):has(.page-number:not([data-place="none"])) .page-footer {
   padding-right: 2.5rem;
 }
 
@@ -1926,6 +1936,34 @@ button.line-menu-row:focus-visible {
 
 .page-editor li::marker {
   color: #1c1c1c;
+}
+
+/* Word's own bullet or number (word-markers.ts): in the hanging indent, the text at the indent or the tab stop past
+   the marker (`--word-box`, set by fitWordMarkers), the marker in its level's own font, size, colour and weight. */
+.page-editor li[data-word-marker] > :first-child::before {
+  content: var(--word-marker);
+  display: inline-block;
+  box-sizing: border-box;
+  min-width: var(--word-box, var(--word-hang, 18pt));
+  max-width: var(--word-box, none);
+  margin-left: calc(-1 * var(--word-hang, 18pt));
+  transform: translateX(var(--word-shift, 0));
+  font-family: var(--word-marker-font, inherit);
+  font-size: var(--word-marker-size, inherit);
+  font-weight: var(--word-marker-weight, inherit);
+  font-style: var(--word-marker-style, normal);
+  color: var(--word-marker-color, inherit);
+  text-decoration: none;
+  text-indent: 0;
+  white-space: pre;
+}
+
+/* A picture bullet (w:lvlPicBulletId): its picture a font size high, in the marker's place. */
+.page-editor li[data-word-picture] > :first-child::before {
+  background-image: var(--word-picture);
+  background-repeat: no-repeat;
+  background-position: 0 50%;
+  background-size: var(--word-picture-width, 1em) 1em;
 }
 
 .page-editor ul ul {
@@ -3287,6 +3325,22 @@ button.line-menu-row:focus-visible {
   max-width: none;
 }
 
+/* A block of a Word section with its own paper or side margins: moved across to its page's text, and as wide. */
+.page-editor > .section-cell {
+  position: relative;
+  left: var(--sec-x, 0);
+}
+
+.page-editor > .section-cell[style*="--sec-w"] {
+  width: var(--sec-w);
+  max-width: none;
+}
+
+/* A one-column Word section in a document whose other sections have columns: drawn across them. */
+.page-editor[data-columns] > .section-span {
+  column-span: all;
+}
+
 .page-editor[data-columns] .column-section,
 .page-editor[data-columns] .page-gap,
 .page-editor[data-columns] .object-band,
@@ -3305,6 +3359,24 @@ button.line-menu-row:focus-visible {
   column-count: var(--cols, 2);
   column-gap: var(--gap, 1.25cm);
   column-fill: balance;
+  /* The paginator breaks the columns after any line (pages.ts, `placeColumnBlock`): the browser must too. */
+  orphans: 1;
+  widows: 1;
+}
+
+/* A block of columns that runs on to the next page: the page's end spans its columns. */
+.column-section .page-gap {
+  column-span: all;
+}
+
+/* Where its next column starts on such a page: the browser breaks there, not where its balancing would. */
+.column-section .column-start {
+  display: block;
+  height: 0;
+  margin: 0;
+  break-before: column;
+  pointer-events: none;
+  user-select: none;
 }
 
 .column-section[data-line] .column-section-body,
@@ -3586,6 +3658,30 @@ button.line-menu-row:focus-visible {
   cursor: ew-resize;
 }
 
+/* Word's adjustment handles: yellow diamonds on the shape that change its proportions, not its size. */
+.shape-adjust-handle {
+  position: absolute;
+  z-index: 4;
+  display: none;
+  box-sizing: border-box;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  transform: rotate(45deg);
+  background: #ffd400;
+  border: 1px solid #5c4a00;
+  cursor: default;
+  touch-action: none;
+}
+
+.ProseMirror-selectednode > .shape-adjust-handle {
+  display: block;
+}
+
+.is-adjusting {
+  cursor: default;
+}
+
 /* Word's rotate handle: a round grip above the middle of the top edge, joined to it by a short stem. */
 .object-rotate {
   position: absolute;
@@ -3669,6 +3765,30 @@ button.line-menu-row:focus-visible {
 
 .object-bar-split {
   display: flex;
+}
+
+/* A split button: the icon runs the command, the label with its arrow opens the menu. */
+.object-bar-split.is-split {
+  flex-direction: column;
+}
+
+.object-bar .object-bar-split.is-split > .object-bar-button {
+  width: 100%;
+}
+
+.object-bar .object-bar-button.is-split-main {
+  height: 26px;
+  padding: 0;
+  border-radius: 4px 4px 0 0;
+}
+
+.object-bar .object-bar-button.is-split-menu {
+  height: 18px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2px;
+  border-radius: 0 0 4px 4px;
 }
 
 .object-bar .object-bar-button {
@@ -4095,6 +4215,8 @@ button.line-menu-row:focus-visible {
 }
 
 .object-frame.ProseMirror-selectednode {
+  /* Selected, its whole outline and handles show, also past the page's edge where it is otherwise cut off. */
+  clip-path: none !important;
   outline: 1px solid #1d4ed8;
   outline-offset: 1px;
   /* A selected object moves under a finger; an unselected one still lets a swipe scroll the page. */
@@ -4128,6 +4250,21 @@ button.line-menu-row:focus-visible {
 .page-image.ProseMirror-selectednode,
 .insert-figure.ProseMirror-selectednode {
   cursor: move;
+}
+
+/* Several objects picked with Shift+click: Word frames each one with its handles, not only the last. */
+[data-picked] {
+  clip-path: none !important;
+  outline: 1px solid #1d4ed8;
+  outline-offset: 1px;
+}
+
+[data-picked] > .image-resize {
+  display: block;
+}
+
+[data-picked] > .object-rotate {
+  display: inline-flex;
 }
 
 [data-dragging] {
@@ -5696,6 +5833,7 @@ html[data-theme="dark"] .drawing-canvas::after {
 }
 
 .read-scroller {
+  position: relative;
   overflow-x: auto;
   overflow-y: hidden;
   outline: none;
@@ -5704,6 +5842,25 @@ html[data-theme="dark"] .drawing-canvas::after {
 
 .read-scroller::-webkit-scrollbar {
   display: none;
+}
+
+/* Find in Read Mode: every match, and the current one. */
+::highlight(read-find) {
+  background-color: rgb(255 214 0 / 0.55);
+  color: inherit;
+}
+
+::highlight(read-find-current) {
+  background-color: rgb(255 140 0 / 0.85);
+  color: #000;
+}
+
+.read-end {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
 }
 
 .read-body {
@@ -7925,6 +8082,8 @@ li[data-drop-cap="margin"]::first-letter {
   color: var(--app-ribbon-text, #242424);
 }
 
+/* On the root too: Options opens as a dialog outside the backstage and uses its cards. */
+html.dark,
 .dark .backstage {
   --backstage-bg: #1e1e1e;
   --backstage-card: #2d2d2d;
@@ -8959,9 +9118,13 @@ li[data-drop-cap="margin"]::first-letter {
   gap: 10px;
   margin: 12px 0;
   padding: 8px;
-  border: 1px dashed color-mix(in oklch, var(--app-theme-primary, #0f6cbd) 35%, transparent);
+  /* Word draws no frame round a graphic: it shows only while the pointer is over it or it is selected. */
+  border: 1px dashed transparent;
   border-radius: 4px;
   background: var(--app-popover-bg);
+}
+.smartart:hover {
+  border-color: color-mix(in oklch, var(--app-theme-primary, #0f6cbd) 35%, transparent);
 }
 .smartart.is-selected {
   outline: 2px solid var(--app-theme-primary, #0f6cbd);
@@ -9011,6 +9174,48 @@ li[data-drop-cap="margin"]::first-letter {
 }
 .smartart-cycle {
   justify-content: center;
+}
+.smartart-ring {
+  position: relative;
+  flex: none;
+  width: 300px;
+  height: 300px;
+}
+.smartart-ring > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.smartart-ring-arrow {
+  fill: none;
+  stroke: color-mix(in oklch, var(--smartart-line, #0f6cbd) 55%, #fff);
+  stroke-width: var(--smartart-arrow, 6);
+}
+.smartart-ring-head {
+  fill: color-mix(in oklch, var(--smartart-line, #0f6cbd) 55%, #fff);
+}
+.smartart-ring > .smartart-cell {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--smartart-node, 92px);
+  min-width: 0;
+  height: var(--smartart-node, 92px);
+  min-height: 0;
+  padding: 6px;
+  overflow: hidden;
+  border-radius: 50%;
+  font-size: var(--smartart-font, 13px);
+  line-height: 1.15;
+  text-align: center;
+  transform: translate(-50%, -50%);
+}
+.smartart-ring[data-wrap-words] > .smartart-cell {
+  overflow-wrap: anywhere;
 }
 .smartart-hierarchy {
   flex-direction: column;
@@ -9124,21 +9329,36 @@ li[data-drop-cap="margin"]::first-letter {
   outline: none;
 }
 
-/* Section breaks */
+/* Section breaks: like a page break, no height of their own; the formatting marks show where one is. */
 .section-break {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 10px 0;
-  height: 22px;
-  border-top: 1px dashed #8a8a8a;
-  color: #767676;
-  font-size: 11px;
+  display: block;
+  position: relative;
+  height: 0;
+  margin: 0;
+  color: var(--fmt-mark-color, #767676);
+  font-size: 10px;
   user-select: none;
 }
 .section-break-label {
-  padding: 0 8px;
-  background: #fff;
+  display: none;
+}
+.formatting-marks .section-break {
+  border-top: 1px dashed var(--fmt-mark-color, #8a8a8a);
+}
+.formatting-marks .section-break-label {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  display: block;
+  transform: translate(-50%, -50%);
+  padding: 0 0.5rem;
+  font-family: var(--font-sans);
+  line-height: 1.2;
+  white-space: nowrap;
+  background: var(--page-paper, #ffffff);
+}
+.section-break.ProseMirror-selectednode {
+  outline: 2px solid #93c5fd;
 }
 .section-break[data-kind="nextPage"] {
   break-after: page;
@@ -9553,7 +9773,24 @@ html.dark .asset-library .asset-library-icon {
   gap: 8px;
 }
 .smartart-relationship {
+  flex-wrap: nowrap;
   justify-content: center;
+  gap: 0;
+}
+/* Basic Relationship: circles side by side, each overlapping the next. */
+.smartart-relationship .smartart-cell {
+  display: flex;
+  flex: 0 0 120px;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 120px;
+  border-radius: 50%;
+  text-align: center;
+  background: color-mix(in oklch, var(--smartart-accent, #0f6cbd) 30%, transparent);
+}
+.smartart-relationship .smartart-cell + .smartart-cell {
+  margin-inline-start: -28px;
 }
 .smartart-matrix {
   display: grid;
@@ -11726,6 +11963,11 @@ textarea.text-prompt-field {
 
 .is-cropping > .image-crop-handle {
   display: block;
+}
+
+/* In crop mode the picture slides under its frame when dragged. */
+.is-cropping {
+  cursor: move;
 }
 
 .is-cropping > :is(.image-resize, .object-rotate, .object-handle) {

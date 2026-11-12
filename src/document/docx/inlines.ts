@@ -46,8 +46,10 @@ import {
 } from "@/document/docx/smartart-write"
 import { readItems, writeItems } from "@/editor/smartart-model"
 import { pointsMarkup, shapeMarkup } from "@/editor/insert-blocks"
+import { geometryPoints } from "@/editor/shape-adjust"
 import { hasPictureFormat } from "@/editor/picture-format"
 import { fontOf, fontStack, themeFontsOf, type ThemeFonts } from "@/document/docx/word-styles"
+import { pictureLookHtml, readPictureLook } from "@/document/docx/picture-look"
 import { runBoxOf, textBoxAttributes, textBoxOfRun, type TextBox } from "@/document/docx/text-box"
 import { expandSpec } from "@/editor/chart-expand"
 import { chartSpecOf, renderChart, serializeChartSpec, variantOf, type ChartSpec } from "@/editor/chart-spec"
@@ -112,8 +114,13 @@ export type Projection = {
   open: Set<number>
   notes: { footnote: number; endnote: number }
   theme: ThemeFonts
-  /** Top-level items of each numbering instance shown so far; Word keeps counting across interruptions. */
-  listItems: Map<number, number>
+  /**
+   * The number the next first-level item of each list takes, by its abstract numbering: Word counts every w:num of
+   * one w:abstractNum as one list, across interruptions, until a w:num that restarts it (w:startOverride).
+   */
+  listNext: Map<string, number>
+  /** The w:num instances shown so far: one with a w:startOverride restarts its list where it is first used. */
+  listSeen: Set<number>
   /** The paragraph being shown has text of its own, so a shape in it stays in place (21.35). */
   textParagraph?: boolean
 }
@@ -127,7 +134,8 @@ export function projectionFor(doc: WordDocument): Projection {
     open: new Set(),
     notes: { footnote: 0, endnote: 0 },
     theme: themeFontsOf(doc),
-    listItems: new Map(),
+    listNext: new Map(),
+    listSeen: new Set(),
   }
 }
 
@@ -337,6 +345,8 @@ function runContentHtml(content: RunContent, run: Run, ctx: Projection) {
         return ""
       }
       const layout = content.layout ? floatingLayout(content.layout, content.cx, ctx.doc.section, content.cy) : null
+      const theme = ctx.doc.preserved?.parts.find((item) => item.name.toLowerCase() === "/word/theme/theme1.xml")
+      const look = readPictureLook(content.xml, theme ? decodeXml(theme.data) : null)
       return imageHtml(
         media,
         content.cx,
@@ -348,6 +358,8 @@ function runContentHtml(content: RunContent, run: Run, ctx: Projection) {
         content.object,
         content.crop,
         content.geometry,
+        content,
+        look,
       )
     }
     case "text":
@@ -729,6 +741,8 @@ function shapePictureHtml(run: Run, ctx: Projection) {
       kind: "shape",
       variant: shape.variant,
       points: shape.points,
+      geometry: shape.geometry,
+      adjust: shape.adjust,
       fill: shape.fill === "none" ? "transparent" : shape.fill,
       stroke: shape.stroke === "none" ? "transparent" : shape.stroke,
       strokeWidth: shape.strokeWidth,
@@ -741,6 +755,9 @@ function shapePictureHtml(run: Run, ctx: Projection) {
       textUnderline: shape.textUnderline,
       textHighlight: shape.textHighlight,
       textAlign: shape.textAlign,
+      textOutline: shape.textOutline,
+      textEffect: shape.textEffect,
+      textFill: shape.textFill,
       strokeDash: shape.dash,
       fillGradient: shape.gradient,
       shadow: shape.shadow,
@@ -754,9 +771,10 @@ function shapePictureHtml(run: Run, ctx: Projection) {
     },
     shown: [width, height],
   }
+  const outline = shape.points || geometryPoints(figure.attrs, width, height)
   const svg =
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${shape.points ? "0 0 100 100" : "0 0 80 56"}" width="${width}" height="${height}" ` +
-    `preserveAspectRatio="none">${shape.points ? pointsMarkup(shape.variant, shape.points) : shapeMarkup(shape.variant)}</svg>`
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${outline ? "0 0 100 100" : "0 0 80 56"}" width="${width}" height="${height}" ` +
+    `preserveAspectRatio="none">${outline ? pointsMarkup(shape.variant, outline) : shapeMarkup(shape.variant)}</svg>`
   const picture: MediaPart = {
     relId: "",
     type: "",
@@ -1103,6 +1121,9 @@ function imageHtml(
   object?: string,
   crop?: { l: number; t: number; r: number; b: number },
   geometry?: string,
+  flip?: { flipH?: boolean; flipV?: boolean },
+  /** The picture's formatting as Word wrote it (`readPictureLook`). */
+  look: Record<string, string | number> = {},
 ) {
   const mime = media.contentType || "image/png"
   const kept = object && /^[A-Za-z0-9+/=]+$/.test(object) ? ` data-inkspire-object="${object}"` : ""
@@ -1122,7 +1143,8 @@ function imageHtml(
     : ""
   const frame = frameOfPreset(geometry)
   const shaped = frame ? ` data-frame="${escapeHtml(frame)}"` : ""
-  return `<img src="data:${mime};base64,${encodeBase64(media.data)}"${width}${height}${alt}${anchor}${floating}${rotate}${cropped}${shaped}${kept}>`
+  const flipped = `${flip?.flipH ? ' data-flip-h="1"' : ""}${flip?.flipV ? ' data-flip-v="1"' : ""}`
+  return `<img src="data:${mime};base64,${encodeBase64(media.data)}"${width}${height}${alt}${anchor}${floating}${rotate}${cropped}${shaped}${flipped}${pictureLookHtml(look)}${kept}>`
 }
 
 /** The data attributes the editor reads a floating object's layout from. */
@@ -1777,7 +1799,20 @@ export function imageRun(node: JsonNode, build: InlineBuild, asPicture = false):
   // Picture formatting made in the app (corrections, a frame, effects) is not in the source drawing: write it anew.
   // The shape Word gave the picture is in the source drawing; only a different one is the app's formatting.
   const ownFrame = drawing?.kind === "drawing" ? frameOfPreset(drawing.geometry) : ""
-  const formatted = { ...node.attrs, frame: node.attrs?.frame === ownFrame ? "" : node.attrs?.frame }
+  const formatted: Record<string, unknown> = {
+    ...node.attrs,
+    frame: node.attrs?.frame === ownFrame ? "" : node.attrs?.frame,
+  }
+  // Likewise the formatting Word wrote (brightness, a border, a shadow…): only a change to it is the app's.
+  if (drawing?.kind === "drawing") {
+    const theme = build.preserved?.parts.find((item) => item.name.toLowerCase() === "/word/theme/theme1.xml")
+    const look = readPictureLook(drawing.xml, theme ? decodeXml(theme.data) : null)
+    for (const [name, value] of Object.entries(look)) {
+      if (formatted[name] === value) {
+        formatted[name] = typeof value === "number" ? 0 : ""
+      }
+    }
+  }
   if (origin && drawing?.kind === "drawing" && !hasPictureFormat(formatted)) {
     const media = build.media.find((item) => item.relId === drawing.relId)
     const sameSize =
@@ -1788,6 +1823,8 @@ export function imageRun(node: JsonNode, build: InlineBuild, asPicture = false):
       sameLayout(node, drawing.layout, drawing.cx, build.section, drawing.cy) &&
       rotationDegrees(drawing.rot) === (numberAttr(node.attrs?.rotate) ?? 0) &&
       sameCrop(node.attrs ?? {}, drawing.crop) &&
+      Boolean(drawing.flipH) === Boolean(node.attrs?.flipH) &&
+      Boolean(drawing.flipV) === Boolean(node.attrs?.flipV) &&
       src === `data:${media.contentType || "image/png"};base64,${encodeBase64(media.data)}`
     ) {
       return structuredClone(origin)
@@ -2574,7 +2611,15 @@ function anchorOpen(layout: FloatingLayout, cx: number, cy: number, section?: Se
   )
 }
 
-export type PictureDrawingFormat = { blip: string; srcRect: string; geometry: string; line: string; effects: string }
+export type PictureDrawingFormat = {
+  blip: string
+  srcRect: string
+  geometry: string
+  line: string
+  effects: string
+  /** `a:xfrm`'s flipH / flipV attributes. */
+  flips: string
+}
 
 /** The crop as `a:srcRect` writes it: each side in 1000ths of a percent, negative for Fit's empty room. */
 function cropRect(attrs: Record<string, unknown>) {
@@ -2624,14 +2669,8 @@ export function pictureDrawingFormat(attrs: Record<string, unknown>): PictureDra
     ? `<a:ln w="${Math.round(width * EMU_PER_PT)}"><a:solidFill><a:srgbClr val="${border}"/></a:solidFill>` +
       `${dash === "dot" ? '<a:prstDash val="sysDot"/>' : dash === "dash" ? '<a:prstDash val="dash"/>' : ""}</a:ln>`
     : ""
+  // In the order a:effectLst takes them: glow, shadow, reflection, soft edges.
   const effects: string[] = []
-  const shadow = String(attrs.shadow || "") || (attrs.effect === "shadow" ? "outer-br" : "")
-  if (shadow) {
-    effects.push(
-      '<a:outerShdw blurRad="50800" dist="38100" dir="2700000" algn="tl" rotWithShape="0">' +
-        '<a:prstClr val="black"><a:alpha val="40000"/></a:prstClr></a:outerShdw>',
-    )
-  }
   const [glowColor, glowSize] = String(attrs.glow || "").split(":")
   if (glowColor && /^#[0-9a-f]{6}$/i.test(glowColor)) {
     effects.push(
@@ -2639,14 +2678,21 @@ export function pictureDrawingFormat(attrs: Record<string, unknown>): PictureDra
         '<a:alpha val="40000"/></a:srgbClr></a:glow>',
     )
   }
-  const soft = Number(attrs.softEdge) || 0
-  if (soft) {
-    effects.push(`<a:softEdge rad="${Math.round(soft * EMU_PER_PT)}"/>`)
+  const shadow = String(attrs.shadow || "") || (attrs.effect === "shadow" ? "outer-br" : "")
+  if (shadow) {
+    effects.push(
+      '<a:outerShdw blurRad="50800" dist="38100" dir="2700000" algn="tl" rotWithShape="0">' +
+        '<a:prstClr val="black"><a:alpha val="40000"/></a:prstClr></a:outerShdw>',
+    )
   }
   if (attrs.reflection) {
     effects.push(
       '<a:reflection blurRad="6350" stA="52000" endA="300" endPos="35000" dir="5400000" sy="-100000" algn="bl" rotWithShape="0"/>',
     )
+  }
+  const soft = Number(attrs.softEdge) || 0
+  if (soft) {
+    effects.push(`<a:softEdge rad="${Math.round(soft * EMU_PER_PT)}"/>`)
   }
   const crop = cropRect(attrs)
   const srcRect =
@@ -2659,6 +2705,7 @@ export function pictureDrawingFormat(attrs: Record<string, unknown>): PictureDra
     geometry,
     line,
     effects: effects.length ? `<a:effectLst>${effects.join("")}</a:effectLst>` : "",
+    flips: `${attrs.flipH ? ' flipH="1"' : ""}${attrs.flipV ? ' flipV="1"' : ""}`,
   }
 }
 
@@ -2699,7 +2746,7 @@ function drawingXml(
         `<pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">` +
         `<pic:nvPicPr><pic:cNvPr id="${id}" name=""/><pic:cNvPicPr/></pic:nvPicPr>` +
         `<pic:blipFill>${format?.blip ? `<a:blip r:embed="${relId}">${format.blip}</a:blip>` : `<a:blip r:embed="${relId}"/>`}${format?.srcRect ?? ""}<a:stretch><a:fillRect/></a:stretch></pic:blipFill>` +
-        `<pic:spPr><a:xfrm${rot ? ` rot="${rot}"` : ""}><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>` +
+        `<pic:spPr><a:xfrm${rot ? ` rot="${rot}"` : ""}${format?.flips ?? ""}><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>` +
         `<a:prstGeom prst="${format?.geometry ?? "rect"}"><a:avLst/></a:prstGeom>${format?.line ?? ""}${format?.effects ?? ""}</pic:spPr></pic:pic>` +
         `</a:graphicData>`) +
     `</a:graphic></wp:${layout ? "anchor" : "inline"}></w:drawing>`

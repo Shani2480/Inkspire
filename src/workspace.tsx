@@ -2,6 +2,7 @@ import { QuickAccessToolbar } from "@/components/quick-access"
 import { ChartFormatPane } from "@/components/chart-format-pane"
 import { HelperToolsDialog } from "@/components/helper-tools-dialog"
 import { CompressDialog } from "@/components/picture-menus"
+import { RemoveBackgroundDialog } from "@/components/remove-background-dialog"
 import { TableStylesDialog } from "@/components/table-design-menus"
 import { TextPromptHost } from "@/components/text-prompt"
 import { ChartTypeDialog, SelectDataDialog } from "@/components/chart-menus"
@@ -50,6 +51,7 @@ import { themeAccentVars } from "@/document/theme"
 import { useViewStore } from "@/document/view"
 import { RecoveryDialog } from "@/components/recovery-dialog"
 import { FileErrorDialog } from "@/components/file-error-dialog"
+import { PageNumberFormatDialog } from "@/components/page-number-format-dialog"
 import { BordersShadingHost } from "@/components/borders-shading-dialog"
 import { CustomizeDialogHost } from "@/components/customize-dialog"
 import { OptimizeDialogHost } from "@/components/optimize-dialog"
@@ -301,6 +303,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
       <FormatDialogHost />
       <SaveChangesDialog />
       <FileErrorDialog />
+      <PageNumberFormatDialog />
       <StyleDialogs />
       <ChartTypeDialog editor={editor} />
       <SelectDataDialog editor={editor} />
@@ -316,6 +319,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
       <CustomizeDialogHost />
       <OptimizeDialogHost />
       <CompressDialog editor={editor} />
+      <RemoveBackgroundDialog editor={editor} />
       <TableStylesDialog editor={editor} />
     </div>
   )

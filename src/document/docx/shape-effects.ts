@@ -48,7 +48,15 @@ const HEX = /^#[0-9a-fA-F]{6}$/
 
 /** The `a:effectLst` for a shape's shadow, glow, soft edges and reflection, or "" when it has none. */
 export function effectListXml(attrs: Attrs) {
+  // In the order a:effectLst takes them: glow, shadow, reflection, soft edges.
   const parts: string[] = []
+  const [glowColor, glowSize] = String(attrs.glow || "").split(":")
+  if (glowColor && HEX.test(glowColor)) {
+    const radius = Math.round((Number(glowSize) || 8) * EMU_PER_PT)
+    parts.push(
+      `<a:glow rad="${radius}"><a:srgbClr val="${glowColor.slice(1).toUpperCase()}"><a:alpha val="40000"/></a:srgbClr></a:glow>`,
+    )
+  }
   const shadow = SHADOW_DIRECTIONS[String(attrs.shadow || "")]
   if (shadow) {
     const [dx, dy] = shadow
@@ -59,22 +67,15 @@ export function effectListXml(attrs: Attrs) {
         `<a:srgbClr val="000000"><a:alpha val="40000"/></a:srgbClr></a:outerShdw>`,
     )
   }
-  const [glowColor, glowSize] = String(attrs.glow || "").split(":")
-  if (glowColor && HEX.test(glowColor)) {
-    const radius = Math.round((Number(glowSize) || 8) * EMU_PER_PT)
-    parts.push(
-      `<a:glow rad="${radius}"><a:srgbClr val="${glowColor.slice(1).toUpperCase()}"><a:alpha val="40000"/></a:srgbClr></a:glow>`,
-    )
-  }
-  const soft = Number(attrs.softEdge) || 0
-  if (soft > 0) {
-    parts.push(`<a:softEdge rad="${Math.round(soft * EMU_PER_PT)}"/>`)
-  }
   const reflection = REFLECTIONS[String(attrs.reflection || "")]
   if (reflection) {
     parts.push(
       `<a:reflection blurRad="6350" stA="50000" stPos="0" endA="300" endPos="${reflection[0]}" dist="${reflection[1]}" dir="5400000" fadeDir="5400012" sx="100000" sy="-100000" algn="bl" rotWithShape="0"/>`,
     )
+  }
+  const soft = Number(attrs.softEdge) || 0
+  if (soft > 0) {
+    parts.push(`<a:softEdge rad="${Math.round(soft * EMU_PER_PT)}"/>`)
   }
   return parts.length > 0 ? `<a:effectLst>${parts.join("")}</a:effectLst>` : ""
 }

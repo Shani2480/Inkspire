@@ -89,6 +89,23 @@ export function croppedBy(
   }
 }
 
+/**
+ * The crop after the picture has been dragged by (dx, dy) pixels under its crop frame, as Word does in crop mode: the
+ * part that shows keeps its size and the picture slides beneath it. A side shifts no further than the picture's own
+ * edge (or, when Fit left room, the frame's edge), and never past where it started.
+ */
+export function pannedBy(start: { width: number; height: number; crop: Crop }, dx: number, dy: number): Crop {
+  const whole = wholeSize(start.width, start.height, start.crop)
+  const slide = (near: number, far: number, by: number) => {
+    const total = near + far
+    const next = Math.max(Math.min(0, total, near), Math.min(Math.max(0, total, near), near - by))
+    return [next, total - next] as const
+  }
+  const [l, r] = slide(start.crop.l, start.crop.r, dx / whole.width)
+  const [t, b] = slide(start.crop.t, start.crop.b, dy / whole.height)
+  return { l, t, r, b }
+}
+
 /** Word's Crop → Aspect Ratio choices, width to height. */
 export const ASPECT_RATIOS: { group: string; items: { label: string; ratio: number }[] }[] = [
   { group: "Square", items: [{ label: "1:1", ratio: 1 }] },
@@ -335,6 +352,10 @@ export function bindPictureCrop(
 ) {
   const onDown = (event: PointerEvent) => {
     const handle = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-crop-edge]") : null
+    if (event.button === 0 && !handle && dom.classList.contains("is-cropping")) {
+      pan(event)
+      return
+    }
     if (event.button !== 0 || !handle || !dom.contains(handle)) {
       return
     }
@@ -424,6 +445,78 @@ export function bindPictureCrop(
     window.addEventListener("pointercancel", cancel)
     window.addEventListener("keydown", onKey, true)
   }
-  dom.addEventListener("pointerdown", onDown)
-  return () => dom.removeEventListener("pointerdown", onDown)
+  // In crop mode the picture's body slides the picture under the crop frame; the frame stays where it is.
+  const pan = (event: PointerEvent) => {
+    const pos = getPos()
+    const original = pos == null ? null : view.state.doc.nodeAt(pos)
+    if (pos == null || !original || original.type.name !== "image") {
+      return
+    }
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    beginCrop(view, pos, original.attrs)
+    dom.setPointerCapture?.(event.pointerId)
+    const zoom = useViewStore.getState().zoom || 1
+    const rect = dom.getBoundingClientRect()
+    const start = {
+      width: Number(original.attrs.width) || Math.round(rect.width / zoom),
+      height: Number(original.attrs.height) || Math.round(rect.height / zoom),
+      crop: cropOf(original.attrs),
+    }
+    const startX = event.clientX
+    const startY = event.clientY
+    let latest = { x: startX, y: startY }
+    let frame = 0
+    const write = (attrs: Attrs) => {
+      const tr = view.state.tr.setNodeMarkup(pos, undefined, attrs)
+      tr.setSelection(NodeSelection.create(tr.doc, pos))
+      view.dispatch(tr.setMeta("addToHistory", false))
+    }
+    const attrsAt = () => ({
+      ...original.attrs,
+      ...cropAttrs(pannedBy(start, (latest.x - startX) / zoom, (latest.y - startY) / zoom)),
+    })
+    const paint = () => {
+      frame = 0
+      write(attrsAt())
+    }
+    const move = (ev: PointerEvent) => {
+      latest = { x: ev.clientX, y: ev.clientY }
+      if (!frame) {
+        frame = requestAnimationFrame(paint)
+      }
+    }
+    const finish = (keep: boolean) => {
+      window.removeEventListener("pointermove", move)
+      window.removeEventListener("pointerup", up)
+      window.removeEventListener("pointercancel", cancel)
+      window.removeEventListener("keydown", onKey, true)
+      if (frame) {
+        cancelAnimationFrame(frame)
+        frame = 0
+      }
+      dom.classList.remove("is-panning")
+      write(keep ? attrsAt() : original.attrs)
+    }
+    const up = (ev: PointerEvent) => {
+      latest = { x: ev.clientX, y: ev.clientY }
+      finish(true)
+    }
+    const cancel = () => finish(true)
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") {
+        ev.preventDefault()
+        ev.stopPropagation()
+        finish(false)
+      }
+    }
+    dom.classList.add("is-panning")
+    window.addEventListener("pointermove", move)
+    window.addEventListener("pointerup", up)
+    window.addEventListener("pointercancel", cancel)
+    window.addEventListener("keydown", onKey, true)
+  }
+  // Before the picture's move and select handlers, so a drag in crop mode slides the picture instead.
+  dom.addEventListener("pointerdown", onDown, true)
+  return () => dom.removeEventListener("pointerdown", onDown, true)
 }

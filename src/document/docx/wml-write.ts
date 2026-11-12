@@ -233,7 +233,7 @@ function storyTarget(partName: string) {
 function writeStory(ref: HeaderFooterRef, styles: StyleCatalog) {
   const tag = ref.kind === "header" ? "hdr" : "ftr"
   const ids = paraIdState()
-  const blocks = ref.blocks.map((block) => writeBlock(block, styles, null, ids)).join("")
+  const blocks = writeBlocks(ref.blocks, styles, null, ids)
   return `<w:${tag} ${declaredNamespaces(ref.rootAttributes, ref.blocks).join(" ")}>${blocks || "<w:p/>"}</w:${tag}>`
 }
 
@@ -426,6 +426,10 @@ function storyPackages(doc: WordDocument, stories: HeaderFooterRef[], parts: Pac
       sources.push({ source: name, blocks: part.items.flatMap((note) => note.blocks), links: part.links })
     }
   }
+  // The pictures of numbering.xml's picture bullets.
+  if (doc.numbering?.links && doc.numbering.pictureBullets?.length) {
+    sources.push({ source: "/word/numbering.xml", blocks: [], links: doc.numbering.links })
+  }
   if (doc.comments && doc.comments.items.length > 0) {
     sources.push({
       source: "/word/comments.xml",
@@ -501,7 +505,7 @@ function writeNotes(part: NotePart, name: "footnotes" | "endnotes", styles: Styl
   const notes = part.items
     .map((note) => {
       const type = note.type ? ` w:type="${note.type}"` : ""
-      const blocks = note.blocks.map((block) => writeBlock(block, styles, null, ids)).join("") || "<w:p/>"
+      const blocks = writeBlocks(note.blocks, styles, null, ids) || "<w:p/>"
       return `<w:${item}${type} w:id="${note.id}">${blocks}</w:${item}>`
     })
     .join("")
@@ -588,7 +592,7 @@ function writeComments(part: CommentPart, styles: StyleCatalog) {
       const author = comment.author ? ` w:author="${escapeXml(comment.author)}"` : ""
       const date = comment.date ? ` w:date="${escapeXml(comment.date)}"` : ""
       const initials = comment.initials ? ` w:initials="${escapeXml(comment.initials)}"` : ""
-      const blocks = comment.blocks.map((block) => writeBlock(block, styles, null, ids)).join("") || "<w:p/>"
+      const blocks = writeBlocks(comment.blocks, styles, null, ids) || "<w:p/>"
       return `<w:comment w:id="${comment.id}"${author}${date}${initials}>${blocks}</w:comment>`
     })
     .join("")
@@ -662,9 +666,42 @@ function writePeople(part: PeoplePart) {
 
 function writeBody(doc: WordDocument) {
   const ids = paraIdState()
-  const blocks = doc.blocks.map((block) => writeBlock(block, doc.styles, doc.section, ids)).join("")
+  const blocks = writeBlocks(doc.blocks, doc.styles, doc.section, ids)
   const trailing = doc.blocks.length === 0 || doc.blocks[doc.blocks.length - 1]?.kind === "table" ? "<w:p/>" : ""
   return `<w:body>${blocks}${trailing}${writeSection(doc.section ?? DEFAULT_SECTION)}</w:body>`
+}
+
+/**
+ * Blocks in order, each content control they were read from put back around them: from a control's first block to
+ * its last, so a paragraph added inside it in the editor stays inside it.
+ */
+function writeBlocks(
+  blocks: Block[],
+  styles: StyleCatalog,
+  section: SectionProps | null,
+  ids: ParaIds,
+  depth = 0,
+): string {
+  let xml = ""
+  let index = 0
+  while (index < blocks.length) {
+    const control = blocks[index]?.controls?.[depth]
+    if (!control) {
+      xml += writeBlock(blocks[index]!, styles, section, ids)
+      index += 1
+      continue
+    }
+    let last = index
+    blocks.forEach((block, at) => {
+      if (at > last && block.controls?.[depth]?.open === control.open) {
+        last = at
+      }
+    })
+    const inner = writeBlocks(blocks.slice(index, last + 1), styles, section, ids, depth + 1)
+    xml += `${control.open}${inner}${control.close}`
+    index = last + 1
+  }
+  return xml
 }
 
 function writeBlock(block: Block, styles: StyleCatalog, section: SectionProps | null, ids: ParaIds): string {
@@ -836,7 +873,7 @@ function writeTable(table: Table, styles: StyleCatalog, section: SectionProps | 
       const properties = writeChildren(rowPropertiesInput(row), row.source, writeRowProperties, ORDER.trPr)
       const cells = row.cells
         .map((cell) => {
-          const blocks = cell.blocks.map((block) => writeBlock(block, styles, section, ids)).join("")
+          const blocks = writeBlocks(cell.blocks, styles, section, ids)
           // A cell must end with a paragraph.
           const closing = cell.blocks[cell.blocks.length - 1]?.kind === "paragraph" ? "" : "<w:p/>"
           return `<w:tc>${wrap("tcPr", writeCellProperties(cell))}${blocks}${closing}</w:tc>`
@@ -1016,6 +1053,7 @@ function writeNumberingPart(numbering: NumberingDefinitions) {
     }
     namespaces.push(`mc:Ignorable="${ignorable.join(" ")}"`)
   }
+  const pictures = (numbering.pictureBullets ?? []).map((item) => item.xml).join("")
   const abstracts = numbering.abstracts.map((item) => writeAbstract(item)).join("")
   const instances = numbering.instances.map((item) => writeNumber(item)).join("")
   const declared = numbering.rootAttributes?.length
@@ -1023,7 +1061,14 @@ function writeNumberingPart(numbering: NumberingDefinitions) {
         (item) => `${item.prefix ? `${item.prefix}:` : ""}${item.local}="${escapeXml(item.value)}"`,
       )
     : namespaces
-  return `<w:numbering ${declared.join(" ")}>${abstracts}${instances}</w:numbering>`
+  // Markup kept as written may use prefixes the root does not declare yet.
+  const kept = `${pictures}${numbering.instances.map((item) => (item.overrides ?? []).map((o) => o.xml ?? "").join("")).join("")}`
+  for (const [prefix, uri] of PICTURE_BULLET_NAMESPACES) {
+    if (new RegExp(`[<\\s/]${prefix}:`).test(kept) && !declared.some((item) => item.startsWith(`xmlns:${prefix}=`))) {
+      declared.push(`xmlns:${prefix}="${uri}"`)
+    }
+  }
+  return `<w:numbering ${declared.join(" ")}>${pictures}${abstracts}${instances}${numbering.macCleanup ?? ""}</w:numbering>`
 }
 
 function writeAbstract(item: AbstractNumbering) {
@@ -1051,17 +1096,44 @@ function numberingJustify(value: string) {
 function writeLevel(level: NumberingLevel) {
   const start = level.start !== undefined ? `<w:start w:val="${level.start}"/>` : ""
   const format = level.format ? `<w:numFmt w:val="${level.format}"/>` : ""
+  // CT_Lvl's order: start, numFmt, lvlRestart, pStyle, isLgl, suff, lvlText, lvlPicBulletId, legacy, lvlJc, pPr, rPr.
+  const restart = level.restart !== undefined ? `<w:lvlRestart w:val="${level.restart}"/>` : ""
+  const pStyle = level.pStyle ? `<w:pStyle w:val="${escapeXml(level.pStyle)}"/>` : ""
+  const legal = level.legal ? "<w:isLgl/>" : ""
+  const suffix = level.suffix ? `<w:suff w:val="${level.suffix}"/>` : ""
   const text = level.text !== undefined ? `<w:lvlText w:val="${escapeXml(level.text)}"/>` : ""
+  const picture = level.pictureBullet !== undefined ? `<w:lvlPicBulletId w:val="${level.pictureBullet}"/>` : ""
   const justify = level.justify ? `<w:lvlJc w:val="${numberingJustify(level.justify)}"/>` : ""
   const paragraph = writeLooseParagraphProperties(level.pPr)
   const run = writeRunProperties(level.rPr)
-  return `<w:lvl w:ilvl="${level.ilvl}">${start}${format}${text}${justify}${paragraph ? `<w:pPr>${paragraph}</w:pPr>` : ""}${run ? `<w:rPr>${run}</w:rPr>` : ""}</w:lvl>`
+  return `<w:lvl w:ilvl="${level.ilvl}">${start}${format}${restart}${pStyle}${legal}${suffix}${text}${picture}${justify}${paragraph ? `<w:pPr>${paragraph}</w:pPr>` : ""}${run ? `<w:rPr>${run}</w:rPr>` : ""}</w:lvl>`
 }
 
 function writeNumber(item: NumberingDefinitions["instances"][number]) {
   const durable = item.durableId ? ` w16cid:durableId="${escapeXml(item.durableId)}"` : ""
-  return `<w:num w:numId="${item.id}"${durable}><w:abstractNumId w:val="${item.abstractNumId}"/></w:num>`
+  // A level override goes back as Word wrote it; one made here is written from the model.
+  const overrides = (item.overrides ?? [])
+    .map(
+      (override) =>
+        override.xml ??
+        `<w:lvlOverride w:ilvl="${override.ilvl}">${
+          override.startOverride !== undefined ? `<w:startOverride w:val="${override.startOverride}"/>` : ""
+        }${override.level ? writeLevel(override.level) : ""}</w:lvlOverride>`,
+    )
+    .join("")
+  return `<w:num w:numId="${item.id}"${durable}><w:abstractNumId w:val="${item.abstractNumId}"/>${overrides}</w:num>`
 }
+
+/** Prefixes a picture bullet's markup uses (VML or DrawingML), declared when numbering.xml is written fresh. */
+const PICTURE_BULLET_NAMESPACES: [string, string][] = [
+  ["r", "http://schemas.openxmlformats.org/officeDocument/2006/relationships"],
+  ["v", "urn:schemas-microsoft-com:vml"],
+  ["o", "urn:schemas-microsoft-com:office:office"],
+  ["w10", "urn:schemas-microsoft-com:office:word"],
+  ["wp", "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"],
+  ["a", "http://schemas.openxmlformats.org/drawingml/2006/main"],
+  ["pic", "http://schemas.openxmlformats.org/drawingml/2006/picture"],
+]
 
 function writeSection(section: SectionProps) {
   return `<w:sectPr>${writeChildren(section, section.source, generateSection, ORDER.sectPr)}</w:sectPr>`
@@ -1109,6 +1181,19 @@ function generateSection(section: SectionProps) {
     ].filter(Boolean)
     const sides = (["top", "left", "bottom", "right"] as const).map((side) => writeBorder(side, borders[side])).join("")
     parts.push(`<w:pgBorders${attributes.length ? ` ${attributes.join(" ")}` : ""}>${sides}</w:pgBorders>`)
+  }
+  if (section.pageNumbers) {
+    const pages = section.pageNumbers
+    const attributes: string[] = []
+    if (pages.format) {
+      attributes.push(`w:fmt="${escapeXml(pages.format)}"`)
+    }
+    pushNumber(attributes, "w:start", pages.start)
+    pushNumber(attributes, "w:chapStyle", pages.chapStyle)
+    if (pages.chapSep) {
+      attributes.push(`w:chapSep="${escapeXml(pages.chapSep)}"`)
+    }
+    parts.push(`<w:pgNumType${attributes.length ? ` ${attributes.join(" ")}` : ""}/>`)
   }
   const columns: string[] = []
   if (section.columnCount !== undefined) {

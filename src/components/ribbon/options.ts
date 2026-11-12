@@ -39,7 +39,8 @@ export function fontLabel(value: string) {
   if (known) {
     return known.label
   }
-  const name = value.split(",")[0]?.replace(/"/g, "").trim()
+  // The family list may quote a name either way ("Aptos" from the app, 'Times New Roman' from a Word file).
+  const name = value.split(",")[0]?.replace(/["']/g, "").trim()
   return name || "Font"
 }
 

@@ -7,6 +7,74 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Word's picture formatting read back (2026-11-12)** — in Word, give a picture Corrections (Brightness +20%,
+      Contrast −40%), Transparency 30%, a dotted blue border, an outer shadow and a glow. It opens in the app with
+      them. Saved unchanged it opens in Word as it was; after changing the brightness in the app it opens in Word
+      with the new brightness and the rest kept, with no repair prompt.
+- [ ] **Section breaks and column blocks saved (2026-11-11)** — in the app, insert Layout > Breaks > Next Page and
+      Continuous, and Columns > Selected text with three columns on one paragraph. Saved, the file opens in Word with
+      the same breaks (Next Page on a new page, Continuous on the same page) and that paragraph in three columns. A
+      Word file with a one-column title, a continuous break and two columns opens in the app with the title across.
+
+- [ ] **Long continuous section of columns (2026-11-12)** — a Word document with a long three-column section ending
+      in a continuous break, then one column: the app's pages break where Word's do, within a line or two, and the
+      last page's columns are balanced as in Word.
+- [ ] **Picture on a section's page (2026-11-11)** — a Word document with a portrait section and a landscape one, and a
+      picture wider than the portrait page on it: the app draws it from the same place as Word and cut at the
+      portrait sheet's edge.
+- [ ] **Ruler column drag per section (2026-11-11)** — give the first section of a two-section document two columns,
+      drag the ruler's column gap there and save: Word shows that section's new gap and the other section's columns
+      unchanged.
+- [ ] **Sections with different columns (2026-11-11)** — a Word document with a three-column section and a two-column
+      one, and one with a Left (unequal) section, opens in the app with each section's columns as Word draws them.
+
+- [ ] **Columns fill from the first (2026-11-11)** — a two-column Word document with a few lines, a page break, then
+      a few more lines: in the app, as in Word, each page's lines stay in the left column and the second page's text
+      starts at its top margin.
+
+- [ ] **Pages of different sizes (2026-11-11)** — a Word document with a portrait section, then a landscape one,
+      looks the same in the app as in Word's Print Layout: the portrait page centred above the landscape pages, each
+      with its text at its own margins. Printed from the app, the landscape pages come out landscape.
+
+- [ ] **Columns per section (2026-11-11)** — a Word file with a one-column title section and a two-column body opens
+      in the app with the title across the page. Set the title section to Three with Layout > Columns and save:
+      Word shows three columns there and two in the body.
+
+- [ ] **Paper and orientation per section (2026-11-11)** — in a document with a portrait section and a landscape
+      section, set the first to Letter, 3 cm left margin with Apply to: This section. Saved from the app, it opens in
+      Word with only that section changed, and the landscape section as it was.
+
+- [ ] **Link to Previous and page numbers per section (2026-11-11)** — in the contract, unlink the last section's footer
+      and type in it, and link the body's header to the cover's. Saved from the app, it opens in Word with Link to
+      Previous off for that footer (with the text) and on for that header. Bottom of Page with the caret in the body
+      numbers the body's pages in Word too.
+
+- [ ] **Lists sharing an abstract numbering (2026-11-11)** — a Word document with a numbered list, a paragraph, then
+      the list continued with Continue Numbering, and another restarted at 1, opens in the app numbered as in Word.
+
+- [ ] **Picture bullets and restarted lists (2026-11-11)** — a Word document with a picture bullet list (Define New
+      Bullet > Picture) and a numbered list restarted at 1 opens in the app with the picture as the bullet and the
+      restart. Saved from the app after an edit, it opens in Word with both unchanged.
+
+- [ ] **Page numbers and Page Setup per section (2026-11-11)** — the contract saved from the app opens in Word with
+      page 0 on the cover and 1 on the first agreement page. A section given Start at 3 and i, ii, iii in Format
+      Page Numbers, and a 5 cm top margin with This section, opens in Word with Format Page Numbers and Page Setup
+      showing the same for that section only.
+
+- [ ] **Per-section headers and margins (2026-10-29)** — open a Word file with sections that have different headers
+      (a cover page and a body with a logo header). Each section's pages show their own header and top margin. Edit the
+      header on a body page, save, and open in Word: the body section has the edited header, the cover is unchanged,
+      and a later section that was Linked to Previous still is.
+
+- [ ] **Section breaks, page clip, see-through fills (2026-10-29)** — a Word document with next-page section breaks
+      opens in the app with each section on a new page, the same page count as Word (fonts allowing); a shape with
+      a transparent fill edited in the app (moved, recoloured) opens in Word still see-through.
+- [ ] **Content controls opened as text (2026-10-29)** — a document whose text sits in a cover page or rich text
+      control, edited inside the control and saved from the app, opens in Word with the control still there (Insert
+      Cover Page offers to replace it) and the edit inside it.
+- [ ] **List items with their own indent (2026-10-29)** — `Case 00512196 summary.docx` opens in the app with each
+      bullet and number line breaking where Word breaks it, and saved from the app after an edit opens in Word with
+      the same indents.
 - [ ] **Picture alignment and margin-relative footer pictures (2026-10-28)** — a picture centred or right-aligned in
       the app opens in Word aligned the same; a Word document with a footer picture placed relative to the margin shows
       it at the same place in the app and, saved from the app, in Word.
@@ -73,7 +141,38 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       lines together, Page break before, Collapsed by default: each round-trips to .docx
       (`w:suppressLineNumbers`, `w:suppressAutoHyphens`, `w:textboxTightWrap`) and Word shows the same.
 
+- [ ] **Shape text WordArt Styles (2026-11-12)** — give a shape text, then Shape Format → Text Fill red, Text
+      Outline blue, Text Effects → Shadow. Saved, Word shows the text red with a blue outline and a shadow, and no
+      repair prompt.
+
+- [ ] **Adjustment handles (2026-11-12)** — Insert a Rounded Rectangle and drag its yellow handle; insert (or open)
+      a Division sign and drag its three handles. Saved, Word opens the shapes with the same corners, dots and bar,
+      and its own yellow handles start where the app's were.
+
+- [ ] **Space after at the page foot (2026-11-12)** — a document of one-line paragraphs with 50 pt after each:
+      the same paragraph is the last on page 1 in Word and in the app (its space after runs past the foot).
+
+- [ ] **Sections of other columns as blocks (2026-11-12)** — a document of two sections each starting a page, two
+      columns then three: opened, edited (a paragraph added in each) and saved, Word shows the same two sections
+      with two and three columns, no extra continuous section, and paragraphs split between columns at the same
+      places.
+
 ## Needs Chrome (the web build in a browser)
+
+- [ ] **Multiple Pages with columns (2026-11-11)** — a two-column document long enough to reach the second column on
+      its last page, in View > Multiple Pages: each column's text is in its own column, and typing there keeps it so.
+
+- [ ] **Basic Cycle with many items (2026-11-11)** — in a real document, add shapes to a Basic Cycle up to 10 and
+      type long text in some: the shapes shrink apart, arrows stay between them, and the text shrinks together while
+      typing, in light and dark mode.
+- [ ] **Word list markers (2026-10-29)** — open Word files with `a)`, `i.`, `1.1` and bullet lists (Symbol,
+      Wingdings, `o` in Courier New) next to Word: each marker reads and sits as Word's. Add, delete and Tab an item:
+      the numbers follow.
+- [ ] **Word list levels' own look (2026-10-29)** — next to Word: a list with right-aligned roman numbers, a long
+      `Article 1.` marker, a level with a space after its number, a legal `1.1` under a roman level, and a marker in
+      its own size and colour. Export to HTML and PDF: the same markers.
+- [ ] **Footer cloud (2026-10-29)** — the contract's agreement pages: the page number sits inside the flipped cloud
+      as in Word; open and save, then open in Word: the cloud is still flipped.
 
 - [ ] **No pill over a table's last row (2026-10-27)** — in the desktop app, hover over the last row of a table as
       wide as the text, and of one widened past the margin: no scrollbar shows.
@@ -142,7 +241,43 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       Paragraph, Borders and Shading and Options dialogs against the screenshots.
 - [ ] **Native shapes (see Word section)** — also not looked at in Chrome after the preset batch.
 
+- [ ] **Drag a picture under its crop (2026-11-12)** — crop a picture from two sides, then drag the picture in crop
+      mode: the crop frame stays and the picture slides under it, stopping at its edge; Enter applies, Ctrl+Z undoes
+      the crop and the slide together.
+
+- [ ] **Picture Layout (2026-11-12)** — select a picture, Picture Format → Picture Layout → Picture Caption List: the
+      picture becomes a SmartArt with the picture in its shape and the alt text under it. Saved and reopened in the
+      app it is the same.
+
+- [ ] **Remove Background (2026-11-12)** — on a photo with a plain backdrop, Picture Format → Remove Background: the
+      backdrop shows magenta; strokes with Mark Areas to Keep and to Remove correct it; Keep Changes leaves the
+      backdrop transparent on the page; Reset Picture brings it back. Saved, the picture opens in Word without its
+      backdrop.
+
+- [ ] **Text to an equation (2026-11-12)** — type `(a+b)/2` in a line, select it and press Alt+=: it becomes a
+      built-up fraction. In the desktop app check Alt+= is not taken by the system.
+
+- [ ] **Adjustment handles in the browser (2026-11-12)** — select a shape with handles (rounded rectangle, callout,
+      arrow, Division sign): the yellow diamonds show; a drag reshapes it smoothly, Esc mid-drag puts it back, Ctrl+Z
+      undoes the whole drag at once. A rotated or flipped shape's handles follow the pointer too.
+
+- [ ] **Shift+click several objects (2026-11-12)** — select a shape, Shift+click a picture and a text box: each is
+      framed with its handles; Shift+click one again drops it; Shape Format → Group groups them; a click in the text
+      lets go. Shift+click inside a text box being typed in still extends its text selection.
+
+- [ ] **This section as a block of columns (2026-11-12)** — in a document of one column then two (each section
+      starting a page), caret in the first, Layout → Columns → More Columns, Three, This section: the first section
+      flows in three columns, the second keeps two; Ctrl+Z puts it back.
+
+- [ ] **Multiple Pages with a landscape section (2026-11-12)** — a document of portrait pages with a landscape
+      section: View → Multiple Pages → 4 pages draws the landscape pages wide, centred in their cells; typing on one
+      wraps at its width; a floating picture on a landscape page stays on it.
+
 ## Needs the desktop app (Tauri build)
+
+- [ ] **Options in dark mode; SmartArt layouts (2026-10-29)** — in the desktop app in dark mode open File → Options:
+      every page reads light on dark. Insert → SmartArt → Basic Cycle, Organization Chart, Basic Relationship: a ring
+      with arrows, a tree, overlapping circles; no dashed frame until hovered.
 
 - [ ] **Stock 3D models (2026-10-28)** — each of the 42 models in Electronics, Anatomy, Furniture and Symbols draws in
       the WebKitGTK webview as in Chrome (lit screens, see-through cornea and bulb glass); Format › Matte / Metal and a

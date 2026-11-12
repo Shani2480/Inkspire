@@ -95,6 +95,20 @@ const GROUPS: (keyof BlockFormat)[][] = [
   ["shading", "shadingPattern"],
 ]
 
+/**
+ * A list paragraph's properties without its left, hanging and first-line indent: the list and its item place the
+ * text and the number there, so the paragraph must not indent a second time. Its right indent stays.
+ */
+export function withoutListIndent(pPr: ParagraphProperties): ParagraphProperties {
+  if (!pPr.ind) {
+    return pPr
+  }
+  const ind = compact({ ...pPr.ind, left: undefined, hanging: undefined, firstLine: undefined })
+  const shown = { ...pPr }
+  delete shown.ind
+  return ind ? { ...shown, ind } : shown
+}
+
 /** Editor attributes for a paragraph's direct formatting. */
 export function blockFromProperties(pPr: ParagraphProperties): BlockFormat {
   const block = { ...PLAIN_BLOCK }
@@ -375,9 +389,14 @@ export function blockFromAttrs(attrs: Record<string, unknown> | undefined): Bloc
  * editor value differs from what the source projected to, so unedited values keep Word's exact twips and
  * everything the editor cannot show (tabs, borders, outline level) survives.
  */
-export function propertiesFromBlock(edited: BlockFormat, source: ParagraphProperties | undefined): ParagraphProperties {
+export function propertiesFromBlock(
+  edited: BlockFormat,
+  source: ParagraphProperties | undefined,
+  shown: ParagraphProperties | undefined = source,
+): ParagraphProperties {
   const base: ParagraphProperties = source ? structuredClone(source) : {}
-  const before = source ? blockFromProperties(source) : PLAIN_BLOCK
+  // What the editor was given (a list paragraph is shown without its indent); a field that still matches is kept.
+  const before = shown ? blockFromProperties(shown) : PLAIN_BLOCK
   const changed = new Set<keyof BlockFormat>()
   for (const group of GROUPS) {
     if (group.some((field) => edited[field] !== before[field])) {

@@ -5,9 +5,10 @@ import { applyFrame, bindDrag, floatingAttributes, inlineMaxWidth, isFloating, r
 import { bindObjectResize } from "@/editor/object-resize"
 import { bindRotate, ensureRotateHandle } from "@/editor/object-rotate"
 import { chainWithSelection } from "@/editor/selection-memory"
-import { paintShapeSvg, shapeStyleAttributes } from "@/editor/shape-style"
+import { paintShapeSvg, shapeStyleAttributes, stringAttr, textStyle } from "@/editor/shape-style"
 import { WORD_ART_PRESETS } from "@/editor/text-effects"
 import { POINTS_BOX } from "@/editor/shape-points"
+import { bindAdjustHandles, geometryPoints, paintAdjustHandles } from "@/editor/shape-adjust"
 import { Mark, Node, mergeAttributes } from "@tiptap/core"
 import type { Node as ProseNode } from "@tiptap/pm/model"
 import { NodeSelection, type EditorState, type Transaction } from "@tiptap/pm/state"
@@ -333,22 +334,32 @@ function styleShapeText(holder: HTMLElement, node: ProseNode) {
   const align = String(node.attrs.textAlign || "center")
   holder.style.textAlign = align
   holder.style.justifyContent = align === "center" ? "" : align === "right" ? "flex-end" : "flex-start"
+  // Text Fill (over the font colour), Text Outline and Text Effects, drawn as in a text box.
+  const look = textStyle(node.attrs)
+  if (look.color) {
+    holder.style.color = look.color
+  }
+  holder.style.setProperty("-webkit-text-stroke", look.webkitTextStroke ?? "")
+  holder.style.textShadow = look.textShadow ?? ""
+  holder.style.setProperty("-webkit-box-reflect", look.webkitBoxReflect ?? "")
+  holder.style.transform = look.transform ?? ""
 }
 
 function paintFigure(dom: HTMLElement, node: ProseNode) {
   const kind = String(node.attrs.kind || "shape")
   const variant = String(node.attrs.variant || "rect")
-  const points = kind === "shape" ? String(node.attrs.points || "") : ""
+  const width =
+    Number(node.attrs.width) || (kind === "icon" ? 28 : kind === "chart" ? CHART_WIDTH : kind === "model" ? 140 : 120)
+  const height =
+    Number(node.attrs.height) || (kind === "icon" ? 28 : kind === "chart" ? CHART_HEIGHT : kind === "model" ? 100 : 72)
+  // Edited points, else Word's own geometry (a preset the app has no drawing of, or one whose handles moved).
+  const points = kind === "shape" ? String(node.attrs.points || "") || geometryPoints(node.attrs, width, height) : ""
   let body = points ? pointsMarkup(variant, points) : shapeSvg(variant)
   if (kind === "icon") {
     body = ICONS[variant] ?? ICONS.star
   } else if (kind === "model") {
     body = modelSvg(variant)
   }
-  const width =
-    Number(node.attrs.width) || (kind === "icon" ? 28 : kind === "chart" ? CHART_WIDTH : kind === "model" ? 140 : 120)
-  const height =
-    Number(node.attrs.height) || (kind === "icon" ? 28 : kind === "chart" ? CHART_HEIGHT : kind === "model" ? 100 : 72)
   if (kind === "chart") {
     // A chart is drawn at its own size, so its text stays the size Word gives it (20.8).
     body = renderChart(chartSpecOf(node.attrs), width, height)
@@ -553,6 +564,10 @@ export const Figure = Node.create({
         renderHTML: (attributes) =>
           attributes.textHighlight ? { "data-text-highlight": attributes.textHighlight } : {},
       },
+      /** WordArt Styles on the shape's text (Shape Format): Text Fill, Text Outline and Text Effects, as a text box's. */
+      textFill: stringAttr("textFill"),
+      textOutline: stringAttr("textOutline"),
+      textEffect: stringAttr("textEffect"),
       /** left, right or justify; empty is centred, the app's default for shape text. */
       textAlign: {
         default: "",
@@ -577,6 +592,12 @@ export const Figure = Node.create({
         renderHTML: (attributes) => (attributes.wordChart ? { "data-word-chart": attributes.wordChart } : {}),
       },
       /** What a shape opened from Word looked like, to keep Word's own drawing while the app has not formatted it. */
+      /**
+       * Word's preset the shape is drawn from, by Word's own geometry: one the app has no drawing of, or one whose
+       * adjustment handles moved (`adjust`, its `a:avLst` values as JSON). Empty for the gallery's drawing.
+       */
+      geometry: stringAttr("geometry"),
+      adjust: stringAttr("adjust"),
       wordShape: {
         default: "",
         parseHTML: (element) => element.getAttribute("data-word-shape") || "",
@@ -602,6 +623,7 @@ export const Figure = Node.create({
         placeFigure(dom, next)
         ensureFigureResizeHandles(dom)
         ensureRotateHandle(dom)
+        paintAdjustHandles(dom, next)
       }
       paint(node)
       let current = node
@@ -691,6 +713,10 @@ export const Figure = Node.create({
           max: inlineMaxWidth,
         },
       )
+      const stopAdjust = bindAdjustHandles(dom, editor.view, () => {
+        const pos = typeof getPos === "function" ? getPos() : null
+        return typeof pos === "number" ? pos : undefined
+      })
       // A map chart is drawn again once the country outlines have loaded.
       const stopMap = onMapCountries(() => {
         if (!editing && current.attrs.kind === "chart") {
@@ -717,6 +743,7 @@ export const Figure = Node.create({
         destroy() {
           dom.removeEventListener("dblclick", edit)
           stopMap()
+          stopAdjust()
           stopRotate()
           stopDrag()
           stopResize()

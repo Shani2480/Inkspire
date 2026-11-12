@@ -61,6 +61,19 @@ describe("shapes written as Word's own (22.11)", () => {
     }
   })
 
+  it("writes the adjust values the yellow handles set as the preset's a:avLst, and reads them back", () => {
+    const attrs = { variant: "round", geometry: "roundRect", adjust: '{"adj":40000}', fill: "#FFC000" }
+    const xml = wordShapeGraphic(attrs, 1000, 500)!
+    expect(xml).toContain(
+      '<a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj" fmla="val 40000"/></a:avLst></a:prstGeom>',
+    )
+    expect(readWordShape(xml, null)).toMatchObject({ variant: "round", geometry: "roundRect", adjust: '{"adj":40000}' })
+    // A preset the app has no drawing of saves as itself, not as a freeform.
+    const divide = wordShapeGraphic({ variant: "rect", geometry: "mathDivide", fill: "#FFC000" }, 1000, 1000)!
+    expect(divide).toContain('<a:prstGeom prst="mathDivide"><a:avLst/></a:prstGeom>')
+    expect(divide).not.toContain("custGeom")
+  })
+
   it("writes the preset, fill and outline as a wps shape", () => {
     const xml = wordShapeGraphic({ variant: "ellipse", fill: "#FFC000", stroke: "#c00000", strokeWidth: 2 }, 1000, 500)!
     expect(xml).toContain('prst="ellipse"')
@@ -88,6 +101,38 @@ describe("shapes written as Word's own (22.11)", () => {
       strokeWidth: 3,
       width: 160,
       height: 96,
+    })
+  })
+
+  it("writes WordArt Styles on a shape's text as Word's run effects, and opens them again", async () => {
+    const { bytes, xml } = await save([
+      shapeImage({
+        variant: "round",
+        text: "Sale",
+        textColor: "#000000",
+        textFill: "#c00000",
+        textOutline: "#1f4e79",
+        textEffect: "shadow",
+      }),
+    ])
+    if (process.env.DUMP) {
+      ;(await import("node:fs")).writeFileSync(`${process.env.DUMP}/shape-text.docx`, bytes)
+    }
+    const run = /<w:rPr[ >](?:(?!<\/w:rPr>).)*<\/w:rPr><w:t xml:space="preserve">Sale/.exec(xml)?.[0] ?? ""
+    expect(run).toContain('<w:color w:val="C00000"/>')
+    expect(run).toMatch(
+      /<w14:shadow [^>]*>.*<\/w14:shadow><w14:textOutline [^>]*><w14:solidFill><w14:srgbClr w14:val="1F4E79"\/>/,
+    )
+    const reopened = await openDocxBytes(bytes, "s.docx")
+    // A paragraph holding only the shape opens it as the shape again, its text and WordArt Styles with it.
+    const object = /data-inkspire-object="([^"]*)"/.exec(reopened.view.html)?.[1] ?? ""
+    const figure = JSON.parse(atob(object)) as { attrs: Record<string, unknown> }
+    // Text Fill is the text's colour in Word, so it comes back as the font colour.
+    expect(figure.attrs).toMatchObject({
+      text: "Sale",
+      textColor: "#c00000",
+      textOutline: "#1f4e79",
+      textEffect: "shadow",
     })
   })
 

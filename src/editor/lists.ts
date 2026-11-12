@@ -41,9 +41,23 @@ function wordListAttributes() {
       default: "",
       parseHTML: (element: HTMLElement) => element.getAttribute("data-word-indent") ?? "",
       renderHTML: (attributes: { wordIndent?: string }) =>
-        /^padding-left: \d+(\.\d+)?pt$/.test(attributes.wordIndent ?? "")
+        /^padding-left: \d+(\.\d+)?pt(; --list-indent-step: \d+(\.\d+)?pt)?$/.test(attributes.wordIndent ?? "")
           ? { "data-word-indent": attributes.wordIndent, style: attributes.wordIndent }
           : {},
+    },
+    /** The document's default tab stops in pt (`word-markers.ts`). */
+    wordTab: {
+      default: "",
+      parseHTML: (element: HTMLElement) => element.getAttribute("data-word-tab") ?? "",
+      renderHTML: (attributes: { wordTab?: string }) =>
+        attributes.wordTab ? { "data-word-tab": attributes.wordTab } : {},
+    },
+    /** Word's marker for each level (`word-markers.ts`), drawn by the list marker decorations. */
+    wordLevels: {
+      default: "",
+      parseHTML: (element: HTMLElement) => element.getAttribute("data-word-levels") ?? "",
+      renderHTML: (attributes: { wordLevels?: string }) =>
+        attributes.wordLevels ? { "data-word-levels": attributes.wordLevels } : {},
     },
   }
 }

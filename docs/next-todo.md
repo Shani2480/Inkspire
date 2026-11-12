@@ -717,6 +717,89 @@ Icon contact sheet per tab in both layouts and both themes; narrow widths; keybo
 
 One sub-phase at a time, each checked in the browser in both themes before the next starts.
 
+Fixed 2026-10-29: Word lists draw Word's own bullets and numbers (`lvlText`, number format, bullet font) at the
+hanging indent, renumbered as they are edited (`changes.md`). Fixed the same day: the level's own marker
+formatting, `lvlJc` centred/right numbers, `suff`, `isLgl`, `lvlRestart`, a wide marker's text at the next tab stop,
+markers in exported HTML. Also the contract's footer cloud: pictures in headers are no longer clipped to the body,
+and pictures flip (`flipH`/`flipV`). Open: picture bullets (`lvlPicBulletId`).
+Fixed 2026-11-11: picture bullets are drawn (the picture one font size high), and saving no longer drops
+`w:numPicBullet`, its pictures, `w:lvlPicBulletId`, `w:lvlOverride`/`w:startOverride` or `w:numIdMacAtCleanup`; a
+list restarted by an override counts from its start (`changes.md`). Open: EMF/WMF picture bullets; lists sharing an
+abstract across `numId`s count separately. **Fixed** the same day: they count as one list until a `w:num` with a
+`w:startOverride` restarts it (`changes.md`).
+
+Fixed 2026-10-29: each Word section opens with its own top and bottom margins and headers and footers, editable
+per section with Link to Previous, and saved into its own section break (`changes.md`). Open: Page Setup, rulers
+and print copy use the last section's margins; per-section page size and orientation are not drawn.
+
+Fixed 2026-11-11: page numbers restart per section (`w:pgNumType` Start at and number format, read and written),
+with Insert > Page Number > Format Page Numbers…. Page Setup opens with the caret's section and applies to This
+section / This point forward / Whole document. The vertical ruler draws and drags each section's margins. The First
+page box and the Header & Footer tab's options change the open page's section. A recovered draft keeps every
+section (`changes.md`). The print copy already followed each section. Open: a section's own paper size,
+orientation and side margins; Top / Bottom of Page numbers only in the last section's header or footer; Previous /
+Next across sections and Link to Previous. **Fixed** the same day: page numbers go into the header or footer of
+the open (or caret's) page's section, through Link to Previous; Previous/Next step through every section's parts;
+Link to Previous toggles, asks before deleting a part with content, and is saved (`changes.md`). **Fixed** the same
+day: each section's paper, orientation and side margins are read, shown and set by Page Setup, and saved into its
+own `w:sectPr` (`changes.md`). Open:
+
+- ~~Drawing pages of different sizes~~ **Fixed** the same day in the usual view: each section's pages are drawn,
+  ruled, zoomed and printed at their own size (`changes.md`). Open: Multiple Pages and Side to Side keep one page
+  size. **Fixed** for Multiple Pages 2026-11-12 (`changes.md`); Side to Side still keeps one. A multi-column section on a narrower page laid out at the widest page's text width, and a floating object
+  placed and cut by the document's page, fixed the same day (`changes.md`).
+- ~~The ribbon's Orientation, Size and Margins act on the document, not the caret's section.~~ **Fixed** the same day
+  (`changes.md`); the horizontal ruler's margin drag still changes the document's side margins.
+- ~~Columns per section~~ **Fixed** the same day (`changes.md`). Columns changing at a continuous break **fixed** the same day: such a section opens as a block of its columns, and
+  section breaks and blocks of columns made in the editor are saved (they were lost) (`changes.md`). A long
+  continuous section of other columns, fixed 2026-11-12: a block of columns goes on across pages. A new section's own Page Setup, fixed the same day. Different
+  counts above one and a section's own unequal widths **fixed** the same day (`changes.md`). The Columns dialog's
+  Apply to has This section, fixed the same day. The ruler's column drags change the caret's section, fixed the
+  same day.
+- ~~Columns and page breaks (also with one section): a page ended early is balanced by the browser, where Word
+  fills the first column first, and the next page's text starts 10-43 px high.~~ **Fixed** the same day: a filler
+  fills the page's columns (`changes.md`). Multiple Pages keeps each block in its column, fixed the same day.
+- **Sections with other columns as their own column flow (option 2, 2026-11-12).** Where sections' columns differ,
+  the paginator lays the blocks out one by one, each moved whole into its column, so a paragraph that does not fit
+  the rest of a column goes whole to the next one (Word splits it). The plan is to give such a section a real column
+  container, the block of columns (`columnSection`), so its text flows through the browser's columns:
+  - Phase 1, **done** 2026-11-12: a block of columns runs on across pages (filled from the first column, the page's
+    end spanning its columns, its last page balanced); a long continuous section opens as one (`changes.md`).
+  - Phase 2: a Word section of other columns that starts a page opens as a block of columns after its break, and
+    Columns > This section makes one; saved as that section's own w:cols, not an extra continuous section. **Done
+    2026-11-12:** where the page-starting sections' equal columns differ (two, then three), each opens as a block of
+    its columns between its breaks, on pages of one column, so its paragraphs split between columns as in Word.
+    A block filling a section (a page break or the start before it, one or the end after it) saves as that section's
+    own w:cols, also one made in the editor; Page Setup's one column does not overwrite it, and the section is one
+    column again once its block is removed. Columns > This section with equal columns that would differ from other
+    sections' (or beside blocks) makes the section's block. Open: undo takes back the block but not the section's
+    page columns the dialog set at the same time (they were one before in the cases checked); sections of other text
+    widths keep the block-by-block layout.
+  - Phase 3: unequal widths (Left, Right, custom), which the browser's columns cannot draw, keep the blockwise
+    layout; decide then whether they need more.
+
+Fixed 2026-10-29: Options dialog drawn light in dark mode; SmartArt Cycle, Organization Chart and Relationship
+drawn as a row of boxes in a dashed frame (`changes.md`).
+Fixed 2026-11-11: Basic Cycle with many items shrinks its shapes so neighbours stay apart, keeps an arrow between
+each pair, and fits all its text to one size (`changes.md`). Open: other Word layouts still open as a picture.
+
+Fixed 2026-10-29, from a contract built on Word's cover page: a Word section break did not start a new page (the
+next section ran on under the cover, and every later page break landed early, text into the gaps between pages); a
+floating picture larger than the page was drawn past its edges; a fill with `a:alpha` was drawn opaque
+(`changes.md`).
+
+Open 2026-10-29: the editor has one page setup for every section, so a cover section with its own margins (top 0)
+is laid out with the last section's, and a header picture taller than the top margin (the contract's logo) is not
+drawn on the pages, though the body starts below the header's reach. **Fixed** by the per-section margins and headers (checked
+2026-11-11: no strip above the cover's photo, and the logo is drawn on the agreement pages).
+
+Fixed 2026-10-29: a block-level rich text or cover page content control opened as one raw block of plain text; its
+paragraphs and tables now open as the document's own and are saved back inside the control (`changes.md`).
+
+Fixed 2026-10-29: Word list items that set their own left indent (the level giving the hanging one) opened with the
+text indented twice, 0.75" too far right, and deeper levels stepped 1.75em; the list now places the text once and
+steps levels by the document's own spacing (`changes.md`).
+
 ### 18.1 — Charts in Word documents
 
 Opening a document with a chart failed: "Unknown namespace is not listed in mc:Ignorable: …/drawingml/2006/chart".
@@ -1253,7 +1336,7 @@ Part 1 is implementation work (bugs and features). Part 2 is discovery: analyse 
 
 - Rebuild the tab with Word's groups and layout: Adjust, Picture Styles, Accessibility, Arrange, Size.
 
-  **Done.** `PictureFormatTab` has Word's groups and stacks. Adjust: Corrections (a 5 × 5 brightness and contrast gallery), Color (saturation and recolor), Artistic Effects, Transparency, Compress Pictures (a dialog: Print 220, Web 150, Email 96 ppi, resampled on a canvas for the size shown, never enlarged), Change Picture, Reset Picture (takes back every picture setting). Picture Styles: a gallery of twelve frames, shadows, reflections and shapes, Picture Border (colour, weight, dashes) and Picture Effects (the Shape Format menu: shadow, reflection, glow, soft edges, bevel, 3-D rotation). Arrange gains Align and Group. Each gallery tile is the picture itself with the choice applied, and each choice previews on the picture as the pointer passes. The adjustments live in `picture-format.ts` (attributes, one CSS filter) and are drawn in `paintImage`. In .docx they are written as `a:lum`, `a:grayscl`, `a:biLevel`, `a:alphaModFix`, the frame (`prstGeom`), the border (`a:ln`) and `a:effectLst`; a picture with such settings is written anew rather than from its source drawing. Not done: Remove Background, Picture Layout (to SmartArt), Saturation and the artistic effects in .docx (Word has no plain counterpart), and reading these settings back from a .docx Word wrote (the picture opens without them). Tests: `picture-format.test.ts` and `floating.test.ts`. Checked in Chrome: every gallery, the live preview, Compress and Reset.
+  **Done.** `PictureFormatTab` has Word's groups and stacks. Adjust: Corrections (a 5 × 5 brightness and contrast gallery), Color (saturation and recolor), Artistic Effects, Transparency, Compress Pictures (a dialog: Print 220, Web 150, Email 96 ppi, resampled on a canvas for the size shown, never enlarged), Change Picture, Reset Picture (takes back every picture setting). Picture Styles: a gallery of twelve frames, shadows, reflections and shapes, Picture Border (colour, weight, dashes) and Picture Effects (the Shape Format menu: shadow, reflection, glow, soft edges, bevel, 3-D rotation). Arrange gains Align and Group. Each gallery tile is the picture itself with the choice applied, and each choice previews on the picture as the pointer passes. The adjustments live in `picture-format.ts` (attributes, one CSS filter) and are drawn in `paintImage`. In .docx they are written as `a:lum`, `a:grayscl`, `a:biLevel`, `a:alphaModFix`, the frame (`prstGeom`), the border (`a:ln`) and `a:effectLst`; a picture with such settings is written anew rather than from its source drawing. **Picture Layout done (2026-11-12):** Picture Styles has Picture Layout with Word's picture layouts the app draws (Picture Caption List, Vertical Picture List); a pick turns the selected picture into that SmartArt with the picture in its shape and its alt text as the text (`pictureToSmartArt`, `PictureLayoutMenu`); several pictures at once are not taken. **Remove Background done (2026-11-12):** Adjust starts with Remove Background, a Background Removal dialog (Word uses a contextual tab): the picture with what goes in magenta, a first guess grown from the picture's edges through the colours most common along them, Mark Areas to Keep and Mark Areas to Remove (each takes the run of similar colour under the stroke), Undo Mark, Keep Changes and Discard All Changes. The result is a PNG with the background transparent (pictures over 2000 px a side are reduced to that); the picture before is kept on the picture (`backgroundOf`, not in the .docx), so Remove Background starts from it again and Reset Picture brings it back (`remove-background.ts`, `remove-background-dialog.tsx`). Not done: Word's own `a14:imgEffect` background removal is not read, and the guess has no subject box to drag. Not done: Saturation and the artistic effects in .docx (Word has no plain counterpart). **Read back done (2026-11-12):** brightness and contrast, Grayscale, Black and White, Washout, transparency, the border (colour, weight, dot or dash) and the shadow, glow, soft edges and reflection Word wrote open on the picture (`picture-look.ts`), as the frame shape already did; an unchanged picture is saved from Word's own drawing, and a changed one is written anew with all of them. `a:effectLst` is now written in schema order (glow, shadow, reflection, soft edges) for pictures and shapes; soft edges before the reflection were invalid. Tests: `picture-format.test.ts`, `picture-look.test.ts` and `floating.test.ts`. Checked in Chrome: every gallery, the live preview, Compress and Reset.
 
 #### 21.3 — Table Design tab as in Word
 
@@ -1278,7 +1361,7 @@ Part 1 is implementation work (bugs and features). Part 2 is discovery: analyse 
 - A Crop tool on the Picture Format tab and in the picture's right-click menu.
 - Word-style crop handles that hide the cropped parts without deleting pixels, so the crop can be changed later (and kept in .docx as `a:srcRect`).
 
-  **Done.** Crop (Picture Format → Size, the picture's mini bar, and Crop in its right-click menu) turns the selected picture into crop mode: black corner and edge handles, the cropped-away parts drawn faint beside the part that shows. Dragging a handle hides or shows that edge live without scaling or resampling the picture (`picture-crop.ts`); a floating picture keeps its far edge in place; one undo step per drag; Esc cancels the drag, and clicking Crop again or selecting something else leaves the mode. The crop is four attributes (`cropL/T/R/B`, percent of the whole picture), so it can be changed any time, and the picture's frame, outline and soft edges follow the part that shows. In .docx it is `a:srcRect` (with the visible size as the extent, as Word writes it) and a Word crop opens as the same crop; a source picture whose crop is unchanged is still written from its source drawing. The old uniform "crop 12 %" toggle is gone. **Crop to Shape, Aspect Ratio, Fill / Fit done (2026-10-27):** Crop is a split button with Word's menu; Crop to Shape uses any shape Word has a preset for (`a:prstGeom` on the picture), Aspect Ratio crops centred at the picture's scale, Fill and Fit scale the picture in its frame (Fit as a negative `a:srcRect`) (`picture-shape.ts`, `picture-crop.ts`). Not done: dragging the picture inside its frame, the faint cropped-away parts showing outside a shape in crop mode, and Crop as a split button on the picture bar. Tests: `picture-crop.test.ts`, `floating.test.ts`. Checked in Chrome: Crop, drag west and south handles, leave the mode, undo.
+  **Done.** Crop (Picture Format → Size, the picture's mini bar, and Crop in its right-click menu) turns the selected picture into crop mode: black corner and edge handles, the cropped-away parts drawn faint beside the part that shows. Dragging a handle hides or shows that edge live without scaling or resampling the picture (`picture-crop.ts`); a floating picture keeps its far edge in place; one undo step per drag; Esc cancels the drag, and clicking Crop again or selecting something else leaves the mode. The crop is four attributes (`cropL/T/R/B`, percent of the whole picture), so it can be changed any time, and the picture's frame, outline and soft edges follow the part that shows. In .docx it is `a:srcRect` (with the visible size as the extent, as Word writes it) and a Word crop opens as the same crop; a source picture whose crop is unchanged is still written from its source drawing. The old uniform "crop 12 %" toggle is gone. **Crop to Shape, Aspect Ratio, Fill / Fit done (2026-10-27):** Crop is a split button with Word's menu; Crop to Shape uses any shape Word has a preset for (`a:prstGeom` on the picture), Aspect Ratio crops centred at the picture's scale, Fill and Fit scale the picture in its frame (Fit as a negative `a:srcRect`) (`picture-shape.ts`, `picture-crop.ts`). **Dragging the picture inside its frame done (2026-11-12):** in crop mode a drag on the picture slides it under the crop frame, which keeps its size and place, up to the picture's own edge (a fitted picture moves within its room); Esc puts it back, and it is one undo step with the rest of the crop (`pannedBy`, `picture-crop.ts`). **Faint parts around a shape done (2026-11-12):** in crop mode a picture cropped to a shape shows its cut-away parts faint around the shape, which stays sharp (the shape's mask, or an oval's or rounded frame's corners, move to the picture at the part that shows; a flipped picture keeps the old look). **Crop split button on the picture bar done (2026-11-12):** its icon crops (Apply in crop mode) and its label opens Word's Crop menu; the bar now turns to Apply, Cancel and Reset as soon as crop mode begins, not at the next edit. Tests: `picture-crop.test.ts`, `floating.test.ts`. Checked in Chrome: Crop, drag west and south handles, leave the mode, undo.
 
 #### 21.7 — Table floating toolbar in dark mode
 
@@ -1621,7 +1704,7 @@ Source: the 48 top-level files in `screenshots/` taken on 2026-10-19 (`screensho
 - An Equation tab: Tools (Equation menu), Conversions (Unicode / LaTeX / Text and Convert), Symbols gallery with its category drop-down, Structures (Fraction, Script, Radical, Integral, Large Operator, Bracket, Function, Accent, Limit and Log, Operator, Matrix), each with a gallery.
 - Equation gallery (081431): Built-In list with Area of Circle, Binomial Theorem, Expansion of a Sum, Fourier Series, Pythagorean Theorem rendered, scrolling; "Save Selection to Equation Gallery…" for the user's own.
 
-  **Done (partly).** The Equation tab already had Edit Equation, Structures and Symbols. New: Tools → Equation gallery (Built-In: Area of Circle, Binomial Theorem, Expansion of a Sum, Fourier Series, Pythagorean Theorem, Quadratic Formula, drawn; your own under General; "Save Selection to Equation Gallery…" asks for a name and keeps the equation in this browser/profile); the Insert tab's Equation gallery now uses the same list (it gains Fourier Series); Conversions (Unicode / LaTeX / Text and Convert, which turns the selected equation into text of that kind); Symbols shows the chosen category's symbols with a category drop-down; Structures now has Limit and Log and Operator beside Fraction, Script, Radical, Integral, Large Operator, Bracket, Function, Accent and Matrix. Tests: `equation-gallery.test.ts`. Checked in Chrome: the tab, Convert on the Pythagorean equation gives `a^2+b^2=c^2` in the line. Not done: Convert only goes from equation to text (not text back to an equation, nor Word's Professional/Linear switch); the symbol row shows the first 14 of a category and has no "more" gallery; Structures open lists, not Word's pictured galleries with sub-groups; the saved gallery is not shared between machines; the gallery menu and Save Selection were not clicked through in Chrome.
+  **Done (partly).** The Equation tab already had Edit Equation, Structures and Symbols. New: Tools → Equation gallery (Built-In: Area of Circle, Binomial Theorem, Expansion of a Sum, Fourier Series, Pythagorean Theorem, Quadratic Formula, drawn; your own under General; "Save Selection to Equation Gallery…" asks for a name and keeps the equation in this browser/profile); the Insert tab's Equation gallery now uses the same list (it gains Fourier Series); Conversions (Unicode / LaTeX / Text and Convert, which turns the selected equation into text of that kind); Symbols shows the chosen category's symbols with a category drop-down; Structures now has Limit and Log and Operator beside Fraction, Script, Radical, Integral, Large Operator, Bracket, Function, Accent and Matrix. Tests: `equation-gallery.test.ts`. Checked in Chrome: the tab, Convert on the Pythagorean equation gives `a^2+b^2=c^2` in the line. **Text to an equation done (2026-11-12):** with text selected, Insert → Equation (now a split button: the top converts or opens Insert New Equation) and Alt+= turn the text, in Word's linear format, into a built-up equation: scripts (`a^2`, `x_(i+1)`), fractions (`(a+b)/2`, `nx/1!`), roots (`√(x+1)`) and symbols, brackets that only group dropped; text with a backslash is taken as LaTeX; a whole paragraph becomes a display equation, and the new equation is selected (`texFromLinear`, `convertTextToEquation`). Not done: Word's Professional/Linear switch inside an equation, and n-ary operators, matrices and accents in the linear format; the symbol row shows the first 14 of a category and has no "more" gallery; Structures open lists, not Word's pictured galleries with sub-groups; the saved gallery is not shared between machines; the gallery menu and Save Selection were not clicked through in Chrome.
 
 #### 22.3 — Table Design: Shading and Border tools (screenshot 081403)
 
@@ -1974,7 +2057,7 @@ Not done: the Font dialog, strikethrough, sub/superscript and spacing; formattin
 
 ### Read Mode and Web Layout
 
-**Done (partly).** Web Layout is a real layout, not a restyled print page: the text runs the width of the window (`webWidth` in `document/view.ts`, measured by the page canvas; `pageMetrics` returns one very tall "page" for it, `pageMetrics(setup, true)` still gives the sheet for the print preview), so there are no page breaks (manual breaks and blank pages are ignored too), margins, headers, footers or page numbers, columns are ignored, and the ruler is hidden. It stays editable and zooms. Read Mode replaces the ribbon with a slim bar (Tools: Read Aloud and the headings; View: Edit Document, Column Width, Page Color, Layout) and shows the text in read-only columns that run sideways (`components/read-mode.tsx`, `document/read-pages.ts`): turn pages with the arrows, PageUp/PageDown, Space, Home/End, the wheel or the buttons at the edges; "Page n of m" at the bottom; click an image to see it large; Esc or Edit Document leaves. Paper Layout in the View menu shows the real pages, read-only. Entering Read Mode no longer turns Focus on. Tests: `web-layout.test.ts`, `read-pages.test.ts`, `read-mode.test.tsx`. Checked in Chrome: Web Layout reflow and back to four pages, column reading, page turns, Sepia, Paper Layout (needed a fix: the pagination measured zero while the editor was hidden), Esc. Not done: Show Comments, the Navigation Pane and Find inside Read Mode, Inverse and Sepia for Paper Layout, text-to-speech highlighting, tables, charts, shapes and floating objects are shown as the HTML the editor produces (floats become in-line), objects other than pictures do not open large, the last page of columns can overlap the one before it, and Web Layout has no ruler.
+**Done (partly).** Web Layout is a real layout, not a restyled print page: the text runs the width of the window (`webWidth` in `document/view.ts`, measured by the page canvas; `pageMetrics` returns one very tall "page" for it, `pageMetrics(setup, true)` still gives the sheet for the print preview), so there are no page breaks (manual breaks and blank pages are ignored too), margins, headers, footers or page numbers, columns are ignored, and the ruler is hidden. It stays editable and zooms. Read Mode replaces the ribbon with a slim bar (Tools: Read Aloud and the headings; View: Edit Document, Column Width, Page Color, Layout) and shows the text in read-only columns that run sideways (`components/read-mode.tsx`, `document/read-pages.ts`): turn pages with the arrows, PageUp/PageDown, Space, Home/End, the wheel or the buttons at the edges; "Page n of m" at the bottom; click an image to see it large; Esc or Edit Document leaves. Paper Layout in the View menu shows the real pages, read-only. Entering Read Mode no longer turns Focus on. Tests: `web-layout.test.ts`, `read-pages.test.ts`, `read-mode.test.tsx`. Checked in Chrome: Web Layout reflow and back to four pages, column reading, page turns, Sepia, Paper Layout (needed a fix: the pagination measured zero while the editor was hidden), Esc. **Find done (2026-11-12):** Tools → Find and Ctrl+F open a search box in the read bar; every match is highlighted (CSS highlights), the current one more strongly, with "n of m", Enter / Shift+Enter and the arrows stepping through them and turning to the match's page; Esc or leaving Read Mode closes it (`findInPieces`, `useReadFind`). Not done: Show Comments, the Navigation Pane inside Read Mode, Find in Paper Layout, Inverse and Sepia for Paper Layout, text-to-speech highlighting, tables, charts, shapes and floating objects are shown as the HTML the editor produces (floats become in-line), objects other than pictures do not open large, and Web Layout has no ruler. **Last page fixed (2026-11-12):** a last page whose columns do not fill the screen used to stop short and show part of the page before; a spacer now makes it a whole screen, and the page count is read from the text alone.
 
 ## AI assistant for the selection (2026-10-22)
 
@@ -2020,14 +2103,36 @@ What it lacked, to do when it returns:
 - **Default line spacing.** The Paragraph dialog shows Multiple 1.15 for a paragraph with no line spacing of its own,
   but the editor draws such paragraphs at `line-height: 1.65` (body CSS). Choosing 1.15 there makes the lines
   visibly tighter. Make the two agree (the editor's default as Word's Normal style for a new document, or the
-  dialog showing what is drawn).
+  dialog showing what is drawn). **Done (2026-11-12):** the dialog shows what is drawn: a paragraph with no
+  spacing of its own shows its style's (Normal, a heading or a named style, through `basedOn`): 1.65 and 9 pt after
+  for a new document's Normal (`styleSpacing`). Word's own 1.15 still draws tighter than in Word, since a multiple
+  is the CSS line-height here; that is a separate fidelity question.
 - **WordArt row for shape text.** Text Fill, Text Outline and Text Effects on Shape Format are on only for text
   boxes; Word turns them on for any shape with text. Shape text has `textColor` (from Font Color) but no outline
-  or effects yet.
+  or effects yet. **Done (2026-11-12):** the row (and Quick Styles) is on for drawn shapes; Text Fill, Text Outline
+  and Text Effects are the shape's own `textFill`, `textOutline`, `textEffect`, drawn as in a text box, saved as the
+  run's colour and Word 2010's `w14:glow` / `w14:shadow` / `w14:reflection` / `w14:textOutline` / `w14:textFill`
+  (namespace declared on the run) and read back. Fixed on the way: a paragraph holding only a shape with text
+  counted the shape's text as its own, so the shape opened as a raw drawing instead of a shape (Word's files too).
+  Not done: bevel and the transforms are not written to Word; a text box's text effects are still not written as
+  Word's.
 - **Adjustment handles.** Shapes have no yellow adjustment handles (Word's Division sign has three). Word's `a:avLst`
-  values are read (`preset-geometry.ts`), so the handles would change those.
+  values are read (`preset-geometry.ts`), so the handles would change those. **Done (2026-11-12):** a selected shape shows Word's
+  yellow diamonds for every preset with handles (119 of 186, from Word's own `ahXY` / `ahPolar`); dragging one moves
+  the adjust values within their limits so the handle follows the pointer, previews without a history step, Esc puts
+  it back and letting go is one undo step. The shape is then drawn from Word's geometry (`geometry` + `adjust`) and
+  saved as its preset with an `a:avLst`. A Word shape the app has no drawing of, or with moved handles, now opens by
+  its preset name instead of baked-in points, so its handles work and it saves as the preset. Not checked in the browser: polar handles (arcs, pie, block arc), which go through the same search on their radius and angle.
 - **Several picked objects.** Shift+click in the Selection Pane picks several objects, and Align and Group act on
   them, but only the last one shows its handles on the page; Word frames each. Shift+click on the objects themselves
-  does not pick them.
+  does not pick them. **Done (2026-11-12):** every picked object is framed with its sizing and rotate handles (`data-picked`,
+  which survives a node view repainting), Shift+click on an object adds it (starting from the selected one) or takes
+  it out, the clicked one is the selection the ribbon shows, the picks follow edits, and a click elsewhere lets go.
+  Not done: dragging one picked object moves only it (Word moves them all), and the Selection Pane's Shift+click
+  still starts a fresh pick rather than from the selected object.
 - **Keep with next and space after.** A paragraph's space after counts when deciding whether its last line fits
-  at a page foot. Compare with Word, which may let space after run past the foot.
+  at a page foot. Compare with Word, which may let space after run past the foot. **Done (2026-11-12):** as in Word, a paragraph's space
+  after need not fit at the foot: a paragraph whose lines fit stays, its space after runs past the foot, and the
+  next page still starts at its top margin (the gap is shorter by what ran past). Widow/orphan control, Keep lines
+  together and unequal columns' keep-whole leave it out too; Keep with next still counts it, since there it lies
+  between the paragraph and the next one on the same page.

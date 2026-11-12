@@ -2,6 +2,7 @@ import { objectBox, objectLayoutAttributes } from "@/editor/object-frame"
 import { blockEnd, readItems, writeItems, type SmartArtItem } from "@/editor/smartart-model"
 import { Node, mergeAttributes } from "@tiptap/core"
 import type { Node as ProseNode } from "@tiptap/pm/model"
+import { NodeSelection } from "@tiptap/pm/state"
 import { create } from "zustand"
 
 export type SmartArtLayout =
@@ -76,6 +77,8 @@ declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     smartArt: {
       insertSmartArt: (layout: SmartArtLayout) => ReturnType
+      /** Picture Format → Picture Layout: the selected picture becomes a SmartArt picture layout holding it. */
+      pictureToSmartArt: (layout: SmartArtLayout) => ReturnType
     }
   }
 }
@@ -149,6 +152,10 @@ function paintSmartArt(dom: HTMLElement, node: ProseNode) {
     paintLook(cell, items[index])
     cells.push(cell)
   })
+  if (layout === "cycle") {
+    paintCycle(dom, cells)
+    return
+  }
   if (layout === "hierarchy") {
     // Hierarchy draws the outline as a tree: each item over a row of the items under it, joined by lines.
     const tree = document.createElement("div")
@@ -157,6 +164,110 @@ function paintSmartArt(dom: HTMLElement, node: ProseNode) {
     dom.append(tree)
   } else {
     dom.append(...cells)
+  }
+}
+
+const SVG_NS = "http://www.w3.org/2000/svg"
+const CYCLE_SIZE = 300
+const CYCLE_RADIUS = 105
+
+/**
+ * Basic Cycle: the shapes evenly round a ring, the first at the top, each joined to the next by an arrow that runs
+ * clockwise along the ring, as Word draws it.
+ */
+function paintCycle(dom: HTMLElement, cells: HTMLElement[]) {
+  const ring = document.createElement("div")
+  ring.className = "smartart-ring"
+  const svg = document.createElementNS(SVG_NS, "svg")
+  svg.setAttribute("viewBox", `0 0 ${CYCLE_SIZE} ${CYCLE_SIZE}`)
+  svg.setAttribute("aria-hidden", "true")
+  const marker = document.createElementNS(SVG_NS, "marker")
+  const id = `smartart-arrow-${Math.random().toString(36).slice(2, 9)}`
+  marker.id = id
+  marker.setAttribute("viewBox", "0 0 10 10")
+  marker.setAttribute("refX", "6")
+  marker.setAttribute("refY", "5")
+  marker.setAttribute("markerWidth", "5")
+  marker.setAttribute("markerHeight", "5")
+  marker.setAttribute("orient", "auto-start-reverse")
+  const head = document.createElementNS(SVG_NS, "path")
+  head.setAttribute("d", "M0 0L10 5L0 10z")
+  head.setAttribute("class", "smartart-ring-head")
+  marker.append(head)
+  const defs = document.createElementNS(SVG_NS, "defs")
+  defs.append(marker)
+  svg.append(defs)
+  const count = cells.length
+  const center = CYCLE_SIZE / 2
+  const angle = (index: number) => -Math.PI / 2 + (index * 2 * Math.PI) / Math.max(1, count)
+  // The arrows leave room for the shapes at each end: a shape's half width and a little more along the ring.
+  const node = cycleNodeSize(count)
+  const gap = Math.asin(Math.min(1, (node / 2 + 6) / CYCLE_RADIUS))
+  if (count > 1) {
+    for (let index = 0; index < count; index += 1) {
+      const from = angle(index) + gap
+      const to = angle(index + 1) - gap
+      if (to <= from) {
+        continue
+      }
+      const point = (value: number) =>
+        `${(center + CYCLE_RADIUS * Math.cos(value)).toFixed(1)} ${(center + CYCLE_RADIUS * Math.sin(value)).toFixed(1)}`
+      const arc = document.createElementNS(SVG_NS, "path")
+      arc.setAttribute("d", `M${point(from)}A${CYCLE_RADIUS} ${CYCLE_RADIUS} 0 0 1 ${point(to)}`)
+      arc.setAttribute("class", "smartart-ring-arrow")
+      arc.setAttribute("marker-end", `url(#${id})`)
+      svg.append(arc)
+    }
+  }
+  ring.append(svg)
+  // Word keeps the graphic one size: with more items the shapes get smaller so neighbours do not touch.
+  ring.style.setProperty("--smartart-node", `${node}px`)
+  ring.style.setProperty("--smartart-arrow", `${Math.max(2.5, (6 * node) / CYCLE_NODE).toFixed(1)}`)
+  cells.forEach((cell, index) => {
+    cell.style.left = `${center + CYCLE_RADIUS * Math.cos(angle(index))}px`
+    cell.style.top = `${center + CYCLE_RADIUS * Math.sin(angle(index))}px`
+    ring.append(cell)
+  })
+  dom.append(ring)
+  requestAnimationFrame(() => fitCycleText(ring))
+  // Typing in a shape fits the text again.
+  ring.addEventListener("input", () => fitCycleText(ring))
+}
+
+const CYCLE_NODE = 92
+const CYCLE_FONT = 13
+const CYCLE_MIN_FONT = 7
+
+/** A Basic Cycle shape's diameter for `count` items: 92 px, or less so it leaves a gap to its neighbours on the ring. */
+export function cycleNodeSize(count: number) {
+  if (count < 2) {
+    return CYCLE_NODE
+  }
+  const neighbours = 2 * CYCLE_RADIUS * Math.sin(Math.PI / count)
+  return Math.round(Math.max(30, Math.min(CYCLE_NODE, neighbours * 0.62)))
+}
+
+/**
+ * The text of every shape in one size, the largest at which each one fits its shape, as Word's SmartArt shrinks all
+ * its shapes' text together. Nothing is laid out (a headless editor): the text keeps its size.
+ */
+function fitCycleText(ring: HTMLElement) {
+  const cells = [...ring.querySelectorAll<HTMLElement>(":scope > .smartart-cell")]
+  if (!ring.isConnected || cells.length === 0 || ring.offsetWidth === 0) {
+    return
+  }
+  const fits = () =>
+    cells.every((cell) => cell.scrollHeight <= cell.clientHeight + 1 && cell.scrollWidth <= cell.clientWidth + 1)
+  let size = CYCLE_FONT
+  ring.style.setProperty("--smartart-font", `${size}px`)
+  delete ring.dataset.wrapWords
+  while (size > CYCLE_MIN_FONT && !fits()) {
+    size -= 0.5
+    ring.style.setProperty("--smartart-font", `${size}px`)
+  }
+  // A word still too long for its shape at the smallest size is broken, as Word does.
+  if (!fits()) {
+    ring.dataset.wrapWords = "1"
   }
 }
 
@@ -420,11 +531,41 @@ export const SmartArt = Node.create({
       insertSmartArt:
         (layout) =>
         ({ chain }) => {
-          const labels = JSON.stringify(defaultLabels(layout))
+          const texts = defaultLabels(layout)
+          const labels = JSON.stringify(texts)
+          // An organization chart starts as Word's does: one shape at the top and the others under it.
+          const levels = JSON.stringify(texts.map((_, index) => (layout === "hierarchy" && index > 0 ? 1 : 0)))
           return chain()
             .insertContent({
               type: "smartArt",
-              attrs: { layout, labels, accent: "#0f6cbd" },
+              attrs: { layout, labels, levels, accent: "#0f6cbd" },
+            })
+            .run()
+        },
+      pictureToSmartArt:
+        (layout) =>
+        ({ state, chain }) => {
+          const selection = state.selection
+          if (!(selection instanceof NodeSelection) || selection.node.type.name !== "image") {
+            return false
+          }
+          if (!PICTURE_LAYOUTS.includes(layout)) {
+            return false
+          }
+          const picture = selection.node.attrs
+          // The picture's alt text, when it has one, is the shape's text, as Word puts it in the text pane.
+          const label = String(picture.alt || "").trim() || "Text 1"
+          return chain()
+            .deleteSelection()
+            .insertContent({
+              type: "smartArt",
+              attrs: {
+                layout,
+                labels: JSON.stringify([label]),
+                levels: "[0]",
+                pictures: JSON.stringify([String(picture.src || "")]),
+                accent: "#0f6cbd",
+              },
             })
             .run()
         },

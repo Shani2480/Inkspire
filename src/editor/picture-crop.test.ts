@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  pannedBy,
   NO_CROP,
   aspectRatioCrop,
   cropAttrs,
@@ -111,5 +112,29 @@ describe("Crop to Shape", () => {
     expect(mask).toContain('fill="#000"')
     expect(mask).toContain('stroke="none"')
     expect(mask).not.toContain("#fff4ce")
+  })
+})
+
+describe("dragging the picture under its crop", () => {
+  // A 200 × 100 picture shown with a quarter cut from each side: 100 × 50 of it shows.
+  const start = { width: 100, height: 50, crop: { l: 0.25, t: 0.25, r: 0.25, b: 0.25 } }
+
+  it("slides the picture: a drag to the right shows more of its left side", () => {
+    const crop = pannedBy(start, 20, -10)
+    expect(crop.l).toBeCloseTo(0.15)
+    expect(crop.r).toBeCloseTo(0.35)
+    expect(crop.t).toBeCloseTo(0.35)
+    expect(crop.b).toBeCloseTo(0.15)
+  })
+
+  it("stops at the picture's own edge, keeping the size that shows", () => {
+    expect(pannedBy(start, 500, 500)).toEqual({ l: 0, t: 0, r: 0.5, b: 0.5 })
+    expect(pannedBy(start, -500, -500)).toEqual({ l: 0.5, t: 0.5, r: 0, b: 0 })
+  })
+
+  it("moves a fitted picture within the room around it", () => {
+    const fit = { width: 100, height: 100, crop: { l: -0.25, t: 0, r: -0.25, b: 0 } }
+    expect(pannedBy(fit, 1000, 0)).toEqual({ l: -0.5, t: 0, r: 0, b: 0 })
+    expect(pannedBy(fit, 0, 30)).toEqual({ l: -0.25, t: 0, r: -0.25, b: 0 })
   })
 })

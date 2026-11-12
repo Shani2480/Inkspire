@@ -62,6 +62,10 @@ export type WordShape = {
   variant: string
   /** A freeform's outline as points (see `shape-points.ts`); empty for a preset. */
   points: string
+  /** The preset when it is drawn from Word's geometry (the app has no drawing of it, or its handles moved), else "". */
+  geometry: string
+  /** Its adjust values (`a:avLst`) as JSON; "" for the preset's defaults. */
+  adjust: string
   fill: string
   stroke: string
   /** The outline's weight in points. */
@@ -78,6 +82,10 @@ export type WordShape = {
   textHighlight: string
   /** left, right or justify; empty is centred. */
   textAlign: string
+  /** WordArt Styles on the text: Text Outline's colour, Text Effects' name, Text Fill's "none"; empty when not set. */
+  textOutline: string
+  textEffect: string
+  textFill: string
   dash: string
   gradient: string
   shadow: string
@@ -184,6 +192,16 @@ export function colorOf(markup: string, scheme: Map<string, string>): string {
   return toHex(values)
 }
 
+/** A colour Word shows through (`a:alpha` under 100%) as eight-digit hex, which the drawing and the writer keep. */
+export function withAlpha(hex: string, markup: string) {
+  const alpha = Number(/<a:alpha val="(\d+)"/.exec(markup)?.[1])
+  if (!hex || !Number.isFinite(alpha) || alpha >= 100000) {
+    return hex
+  }
+  const byte = Math.round((Math.max(0, alpha) / 100000) * 255)
+  return `${hex}${byte.toString(16).padStart(2, "0")}`
+}
+
 function unescapeText(value: string) {
   return value
     .replace(/&#x([0-9a-f]+);/gi, (_, code: string) => String.fromCodePoint(Number.parseInt(code, 16)))
@@ -218,15 +236,15 @@ export function readWordShape(xml: string, themeXml: string | null): WordShape |
   const named = /<a:prstGeom prst="(\w+)"/.exec(shape)?.[1]
   // A preset the app has no drawing of, or one whose handles Word moved (its own adjust values), opens drawn from
   // Word's own geometry at the shape's size.
+  // It keeps the preset's name and adjust values, so its adjustment handles still move them.
   const adjust = named ? presetAdjust(shape) : {}
-  const drawn =
-    named && (!VARIANT_OF_PRESET[named] || Object.keys(adjust).length > 0)
-      ? presetSegments(named, ...shapeExtent(shape, xml), adjust)
-      : null
-  const outline = custom ?? drawn
-  const points = outline ? pathString(outline) : ""
+  const geometric =
+    Boolean(named) &&
+    (!VARIANT_OF_PRESET[named!] || Object.keys(adjust).length > 0) &&
+    presetSegments(named!, ...shapeExtent(shape, xml), adjust) !== null
+  const points = custom ? pathString(custom) : ""
   const preset = custom ? "custom" : named
-  const variant = points ? "rect" : preset ? VARIANT_OF_PRESET[preset] : undefined
+  const variant = points ? "rect" : preset ? (VARIANT_OF_PRESET[preset] ?? (geometric ? "rect" : undefined)) : undefined
   if (!preset || !variant) {
     return null
   }
@@ -245,6 +263,8 @@ export function readWordShape(xml: string, themeXml: string | null): WordShape |
     preset,
     variant,
     points,
+    geometry: geometric ? named! : "",
+    adjust: geometric && Object.keys(adjust).length > 0 ? JSON.stringify(adjust) : "",
     fill: look.fill,
     stroke: look.stroke,
     strokeWidth: look.strokeWidth,
@@ -280,18 +300,18 @@ export function readShapeLook(shape: string, themeXml: string | null) {
     : /<a:noFill\s*\/>/.test(own)
       ? "none"
       : ownSolid
-        ? colorOf(ownSolid, scheme)
+        ? withAlpha(colorOf(ownSolid, scheme), ownSolid)
         : firstStop
           ? colorOf(firstStop, scheme)
           : fillRef
-            ? colorOf(fillRef[2] ?? "", scheme)
+            ? withAlpha(colorOf(fillRef[2] ?? "", scheme), fillRef[2] ?? "")
             : ""
 
   const lineSolid = /<a:solidFill>([\s\S]*?)<\/a:solidFill>/.exec(line)?.[1]
   const stroke = /<a:noFill\s*\/>/.test(line)
     ? "none"
     : lineSolid
-      ? colorOf(lineSolid, scheme)
+      ? withAlpha(colorOf(lineSolid, scheme), lineSolid)
       : lineRef
         ? colorOf(lineRef[2] ?? "", scheme)
         : ""
@@ -339,6 +359,10 @@ export function shapeLook(look: Record<string, unknown>) {
     ...(look.textItalic || look.textUnderline || look.textHighlight || look.textAlign
       ? [Boolean(look.textItalic), look.textUnderline || "", look.textHighlight || "", look.textAlign || ""]
       : []),
+    ...(look.textOutline || look.textEffect || look.textFill
+      ? [look.textOutline || "", look.textEffect || "", look.textFill || ""]
+      : []),
+    ...(look.geometry || look.adjust ? [look.geometry || "", look.adjust || ""] : []),
   ])
 }
 
@@ -430,5 +454,26 @@ export function readShapeTextLook(body: string, themeXml: string | null) {
         : "",
     textHighlight: WORD_HIGHLIGHTS[highlight] ?? (shading ? `#${shading.toLowerCase()}` : ""),
     textAlign: jc === "center" ? "" : jc === "right" || jc === "end" ? "right" : jc === "both" ? "justify" : "left",
+    ...readWordArtRun(run),
+  }
+}
+
+/**
+ * WordArt Styles on a run (Word 2010's `w14` run effects), as the app's Text Outline (its colour), Text Effects (shadow,
+ * glow or reflection) and Text Fill's No Fill.
+ */
+export function readWordArtRun(run: string) {
+  const outline = /<w14:textOutline\b[\s\S]*?<w14:srgbClr w14:val="([0-9A-Fa-f]{6})"/.exec(run)?.[1]
+  const effect = /<w14:shadow\b/.test(run)
+    ? "shadow"
+    : /<w14:glow\b/.test(run)
+      ? "glow"
+      : /<w14:reflection\b/.test(run)
+        ? "reflection"
+        : ""
+  return {
+    textOutline: outline ? `#${outline.toLowerCase()}` : "",
+    textEffect: effect,
+    textFill: /<w14:textFill>\s*<w14:noFill\s*\/>/.test(run) ? "none" : "",
   }
 }

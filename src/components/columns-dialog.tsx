@@ -13,10 +13,13 @@ import {
 } from "@/document/column-widths"
 import { contentWidthCm, setupColumns } from "@/document/page-setup"
 import { useDocumentStore } from "@/document/store"
+import { columnsBlockwise } from "@/document/sections"
+import { useCaretSectionSetup } from "@/components/chrome-section"
 import {
   applyColumnSection,
   applyColumnsFromHere,
   clampColumnGap,
+  columnsForSection,
   findColumnSection,
   removeColumnSection,
   setColumnSectionGap,
@@ -26,8 +29,11 @@ import type { Editor } from "@tiptap/core"
 import { useState } from "react"
 import { create } from "zustand"
 
-/** Columns dialog's Apply to: Whole document, This point forward (to the end, as Word's new section), Selected text. */
-type Scope = "document" | "forward" | "selection"
+/**
+ * Columns dialog's Apply to: This section (the caret's Word section, when the document has more than one), Whole
+ * document, This point forward (to the end, as Word's new section), Selected text.
+ */
+type Scope = "section" | "document" | "forward" | "selection"
 
 /** Opens Columns (22.7) from Layout → Columns → More Columns…. */
 export const useColumnsDialog = create<{ open: { editor: Editor | null } | null }>(() => ({ open: null }))
@@ -43,12 +49,25 @@ export function ColumnsDialogHost() {
 
 const PRESETS: ColumnPreset[] = ["one", "two", "three", "left", "right"]
 
+/** Whether the body has a block of columns (other sections' columns drawn as their blocks). */
+function hasColumnBlock(editor: Editor) {
+  let found = false
+  editor.state.doc.forEach((node) => {
+    found ||= node.type.name === "columnSection"
+  })
+  return found
+}
+
 function ColumnsDialog({ editor, onClose }: { editor: Editor | null; onClose: () => void }) {
-  const setup = useDocumentStore((state) => state.pageSetup)
+  const ownSetup = useDocumentStore((state) => state.pageSetup)
   const setPageSetup = useDocumentStore((state) => state.setPageSetup)
+  const hasSections = useDocumentStore((state) => state.sections.length > 0)
+  // As in Word, a document of several sections opens with the caret's section's columns, applied to it.
+  const caret = useCaretSectionSetup()
+  const setup = hasSections ? caret.setup : ownSetup
   const section = editor ? findColumnSection(editor.state) : null
   const textCm = contentWidthCm(setup)
-  const [scope, setScope] = useState<Scope>(section ? "selection" : "document")
+  const [scope, setScope] = useState<Scope>(section ? "selection" : hasSections ? "section" : "document")
   const [columns, setColumns] = useState<ColumnWidth[]>(() =>
     section ? equalColumns(textCm, section.columns, section.gap) : setupColumns(setup),
   )
@@ -58,7 +77,7 @@ function ColumnsDialog({ editor, onClose }: { editor: Editor | null; onClose: ()
   const count = columns.length
   const spacing = count > 1 ? columns[0].space : setup.columnGap
   // Selected text and This point forward become a block of equal columns: the browser draws only those there.
-  const equalOnly = scope !== "document"
+  const equalOnly = scope === "forward" || scope === "selection"
   const preset = columnPreset(count, equal ? undefined : columns, textCm, spacing)
   const most = maxColumnCount(textCm, Math.min(spacing, 1.27))
 
@@ -87,7 +106,7 @@ function ColumnsDialog({ editor, onClose }: { editor: Editor | null; onClose: ()
 
   const changeScope = (next: Scope) => {
     setScope(next)
-    if (next !== "document" && !equal) {
+    if ((next === "forward" || next === "selection") && !equal) {
       setColumns(equalColumns(textCm, count, columns[0].space))
       setEqual(true)
     }
@@ -95,15 +114,37 @@ function ColumnsDialog({ editor, onClose }: { editor: Editor | null; onClose: ()
 
   const apply = () => {
     const gap = clampColumnGap(spacing)
-    if (scope === "document") {
-      const unequal = count > 1 && !equal && !columnsAreEqual(columns)
-      setPageSetup({
-        ...setup,
-        columns: count,
-        columnGap: gap,
-        columnLine: count > 1 && line,
-        columnWidths: unequal ? columns : undefined,
-      })
+    const unequal = count > 1 && !equal && !columnsAreEqual(columns)
+    const next = {
+      columns: count,
+      columnGap: gap,
+      columnLine: count > 1 && line,
+      columnWidths: unequal ? columns : undefined,
+    }
+    if (scope === "section") {
+      // Equal columns that would differ from other sections' are this section's block of columns, which the
+      // browser flows its text through; its pages stay one column. Otherwise the section's pages take them.
+      const store = useDocumentStore.getState()
+      const others = store.sections.map((item) => (item.key === caret.section?.key ? { ...item, ...next } : item))
+      const document = caret.section ? store.pageSetup : { ...store.pageSetup, ...next }
+      const asBlock =
+        editor !== null &&
+        count > 1 &&
+        !unequal &&
+        (columnsBlockwise(document, others) || hasColumnBlock(editor)) &&
+        columnsForSection(editor, count, gap, count > 1 && line)
+      if (asBlock) {
+        caret.update({ columns: 1, columnGap: gap, columnLine: false, columnWidths: undefined })
+      } else {
+        caret.update(next)
+      }
+    } else if (scope === "document") {
+      setPageSetup({ ...ownSetup, ...next })
+      // Every Word section has its own columns: the whole document is each of them.
+      const store = useDocumentStore.getState()
+      for (const item of store.sections) {
+        store.setSectionSetup(item.key, next)
+      }
     } else if (editor) {
       const placed =
         count === 1
@@ -226,6 +267,7 @@ function ColumnsDialog({ editor, onClose }: { editor: Editor | null; onClose: ()
             value={scope}
             onChange={(event) => changeScope(event.target.value as Scope)}
           >
+            {hasSections ? <option value="section">This section</option> : null}
             <option value="document">Whole document</option>
             <option value="forward" disabled={!editor}>
               This point forward

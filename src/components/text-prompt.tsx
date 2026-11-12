@@ -15,6 +15,9 @@ export type TextPromptOptions = {
   /** A text area for a comment or alt text; a single line (an address, a name) otherwise. */
   multiline?: boolean
   ok?: string
+  cancel?: string
+  /** A question with no field (`askConfirm`): OK resolves with "". */
+  question?: boolean
 }
 
 type Pending = TextPromptOptions & { resolve: (text: string | null) => void }
@@ -29,6 +32,18 @@ export function askText(options: TextPromptOptions): Promise<string | null> {
   })
 }
 
+/** The app's `window.confirm`: a themed question with OK (or `ok`) and Cancel; resolves true on OK. */
+export async function askConfirm(options: { title: string; message: string; ok?: string; cancel?: string }) {
+  const answer = await askText({
+    title: options.title,
+    label: options.message,
+    ok: options.ok,
+    cancel: options.cancel,
+    question: true,
+  })
+  return answer !== null
+}
+
 function settle(text: string | null) {
   const pending = usePrompt.getState().pending
   usePrompt.setState({ pending: null })
@@ -40,7 +55,16 @@ export function TextPromptHost() {
   return pending ? <TextPromptDialog key={pending.title + pending.label} {...pending} /> : null
 }
 
-function TextPromptDialog({ title, label, value = "", placeholder, multiline = false, ok = "OK" }: Pending) {
+function TextPromptDialog({
+  title,
+  label,
+  value = "",
+  placeholder,
+  multiline = false,
+  ok = "OK",
+  cancel,
+  question = false,
+}: Pending) {
   const [text, setText] = useState(value)
   const field = useRef<HTMLInputElement & HTMLTextAreaElement>(null)
 
@@ -53,6 +77,14 @@ function TextPromptDialog({ title, label, value = "", placeholder, multiline = f
     return () => window.clearTimeout(timer)
   }, [])
 
+  if (question) {
+    return (
+      <DialogFrame title={title} width={380} onClose={() => settle(null)} onSubmit={() => settle("")}>
+        <p className="text-prompt-label">{label}</p>
+        <DialogButtons submit ok={ok} cancel={cancel} onCancel={() => settle(null)} />
+      </DialogFrame>
+    )
+  }
   return (
     <DialogFrame title={title} width={multiline ? 380 : 360} onClose={() => settle(null)} onSubmit={() => settle(text)}>
       <label className="text-prompt-label" htmlFor="text-prompt-field">
@@ -86,7 +118,7 @@ function TextPromptDialog({ title, label, value = "", placeholder, multiline = f
           onChange={(event) => setText(event.target.value)}
         />
       )}
-      <DialogButtons submit ok={ok} onCancel={() => settle(null)} />
+      <DialogButtons submit ok={ok} cancel={cancel} onCancel={() => settle(null)} />
     </DialogFrame>
   )
 }

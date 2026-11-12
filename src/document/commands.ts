@@ -1,3 +1,4 @@
+import { withWordMarkers } from "@/editor/word-markers"
 import { useBackstage } from "@/document/backstage"
 import { invokeWithTools } from "@/document/helper-tools"
 import {
@@ -32,7 +33,7 @@ import { defaultStyles, packStyles, stylesFromWord, unpackStyles, useStyleStore 
 import { useEditingOptions } from "@/document/editing-options"
 import { documentName, useDocumentStore, type DocumentProps } from "@/document/store"
 import { useViewStore } from "@/document/view"
-import { paperSize, printPages } from "@/document/print-copy"
+import { namedPaperRules, paperSize, printPages } from "@/document/print-copy"
 import {
   fileExtension,
   openDroppedFile,
@@ -102,6 +103,8 @@ function currentChrome(): DocumentChrome {
     firstFooter: state.firstFooterHtml,
     evenFooter: state.evenFooterHtml,
     pageSetup: state.pageSetup,
+    sections: state.sections,
+    linked: state.linkedSlots,
   }
 }
 
@@ -708,7 +711,9 @@ export function stagePrintPages() {
   const boxes = ["@top-center", "@bottom-center", "@bottom-right"]
     .map((box) => `    ${box} {\n      content: none;\n    }`)
     .join("\n")
-  style.textContent = `@media print {\n  @page {\n    size: ${paper.width} ${paper.height};\n    margin: 0;\n${boxes}\n  }\n  @page :first {\n${boxes}\n  }\n}`
+  // A section of another size (a landscape page among portrait ones) prints on its own paper.
+  const named = namedPaperRules(pages, paper).join("\n")
+  style.textContent = `@media print {\n  @page {\n    size: ${paper.width} ${paper.height};\n    margin: 0;\n${boxes}\n  }\n  @page :first {\n${boxes}\n  }\n${named ? `${named}\n` : ""}}`
   document.head.append(style)
   document.body.append(pages)
   document.documentElement.dataset.printPages = "1"
@@ -898,6 +903,8 @@ export async function restoreRecoveryDocument(offer: RecoveryOffer) {
     firstFooter: unpacked.firstFooter,
     evenFooter: unpacked.evenFooter,
     pageSetup: unpacked.pageSetup,
+    sections: unpacked.sections,
+    linked: unpacked.linked,
   })
   await discardRecovery(offer.id)
   useBackstage.getState().closeBackstage()
@@ -927,6 +934,8 @@ async function writeDocument(path: string, forceExt?: string, operation: FileOpe
   useDocumentStore.getState().setSaving(true)
   try {
     const html = currentHTML()
+    // Word's list markers are drawn by the editor; written out, each item carries its own.
+    const written = withWordMarkers(html)
     const editor = getDocumentEditor()
     const chrome = currentChrome()
     const props = useDocumentStore.getState().documentProps
@@ -952,7 +961,7 @@ async function writeDocument(path: string, forceExt?: string, operation: FileOpe
         throw new Error(`Saving .${ext} requires the desktop app.`)
       }
       await invokeWithTools<void>("export_document", {
-        html,
+        html: written,
         path,
         title: props.title || null,
         author: props.author || null,
@@ -965,7 +974,7 @@ async function writeDocument(path: string, forceExt?: string, operation: FileOpe
     } else if (ext === "txt") {
       await writeText(path, stripTags(html))
     } else {
-      await writeText(path, packStyles(useStyleStore.getState().styles) + packDocument(html, chrome))
+      await writeText(path, packStyles(useStyleStore.getState().styles) + packDocument(written, chrome))
     }
 
     if (ext !== "pdf") {

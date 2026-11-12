@@ -42,6 +42,8 @@ const NAMED_GLYPHS: Record<string, () => ReactNode> = {
   "shape effects": () => <LineObjectStylesIcon />,
   "picture effects": () => <LineObjectStylesIcon />,
   "picture border": () => <LineBordersIcon />,
+  "picture layout": () => <PictureLayoutMark />,
+  "remove background": () => <RemoveBackgroundMark />,
   "refresh data": () => <LineRotateIcon />,
   "pan and zoom": () => <LineZoomIcon />,
   color: () => <LineColorsIcon />,
@@ -264,6 +266,30 @@ function WrapMark({ kind }: { kind: "inline" | "front" | "behind" | "top" }) {
         height="4.5"
         fill={kind === "behind" ? "#deecf9" : "var(--icon-accent-color)"}
       />
+    </RibbonSvg>
+  )
+}
+
+/** Remove Background: a figure kept, the backdrop behind it struck through in Word's magenta. */
+function RemoveBackgroundMark() {
+  return (
+    <RibbonSvg>
+      <rect x="1.5" y="2.5" width="13" height="11" fill="#f4d6f4" stroke="#b000b0" />
+      <path d="M1.5 6.5l4-4M1.5 11l8.5-8.5M6 13.5l8.5-8.5M10.5 13.5l4-4" stroke="#b000b0" opacity="0.55" />
+      <circle cx="8" cy="6.5" r="2" fill="var(--icon-accent-color)" />
+      <path d="M4.5 13.5c0-2.4 1.6-4 3.5-4s3.5 1.6 3.5 4z" fill="var(--icon-accent-color)" />
+    </RibbonSvg>
+  )
+}
+
+/** Picture Layout: pictures in a row of SmartArt shapes, each with its caption under it. */
+function PictureLayoutMark() {
+  return (
+    <RibbonSvg>
+      <rect x="1.5" y="2.5" width="5.5" height="6" fill="#deecf9" stroke="var(--icon-accent-color)" />
+      <rect x="9" y="2.5" width="5.5" height="6" fill="#deecf9" stroke="var(--icon-accent-color)" />
+      <path d="M2.5 7.5l1.6-2 1.4 1.5M10 7.5l1.6-2 1.4 1.5" stroke="var(--icon-base-color)" fill="none" />
+      <path d="M1.5 11h5.5M9 11h5.5M1.5 13.2h4M9 13.2h4" stroke="var(--icon-base-color)" />
     </RibbonSvg>
   )
 }

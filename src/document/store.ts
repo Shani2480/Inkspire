@@ -4,6 +4,15 @@ import { clearWordDocument } from "@/document/docx/session"
 import type { DocumentChrome } from "@/document/header"
 import { pageSetupForNewDocument } from "@/document/design-format"
 import { DEFAULT_PAGE_SETUP, normalizePageSetup, samePageSetup, type PageSetup } from "@/document/page-setup"
+import {
+  CHROME_SLOTS,
+  type ChromeSlot,
+  type SectionChrome,
+  type SectionSetupPatch,
+  sectionPageSetup,
+  slotOwner,
+} from "@/document/sections"
+import { slotHome } from "@/document/section-slots"
 import { create } from "zustand"
 import { pathBaseName } from "@/lib/paths"
 
@@ -26,7 +35,20 @@ type ChromeState = {
   savedEvenFooter: string
   pageSetup: PageSetup
   savedPageSetup: PageSetup
+  sections: SectionChrome[]
+  savedSections: SectionChrome[]
+  linkedSlots: ChromeSlot[]
 }
+
+/** The store field each of the document's own (last section's) headers and footers is kept in. */
+export const SLOT_FIELDS = {
+  header: "headerHtml",
+  footer: "footerHtml",
+  firstHeader: "firstHeaderHtml",
+  firstFooter: "firstFooterHtml",
+  evenHeader: "evenHeaderHtml",
+  evenFooter: "evenFooterHtml",
+} as const satisfies Record<ChromeSlot, keyof ChromeState>
 
 function isUnsaved(state: ChromeState, next: Partial<ChromeState> = {}) {
   // A blank new document is never unsaved: there is nothing in it to lose.
@@ -42,7 +64,9 @@ function isUnsaved(state: ChromeState, next: Partial<ChromeState> = {}) {
   const firstFooter = next.firstFooterHtml ?? state.firstFooterHtml
   const evenFooter = next.evenFooterHtml ?? state.evenFooterHtml
   const pageSetup = next.pageSetup ?? state.pageSetup
+  const sections = next.sections ?? state.sections
   return (
+    sections !== state.savedSections ||
     html !== state.savedHTML ||
     header !== state.savedHeader ||
     footer !== state.savedFooter ||
@@ -231,6 +255,11 @@ type DocumentState = {
   savedEvenFooter: string
   pageSetup: PageSetup
   savedPageSetup: PageSetup
+  /** A Word document's sections before the last (see `sections.ts`); empty for one with a single section. */
+  sections: SectionChrome[]
+  savedSections: SectionChrome[]
+  /** The last section's headers and footers that are Linked to Previous (its previous section's are shown). */
+  linkedSlots: ChromeSlot[]
   recentFiles: string[]
   pinnedFiles: string[]
   recentFolders: string[]
@@ -244,6 +273,15 @@ type DocumentState = {
   setEvenHeader: (header: string) => void
   setEvenFooter: (footer: string) => void
   setDifferentFirstPage: (enabled: boolean) => void
+  /** A header or footer of a section before the last, by its section's key. */
+  setSectionPart: (key: string, slot: ChromeSlot, html: string) => void
+  /** The page setup of a section before the last (Page Setup > Apply to: This section, Format Page Numbers). */
+  setSectionSetup: (key: string, patch: SectionSetupPatch) => void
+  /**
+   * Link to Previous for a section's header or footer (`key` null: the document's own last section). Linking drops the
+   * section's own part, so the previous section's shows; unlinking gives it a copy of the one it showed, as Word does.
+   */
+  setSlotLinked: (key: string | null, slot: ChromeSlot, linked: boolean) => void
   setPageSetup: (pageSetup: PageSetup) => void
   startUntitled: (blankHtml: string) => void
   markOpened: (
@@ -292,6 +330,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
   savedEvenFooter: "",
   pageSetup: pageSetupForNewDocument(),
   savedPageSetup: pageSetupForNewDocument(),
+  sections: [],
+  savedSections: [],
+  linkedSlots: [],
   recentFiles: loadRecentFiles(),
   pinnedFiles: loadPinnedFiles(),
   recentFolders: loadRecentFolders(),
@@ -337,6 +378,69 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       differentFirstPage: enabled,
       isDirty: isUnsaved(state, { differentFirstPage: enabled }),
     })),
+  setSectionPart: (key, slot, value) =>
+    set((state) => {
+      const html = chromeHtml(value)
+      const section = state.sections.find((item) => item.key === key)
+      if (!section || section.parts[slot] === html) {
+        return state
+      }
+      const sections = state.sections.map((item) =>
+        item === section ? { ...item, parts: { ...item.parts, [slot]: html } } : item,
+      )
+      return { sections, isDirty: isUnsaved(state, { sections }) }
+    }),
+  setSectionSetup: (key, patch) =>
+    set((state) => {
+      const section = state.sections.find((item) => item.key === key)
+      if (!section) {
+        return state
+      }
+      const changed = (Object.keys(patch) as (keyof SectionSetupPatch)[]).some((name) => patch[name] !== section[name])
+      if (!changed) {
+        return state
+      }
+      const sections = state.sections.map((item) => (item === section ? { ...item, ...patch } : item))
+      return { sections, isDirty: isUnsaved(state, { sections }) }
+    }),
+  setSlotLinked: (key, slot, linked) =>
+    set((state) => {
+      const index = key === null ? state.sections.length : state.sections.findIndex((item) => item.key === key)
+      const previous = state.sections[index - 1]
+      if (index < 0 || !previous) {
+        return state
+      }
+      // What the previous section shows for the slot (its own, or the one it is linked to).
+      const owner = slotOwner(state.sections, previous, slot)
+      const shown = owner.parts[slot]
+      if (key !== null) {
+        const section = state.sections[index]!
+        if (linked === (section.parts[slot] === undefined)) {
+          return state
+        }
+        const parts = { ...section.parts }
+        if (linked) {
+          delete parts[slot]
+        } else {
+          parts[slot] = shown ?? ""
+        }
+        const sections = state.sections.map((item) => (item === section ? { ...item, parts } : item))
+        return { sections, isDirty: true }
+      }
+      if (linked === state.linkedSlots.includes(slot)) {
+        return state
+      }
+      const field = SLOT_FIELDS[slot]
+      if (linked) {
+        return { linkedSlots: [...state.linkedSlots, slot], [field]: shown ?? "", isDirty: true }
+      }
+      // A chain no section had a part for showed the last section's own, which it keeps.
+      return {
+        linkedSlots: state.linkedSlots.filter((item) => item !== slot),
+        ...(shown !== undefined ? { [field]: shown } : {}),
+        isDirty: true,
+      }
+    }),
   setPageSetup: (pageSetup) =>
     set((state) => {
       const next = normalizePageSetup(pageSetup)
@@ -384,6 +488,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       savedEvenFooter: "",
       pageSetup: pageSetupForNewDocument(),
       savedPageSetup: pageSetupForNewDocument(),
+      sections: [],
+      savedSections: [],
+      linkedSlots: [],
       documentProps,
       readOnly: false,
     })
@@ -423,6 +530,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         savedEvenFooter: chrome.evenFooter ?? "",
         pageSetup: normalizePageSetup(chrome.pageSetup ?? DEFAULT_PAGE_SETUP),
         savedPageSetup: normalizePageSetup(chrome.pageSetup ?? DEFAULT_PAGE_SETUP),
+        sections: chrome.sections ?? [],
+        savedSections: chrome.sections ?? [],
+        linkedSlots: chrome.linked ?? [],
         isDirty: false,
         recentFiles: path ? rememberRecent(path, state.recentFiles) : state.recentFiles,
         recentFolders: path ? rememberFolder(path, state.recentFolders) : state.recentFolders,
@@ -448,6 +558,7 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         savedFirstFooter: state.firstFooterHtml,
         savedEvenFooter: state.evenFooterHtml,
         savedPageSetup: state.pageSetup,
+        savedSections: state.sections,
         isDirty: false,
         recentFiles: path ? rememberRecent(path, state.recentFiles) : state.recentFiles,
         recentFolders: path ? rememberFolder(path, state.recentFolders) : state.recentFolders,
@@ -532,6 +643,9 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       savedEvenFooter: chrome.evenFooter,
       pageSetup: chrome.pageSetup,
       savedPageSetup: chrome.pageSetup,
+      sections: chrome.sections ?? [],
+      savedSections: chrome.sections ?? [],
+      linkedSlots: chrome.linked ?? [],
       isDirty: true,
       recentFiles: path ? rememberRecent(path, get().recentFiles) : get().recentFiles,
     }),
@@ -561,4 +675,92 @@ export function documentTitle(path: string | null, isDirty: boolean, saving = fa
   }
   const base = isDirty ? `${name}*` : name
   return `${base} - Word`
+}
+
+/** The HTML of a header or footer kept at `home`: a section before the last by key, or `null` for the document's own. */
+export function slotHtml(home: string | null, slot: ChromeSlot) {
+  const state = useDocumentStore.getState()
+  if (home === null) {
+    return state[SLOT_FIELDS[slot]]
+  }
+  return state.sections.find((item) => item.key === home)?.parts[slot] ?? ""
+}
+
+/**
+ * A section break that starts a page, made in the editor, ends a new section `key` before the one it is put in
+ * (`before`: a section before the last by key, or `null` for the document's own). As in Word, the new section has
+ * that one's page setup, and shows the same headers and footers: a copy of each it has of its own (all of them when
+ * the new one is first, with nothing before to link to), the rest linked to the previous section as they were.
+ */
+export function insertSection(key: string, before: string | null) {
+  useDocumentStore.setState((state) => {
+    if (state.sections.some((item) => item.key === key)) {
+      return state
+    }
+    const split = before ? (state.sections.find((item) => item.key === before) ?? null) : null
+    const at = split ? state.sections.indexOf(split) : state.sections.length
+    const setup = sectionPageSetup(state.pageSetup, split)
+    const slots = {
+      sections: state.sections,
+      linkedSlots: state.linkedSlots,
+      differentFirstPage: state.differentFirstPage,
+      differentOddEven: state.pageSetup.differentOddEven,
+    }
+    const parts: Partial<Record<ChromeSlot, string>> = {}
+    for (const slot of CHROME_SLOTS) {
+      const own = split ? split.parts[slot] : state.linkedSlots.includes(slot) ? undefined : state[SLOT_FIELDS[slot]]
+      if (own !== undefined) {
+        parts[slot] = own
+      } else if (at === 0) {
+        const home = slotHome(slots, split, slot)
+        parts[slot] =
+          home === null
+            ? state[SLOT_FIELDS[slot]]
+            : (state.sections.find((item) => item.key === home)?.parts[slot] ?? "")
+      }
+    }
+    const section: SectionChrome = {
+      key,
+      marginTop: setup.marginTop,
+      marginBottom: setup.marginBottom,
+      headerFromEdge: setup.headerFromEdge,
+      footerFromEdge: setup.footerFromEdge,
+      differentFirstPage: split ? split.differentFirstPage : state.differentFirstPage,
+      paper: setup.paper,
+      orientation: setup.orientation,
+      paperWidth: setup.paperWidth,
+      paperHeight: setup.paperHeight,
+      marginLeft: setup.marginLeft,
+      marginRight: setup.marginRight,
+      columns: setup.columns,
+      columnGap: setup.columnGap,
+      columnLine: setup.columnLine,
+      columnWidths: setup.columns > 1 ? setup.columnWidths : undefined,
+      pageNumberStart: null,
+      pageNumberFormat: setup.pageNumberFormat,
+      parts,
+      // Never opened: every part it has is written as its own when saved.
+      opened: {},
+    }
+    const sections = [...state.sections.slice(0, at), section, ...state.sections.slice(at)]
+    return { sections, isDirty: true }
+  })
+}
+
+/** Replaces the header or footer kept at `home` (see `slotHtml`). */
+export function setSlotHtml(home: string | null, slot: ChromeSlot, html: string) {
+  const state = useDocumentStore.getState()
+  if (home !== null) {
+    state.setSectionPart(home, slot, html)
+    return
+  }
+  const setters: Record<ChromeSlot, (value: string) => void> = {
+    header: state.setHeader,
+    footer: state.setFooter,
+    firstHeader: state.setFirstHeader,
+    firstFooter: state.setFirstFooter,
+    evenHeader: state.setEvenHeader,
+    evenFooter: state.setEvenFooter,
+  }
+  setters[slot](html)
 }

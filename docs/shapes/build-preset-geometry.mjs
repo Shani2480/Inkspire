@@ -54,6 +54,23 @@ for (const match of source.matchAll(/^ {2}<(\w+)>([\s\S]*?)^ {2}<\/\1>/gm)) {
   const formulas = guides(/<gdLst[^>]*>([\s\S]*?)<\/gdLst>/.exec(body)?.[1])
   if (adjust.length) shape.a = adjust
   if (formulas.length) shape.g = formulas
+  const handles = []
+  for (const handle of (/<ahLst\b[^>]*>([\s\S]*?)<\/ahLst>/.exec(body)?.[1] ?? "").matchAll(
+    /<(ahXY|ahPolar)\b([^>]*)>([\s\S]*?)<\/\1>/g,
+  )) {
+    const [, kind, attrs, inner] = handle
+    const read = (key) => new RegExp(`\\b${key}="([^"]+)"`).exec(attrs)?.[1]
+    const axis = (ref, min, max) => (read(ref) ? [read(ref), value(read(min) ?? "0"), value(read(max) ?? "0")] : null)
+    const own =
+      kind === "ahXY"
+        ? { x: axis("gdRefX", "minX", "maxX"), y: axis("gdRefY", "minY", "maxY") }
+        : { r: axis("gdRefR", "minR", "maxR"), a: axis("gdRefAng", "minAng", "maxAng") }
+    const item = {}
+    for (const [key, entry] of Object.entries(own)) if (entry) item[key] = entry
+    const pos = /<pos x="([^"]+)" y="([^"]+)"/.exec(inner)
+    if (pos && Object.keys(item).length) handles.push({ ...item, pos: [value(pos[1]), value(pos[2])] })
+  }
+  if (handles.length) shape.h = handles
   shapes[name] = shape
 }
 writeFileSync("src/document/docx/preset-geometry.json", JSON.stringify(shapes))

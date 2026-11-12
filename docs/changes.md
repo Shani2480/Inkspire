@@ -5,6 +5,992 @@ wrong or missing, what changed, where (files, tests), how it was checked, and wh
 story of each feature stays in `next-todo.md` under its section; `verify-list.md` holds what still needs a check
 in Word, Chrome or the desktop app.
 
+## 2026-11-12
+
+### v0.1.5: Word sections, lists and SmartArt open as written, with the Android APK on the same code
+
+- **What was missing:** v0.1.4 lacked the Word list, section, cover-page and SmartArt work on main and the
+  `sections-lists-smartart` branch (Multiple Pages at each section's size, columns by section, several picked
+  objects, Remove Background, Read Mode find, WordArt Styles, crop and Picture Layout).
+- **What changed:** `sections-lists-smartart` fast-forwarded into main; version 0.1.5 in `package.json`,
+  `package-lock.json`, `Cargo.toml`, `Cargo.lock`, `tauri.conf.json` and the Flatpak metainfo; the android branch
+  merges main; tagged `v0.1.5`.
+- **Tests:** 197 files, 1353 tests pass on main; typecheck clean.
+- **Checked:** the release workflow's jobs and the assets on the release.
+- **Open:** the new work is not yet looked at on the tablet.
+
+### Multiple Pages draws each section's pages at their own size
+
+- **What was wrong:** Multiple Pages drew every page on the document's paper, so a landscape section among portrait
+  ones showed as portrait pages, its text laid out at the document's width.
+- **What changed:** `drawsSectionPaper` is now true in Multiple Pages too, so the pages are laid out with their own
+  paper and margins as one page wide. `gridFrames` (`page-frames.ts`) places them: each grid cell is as big as the
+  biggest page and each page is centred in its cell, as Word does; pages of one size fill their cells exactly as
+  before. The editor's grid (`pagePlaces` in `page-grid.ts`) finds each block's page in the flow by the pages' own
+  heights and puts it on that page's text in the grid, at its width; floating objects use the same place
+  (`gridPageCell`). The canvas draws each sheet at its size.
+- **Tests:** `page-frames.test.ts` (`gridFrames`: mixed sizes centred in their cells, one size unchanged). Checked in
+  Chrome: f15 (A4 portrait, then two landscape pages) in 4 pages: a portrait sheet and two landscape ones, every line
+  inside its sheet; a document of one page size draws the same sheets and lines as before the change.
+- **Open:** Side to Side, which flows the pages through the browser's columns, still draws every page at the
+  document's size. Floating objects on pages of other sizes in Multiple Pages were not checked in the browser.
+
+### A deleted section break takes its section with it
+
+- **What was wrong:** deleting a section break left its section in the store, unused, where it still counted: its
+  columns could make the paginator lay the document out block by block.
+- **What changed:** `followSectionBreaks` (`section-break.ts`, run after each change to the body): a section whose
+  break an edit removes is set aside, and put back where it was when an edit (undo) brings the break back. A new
+  document replacing the body starts afresh.
+- **Tests:** `section-break.test.ts` (delete and undo keep the section's own setup; a new document's sections are
+  left alone).
+
+### Sections of other columns open as blocks of columns (option 2, phase 2)
+
+- **What was wrong:** where sections that start a page had different columns (two, then three), the paginator laid
+  the blocks out one by one, each moved whole into its column: a paragraph never split between columns, and the
+  last page was not balanced. Columns > This section did the same for a section given columns of its own.
+- **What changed:** `pageSectionsAsBlocks` (`project.ts`) opens such sections (equal widths, same text width) as
+  blocks of their columns between their breaks, on pages of one column, the break to the next page after the block;
+  continuous sections between them stay blocks of their own. Saving takes a block that fills its section (a page
+  break or the start before it, one or the end after it) as that section's own w:cols, for a section read from
+  Word, one the editor's breaks make, and the body's last; the section's Page Setup no longer overwrites a block's
+  columns, and a section whose block is removed saves as one column. `columnsForSection` (`columns.ts`): the
+  Columns dialog's This section makes the section a block when its equal columns would differ from other sections'
+  or other blocks exist.
+- **Tests:** `section-blocks.test.ts` (opening as blocks, saving each as its section's w:cols with no extra section,
+  a changed and a removed block, a one-column title above two columns, This section, a block made in the editor).
+  Checked in Chrome: two then three columns, five paragraphs now split between columns (none before) and the last
+  page balanced; This section from the dialog and undo. Saved files pass the Open XML SDK validator.
+
+### A paragraph's space after may run past the page's foot
+
+- **What was wrong:** the paginator counted a paragraph's space after when deciding whether its last line fit
+  at the foot, so a paragraph whose text fit moved to the next page because its space after did not. Word lets
+  the space after run past the foot.
+- **What changed:** `place` in `pages.ts` takes how much of a block may spill (a paragraph's space after) through
+  `overrunsFoot`; what spilled (`spillPastFoot`) is taken off the gap to the next page, so that page still starts
+  at its top margin. Widow/orphan control, Keep lines together and unequal columns' keep-whole leave the space after
+  out too. Keep with next still counts it (it lies between the paragraph and the next on the same page).
+- **Tests:** `page-breaking.test.ts` (`overrunsFoot`, `spillPastFoot`). Checked in Chrome: one-line paragraphs with
+  50 pt after them: paragraph 12 now ends page 1 (it moved to page 2 before) and page 2 starts at its top margin.
+
+### Several picked objects show their handles; Shift+click picks objects
+
+- **What was wrong:** Shift+click in the Selection Pane picked several objects for Align and Group, but only the
+  selected one was framed on the page, and Shift+click on the objects themselves did nothing more than a click.
+- **What changed:** `object-group.ts` marks every picked object (when two or more are picked) with `data-picked`,
+  which the CSS frames with its sizing and rotate handles, as Word frames each. Shift+click on an object adds it
+  to the pick (starting from the object already selected) or takes it out, before the object's own drag starts, and
+  makes it the selection. The picks follow edits (mapped through each change) and end when the selection leaves
+  them. Shift+click in the text of a text box being typed in is left to the text.
+- **Tests:** `object-group.test.ts` (adding and removing picks, framing, mapping through an edit, letting go, a plain
+  click). Checked in Chrome: two shapes framed with handles, Group available, a text click lets go.
+
+### Yellow adjustment handles on shapes
+
+- **What was missing:** shapes had no adjustment handles. Word's Division sign has three, a rounded rectangle one,
+  a callout one for its tail; the app read Word's `a:avLst` values but nothing could change them.
+- **What changed:** the preset build script (`docs/shapes/build-preset-geometry.mjs`) now takes each preset's
+  handles from Word's `presetShapeDefinitions.xml` (119 of 186 presets have them). `preset-geometry.ts` places them
+  (`presetHandles`) and works out the adjust values for a dragged handle (`dragAdjustHandle`: a search within the
+  handle's limits, since a handle's place is a formula of the values), and writes `a:avLst` (`avListXml`). The new
+  `shape-adjust.ts` draws the diamonds on a selected shape and runs the drag (live preview without a history step,
+  Esc, one undo step on release; rotation, flips and zoom taken into account). A shape whose handles moved is drawn
+  from Word's geometry (`geometry` and `adjust` attributes) and saved as its preset with those values.
+- **What else changed:** a Word shape the app has no drawing of (or whose handles Word moved) opens by its preset
+  name instead of baked-in points, so it keeps its handles; Convert to Freeform and Edit Points start from its
+  outline.
+- **Tests:** `preset-geometry.test.ts` (handle places, drag within limits, a two-way callout tail, `a:avLst`),
+  `shape-adjust.test.ts`, `shape-write.test.ts` and `shape-import.test.ts` (a Division sign saved with a moved handle
+  and opened again). Checked in Chrome: three handles on a Division sign, drag, undo/redo and Esc. The saved file
+  passes the Open XML SDK validator.
+
+### WordArt Styles for a shape's text; a shape with text opens as a shape again
+
+- **What was missing:** Text Fill, Text Outline and Text Effects (and Quick Styles) on Shape Format were on only for
+  text boxes; Word has them for any shape's text.
+- **What was wrong (found on the way):** a paragraph holding only a shape with text took the shape's text for its
+  own (`paragraphText` counts drawings), so the shape was treated as one in a line of text and opened as a raw
+  drawing that cannot be edited, for a shape saved by the app and one from Word alike.
+- **What changed:** the figure node has `textFill`, `textOutline`, `textEffect`, drawn by `styleShapeText` with
+  `textStyle` (`src/editor/insert-blocks.ts`); the ribbon enables the row for drawn shapes. `wordArtRun` in
+  `src/document/docx/shape-write.ts` writes them as the run's colour and `w14` run effects in schema order, with
+  `xmlns:w14` on the run (a new document's root does not declare it); `readWordArtRun` in `shape-import.ts` reads
+  them back and they join the shape's change mark. `paragraphText(paragraph, false)` leaves out drawing text, and
+  `project.ts` uses it to decide whether a paragraph is a line of text.
+- **Tests:** `shape-write.test.ts` (the run's colour, shadow and outline in order, and reopening as the same shape
+  with them).
+- **Checked:** the saved file passes the Open XML SDK validator; in headless Chrome it opens with "Sale" in dark red
+  with a blue outline and a shadow, the WordArt Styles row is on for the selected shape, and Text Effects → Glow
+  applies; no console errors.
+- **Open:** bevel and the arch and wave transforms are not written to Word; a text box's text effects are still not
+  written as Word's own.
+
+### The Paragraph dialog shows the line spacing the page draws
+
+- **What was wrong:** for a paragraph with no spacing of its own the dialog showed Multiple 1.15 and 8 pt after,
+  while the page drew Normal's 1.65 and 9 pt; choosing the "unchanged" 1.15 made the lines visibly tighter.
+- **What changed:** `styleSpacing` in `src/components/paragraph-dialog.tsx` reads the paragraph's style (heading
+  level, named style or Normal, then what it is based on) and the dialog's empty Before, After and At take its
+  values. The user's Set As Default values still come first.
+- **Tests:** `paragraph-dialog.test.ts` (a plain paragraph takes Normal's spacing, a heading its own line).
+- **Checked:** in headless Chrome on a new document: the page draws 1.65 and the dialog shows Before 0 pt, After
+  9 pt, Multiple 1.65.
+
+### Find in Read Mode
+
+- **What was missing:** Read Mode had no Find; Ctrl+F opened the editing Find, which is hidden there.
+- **What changed:** `findInPieces` and the `useReadFind` store in `src/document/read-pages.ts`; the read bar's Tools
+  menu has Find, and in Read Mode's column layout Ctrl+F opens it (`app-menu.ts`). `ReadFindBox` in
+  `src/components/read-mode.tsx` shows the box, "n of m", previous and next; `ReadView` highlights every match with
+  the CSS Custom Highlight API (`::highlight(read-find)`, the current one `read-find-current`) and turns to the page
+  of the current one. Esc in the box or leaving Read Mode closes Find.
+- **Tests:** `read-pages.test.ts` (matches across text pieces and case, stepping round), `read-mode.test.tsx` (Tools
+  → Find, the count, Esc).
+- **Checked:** in headless Chrome on a 3-page read: "33." found once and the page turned to page 3; "screen" found
+  152 times, Shift+Enter from the first went to the last on page 3; Esc closed the box and stayed in Read Mode; no
+  console errors.
+
+### Read Mode's last page no longer shows part of the page before
+
+- **What was wrong:** when the last screen of columns was not full, the scroller could only go as far as the text
+  reached, so End or the last page turn stopped short of the page step and the left of the screen showed the
+  previous page's columns (2061 px instead of 2748 px on a 3-page document at 1400 px).
+- **What changed:** `ReadView` (`src/components/read-mode.tsx`) puts a 1 px `.read-end` spacer at the end of the last
+  whole page and counts pages from the text's own width, so the spacer never keeps a page the text no longer has.
+- **Checked:** in headless Chrome, before and after on the same 38-paragraph document: the last page now lands on
+  a whole page step and shows only its own columns; no console errors. Layout-only, so no unit test (jsdom lays
+  out no columns).
+
+### Selected text becomes an equation (Insert → Equation, Alt+=)
+
+- **What was missing:** Convert went only from an equation to text. In Word, selected linear text such as
+  `a^2+b^2=c^2` becomes a built-up equation with Insert → Equation or Alt+=.
+- **What changed:** `texFromLinear` in `src/editor/equation-gallery.ts` reads Word's linear format (scripts,
+  fractions taking the run up to an operator, roots, Unicode symbols; grouping brackets dropped; LaTeX passed
+  through). `convertTextToEquation` in `src/editor/equation.ts` replaces the selected text in one paragraph with the
+  equation (display when it is the whole paragraph) and selects it; Alt+= runs it. The Insert tab's Equation is a
+  split button whose top converts the selection or opens Insert New Equation, as do Insert New Equation… and the
+  single-line ribbon.
+- **Tests:** `equation-gallery.test.ts` (linear to LaTeX, the way back from Convert's Unicode), new
+  `equation.test.ts` (inline and display conversion, nothing without a selection or across paragraphs).
+- **Checked:** in headless Chrome: typed `a^2+b^2=c^2`, selected it, Alt+= gave the built-up equation inline; a
+  paragraph `x=(-b±√(b^2-4ac))/(2a)` selected and Insert → Equation gave the quadratic formula as a centred,
+  selected display equation; no console errors.
+- **Open:** the Professional/Linear switch within an equation; ∑, matrices and accents in linear text.
+
+### Remove Background
+
+- **What was missing:** Word's Picture Format → Adjust → Remove Background.
+- **What changed:** `src/editor/remove-background.ts` guesses the background by growing from the picture's edges
+  through colours near the ones most common along them (with a step tolerance, so a gradient backdrop goes too);
+  `markArea` flips the run of similar colour under a Keep or Remove stroke; `withoutBackground` makes the removed
+  pixels transparent. `src/components/remove-background-dialog.tsx` is a Background Removal dialog with the picture
+  tinted magenta where it will be removed, Mark Areas to Keep, Mark Areas to Remove, Undo Mark, Keep Changes and
+  Discard All Changes. Keep Changes writes a PNG and keeps the picture before in a new `backgroundOf` attribute, so
+  doing it again starts from the original and Reset Picture restores it. Large button first in Adjust (and in the
+  collapsed ribbon), with a new glyph.
+- **Tests:** `remove-background.test.ts` (backdrop colours, the guess on a gradient backdrop, an enclosed hole kept
+  and then removed by a mark, a backdrop-coloured part brought back, the transparent result, a large picture's
+  working size).
+- **Checked:** in headless Chrome on a red disc and blue square over a grey sweep: the guess tinted the sweep only,
+  a Remove stroke on the square took it, Keep Changes gave a PNG transparent at the corner and the square with the
+  disc unchanged, Reset Picture brought the sweep back; no console errors. A picture whose source changed saves as
+  new media and the file passes the Open XML SDK validator.
+- **Open:** Word's contextual Background Removal tab and its subject marquee; Word's own background removal
+  (`a14:imgEffect`) is not read; the original is not kept in the .docx.
+
+### Picture Layout turns a picture into a SmartArt picture layout
+
+- **What was missing:** Word's Picture Format → Picture Styles → Picture Layout.
+- **What changed:** `pictureToSmartArt(layout)` in `src/editor/smartart.ts` replaces the selected picture with a
+  SmartArt of that picture layout, one shape holding the picture and its alt text (or "Text 1"). `PictureLayoutMenu`
+  in `src/components/smartart-gallery.tsx` lists the picture layouts the app draws (Picture Caption List, Vertical
+  Picture List); the ribbon (full and collapsed) has the button with a new glyph.
+- **Tests:** `smartart.test.ts` (the picture becomes the SmartArt's picture and text; nothing happens without a
+  selected picture or with a layout without pictures).
+- **Checked:** in headless Chrome: the gallery opens under Picture Layout, a pick makes the SmartArt with the picture
+  and caption between the paragraphs around it, Ctrl+Z gives the picture back; no console errors.
+- **Open:** several pictures selected at once become one SmartArt in Word; the app takes one. Word's other picture
+  layouts (Bending Picture, Snapshot, …) are not drawn.
+
+### Crop mode shows the faint picture around a Crop to Shape outline
+
+- **What was wrong:** in crop mode a picture cropped to a shape hid everything outside the shape, so the cut-away
+  parts Word shows faint were missing; an oval or rounded frame was drawn square while cropping.
+- **What changed:** `paintImage` in `src/editor/objects.ts` puts the shape's mask on the sharp picture in crop mode,
+  sized and placed at the part that shows, instead of on the shell that also holds the faint copy; oval and
+  rounded frames round the picture's crop `clip-path`. Out of crop mode nothing changes. A flipped picture keeps
+  the mask on the frame (the flip would mirror it).
+- **Checked:** in headless Chrome, a picture cropped to Ellipse and to Heart from both sides: in crop mode the shape
+  is sharp and the rest of the picture faint around it; after Apply the picture shows only the shape; no console
+  errors.
+
+### Crop is a split button on the picture's bar, which follows crop mode
+
+- **What was missing:** the picture's floating bar had Crop as a plain button, without Word's Crop menu (Crop to
+  Shape, Aspect Ratio, Fill, Fit). Entering crop mode left the bar showing Crop until the next edit, so Apply,
+  Cancel and Reset were missing at first.
+- **What changed:** `BarButton` in `src/components/object-bar.tsx` draws a command with both an action and a menu
+  as a split button (icon above runs it, the label with its arrow opens the menu; CSS `.is-split`); Crop uses
+  `CropMenu`. The bar subscribes to `useCropMode`.
+- **Checked:** in headless Chrome: the icon enters crop mode and the label turns to Apply with Cancel and Reset
+  beside it; the label opens Crop, Crop to Shape, Aspect Ratio, Fill and Fit; no console errors.
+
+### Crop mode: drag the picture under its crop frame
+
+- **What was missing:** in Word's crop mode the picture can be dragged to choose which part shows; in the app a
+  drag on a picture in crop mode tried to move the picture itself.
+- **What changed:** `pannedBy` in `src/editor/picture-crop.ts` shifts each side's crop by the drag, keeping the
+  visible size, and stops at the picture's edge (or, for Fit, at the frame's). `bindPictureCrop` listens first
+  (capture) and, in crop mode, a drag on the body slides the picture live without history; Esc puts it back, and
+  Apply makes the whole crop one undo step. The picture shows a move cursor in crop mode.
+- **Tests:** `picture-crop.test.ts` (slide, stop at the edge, fitted picture).
+- **Checked:** in headless Chrome on a 256 × 128 picture cropped from the left and top: the frame stayed at its
+  place and size while the picture slid 30 × 20 px, a long drag stopped at the picture's edge, Apply then Undo
+  returned the uncropped picture in one step; no console errors.
+- **Open:** the cropped-away parts outside a Crop to Shape outline are still not shown faint.
+
+### Word's picture formatting opens on the picture; effects are written in schema order
+
+- **What was wrong:** brightness, contrast, recolour, transparency, a border or a shadow, glow, soft edges or
+  reflection set on a picture in Word was written by the app but never read: the picture opened plain. The app's
+  `a:effectLst` put soft edges before the reflection (pictures) and the shadow before the glow (shapes), which the
+  schema does not allow.
+- **What changed:** `src/document/docx/picture-look.ts` reads `a:lum`, `a:grayscl`, `a:biLevel`, `a:alphaModFix`,
+  the `a:ln` of `pic:spPr` (theme colours resolved) and `a:effectLst` into the picture's own attributes; Word's
+  shadow presets map to the nearest of the app's eight directions. `inlines.ts` puts them on the image on open, and
+  on save treats values equal to Word's as unchanged, so an untouched picture keeps Word's drawing (its ids and
+  extensions). Both effect writers (`inlines.ts`, `shape-effects.ts`) now write glow, shadow, reflection, soft
+  edges.
+- **Tests:** `picture-look.test.ts` (reader, open and unchanged save, changed save); `picture-format.test.ts` now
+  expects schema order.
+- **Checked:** in headless Chrome a Word-formatted picture shows its filter, opacity, dotted border, shadow and
+  glow; saved files with every effect pass the Open XML SDK validator.
+- **Open:** Word's saturation, colour temperature and artistic
+  effects are still kept only as Word wrote them.
+
+### A block of columns runs on across pages; a long continuous section opens as one
+
+- **What was wrong:** a block of columns (Columns > Selected text, or a Word continuous section of other columns)
+  was laid out whole: one taller than the rest of the page moved to the next page and ran on through the gap into the
+  one after, its columns balanced over all of it. A long continuous section was therefore opened in the page's
+  columns instead.
+- **What changed:**
+  - `editor/pages.ts`: `placeColumnBlock` lays a block that does not fit out line by line in its own columns: each
+    column fills from where the block starts (the page's top after its first page), the page's end is a gap
+    spanning its columns with a filler before it, and its last page's columns are balanced (`balancedHeight`) with
+    the text after it below them. On the pages it runs on from, each column's start is a forced column break
+    (`column-start`), so the browser breaks where the paginator did. `measureLines` reads a paragraph split across
+    columns in text order, and `gapBetween` counts fillers.
+  - `editor/page-grid.ts`: `fitColumnBlockGaps` fits each such filler once drawn so its gap starts at the page's
+    bottom margin (the browser drops margins at a column's end that the paginator counts);
+    `cutColumnGuides` cuts the block's blue column outlines at each page gap.
+  - `index.css`: the block's gaps span its columns; `orphans`/`widows` 1 in it, as the paginator breaks after any
+    line.
+  - `docx/project.ts`: a continuous section of other columns opens as a block however long it is.
+- **Tests:** `pages.test.ts`: `balancedHeight`. `section-pages.test.ts`: forty paragraphs of three columns above a
+  continuous break open as one block. It fails without the fix.
+- **Checked:** in headless Chrome: 70 short and 30 wrapping paragraphs made Two columns with Selected text start
+  under the text above, fill page 1's columns and go on at page 2's top, the last page balanced and the text after
+  below. No line is past a page's text area, also after typing in the block. Three columns the same. A Word file
+  with 100 paragraphs in a continuous three-column section opens over four pages. Printed to PDF, three pages with
+  the columns as on screen and no outlines. Typing in page-wide columns and Multiple Pages unchanged.
+- **Open:** a block starting in a page's second column (page-wide columns above it) starts below them as before.
+  Sections of other columns that start a page are still laid out block by block (phase 2 in `next-todo.md`).
+
+## 2026-11-11
+
+### A floating object on a section's page is drawn on that page and cut at its size
+
+- **What was wrong:** on a page of another size than the document's own (a portrait section in a landscape
+  document), a floating picture was drawn from the widest page's left edge, 164 px left of its sheet, and cut at
+  the document's page size, so a picture wider than the portrait page ran past it.
+- **What changed:**
+  - `editor/page-grid.ts`: `placeObjectFrames`, run after each layout, placed every frame on the one-size page grid,
+    undoing `applyFrame`. One page wide it now places them with `objectLeft`/`objectTop`, from each page's own place
+    in the stack.
+  - `editor/objects.ts`: `frameStyle` cuts the object at its own page's size (`pageClip` with that page's metrics).
+  - `editor/pages.ts`: a section's blocks moved to their page's text (`section-cell`, `section-span`) leave floating
+    objects out; they are placed on their page already.
+- **Tests:** `section-pages.test.ts`: a picture 1000 px wide on a landscape section's page of a portrait document is
+  not cut, and the pass after layout leaves it where `applyFrame` put it. Both fail without the fix.
+- **Checked:** in headless Chrome, a copy of `f15_sections.docx` with a 1000 px picture at the page's left edge: on
+  the portrait page it starts at the sheet's edge and is cut at 794 px; on the landscape page it is whole. Dragged on
+  the portrait page, it moves there and stays cut at that page.
+- **Open:** Multiple Pages and Side to Side still draw every page at the document's size. **Fixed** for Multiple Pages
+  2026-11-12 (see that day's entry); Side to Side still does.
+
+### The ruler's column drags change the caret's section; equal columns on a narrower page fit it
+
+- **What was wrong:** dragging a column gap or edge on the horizontal ruler changed the document's (last section's)
+  columns, whatever section the caret was in, and measured from the document's side margins. A two-column section
+  on a portrait page above a two-column landscape section (same count and gap) was drawn with the landscape
+  columns, 442 px wide and starting off the page.
+- **What changed:**
+  - `components/document-rulers.tsx`: outside a block of columns, the drag reads and writes the caret section's
+    columns (`setSectionSetup`, or the document's for the last section) and measures from the caret page's margins.
+    A section's unequal columns are marked from its own paper.
+  - `document/sections.ts`: `columnsBlockwise` also compares the sections' text widths, so columns of the same
+    count and gap on other paper are laid out block by block in their own section's width.
+- **Tests:** `sections.test.ts`: the same two columns on a landscape section are laid out block by block.
+- **Checked:** in headless Chrome on `f15_sections.docx` with forty lines: the portrait section set to Two columns
+  is drawn 277 + 277 px on its page; dragging its ruler gap makes them 297 px and the landscape section keeps
+  442 px. Set to Left, dragging the edge makes the columns 228/327 px from 169/386, the landscape section unchanged.
+- **Open:** a column block's own unequal widths cannot be dragged (its columns are equal).
+
+### A section made in the editor has its own Page Setup and headers
+
+- **What was wrong:** a section break inserted in the editor made no section of its own: its pages were laid out,
+  set up and given headers with the section after it, so Page Setup or Orientation in the new section changed that
+  one. Saved, the new section was a bare copy.
+- **What changed:**
+  - `document/store.ts`: `insertSection` adds the new section before the one the break is put in, with that one's
+    page setup. It shows the same headers and footers: a copy of each that section has of its own (all of them when
+    the new one is first), the rest linked to the previous section as before.
+  - `editor/section-break.ts`: Next Page, Even Page and Odd Page breaks call it (a continuous break starts no page).
+  - `docx/project.ts`: saving finds such a section by its break's key, so its margins, paper, columns and headers are
+    written into its w:sectPr like a section read from Word.
+- **Tests:** `section-pages.test.ts`: a break in a document with a header gives the new section the header and the
+  page setup; set landscape with a 30 mm left margin, it is saved and opens so, the body section unchanged.
+- **Checked:** in headless Chrome: two lines, Layout > Breaks > Next Page between them, Orientation > Landscape on the
+  first: the first page is drawn landscape (1123 × 794 px) and the second portrait.
+- **Open:** deleting the break leaves the section in the store, unused (undo brings the break back with it).
+  **Fixed** 2026-11-12 (see that day's entry).
+
+### Section breaks and blocks of columns made in the editor are saved; continuous sections open
+
+- **What was wrong:**
+  - Data loss: a section break inserted in the editor (Layout > Breaks) was not saved to .docx, and a block of
+    columns (Columns > Selected text) was dropped with all its text, and the section break after it.
+  - Word's `w:type` says how a section starts, so the break after a paragraph's `w:sectPr` is the next section's.
+    The reader used the paragraph's own: a Word continuous break opened as a new page.
+  - A Word section of other columns after a continuous break (a title of one column above two) was drawn in the
+    page's columns. The paginator counted 12 px for a continuous break drawn 0 px tall.
+- **What changed:**
+  - `docx/project.ts`, writing: a break made in the editor ends its section at the paragraph before it (or a new
+    empty one) with a copy of the following section's w:sectPr, without its header and footer parts or page-number
+    restart, and the break's kind goes on the next section's `w:type` (`placeEditorSections`). A block of columns is a
+    continuous section with its own `w:cols`; the section before it keeps the columns around it. A break read from
+    Word, also after its paragraph was split, is saved from that paragraph as before.
+  - `docx/project.ts`, reading: `breakAfter` gives the break after each section's paragraph from the next section.
+    Continuous breaks open as the editor's continuous breaks. Between two breaks that start a page, a Word section
+    whose columns differ from the last one's there opens as a block of its columns (`sectionsHtml`), unless it has
+    more blocks than that one (a block is laid out whole).
+  - `editor/columns.ts`: a block of columns can be one column. `editor/pages.ts`: a continuous break takes no height.
+- **Tests:** `section-pages.test.ts`: a title above a continuous break opens as a one-column block and saves as Word
+  wrote it; Next Page and Continuous breaks made in the editor are saved and open again; Columns > Selected text is
+  saved as its own section and opens as the block again. The saved files pass the Open XML validator.
+- **Checked:** in headless Chrome: the title file shows TITLE across the page and the text below in two 277 px
+  columns. f15 and the contract lay out as before.
+- **Open:**
+  - A new section in the editor has no Page Setup of its own until the file is saved and opened again. **Fixed**
+    the same day.
+  - A long section of other columns (more blocks than the page's own) is still drawn in the page's columns.
+  - The column outlines are drawn over a block of other columns too.
+  - Not opened in Word.
+
+### Columns dialog: Apply to This section
+
+- **What was wrong:** the Columns dialog could apply to the whole document, this point forward or the selected
+  text, not to the caret's section. Word lists This section first when the document has sections. Nothing else
+  could give one section unequal columns: the ribbon's gallery has only equal ones.
+- **What changed:** `columns-dialog.tsx`: with sections, Apply to has This section and starts on it. The dialog
+  then opens with the caret's section's columns (`useCaretSectionSetup`), at its own text width, and sets them
+  there: a section before the last its own, the last the document's own.
+- **Tests:** `columns-dialog.test.tsx` (This section by default and only that section changed; Whole document chosen
+  in the old test).
+- **Checked:** in headless Chrome on f15: with the caret in the first section, Left with This section draws page 1 in
+  169 and 386 px columns and leaves the landscape pages in two equal 442 px ones.
+
+### Sections with different columns each keep their own
+
+- **What was wrong:** the body was one flow in the browser's columns, which are equal and as many all the way down.
+  Two sections with different counts above one (3 and 2) were both drawn with the larger, and with the first's
+  gap. A section's own unequal widths (Left, Right) were drawn equal. A one-column section in a document of unequal
+  columns was drawn in the first column's width.
+- **What changed:**
+  - `document/sections.ts`: `columnsBlockwise` says when the sections' columns cannot be that one flow (unequal
+    widths anywhere, or counts or gaps that differ). `drawnColumns` then gives each section its own columns, so the
+    column outlines and the ruler show them too.
+  - `editor/pages.ts`: in that case the body is laid out block by block, as unequal columns already were, with each
+    section's own column boxes: its count, gap and widths, at its own paper's text width and left edge. The layout
+    tells the apply step which way it was laid out (`Layout.unequal`).
+- **Tests:** `sections.test.ts` (when the columns are laid out block by block, each section's own count). The old
+  test that a section with fewer columns takes the most any section has is replaced, as that is no longer so.
+- **Checked:** in headless Chrome on f15.
+  - The first section set to Three with 30 lines typed: page 1 in three 169 px columns, filled from the first;
+    pages 2-3 in two 442 px columns, the page after the break at 97 px. Outlines 3, 2, 2.
+  - Left for the whole document: page 1 in 175 and 379 px columns, the landscape pages 279 and 605 px.
+  - A one-section document with Left: 279 and 605 px, the text running on into the second column.
+- **Open:**
+  - Laid out block by block, a paragraph that does not fit the rest of a column goes whole to the next, as with
+    unequal columns before.
+  - The Columns dialog has no "This section" in Apply to, as Word has when the document has sections. **Fixed**
+    the same day.
+  - The ruler's drags still change the document's own columns.
+
+### Multiple Pages keeps each block in its column
+
+- **What was wrong:** Multiple Pages moves each block to its page's place in the grid, but always to the page's left
+  edge and at the full text width. In a document in columns, the second column's text was drawn over the first.
+- **What changed:** `editor/page-grid.ts`: in columns, each block keeps how far right of the text's edge it was laid
+  out, and its column's width. Blocks drawn across the columns and documents without columns are placed as before.
+- **Tests:** none new. The placement reads the browser's layout, which the unit tests' DOM does not have.
+- **Checked:** in headless Chrome, f15 with 18 lines typed at the end, View > Multiple Pages > 2 pages: lines 1-16
+  in the left column of the last page, 17 and 18 at the top of the right one. The contract (no columns) is drawn as
+  before.
+- **Open:** Multiple Pages still draws every page on the document's own paper. **Fixed** for Multiple Pages
+  2026-11-12 (see that day's entry); Side to Side still does.
+
+### Columns fill from the first, as Word's do
+
+- **What was wrong:** the browser balances a multi-column flow. A page ended early (a page break), and the last
+  page, had their text shared out between the columns, where Word fills the first column first. The paginator
+  sized the gap after such a page as if Word's columns, so the next page's text started 10-43 px high (f15's
+  page 3 at 86 px instead of 96; a one-section copy at 53).
+- **What changed:** `editor/pages.ts`: when a page in equal columns ends, an empty filler is drawn before the gap
+  (`PageBreak.filler`, `columnFiller`, `.column-filler` in `index.css`). It is as tall as the rest of the column
+  the text ends in plus every column after it, so the page's columns add up to whole ones and the browser's
+  balancing leaves the text where Word puts it. A page break's filler goes before its mark, which is drawn across
+  the columns. The last page gets one after the text. The gap no longer holds that space itself (between table
+  rows it still does). `page-grid.ts`: Multiple Pages collapses the fillers like the gaps.
+- **Tests:** `pages.test.ts` (`columnFiller`).
+- **Checked:** in headless Chrome on f15 and a one-section copy.
+  - The page after a page break starts at 97 px (the landscape page before it too; a rounding pixel).
+  - The text before the break and on the last page stays in the first column.
+  - Typing 40 lines at the end fills the first column to the bottom margin, then the second, then a new page.
+    Deleting them gives the same layout back.
+  - The editor ends at the last page's bottom margin.
+- **Open:**
+  - Older: Multiple Pages draws every block of a page in columns in the first column. At HEAD the text also ran
+    below the pages; now it stays on them, but overlaps. **Fixed** the same day (Multiple Pages keeps each block in
+    its column).
+  - Unequal columns are laid out block by block and were not changed.
+
+### Pages of different sizes
+
+- **What was wrong:** every page was drawn on the document's own paper. In f15 (a portrait section, then a
+  landscape one) all three pages were drawn landscape, and the first section's text was laid out at the landscape
+  width. The rulers, floating objects, Page Width zoom and the printed pages also assumed one page size.
+- **What changed:**
+  - `document/page-frames.ts` (new): `drawnPageSetup` (a section's paper and side margins, the columns drawn
+    apart), `stackFrames` (each page under the last at its own size, centred in the widest), `pageMetricsList`,
+    and `stackedPageCell` for code without the editor.
+  - `editor/pages.ts`: each section's pages are measured with its own paper. In a one-column section before the
+    last, the top-level blocks are moved to its text's left edge and laid out at its text width (`section-cell`,
+    `index.css`). The paginator hands each page's section to `page-frames.ts`.
+  - `page-canvas.tsx`: the sheets are drawn from the frames, at cumulative tops, each with its own width, height
+    and margins. Page Width fits the widest page.
+  - `document-rulers.tsx`: the vertical ruler draws each page at its own top and height. The horizontal ruler is
+    the caret page's, and dragging its margins changes that section's side margins.
+  - `editor/objects.ts`: a floating object's page is found from the frames.
+  - `print-copy.ts` / `commands.ts`: each paper size other than the first prints on its own named `@page`.
+  - Multiple Pages, Side to Side and Web Layout still draw every page with the document's paper.
+- **Tests:** `page-frames.test.ts` (new: drawn setup, stack, object cells, named print pages).
+- **Checked:** in headless Chrome on f15.
+  - Page 1 is portrait (794 × 1123), centred above the landscape pages 2 and 3. Its text is 602 px wide at the
+    96 px margins.
+  - The vertical ruler's margin handles sit 96 px inside each sheet. Each page's header box is its sheet's width.
+    Dark mode is unchanged. Page Width fits the landscape pages.
+  - The printed PDF has page 1 A4 portrait and pages 2-3 A4 landscape.
+  - The contract (12 pages, all A4 portrait) is drawn and printed as before.
+- **Open:**
+  - Multiple Pages and Side to Side keep one page size.
+  - A section of several columns is drawn at the widest page's text width when it is not the widest.
+  - The page clip of a floating object uses the document's page size.
+  - Not opened in Word.
+
+### Each section has its own columns
+
+- **What was wrong:**
+  - Only the document's own (last section's) columns were read, and they applied to the whole body. In f15
+    (a one-column section, then a two-column one) the first section was drawn in two columns. Because the
+    paginator counted one column there, the text on later pages started 30-40 px inside the top margin.
+  - Word sections with more than three columns opened as one column.
+- **What changed:**
+  - `document/sections.ts`: `SectionChrome` gains `columns`, `columnGap`, `columnLine`, `columnWidths`.
+    `sectionColumns` gives a section's count. `drawnColumns` gives the columns a section's pages are drawn with:
+    the body is one flow in CSS columns, as many as the section with the most has. A one-column section is drawn
+    across them, and the document's unequal columns apply everywhere, as before.
+  - `editor/pages.ts`: `sectionColumnLayout`. Each section's pages count their own columns. The editor is drawn
+    in the most columns any section has, with the first multi-column section's gap. A one-column section's
+    top-level blocks get `section-span` (`column-span: all`, `index.css`), and the measures are dropped when
+    those blocks change. A change to a section's setup (not its headers' text) lays the pages out again.
+  - `page-canvas.tsx`: the blue column outlines and the Line between rule are drawn per page, for that page's
+    section (`PageColumnGuides`). `document-rulers.tsx`: the ruler shows the caret's section's columns.
+  - `docx/project.ts`: `sectionColumnsOf` reads a section's own `w:cols` (none: one column).
+    `sectionSetupFromChrome` writes them when changed. `columnProps` is shared with the last section's writer.
+    Any count up to 12 is read.
+  - Layout > Columns changes the caret's section. The Columns dialog's Whole document sets every section.
+  - `header.ts`: the native `sections` mark keeps the columns.
+- **Tests:**
+  - `sections.test.ts` (new: `drawnColumns`, equal columns kept in Page Setup).
+  - `section-pages.test.ts` (f15's columns read, kept, and written for one section).
+  - `columns-dialog.test.tsx` (Whole document sets every section).
+- **Checked:** in headless Chrome on f15.
+  - Page 1 is one column across the page: "portrait section" sits below "BEFORE", with no column outlines.
+  - Page 2 is two columns and starts at the top margin (96 px; before, 63).
+  - Columns > Three in the first section draws it in three columns, with outlines and ruler marks.
+- **Open:**
+  - **Fixed** the same day (Sections with different columns each keep their own): two sections with different counts above one (2 and 3) are both drawn with the larger, though each is saved
+    with its own.
+  - Columns that change at a continuous section break (mid-page) are not drawn: only sections that start a page
+    count.
+  - **Fixed** the same day: a section's unequal widths (Left, Right) are saved but drawn equal unless they are the
+    document's own.
+  - Older, also in one-section documents: a page ended early (page break) in columns is balanced by the browser,
+    where Word fills the first column first, and the next page's text starts 10-43 px high. (f15's page 3: 86 px
+    instead of 96. A one-section copy: 53.)
+  - The ruler's column gap drag still changes the document's gap.
+  - Not opened in Word.
+
+### Layout's Margins, Orientation and Size change the caret's section
+
+- **What was wrong:** the Layout tab's Margins, Orientation and Size menus showed and changed the document's own
+  (last section's) setup wherever the caret was. Word changes the section the caret is in.
+- **What changed:** `chrome-section.ts`: `useCaretSectionSetup` gives the caret's section's whole setup
+  (`sectionPageSetup`) and changes it there: a section before the last its own, the last the document's.
+  `ribbon/layout-tab.tsx`: the three menus, their checked items, the margin fields and the Orientation icon use
+  it, in both ribbon layouts. Columns, Line Numbers and Hyphenation still act on the document.
+- **Tests:** `chrome-section.test.tsx` (new): with the caret before a section break, Orientation and a margin change
+  that section only; after it, the document's.
+- **Checked:** in headless Chrome on f15. In the first section the menu checks Portrait, though the page is drawn
+  landscape. Landscape there, then Portrait in the last section, leaves the first on Landscape in Page Setup.
+- **Open:**
+  - Pages are still drawn with the document's paper, so the change does not show on the page yet.
+  - The horizontal ruler's margin drag still changes the document's side margins.
+  - Not opened in Word.
+
+### Each section keeps its own paper, orientation and side margins; Page Setup changes the right one
+
+- **What was wrong:** a section's paper size, orientation and side margins were not read. Page Setup opened for a
+  section before the last showed the document's own (last section's), and Apply to: This section wrote paper,
+  orientation and side margins into the last section. Choosing Landscape for a cover made the last section
+  landscape in the saved file.
+- **What changed:**
+  - `document/sections.ts`: `SectionChrome` gains `paper`, `orientation`, `paperWidth`, `paperHeight`,
+    `marginLeft`, `marginRight` (optional: an older native file takes the document's). `sectionPageSetup` is a
+    section's whole setup for the dialog; `sectionSetup` (drawing) still leaves them out.
+  - `docx/project.ts`: `sectionPaper` reads them from the section's `w:sectPr` (what it leaves out is the body's).
+    `sectionSetupFromChrome` writes `w:pgSz` and the side `w:pgMar` values only when they changed.
+    `paperTwips` / `keepTwips` are shared with the last section's writer.
+  - `design-dialogs.tsx`: Page Setup shows the caret's section's paper and side margins. This section, This point
+    forward and Whole document set them on the sections they name. The document's own only changes when the last
+    section is among them.
+  - `header.ts`: the native `sections` mark keeps them.
+- **Tests:** `section-pages.test.ts` (opens f15's portrait first section under a landscape last one; writes a
+  section's new paper and margins into its own `w:sectPr` only; keeps an untouched one as written),
+  `header.test.ts` (pack round trip).
+- **Checked:**
+  - In headless Chrome on f15: Page Setup in the first section shows Portrait, in the last Landscape. Setting the
+    first to Landscape (This section) and then the last to Portrait leaves the first on Landscape.
+  - A saved f15 with its first section on Letter landscape, 3 and 3.5 cm side margins passes docx-validate with
+    0 errors. Only the first `w:sectPr` changed.
+- **Open:**
+  - Pages are still all drawn with the document's paper and side margins. A landscape section among portrait ones
+    shows portrait until pages of different sizes are drawn.
+  - Layout > Orientation, Size and Margins on the ribbon still change the document's own setup, not the caret's
+    section.
+  - Found while checking: the app applies the document's columns to every section. In f15 (one column, then a
+    two-column last section) the first section is drawn in two columns, and the text on pages 2 and 3 starts
+    30-40 px inside the top margin, where the header zone takes its clicks. This was already so before this change.
+  - Not opened in Word.
+
+### Page numbers, Previous/Next and Link to Previous work per section
+
+- **What was wrong:**
+  - Insert > Page Number > Top of Page / Bottom of Page (and Top/Bottom Right) always wrote into the document's
+    own (last section's) header or footer. In the contract only the last page got the number. Remove Page Numbers
+    did the same.
+  - On the Header & Footer tab, Previous and Next only stepped between the first-page, even and odd headers of one
+    section, and Link to Previous was always greyed.
+  - A header or footer editor turning live or off-page (`setEditable`) emitted an update with its old text. When the
+    store changed that part in the same render, the old text was written back over the new one.
+- **What changed:**
+  - `document/section-slots.ts` (new): which section and story (first, even, default) a page shows; where a part is
+    kept through Link to Previous (`slotHome`); `isLinked`, `canLink`; Previous/Next through every section's parts
+    in page order (`sectionChromeStep`); the page of a body position.
+  - `document/store.ts`: `setSlotLinked` (linking drops the section's own part; unlinking gives it a copy of the one it
+    showed, as Word does), `slotHtml` / `setSlotHtml`, `SLOT_FIELDS`.
+  - `ribbon/insert-tab.tsx`: the page number places and Remove Page Numbers act on the section and kind of page of
+    the open header (or of the caret's page), through Link to Previous, and open the header or footer on that page.
+  - `ribbon/context-tabs.tsx`: Previous/Next across sections; Link to Previous toggles, greyed on the first section.
+    Linking a part with content of its own asks first ("Do you want to delete this header and connect to the
+    header in the previous section?"), via the new `askConfirm` in `text-prompt.tsx`.
+  - `page-canvas.tsx` uses `slotHome` instead of its own copy of the lookup.
+  - `chrome-editors.tsx`: an update that does not change the document is not written to the store.
+  - `docx/project.ts`: a section linked since it was opened loses its `w:headerReference` / `w:footerReference` (also
+    in the continuous sections before it that it took the part from); the last section linked again loses its own;
+    an unlinked last section writes its copy even when unchanged.
+  - Removed `chromeStep` / `chromeStory` (one section only), replaced by `sectionChromeStep`.
+- **Tests:** `section-slots.test.ts` (new: lookups, steps, the store action), `section-pages.test.ts` (three save
+  tests: unlink the last section, link it again, drop a section's own part).
+- **Checked:**
+  - In headless Chrome on the contract. Bottom Right with the caret on page 2 numbers the body pages (the body is
+    linked to the cover, so both). Previous/Next go page 1 → 2 → 13 (one stop per section). Link to Previous is
+    greyed on the cover. Linking the last section's footer shows the body's number; unlinking keeps the copy. In
+    dark mode, linking the body's logo header asks first, No keeps it and Yes links it.
+  - Saved .docx (last section linked; a section's own first-page footer dropped) checked with docx-validate:
+    0 errors, and the references are as expected.
+- **Open:**
+  - Placing a number strips the page field from the part and adds a new paragraph. In the contract the cloud
+    shape loses its number and the footer grows, so the body runs one page longer. This was already so with one
+    section.
+  - A React "error during concurrent rendering" (recovered) shows when the contract's header or footer opens. It
+    also shows on the previous commit, so it is not from this change. Not looked into.
+  - Not opened in Word.
+
+### Lists that share an abstract numbering count as one, as in Word
+
+- **What was wrong:** every `w:num` was counted on its own. Word counts all the `w:num`s of one `w:abstractNum` as
+  one list, across interruptions, until a `w:num` with a `w:startOverride` restarts it where it is first used. So a
+  list Word continues (Continue Numbering, or a copied list) started again at 1 in the app.
+- **What changed:**
+  - `docx/inlines.ts`: the projection keeps the next first-level number per abstract numbering (`listNext`) and
+    the `w:num`s it has shown (`listSeen`).
+  - `docx/project.ts` (`listKey`, `listStart`): a run of list items starts from its list's next number. A `w:num`
+    whose level-1 override restarts it starts at its start the first time it is used.
+- **Tests:** `word-display.test.ts`. f05's list, a second `w:num` of the same abstract (goes on at 3), a third
+  that restarts (1, 2), then the first again (goes on at 3).
+- **Checked:** in headless Chrome, that document shows 1, 2 / 3 / 1, 2 / 3, as Word numbers it.
+- **Open:**
+  - Only the first level carries across a break in the list. A deeper level starts again in each run.
+  - Not opened in Word.
+
+### Basic Cycle with many items: smaller shapes, arrows between them, text fitted
+
+- **What was wrong:**
+  - Basic Cycle drew 92 px circles on its 105 px ring whatever the count. From 8 items neighbours overlapped, and the
+    arrows were sized from the count, so with 8 there were none and with 12 only their heads.
+  - Long text ran out of the circles.
+- **What changed:** `editor/smartart.ts`, `index.css`:
+  - `cycleNodeSize`: a shape is 0.62 of the distance to its neighbour (at most 92 px), as Word keeps the graphic one
+    size and shrinks its shapes.
+  - Each arrow leaves a shape's half width plus 6 px at each end, and is drawn thinner with smaller shapes.
+  - `fitCycleText` gives every shape's text one size, the largest at which all fit (13 px down to 7 px), as Word
+    shrinks a SmartArt's text together. It runs again as the text is typed. A word still too long is then broken.
+- **Tests:** `smartart.test.ts`: shapes never reach their neighbours from 6 to 12 items, and 4 items keep 92 px.
+- **Checked:** in headless Chrome with 4, 8 (long labels), 12 and 4 (long words) items. Shapes are apart, an arrow
+  runs between each pair, and the text is inside its shape.
+- **Open:**
+  - Eight long labels end at the 7 px minimum. The ring stays 300 px, smaller than Word's default graphic.
+  - Word layouts the app has no drawing for (Circle Relationship and others) still open as a picture.
+
+### Picture bullets drawn and kept; list overrides and restarts kept on save
+
+- **What was wrong:**
+  - A picture bullet (`w:lvlPicBulletId`) was drawn as its level's text.
+  - Worse, saving lost data. `numbering.xml` is rewritten on every save from a model that held only the
+    `w:abstractNum` levels and each `w:num`'s abstract. These were dropped from any Word file saved from the app:
+    - `w:numPicBullet`, the pictures behind it, and `w:lvlPicBulletId`;
+    - `w:lvlOverride` with `w:startOverride` (Word's Restart at 1 and Set Numbering Value);
+    - `w:numIdMacAtCleanup`.
+  - A list restarted with an override also counted on in the app, from the abstract's start.
+- **What changed:**
+  - `docx/model.ts`:
+    - `NumberingDefinitions` keeps `pictureBullets` (each as written, with its picture's r:id), `macCleanup` and
+      `links`: numbering.xml's relationships and the parts they point at.
+    - `NumberingLevel.pictureBullet`. `NumberingInstance.overrides` (the start, a level of its own, the markup).
+    - `numberingLevel` returns a list's overridden level, or the abstract's counting from `w:startOverride`.
+  - `wml-read.ts`: reads them all; `attachNumberingLinks` keeps the pictures.
+  - `wml-write.ts`:
+    - Writes `w:numPicBullet` first, the overrides as written and `w:numIdMacAtCleanup` last.
+    - Writes numbering.xml's relationships and pictures.
+    - Declares the VML/DrawingML prefixes kept markup uses when the root is written fresh.
+  - `project.ts` (`pictureBulletOf`): a level's `data-word-levels` entry carries its picture as a data URL and its
+    width over height (VML style or `wp:extent`). EMF and WMF pictures, which a browser cannot draw, keep the text.
+  - `editor/indent.ts`, `index.css`: the marker draws the picture one font size high, as wide as its shape.
+    `fitWordMarkers` measures it so. `word-markers.ts`: exported HTML shows a round bullet for it.
+- **Tests:** `picture-bullets.test.ts`. f04 is given a VML picture bullet with a PNG, a second list starting at 4
+  and Word's clean-up mark. The picture reaches the editor's levels at its 2:1 shape. Saving keeps every element as
+  written, in `CT_Numbering`'s order, with the picture's relationship and bytes. The override counts from 4.
+- **Checked:**
+  - In headless Chrome: the bullets are the picture, 2:1, one font size high.
+  - The Open XML validator passes the built file and the copy saved from the app.
+- **Open:**
+  - Not checked with a picture bullet Word made itself, or in Word.
+  - An EMF/WMF picture bullet is drawn as its level's text.
+  - Lists that share an abstract numbering across `numId`s count separately in the app (Word counts them as one
+    list unless an override restarts one).
+
+### Page numbers restart per section; Page Setup, the rulers and First page work per section
+
+- **What was wrong:**
+  - Every page field showed the page's position plus one. Word's `w:pgNumType` (Start at, number format) was kept on
+    save but never read. The contract's cover showed 1 and its first agreement page 2; Word shows 0 and 1.
+  - Page Setup always showed and changed the last section. Apply to was ignored.
+  - The vertical ruler drew the last section's top and bottom margins on every page.
+  - The "First page" check box was offered only for the last section's first page. The Header & Footer tab's
+    Different First Page and Header/Footer from edge fields changed the last section, whatever page was open.
+  - A recovered draft lost the sections before the last: their margins, headers and footers.
+  - There was no Format Page Numbers window.
+- **What changed:**
+  - `docx/model.ts`, `wml-read.ts`, `wml-write.ts`: `w:pgNumType` is read and written (`start`, `fmt`, `chapStyle`,
+    `chapSep`). Untouched, it is kept as Word wrote it.
+  - `page-setup.ts`: `pageNumberStart` (null = continue from the previous section) and `pageNumberFormat` for the
+    last section. `sections.ts`: the same on `SectionChrome`, plus `SectionSetupPatch`, `sectionAtPosition`.
+  - `docx/project.ts`: both are opened from each section. `sectionSetupFromChrome` writes a section's edited
+    margins, header/footer distances, `w:titlePg` and `w:pgNumType` into its own `w:sectPr`. A value that reads back
+    the same keeps Word's twips.
+  - `document/page-numbers.ts` (new): Word's number formats (roman, letters, `- 1 -`). `sectionPageLabels` gives
+    each laid-out page its number. The page canvas (header and footer fields, the app's own page number) and the
+    table of contents (`editor/toc.ts`) use it.
+  - `store.ts`: `setSectionSetup`. `editor/section-break.ts`: `caretSection`, the section the caret is in.
+  - `design-dialogs.tsx`: Page Setup opens with the caret's section. With more than one section, Apply to offers
+    This section (the default), This point forward and Whole document, as Word does.
+  - `document-rulers.tsx`: the vertical ruler draws each page's section margins. Dragging one changes that section.
+  - `page-canvas.tsx`, `chrome-section.ts` (new), `context-tabs.tsx`: the First page box is on each section's first
+    page. The Header & Footer tab's Different First Page and from-edge fields change the open page's section.
+  - `page-number-format-dialog.tsx` (new): Insert > Page Number > Format Page Numbers… (Number format; Continue from
+    previous section / Start at). It changes the open header's section, or the caret's.
+  - `header.ts`, `recovery.ts`, `commands.ts`: the `sections` and `pagenumbers` marks keep the sections and page
+    numbering in a recovered draft and in the app's own HTML.
+- **Tests:**
+  - `page-numbers.test.ts`: formats, restarts, the contract's pattern.
+  - `section-pages.test.ts`: `w:pgNumType` opens per section and is kept untouched. An edited section writes its
+    `w:pgMar`, `w:titlePg` and `w:pgNumType`, and reopens with them.
+  - `header.test.ts`: the sections and page numbering survive pack and unpack.
+- **Checked:**
+  - In headless Chrome, the contract shows 0 on the cover and 1, 2 on the agreement pages.
+  - Page Setup on page 2 opens at 3.75 cm (This section). 5 cm moves only the agreement pages; the cover stays.
+  - Format Page Numbers set to i, ii, iii numbers the agreement's footers so; the cover keeps 0. Checked in light and
+    dark.
+  - Printed to PDF: 12 pages with 0, 1, 2 and the logo header. The print copy already followed each section, so the
+    earlier note that it used the last section's margins was out of date.
+  - The Open XML validator passes the contract saved untouched and saved with edited section setup.
+  - The cover's top strip and the missing logo, noted open on 2026-10-29, were already fixed by the per-section
+    margins and headers.
+- **Open:**
+  - A section's paper size, orientation and left and right margins are not its own. Page Setup's This section
+    applies them to the whole document.
+  - Insert > Page Number > Top / Bottom of Page puts the field in the last section's header or footer only.
+  - The Header & Footer tab's Previous and Next do not step between sections. Link to Previous is still greyed.
+  - Not opened in Word.
+
+## 2026-10-29
+
+### List markers drawn with each level's own settings; the cloud in the contract's footer
+
+- **What was wrong:**
+  - Word list markers took their paragraph's font, size and colour, not the level's own `w:rPr`.
+  - Centred and right-aligned numbers (`w:lvlJc`) were drawn left-aligned.
+  - A marker wider than its hanging indent pushed the text over by its own width, not to Word's next tab stop.
+  - `w:suff` (a space or nothing after the marker), `w:isLgl` (legal numbers) and `w:lvlRestart` were ignored.
+  - Saving rewrote `numbering.xml` without `lvlRestart`, `pStyle`, `isLgl` and `suff`.
+  - Exported HTML (and the PDF, ODT and RTF made from it) showed the browser's markers.
+  - On the contract's agreement pages, the page number in the footer sat outside its cloud picture, and the cloud
+    was cut off at the top. There were three causes:
+    - `pageClip` clipped a picture inside a header or footer editor against the body's page area. The last
+      section's top margin of 0 cut 17 px off the top.
+    - The cloud is flipped horizontally (`a:xfrm flipH`), and pictures were not flipped.
+    - The footer reserved 2.5 rem on the right for the app's page number even when it was hidden, which pushed the
+      document's own number out of the cloud.
+- **What changed:**
+  - `docx/wml-read.ts`, `wml-write.ts`, `model.ts`: numbering levels read and write `lvlRestart`, `pStyle`, `isLgl`
+    and `suff`, in `CT_Lvl` order.
+  - `docx/project.ts`: `data-word-levels` adds each level's justification, suffix, legal flag, restart and run
+    format (size, colour, bold, italic). `data-word-tab` carries the document's default tab stop.
+  - `editor/word-markers.ts`:
+    - `WordNumbering` follows `lvlRestart` and writes legal levels' numbers as decimals.
+    - `withWordMarkers` writes each item's marker as its `list-style-type` in exported HTML (`document/commands.ts`).
+  - `editor/indent.ts`:
+    - The decoration sets the marker's font, size, colour, weight and style.
+    - `fitWordMarkers` measures each marker after layout:
+      - A right-aligned or centred marker is moved to end at, or be centred on, the number position
+        (`--word-shift`).
+      - The text goes to the hanging indent, or past a wide marker to the paragraph's next tab stop or the next
+        default one (`--word-box`).
+      - With a space suffix the text follows a space; with no suffix it follows the marker directly.
+  - `editor/objects.ts`:
+    - `pageClip` leaves pictures in headers and footers alone.
+    - A picture's `flipH`/`flipV` are drawn, kept on the node (`picture-format.ts`) and written back in `a:xfrm`
+      (`docx/inlines.ts`).
+  - `index.css`: the footer keeps room on the right only while the app's page number is shown.
+- **Checked:**
+  - `word-markers.test.ts`: legal numbers, `lvlRestart` 0 and 1, exported markers, and the item's look and
+    alignment attributes.
+  - `list-indent.test.ts`: a level with right alignment, a space suffix, `isLgl`, `lvlRestart` and its own
+    run format opens with all of them and keeps them in `numbering.xml` after an edit.
+  - `section-pages.test.ts`: a picture in a header editor is not clipped. A flipped picture opens flipped, stays
+    flipped on save and loses the flip when it is cleared.
+  - The Open XML SDK validator reports 0 errors on both saved files.
+  - Headless Chrome:
+    - Right-aligned `I.`–`IV.` end at the number position.
+    - `Article 1.` sends the text to the 72 pt tab.
+    - `a)` with a space suffix is followed by its text.
+    - A level with no hanging indent sends the text to the first tab.
+    - A 16 pt red bold marker is drawn as set.
+    - On the contract, the page number sits inside the cloud.
+    - The full suite passes: 1249 tests.
+- **Open:**
+  - Not checked in Word side by side.
+  - The marker of a `w:lvlPicBulletId` picture bullet is still drawn as text.
+
+### Word lists draw Word's own bullets and numbers
+
+- **What was wrong:** a list opened from Word used the browser's markers: disc, circle and square bullets, and
+  decimal numbers counted across every level of the list. Word's `a)` lists showed `1.`, Word's `o` sub-bullets in
+  Courier New showed a hollow circle, and the marker sat just left of the text instead of at the hanging indent.
+- **What changed:**
+  - `docx/project.ts` writes each level of the list's numbering on the list as `data-word-levels`: the `lvlText`,
+    the number format, the start, the hanging indent and the font.
+  - `editor/word-markers.ts` (new) numbers the items as Word does:
+    - Each level counts on its own and starts again after an item of a level above it.
+    - `%1`–`%9` in the text take the levels' numbers in their formats (letters, roman, zero-padded, ordinal).
+    - Bullets in Symbol and Wingdings are drawn as their Unicode look; Word's other bullet fonts are kept.
+  - The list marker decorations (`editor/indent.ts`) recompute the markers on every edit. An item added or moved
+    to another level renumbers.
+  - The marker is drawn before the item's first line, left-aligned in the hanging indent (`index.css`).
+  - A marker picked from the ribbon still overrides Word's.
+- **Checked:**
+  - `src/editor/word-markers.test.ts`: formats, bullet glyphs, `%1.%2` numbering and restarts, a list's own
+    start, and renumbering in the editor after Enter.
+  - `list-indent.test.ts`: the levels are carried from a Word file.
+  - Headless Chrome:
+    - The contract: `a)`–`d)` lists in the hanging indent.
+    - The Case summary: `•` bullets, `o` sub-bullets in Courier New, `1.`–`3.` numbers.
+- **Open:**
+  - The marker takes its paragraph's font and size, not the numbering level's own run formatting (size, colour,
+    bold).
+  - Centred and right-aligned numbers (`lvlJc`) are drawn left-aligned.
+  - A marker wider than its hanging indent pushes the text over by its own width, not to Word's next tab stop.
+  - Legal-style numbering (`isLgl`) is not applied.
+  - Exported HTML keeps the browser's markers.
+
+### Each Word section has its own margins and headers and footers, edited per section
+
+- **What was wrong:** only a document's last section was read for page setup and headers and footers; every page
+  used it. On the contract, the agreement pages (section 2, with a 37.5 mm top margin and the company logo in its
+  header) showed no logo and started their text at the cover's top margin; the cover showed a strip of empty header.
+- **What changed:**
+  - `document/sections.ts` (new): `SectionChrome`, one per section before the last that starts a page. It holds
+    the section's margins and header/footer distances, its first page setting, and the parts it has of its own.
+    A missing part is Linked to Previous. `sectionAt` (a page's section) and `slotOwner` (whose part a linked one is)
+    are there too.
+  - `docx/project.ts`:
+    - `chromeFromDocument` builds `chrome.sections`. A continuous section's own parts carry to the next section.
+    - The last section's missing parts are read from the previous section (`slotStory`) and listed in
+      `chrome.linked`.
+    - The editor's section break carries the paragraph's key (`data-section`).
+    - Saving writes an edited section part into that paragraph's `w:sectPr` (`sectionStoriesFromChrome`): it
+      rewrites the part or adds a reference. An untouched section and a still-linked last section are left as
+      they were.
+    - New header/footer relationship ids are `rIdHf<n>`, so they can't clash with the document's own `rId`
+      numbers (they did: "rId12 is used twice").
+  - `editor/pages.ts`: the paginator lays each page out with its section's margins. The gap between pages uses
+    one page's bottom margin and the next page's top margin. The first page's text starts at its own section's
+    top margin. Each page's section is stored in `pageSections` and `sectionStarts`.
+  - `page-canvas.tsx` / `chrome-editors.tsx`:
+    - Each sheet draws its section's header/footer zone, distances and parts.
+    - The first page of each section shows the First Page header when that section has it.
+    - `SectionParts` makes one editor per part a section owns. Double-clicking a page edits its section's part, or
+      the part it is linked to, and every page of that chain follows.
+    - The last section's linked parts edit the previous section's.
+  - `chrome-extent.ts`: header and footer reach is tracked per section. An empty header or footer no longer pushes
+    the body down.
+- **Checked:**
+  - `section-pages.test.ts`: reads a section's own header and margins; the last section is linked; an untouched
+    save is unchanged; an edit is written and reads back on reopen.
+  - `chrome-extent.test.ts` covers per-section reach.
+  - Headless Chrome on the contract: the cover has no header strip; pages 2–11 have the logo header and a 142 px
+    top zone; typing in page 3's header shows on pages 2–11 only.
+  - The Open XML validator passes the contract saved untouched and saved with edited section headers and footers
+    (0 errors).
+- **Open:**
+  - Page Setup, the rulers and the print copy still use the last section's margins.
+  - The "First page" check box is offered only for the last section.
+  - A recovered draft keeps only the last section's headers and footers.
+  - A page size or orientation that differs between sections is not drawn.
+  - Not yet opened in Word.
+
+### Options dialog in dark mode; SmartArt Cycle, Organization Chart and Relationship drawn as their own shapes
+
+- **What was wrong:** (1) File → Options in dark mode kept a white card with white text: the backstage's dark
+  colours were set only inside `.backstage`, and Options opens as a dialog outside it. (2) Every SmartArt graphic
+  looked the same, a dashed box holding a row of boxes: Basic Cycle and Basic Relationship had no drawing of their
+  own, Organization Chart was inserted with every item at the top level (a row, not a tree), and the dashed frame
+  showed round every graphic all the time.
+- **What changed:** the dark backstage colours are set on `html.dark` too (`index.css`). Basic Cycle puts the
+  shapes evenly round a ring, first at the top, with a clockwise arrow from each to the next (`paintCycle` in
+  `editor/smartart.ts`). Organization Chart starts with one shape over two (`levels` [0,1,1]). Basic Relationship
+  draws circles side by side, each overlapping the next. The dashed frame shows only on hover or selection.
+- **Checked:** headless Chrome screenshots of Options in dark mode and of each layout inserted;
+  `src/editor/smartart.test.ts` (tree levels, ring shapes and arrows).
+- **Open:** the Layouts gallery switching a flat outline to Organization Chart still draws a row (as Word does
+  until items are demoted). A Cycle with many items keeps the 300 px ring, so long text crowds.
+
+### Word section breaks start a new page; objects are cut off at the page; fills shown through
+
+- **What was wrong:** opening the cover page contract: (1) the agreement started on the cover page, hidden behind
+  its white wash, because a Word section break (`w:sectPr` in a paragraph) was kept for saving but never shown, so
+  no new page began; every later page then ended about a page's top margin early and the first line of a paragraph
+  moved on (articles 2.3, 4.1, 10, 13.1) was drawn in the gap between two pages. (2) The cover photo, larger than
+  the page, was drawn past the sheet on both sides. (3) The 70% white wash over it (`a:schemeClr bg1` +
+  `a:alpha`) was drawn solid, hiding the photo.
+- **What changed:** `project.ts` (`sectionBreakHtml`) follows a paragraph that ends a next, even or odd page section
+  with the editor's section break, which the paginator already ends a page at; saving still takes the break from
+  the paragraph's `w:sectPr` (the editor's node writes nothing). Section breaks draw like page breaks: no height of
+  their own, the dashed line and label with formatting marks only (`index.css`). `objects.ts` (`pageClip`) cuts a
+  floating object off at its sheet's edges with a polygon in the frame's own coordinates (a wide picture
+  overflows a frame the text's width), not when turned, in a header or while selected. `shape-import.ts`
+  (`withAlpha`) keeps a fill's or outline's `a:alpha` as eight-digit hex, which the drawing shows and
+  `shape-write.ts` (`solid`) writes back as `a:alpha`.
+- **Tests:** `section-pages.test.ts` (f15's section break opens as the editor's break and saving writes two
+  `w:sectPr`, as read; alpha read and written; the page clip, and none for an object that fits or is turned). 182
+  files, 1230 tests pass.
+- **Checked:** in headless Chrome, a probe listing every line of text outside a page sheet: the contract 0 (was 4
+  paragraphs), 11 pages, the agreement from page 2; f15 3 pages as in Word; `123.docx` 0. The cover shows the photo
+  washed out and filling the page, cut at its edges.
+- **Open:** one page setup for all sections, so the cover keeps the last section's top (an 18 px strip above the
+  photo); the header's logo is not drawn on the contract's pages.
+
+### Word documents inside a content control open as their text (a whole contract in a cover page)
+
+- **What was wrong:** a block-level content control was kept as one raw block and drawn as its plain text. A
+  contract whose 204 paragraphs all sat inside Word's Cover Pages control opened as one run-on block of text in
+  the body font, no paragraphs, pictures, headings or lists, running off the bottom of a two-page document.
+- **What changed:** `wml-read.ts` opens a rich text or building block control (`opensAsBlocks`: no typed kind such
+  as `w:text`, `w:dropDownList`, `w:date`, `w:showingPlcHdr`, and not a table of contents) as its own paragraphs
+  and tables, read with a raw cursor over the control's content so its pictures keep their markup. Each block
+  carries the control's markup before and after the content (`controls`, outermost first, `model.ts`).
+  `wml-write.ts` (`writeBlocks`, used for the body, headers, footers, notes, comments and cells) wraps each
+  control's first to last block back in it, so a paragraph added inside stays inside; `project.ts` gives a saved
+  paragraph or table its source's controls. Typed and placeholder controls and TOC controls are unchanged.
+- **Tests:** `content-controls.test.ts` (a cover control with a control inside it opens as paragraphs and writes
+  back as read; text typed inside is saved inside both). `objects.test.ts` still round-trips f16's plain text and
+  dropdown controls as raw. 181 files, 1226 tests pass.
+- **Checked:** the user's contract in headless Chrome: cover logo, title and name, then the agreement's
+  paragraphs, numbered articles and bullets, 9 pages. Read → write keeps every word (the only differences are
+  `w:proofErr` and `w:lastRenderedPageBreak`, dropped as for any document). Saved after an edit: the cover control
+  is still around all 204 paragraphs with the edit inside; Open XML validator 0 errors.
+- **Open:** the cover's photo, its white wash and the page breaks after it: fixed in the entry above. Word shows 14
+  pages against 11 here, largely because Avenir LT Std is not installed on this machine.
+
+### Word lists: the text sits once at the item's indent, levels step by the document's spacing
+
+- **What was wrong:** a Word list whose items set their own left indent (`w:ind w:left="1080"`, the level adding
+  `hanging="360"`, as text pasted from Slack or Outlook is written) opened with the text 0.75" further right than in
+  Word: the list was padded to the item's indent and the paragraph inside indented by the same amount again. Second
+  level items stepped 1.75em and then indented by their own 1.5", so their text sat at 2.6" instead of 1.5". The
+  narrower column wrapped every item sooner and pushed the following sections down a page. The font box also
+  showed a Word file's font with its quotes (`'Times New Roman'`).
+- **What changed:** `project.ts` shows a numbered paragraph without its left, hanging and first-line indent
+  (`withoutListIndent` in `block-format.ts`); the list carries the first level's indent and, as
+  `--list-indent-step`, the step to the deeper levels (from the items' own indents, else the numbering levels').
+  A list item's level margin (`editor/indent.ts`) uses that step, the editor's 1.75em otherwise. Saving compares
+  the edited paragraph with what was shown (`propertiesFromBlock`'s new `shown` argument), so the item's `w:ind`
+  is written back as it came. `fontLabel` drops single quotes as well as double.
+- **Tests:** `list-indent.test.ts` (opened HTML, editor round trip, saved `w:ind` and levels),
+  `ribbon/options.test.ts`. 180 files, 1224 tests pass.
+- **Checked:** `Case 00512196 summary.docx` in headless Chrome against the user's Word screenshot: first-level text
+  at 0.75" and second-level at 1.5" from the margin, every line breaking at the same word as in Word; the font box
+  reads Times New Roman. Saved after an edit, every item keeps `w:left="1080"` / `"2160"`; Open XML validator 0
+  errors.
+- **Open:** the marker sits just before the text (CSS outside marker), not at Word's left - hanging position; for
+  bullets and short numbers the difference is a few points.
+
 ## 2026-10-28
 
 ### 3D Models: ten or more real models in Electronics, Anatomy, Furniture and Symbols
@@ -24,6 +1010,7 @@ in Word, Chrome or the desktop app.
   Matte, Glossy, Metal and the colour tint still apply over it. The library's tiles are pictures of the models
   themselves, drawn once per session with the viewer's light and pose. The old ids (`electronics`, `anatomy`,
   `furniture`, `symbol`) still open, as the Tablet, Human Figure, Chair and Star; the primitives are unchanged.
+
 - **Tests:** `model-stock.test.ts` (48): every listed model builds, has its own surfaces, is centred and the same
   size; primitives unchanged; old ids; unknown id is the cube; the same model every time. 179 files, 1227 tests
   pass on android.

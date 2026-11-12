@@ -10,12 +10,24 @@ import { TextContextMenu } from "@/components/text-context-menu"
 import { TableHandles } from "@/components/table-handles"
 import { pageGridCell, pageGridColumns, pageGridRows } from "@/document/page-grid"
 import { paintDesignVars } from "@/document/design-format"
-import { ChromeBox, useChromePart } from "@/components/chrome-editors"
+import { ChromeBox, NO_PART, SectionParts, useChromePart, type ChromePart } from "@/components/chrome-editors"
 import { chromeHasContent, chromeHasPageField } from "@/document/chrome-html"
 import { useActiveChromeEditor } from "@/document/chrome-editing"
 import { chromeText } from "@/document/chrome-html"
 import { useChromeExtent } from "@/document/chrome-extent"
-import { applyPageChrome, pageBorderStyle, pageMetrics, setupColumns, showsPageBorder } from "@/document/page-setup"
+import {
+  applyPageChrome,
+  pageBorderStyle,
+  pageMetrics,
+  setupColumns,
+  showsPageBorder,
+  type PageMetrics,
+  type PageSetup,
+} from "@/document/page-setup"
+import { drawnPageSetup, gridFrames, pageMetricsList, stackFrames } from "@/document/page-frames"
+import { sectionPageLabels } from "@/document/page-numbers"
+import { drawnColumns, sectionSetup, type ChromeSlot, type SectionChrome } from "@/document/sections"
+import { slotHome, slotOf, type SlotState } from "@/document/section-slots"
 import { useDocumentStore } from "@/document/store"
 import { clampZoom, useViewStore } from "@/document/view"
 import { useBodyEditor } from "@/editor/document-editor"
@@ -25,7 +37,7 @@ import { bindLineSelect } from "@/editor/line-select"
 import { finishPageGrid, preparePageMeasure } from "@/editor/page-grid"
 import { TextSelection } from "@tiptap/pm/state"
 import { EditorContent, useEditorState } from "@tiptap/react"
-import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react"
 
 function cssString(value: string) {
   return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
@@ -79,6 +91,27 @@ export function PageCanvas() {
   const firstFooterPart = useChromePart(firstFooterHtml, setFirstFooter, "First page footer", inUse(firstFooterHtml))
   const evenHeaderPart = useChromePart(evenHeaderHtml, setEvenHeader, "Even page header", inUse(evenHeaderHtml))
   const evenFooterPart = useChromePart(evenFooterHtml, setEvenFooter, "Even page footer", inUse(evenFooterHtml))
+  // A Word document's sections before the last each have their own margins and headers and footers.
+  const sections = useDocumentStore((state) => state.sections)
+  const linkedSlots = useDocumentStore((state) => state.linkedSlots)
+  const setSectionSetup = useDocumentStore((state) => state.setSectionSetup)
+  const [sectionParts, setSectionParts] = useState<Record<string, Record<ChromeSlot, ChromePart>>>({})
+  const reportSectionParts = useCallback(
+    (key: string, parts: Record<ChromeSlot, ChromePart>) =>
+      setSectionParts((current) => ({ ...current, [key]: parts })),
+    [],
+  )
+  const pagePlaces =
+    useEditorState({
+      editor,
+      selector: ({ editor: current }) => {
+        const storage = current?.storage.pagination
+        return `${(storage?.pageSections ?? []).join("\u0001")}\u0002${(storage?.sectionStarts ?? []).map(Number).join("")}`
+      },
+    }) ?? ""
+  const [placeKeys, placeStarts] = pagePlaces.split("\u0002")
+  const pageKeys = placeKeys ? placeKeys.split("\u0001") : []
+  const pageStarts = (placeStarts ?? "").split("").map((value) => value === "1")
   const chromeTarget = useViewStore((state) => state.chromeTarget)
   const activeChrome = useActiveChromeEditor((state) => state.editor)
   const editChromeAt = useViewStore((state) => state.editChrome)
@@ -101,12 +134,26 @@ export function PageCanvas() {
   const grid = pageView > 1 && !side
   const gridColumns = grid ? pageGridColumns(pageView) : 1
   const gridRows = grid ? pageGridRows(pageCount, pageView) : pageCount
-  const stackHeight = side ? metrics.height : gridRows * metrics.height + Math.max(0, gridRows - 1) * PAGE_GAP
+  // One page wide down the screen, each section's pages have its own paper, centred in a stack as wide as the widest.
+  const stacked = !web && !side && !grid
+  const stack = stackFrames(stacked ? pageMetricsList(pageSetup, sections, pageKeys, pageCount) : [metrics], PAGE_GAP)
+  // Multiple Pages: each page its section's size, centred in cells as big as the biggest page.
+  const tiles = grid ? gridFrames(pageMetricsList(pageSetup, sections, pageKeys, pageCount), pageView, PAGE_GAP) : null
+  const fitPageWidth = stack.width
+  const stackHeight = side
+    ? metrics.height
+    : stacked
+      ? stack.height
+      : gridRows * (tiles?.cellHeight ?? metrics.height) + Math.max(0, gridRows - 1) * PAGE_GAP
   const stackWidth = side
     ? pageCount * metrics.width + Math.max(0, pageCount - 1) * PAGE_GAP
     : grid
-      ? gridColumns * metrics.width + Math.max(0, gridColumns - 1) * PAGE_GAP
-      : metrics.width
+      ? gridColumns * (tiles?.cellWidth ?? metrics.width) + Math.max(0, gridColumns - 1) * PAGE_GAP
+      : stacked
+        ? stack.width
+        : metrics.width
+  // Where the document's own page sits in the stack: the editor's text is its section's.
+  const ownLeft = stacked ? (stack.width - metrics.width) / 2 : 0
 
   useEffect(() => {
     const style = document.documentElement.style
@@ -167,7 +214,8 @@ export function PageCanvas() {
       const slack = pageView > 1 && zoomMode === "pages" ? 12 : 0
       const availableHeight =
         scroll.clientHeight - (parseFloat(style.paddingTop) || 0) - (parseFloat(style.paddingBottom) || 0) - 40 - slack
-      const widthZoom = availableWidth / metrics.width
+      // Page Width fits the widest page, so a landscape section among portrait pages is not cut off.
+      const widthZoom = availableWidth / Math.max(metrics.width, fitPageWidth)
       const fitColumns = pageView > 1 ? pageGridColumns(pageView) : 2
       const fitRows = pageView === 8 ? 2 : 1
       const fitWidth = fitColumns * metrics.width + Math.max(0, fitColumns - 1) * PAGE_GAP
@@ -192,7 +240,7 @@ export function PageCanvas() {
     const observer = new ResizeObserver(apply)
     observer.observe(scroll)
     return () => observer.disconnect()
-  }, [zoomMode, web, pageView, metrics.width, metrics.height, syncZoom])
+  }, [zoomMode, web, pageView, metrics.width, metrics.height, fitPageWidth, syncZoom])
 
   useEffect(() => {
     if (!editor || editor.isDestroyed) {
@@ -335,16 +383,47 @@ export function PageCanvas() {
     return () => window.removeEventListener("keydown", onKey)
   }, [editingChrome, editor, setEditingChrome])
 
-  /** Which header and footer a page shows: the first page's, the even pages', or the ones every page shares. */
-  const chromeKind = (index: number) =>
-    index === 0 && differentFirstPage ? "first" : pageSetup.differentOddEven && index % 2 === 1 ? "even" : "default"
+  /** The section before the last a page is in, or `null` for the document's own last section. */
+  const pageSection = (index: number): SectionChrome | null => {
+    const key = web ? "" : (pageKeys[index] ?? "")
+    return key ? (sections.find((item) => item.key === key) ?? null) : null
+  }
+  // The number each page's PAGE fields show: a section that starts its page numbers at a number restarts there.
+  const pageLabels = sectionPageLabels(pageCount, web ? [] : pageKeys, pageStarts, sections, pageSetup)
+  const metricsFor = (section: SectionChrome | null) =>
+    section ? pageMetrics(sectionSetup(pageSetup, section), false, section.key) : metrics
+  /**
+   * Which header and footer a page shows: its section's first page's, the even pages', or the ones every page shares.
+   */
+  const chromeKind = (index: number) => {
+    const section = pageSection(index)
+    const starts = pageStarts[index] ?? index === 0
+    return starts && (section ? section.differentFirstPage : differentFirstPage)
+      ? "first"
+      : pageSetup.differentOddEven && index % 2 === 1
+        ? "even"
+        : "default"
+  }
   const chromeLabel = (index: number, part: "Header" | "Footer") => {
     const kind = chromeKind(index)
     return kind === "first" ? `First Page ${part}` : kind === "even" ? `Even Page ${part}` : part
   }
+  const slotState: SlotState = {
+    sections,
+    linkedSlots,
+    differentFirstPage,
+    differentOddEven: pageSetup.differentOddEven,
+  }
   const chromeFor = (index: number, part: "header" | "footer") => {
     const kind = chromeKind(index)
     const header = part === "header"
+    const slot = slotOf(kind, part)
+    // Linked to Previous: the part, and the editor that edits it, is the section's that has it.
+    const home = slotHome(slotState, pageSection(index), slot)
+    if (home !== null) {
+      const owner = sections.find((item) => item.key === home)
+      return { part: sectionParts[home]?.[slot] ?? NO_PART, html: owner?.parts[slot] ?? "" }
+    }
     return kind === "first"
       ? { part: header ? firstHeaderPart : firstFooterPart, html: header ? firstHeaderHtml : firstFooterHtml }
       : kind === "even"
@@ -372,9 +451,17 @@ export function PageCanvas() {
           style={{
             width: stackWidth,
             paddingTop: metrics.marginTop,
-            paddingRight: web ? metrics.marginRight : `${pageSetup.marginRight}mm`,
+            paddingRight: web
+              ? metrics.marginRight
+              : stacked
+                ? stack.width - ownLeft - metrics.width + metrics.marginRight
+                : `${pageSetup.marginRight}mm`,
             paddingBottom: metrics.marginBottom,
-            paddingLeft: web ? metrics.marginLeft : `${pageSetup.marginLeft}mm`,
+            paddingLeft: web
+              ? metrics.marginLeft
+              : stacked
+                ? ownLeft + metrics.marginLeft
+                : `${pageSetup.marginLeft}mm`,
             transform: `scale(${zoom})`,
             transformOrigin: "top left",
             minHeight: web
@@ -384,109 +471,157 @@ export function PageCanvas() {
                 : stackHeight,
           }}
         >
-          {Array.from({ length: pageCount }, (_, index) => (
-            <div
-              key={index}
-              className={`page-sheet pointer-events-none absolute box-border border border-gray-300 bg-white shadow-sm ${showGridlines ? "page-grid" : ""}`}
-              data-header-style={pageSetup.headerStyle}
-              data-footer-style={pageSetup.footerStyle}
-              style={{
-                top: side
-                  ? 0
-                  : pageGridCell(index, grid ? pageView : 1, metrics.width + PAGE_GAP, metrics.height + PAGE_GAP).top,
-                left: side
-                  ? index * (metrics.width + PAGE_GAP)
-                  : pageGridCell(index, grid ? pageView : 1, metrics.width + PAGE_GAP, metrics.height + PAGE_GAP).left,
-                width: metrics.width,
-                height: web ? "100%" : metrics.height,
-                background: pageSetup.pageColor || undefined,
-              }}
-            >
-              <div
-                className="page-chrome-zone is-header"
-                aria-hidden
-                style={{ height: metrics.marginTop }}
-                onDoubleClick={() => editChrome(index, "header")}
-                onMouseDown={() => editingChrome && editChrome(index, "header")}
-              />
-              <div
-                className="page-chrome-zone is-footer"
-                aria-hidden
-                style={{ height: metrics.marginBottom }}
-                onDoubleClick={() => editChrome(index, "footer")}
-                onMouseDown={() => editingChrome && editChrome(index, "footer")}
-              />
-              {editingChrome ? (
-                <>
-                  <span
-                    className="page-chrome-tag is-header"
-                    data-label={chromeLabel(index, "Header")}
-                    style={{ top: metrics.marginTop }}
-                  />
-                  <span
-                    className="page-chrome-tag is-footer"
-                    data-label={chromeLabel(index, "Footer")}
-                    style={{ bottom: metrics.marginBottom }}
-                  />
-                </>
-              ) : null}
-              {index === 0 && editingChrome ? (
-                <label className="page-first">
-                  <input
-                    type="checkbox"
-                    checked={differentFirstPage}
-                    onChange={(event) => setDifferentFirstPage(event.target.checked)}
-                  />
-                  First page
-                </label>
-              ) : null}
-              <ChromeBox
-                kind="header"
-                {...chromeFor(index, "header")}
-                live={editingChrome && chromeTarget.part === "header" && chromeTarget.page === index}
-                placeholder={chromeLabel(index, "Header")}
-                page={index + 1}
-                pages={pageCount}
-                focus
-              />
-              <ChromeBox
-                kind="footer"
-                {...chromeFor(index, "footer")}
-                live={editingChrome && chromeTarget.part === "footer" && chromeTarget.page === index}
-                placeholder={chromeLabel(index, "Footer")}
-                page={index + 1}
-                pages={pageCount}
-                focus
-              />
-              {/* A page number written into the header or footer is the page's number; this one is for when there is none. */}
-              <div
-                className="page-number"
-                data-place={
-                  chromeHasPageField(chromeFor(index, "header").html) ||
-                  chromeHasPageField(chromeFor(index, "footer").html)
-                    ? "none"
-                    : pageSetup.pageNumber
-                }
-              >
-                {index + 1}
-              </div>
-              {pageSetup.watermark ? (
-                <div className="page-watermark" aria-hidden>
-                  <span>{pageSetup.watermark}</span>
-                </div>
-              ) : null}
-              {/* Body text margins only — not header/footer from-edge offsets. */}
-              <div className="page-margin-guide" aria-hidden />
-              {cropMarks && !web
-                ? ["tl", "tr", "bl", "br"].map((corner) => (
-                    <span key={corner} className={`page-crop-mark is-${corner}`} aria-hidden />
-                  ))
-                : null}
-              {showsPageBorder(pageSetup, index) ? (
-                <div className="page-border" data-border={pageSetup.border} style={pageBorderStyle(pageSetup)} />
-              ) : null}
-            </div>
+          {sections.map((section, index) => (
+            <SectionParts
+              key={section.key}
+              section={section}
+              root={index === 0}
+              editing={editingChrome}
+              onParts={reportSectionParts}
+            />
           ))}
+          {Array.from({ length: pageCount }, (_, index) => {
+            const section = pageSection(index)
+            const frame = stacked ? stack.frames[index] : tiles?.frames[index]
+            const sheet = frame ? frame.metrics : metricsFor(section)
+            return (
+              <div
+                key={index}
+                className={`page-sheet pointer-events-none absolute box-border border border-gray-300 bg-white shadow-sm ${showGridlines ? "page-grid" : ""}`}
+                data-header-style={pageSetup.headerStyle}
+                data-footer-style={pageSetup.footerStyle}
+                style={{
+                  top: frame
+                    ? frame.top
+                    : side
+                      ? 0
+                      : pageGridCell(index, grid ? pageView : 1, metrics.width + PAGE_GAP, metrics.height + PAGE_GAP)
+                          .top,
+                  left: frame
+                    ? frame.left
+                    : side
+                      ? index * (metrics.width + PAGE_GAP)
+                      : pageGridCell(index, grid ? pageView : 1, metrics.width + PAGE_GAP, metrics.height + PAGE_GAP)
+                          .left,
+                  width: frame ? frame.width : metrics.width,
+                  height: web ? "100%" : frame ? frame.height : metrics.height,
+                  background: pageSetup.pageColor || undefined,
+                  ...(section
+                    ? {
+                        ["--header-from-edge" as string]: `${section.headerFromEdge}mm`,
+                        ["--footer-from-edge" as string]: `${section.footerFromEdge}mm`,
+                      }
+                    : {}),
+                  // The page's own margins, for its header, footer and margin guides.
+                  ...(frame && section
+                    ? {
+                        ["--page-margin-top" as string]: `${sheet.marginTop}px`,
+                        ["--page-margin-right" as string]: `${sheet.marginRight}px`,
+                        ["--page-margin-bottom" as string]: `${sheet.marginBottom}px`,
+                        ["--page-margin-left" as string]: `${sheet.marginLeft}px`,
+                      }
+                    : {}),
+                }}
+              >
+                <div
+                  className="page-chrome-zone is-header"
+                  aria-hidden
+                  style={{ height: sheet.marginTop }}
+                  onDoubleClick={() => editChrome(index, "header")}
+                  onMouseDown={() => editingChrome && editChrome(index, "header")}
+                />
+                <div
+                  className="page-chrome-zone is-footer"
+                  aria-hidden
+                  style={{ height: sheet.marginBottom }}
+                  onDoubleClick={() => editChrome(index, "footer")}
+                  onMouseDown={() => editingChrome && editChrome(index, "footer")}
+                />
+                {editingChrome ? (
+                  <>
+                    <span
+                      className="page-chrome-tag is-header"
+                      data-label={chromeLabel(index, "Header")}
+                      style={{ top: sheet.marginTop }}
+                    />
+                    <span
+                      className="page-chrome-tag is-footer"
+                      data-label={chromeLabel(index, "Footer")}
+                      style={{ bottom: sheet.marginBottom }}
+                    />
+                  </>
+                ) : null}
+                {(pageStarts[index] ?? index === 0) && editingChrome ? (
+                  <label className="page-first">
+                    <input
+                      type="checkbox"
+                      checked={section ? section.differentFirstPage : differentFirstPage}
+                      onChange={(event) =>
+                        section
+                          ? setSectionSetup(section.key, { differentFirstPage: event.target.checked })
+                          : setDifferentFirstPage(event.target.checked)
+                      }
+                    />
+                    First page
+                  </label>
+                ) : null}
+                <ChromeBox
+                  kind="header"
+                  {...chromeFor(index, "header")}
+                  live={editingChrome && chromeTarget.part === "header" && chromeTarget.page === index}
+                  placeholder={chromeLabel(index, "Header")}
+                  page={pageLabels[index] ?? String(index + 1)}
+                  pages={pageCount}
+                  focus
+                  section={section?.key}
+                  marginTop={section?.marginTop}
+                />
+                <ChromeBox
+                  kind="footer"
+                  {...chromeFor(index, "footer")}
+                  live={editingChrome && chromeTarget.part === "footer" && chromeTarget.page === index}
+                  placeholder={chromeLabel(index, "Footer")}
+                  page={pageLabels[index] ?? String(index + 1)}
+                  pages={pageCount}
+                  focus
+                  section={section?.key}
+                  marginTop={section?.marginTop}
+                />
+                {/* A page number written into the header or footer is the page's number; this one is for when there is none. */}
+                <div
+                  className="page-number"
+                  data-place={
+                    chromeHasPageField(chromeFor(index, "header").html) ||
+                    chromeHasPageField(chromeFor(index, "footer").html)
+                      ? "none"
+                      : pageSetup.pageNumber
+                  }
+                >
+                  {pageLabels[index] ?? index + 1}
+                </div>
+                {pageSetup.watermark ? (
+                  <div className="page-watermark" aria-hidden>
+                    <span>{pageSetup.watermark}</span>
+                  </div>
+                ) : null}
+                {/* Body text margins only — not header/footer from-edge offsets. */}
+                <div className="page-margin-guide" aria-hidden />
+                <PageColumnGuides
+                  columns={web ? null : drawnColumns(pageSetup, sections, section)}
+                  setup={frame ? drawnPageSetup(pageSetup, section) : pageSetup}
+                  margins={sheet}
+                />
+                {cropMarks && !web
+                  ? ["tl", "tr", "bl", "br"].map((corner) => (
+                      <span key={corner} className={`page-crop-mark is-${corner}`} aria-hidden />
+                    ))
+                  : null}
+                {showsPageBorder(pageSetup, index) ? (
+                  <div className="page-border" data-border={pageSetup.border} style={pageBorderStyle(pageSetup)} />
+                ) : null}
+              </div>
+            )
+          })}
           {pageSetup.watermark ? (
             <div className="print-mark" aria-hidden>
               <span>{pageSetup.watermark}</span>
@@ -497,30 +632,6 @@ export function PageCanvas() {
           ) : null}
           <EditorContent editor={editor} />
           {editor ? <CommentMarkers /> : null}
-          {pageSetup.columns > 1 ? (
-            <div
-              className={`page-column-guides${pageSetup.columnLine ? " has-rule" : ""}`}
-              aria-hidden
-              style={{
-                top: metrics.marginTop,
-                right: `${pageSetup.marginRight}mm`,
-                bottom: metrics.marginBottom,
-                left: `${pageSetup.marginLeft}mm`,
-              }}
-            >
-              {setupColumns(pageSetup).map((column, index) => (
-                <span
-                  key={index}
-                  style={{
-                    flex: "none",
-                    width: `${column.width}cm`,
-                    marginRight: `${column.space}cm`,
-                    ["--column-gap" as string]: `${column.space}cm`,
-                  }}
-                />
-              ))}
-            </div>
-          ) : null}
           {formatted ? <MiniToolbar editor={formatted} /> : null}
           {formatted ? <ObjectBar editor={formatted} /> : null}
           {editor ? <ChartSideButtons editor={editor} /> : null}
@@ -531,6 +642,46 @@ export function PageCanvas() {
           <TableHandles editor={formatted} />
         </article>
       </div>
+    </div>
+  )
+}
+
+/** The blue outlines of a page's columns, and the Line between rule (which prints), for its section's columns. */
+function PageColumnGuides({
+  columns,
+  setup,
+  margins,
+}: {
+  columns: Pick<PageSetup, "columns" | "columnGap" | "columnLine" | "columnWidths"> | null
+  setup: PageSetup
+  /** The page's own margins (px). */
+  margins: Pick<PageMetrics, "marginTop" | "marginRight" | "marginBottom" | "marginLeft">
+}) {
+  if (!columns || columns.columns < 2) {
+    return null
+  }
+  return (
+    <div
+      className={`page-column-guides${columns.columnLine ? " has-rule" : ""}`}
+      aria-hidden
+      style={{
+        top: margins.marginTop,
+        right: margins.marginRight,
+        bottom: margins.marginBottom,
+        left: margins.marginLeft,
+      }}
+    >
+      {setupColumns({ ...setup, ...columns }).map((column, index) => (
+        <span
+          key={index}
+          style={{
+            flex: "none",
+            width: `${column.width}cm`,
+            marginRight: `${column.space}cm`,
+            ["--column-gap" as string]: `${column.space}cm`,
+          }}
+        />
+      ))}
     </div>
   )
 }

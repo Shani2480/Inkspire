@@ -1,13 +1,15 @@
 import { blockFormatAttributes } from "@/editor/block-format"
 import { restoreSelection } from "@/editor/selection-memory"
 import { insertAlignedTab, tabStopsAttribute } from "@/editor/tab-stops"
+import { cssString, parseWordLevels, WordNumbering } from "@/editor/word-markers"
 import { Extension, type Editor } from "@tiptap/core"
 import Heading from "@tiptap/extension-heading"
 import { ListItem } from "@tiptap/extension-list"
 import Paragraph from "@tiptap/extension-paragraph"
 import type { Node as ProseNode, NodeRange, ResolvedPos } from "@tiptap/pm/model"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
-import { Decoration, DecorationSet } from "@tiptap/pm/view"
+import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view"
+import { holdObserver } from "@/editor/page-grid"
 
 export const INDENT_MAX = 8
 export const INDENT_STEP_PX = 24
@@ -54,7 +56,8 @@ function listIndentAttribute() {
       }
       return {
         "data-indent": String(indent),
-        style: `margin-left: calc(${indent} * ${LIST_INDENT_STEP})`,
+        // A list from Word steps by its own levels' indent.
+        style: `margin-left: calc(${indent} * var(--list-indent-step, ${LIST_INDENT_STEP}))`,
       }
     },
   }
@@ -331,6 +334,109 @@ function listMarkerPlugin() {
         return listMarkerKey.getState(state) ?? DecorationSet.empty
       },
     },
+    view(view) {
+      let frame = 0
+      const schedule = () => {
+        cancelAnimationFrame(frame)
+        frame = requestAnimationFrame(() => fitWordMarkers(view))
+      }
+      schedule()
+      return {
+        update: schedule,
+        destroy: () => cancelAnimationFrame(frame),
+      }
+    },
+  })
+}
+
+const PT = 96 / 72
+let measureContext: CanvasRenderingContext2D | null | undefined
+
+/**
+ * Word's tab after a list marker. The text starts at the item's indent when the marker ends before it; a marker that
+ * runs past it (or one with no hanging indent) sends the text on to the next tab stop of the paragraph's own, or the
+ * document's default ones, all measured from the margin. A centred or right-aligned marker sits on, or ends at, the
+ * first line's start; one followed by a space or nothing has the text straight after it. The marker's box takes the
+ * width to that point (`--word-box`), and the marker is moved within it for its alignment (`--word-shift`).
+ */
+export function fitWordMarkers(view: EditorView) {
+  if (view.isDestroyed) {
+    return
+  }
+  const items = view.dom.querySelectorAll<HTMLElement>("li[data-word-marker]")
+  // Nothing is laid out (a headless editor): there is nothing to measure.
+  if (items.length === 0 || view.dom.offsetWidth === 0) {
+    return
+  }
+  measureContext ??= document.createElement("canvas").getContext("2d")
+  const context = measureContext
+  if (!context) {
+    return
+  }
+  const origin = view.dom.getBoundingClientRect()
+  const scale = origin.width / view.dom.offsetWidth
+  if (!Number.isFinite(scale) || scale <= 0) {
+    return
+  }
+  const changes: { item: HTMLElement; box: string; shift: string }[] = []
+  items.forEach((item) => {
+    const first = item.firstElementChild
+    if (!(first instanceof HTMLElement)) {
+      return
+    }
+    const marker = getComputedStyle(first, "::before")
+    context.font = `${marker.fontStyle} ${marker.fontWeight} ${marker.fontSize} ${marker.fontFamily}`
+    // A picture bullet is as wide as the picture drawn a font size high.
+    const width =
+      item.dataset.wordPicture !== undefined
+        ? (Number(item.dataset.wordPicture) || 1) * (parseFloat(marker.fontSize) || 16)
+        : context.measureText(item.dataset.wordText ?? "").width
+    const hang = (Number(item.dataset.wordHang) || 0) * PT
+    const tab = (Number(item.dataset.wordTab) || 36) * PT
+    // Where the item's text starts, from the margin.
+    const left = (first.getBoundingClientRect().left - origin.left) / scale
+    const start = left - hang
+    const justify = item.dataset.wordJustify
+    const shift = justify === "right" ? -width : justify === "center" ? -width / 2 : 0
+    const end = start + shift + width
+    let box: number
+    if (item.dataset.wordSuffix === "nothing") {
+      box = Math.max(0, end - start)
+    } else if (item.dataset.wordSuffix === "space") {
+      box = Math.max(0, end - start) + context.measureText(" ").width
+    } else {
+      let stop = left
+      if (end > left - 0.5) {
+        const own = (first.dataset.tabStops ?? "")
+          .split(",")
+          .map((entry) => parseFloat(entry))
+          .filter((value) => Number.isFinite(value) && value > end + 0.5)
+          .sort((a, b) => a - b)
+        stop = own[0] ?? (Math.floor((end + 0.5) / tab) + 1) * tab
+      }
+      box = Math.max(0, stop - start)
+    }
+    const boxValue = `${Math.round(box * 100) / 100}px`
+    const shiftValue = shift ? `${Math.round(shift * 100) / 100}px` : ""
+    if (
+      item.style.getPropertyValue("--word-box") !== boxValue ||
+      item.style.getPropertyValue("--word-shift") !== shiftValue
+    ) {
+      changes.push({ item, box: boxValue, shift: shiftValue })
+    }
+  })
+  if (changes.length === 0) {
+    return
+  }
+  holdObserver(view, () => {
+    for (const change of changes) {
+      change.item.style.setProperty("--word-box", change.box)
+      if (change.shift) {
+        change.item.style.setProperty("--word-shift", change.shift)
+      } else {
+        change.item.style.removeProperty("--word-shift")
+      }
+    }
   })
 }
 
@@ -344,12 +450,63 @@ function listMarkers(doc: ProseNode) {
     kind: "bullet" | "ordered" | null,
     scheme: string | null,
     marker: string | null,
+    word: WordNumbering | null = null,
   ) => {
     if (node.type.name === "bulletList" || node.type.name === "orderedList") {
       const nextKind = node.type.name === "bulletList" ? "bullet" : "ordered"
       const ownScheme = typeof node.attrs.scheme === "string" && node.attrs.scheme ? node.attrs.scheme : scheme
       const ownMarker = typeof node.attrs.marker === "string" && node.attrs.marker ? node.attrs.marker : null
-      node.forEach((child, offset) => visit(child, pos + 1 + offset, depth, nextKind, ownScheme, ownMarker))
+      // A list from Word numbers its items by Word's levels, unless a marker has been picked for it since.
+      const levels = ownMarker ? [] : parseWordLevels(node.attrs.wordLevels)
+      const start = Number(node.attrs.start)
+      const ownWord =
+        levels.length > 0
+          ? new WordNumbering(
+              levels,
+              node.type.name === "orderedList" && start > 0 ? start : undefined,
+              Number(node.attrs.wordTab) > 0 ? Number(node.attrs.wordTab) : undefined,
+            )
+          : ownMarker
+            ? null
+            : word
+      node.forEach((child, offset) => visit(child, pos + 1 + offset, depth, nextKind, ownScheme, ownMarker, ownWord))
+      return
+    }
+
+    if (node.type.name === "listItem" && kind && word) {
+      const drawn = word.next(depth + clampIndent(node.attrs.indent))
+      if (drawn) {
+        const { level } = drawn
+        decorations.push(
+          Decoration.node(pos, pos + node.nodeSize, {
+            "data-word-marker": "",
+            // What `fitWordMarkers` needs to place the text after the marker as Word's tab does.
+            "data-word-text": drawn.text,
+            "data-word-hang": String(level.hang),
+            "data-word-tab": String(word.tab),
+            ...(level.justify ? { "data-word-justify": level.justify } : {}),
+            ...(level.suffix ? { "data-word-suffix": level.suffix } : {}),
+            // A picture bullet is drawn in a box as tall as its font and as wide as the picture is at that height.
+            ...(level.picture ? { "data-word-picture": String(level.pictureRatio ?? 1) } : {}),
+            style: [
+              "list-style-type: none",
+              level.picture ? `--word-marker: " "; --word-picture: url("${level.picture}")` : "",
+              level.picture
+                ? `--word-picture-width: ${level.pictureRatio ?? 1}em`
+                : `--word-marker: ${cssString(drawn.text)}`,
+              `--word-hang: ${level.hang}pt`,
+              drawn.font ? `--word-marker-font: ${cssString(drawn.font)}` : "",
+              level.size ? `--word-marker-size: ${level.size}pt` : "",
+              level.color ? `--word-marker-color: ${level.color}` : "",
+              level.bold !== undefined ? `--word-marker-weight: ${level.bold ? 700 : 400}` : "",
+              level.italic ? "--word-marker-style: italic" : "",
+            ]
+              .filter(Boolean)
+              .join("; "),
+          }),
+        )
+      }
+      node.forEach((child, offset) => visit(child, pos + 1 + offset, depth + 1, kind, scheme, null, word))
       return
     }
 
@@ -366,7 +523,7 @@ function listMarkers(doc: ProseNode) {
       return
     }
 
-    node.forEach((child, offset) => visit(child, pos + 1 + offset, depth, kind, scheme, marker))
+    node.forEach((child, offset) => visit(child, pos + 1 + offset, depth, kind, scheme, marker, word))
   }
 
   doc.forEach((child, offset) => visit(child, offset, 0, null, null, null))

@@ -152,6 +152,33 @@ describe("lists, tabs, and page breaks", () => {
     expect(lists[0]).toMatch(/data-word-indent="padding-left: \d+pt"/)
   })
 
+  it("counts every w:num of one abstract numbering as one list, until a w:num restarts it", async () => {
+    // f05's list (numId 1, two items), then two more lists of the same abstract: numId 2 goes on, numId 3 starts
+    // at 1 again (Restart at 1), and numId 1 after it goes on from numId 3's items.
+    const item = (numId: number, text: string) =>
+      `<w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="${numId}"/></w:numPr></w:pPr><w:r><w:t>${text}</w:t></w:r></w:p>`
+    const bytes = await edited("f05_numbering.docx", {
+      "/word/numbering.xml": (xml) =>
+        xml.replace(
+          "</w:numbering>",
+          `<w:num w:numId="2"><w:abstractNumId w:val="0"/></w:num>` +
+            `<w:num w:numId="3"><w:abstractNumId w:val="0"/><w:lvlOverride w:ilvl="0"><w:startOverride w:val="1"/></w:lvlOverride></w:num></w:numbering>`,
+        ),
+      "/word/document.xml": (xml) =>
+        xml.replace(
+          /(<w:t>item two<\/w:t><\/w:r><\/w:p>)/,
+          `$1<w:p><w:r><w:t>gap</w:t></w:r></w:p>${item(2, "goes on")}<w:p><w:r><w:t>gap</w:t></w:r></w:p>${item(3, "restarts")}${item(3, "second")}<w:p><w:r><w:t>gap</w:t></w:r></w:p>${item(1, "after")}`,
+        ),
+    })
+    const opened = await openDocxBytes(bytes, "f05.docx")
+    const lists = opened.view.html.match(/<ol[^>]*>/g) ?? []
+    expect(lists).toHaveLength(4)
+    expect(lists[0]).not.toContain("start=")
+    expect(lists[1]).toContain(`start="3"`)
+    expect(lists[2]).not.toContain("start=")
+    expect(lists[3]).toContain(`start="3"`)
+  })
+
   it("lays out Word's tab stops with their leaders", async () => {
     const bytes = await edited("f01_runs.docx", {
       "/word/document.xml": (xml) =>

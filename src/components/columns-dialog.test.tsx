@@ -22,6 +22,62 @@ describe("Columns dialog (22.7)", () => {
     expect(useDocumentStore.getState().pageSetup).toMatchObject({ columns: 2, columnGap: 2, columnLine: true })
   })
 
+  it("gives every Word section the columns when applied to the whole document", () => {
+    useDocumentStore.setState({
+      pageSetup: { ...DEFAULT_PAGE_SETUP },
+      sections: [
+        {
+          key: "s1",
+          marginTop: 25.4,
+          marginBottom: 25.4,
+          headerFromEdge: 12.7,
+          footerFromEdge: 12.7,
+          differentFirstPage: false,
+          columns: 1,
+          columnGap: 1.25,
+          columnLine: false,
+          parts: {},
+          opened: {},
+        },
+      ],
+    })
+    render(<ColumnsDialogHost />)
+    act(() => openColumnsDialog(null))
+    // With sections, Apply to starts at This section, as in Word.
+    expect((screen.getByLabelText("Apply to") as HTMLSelectElement).value).toBe("section")
+    fireEvent.change(screen.getByLabelText("Apply to"), { target: { value: "document" } })
+    fireEvent.click(screen.getByLabelText("Two"))
+    fireEvent.click(screen.getByText("OK"))
+    expect(useDocumentStore.getState().pageSetup.columns).toBe(2)
+    expect(useDocumentStore.getState().sections[0]).toMatchObject({ columns: 2, columnWidths: undefined })
+    useDocumentStore.setState({ sections: [] })
+  })
+
+  it("gives only the caret's section the columns with This section", () => {
+    const cover = {
+      key: "s1",
+      marginTop: 25.4,
+      marginBottom: 25.4,
+      headerFromEdge: 12.7,
+      footerFromEdge: 12.7,
+      differentFirstPage: false,
+      columns: 1,
+      parts: {},
+      opened: {},
+    }
+    useDocumentStore.setState({ pageSetup: { ...DEFAULT_PAGE_SETUP }, sections: [cover] })
+    render(<ColumnsDialogHost />)
+    act(() => openColumnsDialog(null))
+    // No caret in the body: the document's own (last) section.
+    fireEvent.click(screen.getByLabelText("Left"))
+    fireEvent.click(screen.getByText("OK"))
+    const state = useDocumentStore.getState()
+    expect(state.pageSetup.columns).toBe(2)
+    expect(state.pageSetup.columnWidths).toHaveLength(2)
+    expect(state.sections[0]!.columns).toBe(1)
+    useDocumentStore.setState({ sections: [] })
+  })
+
   it("Cancel changes nothing", () => {
     useDocumentStore.getState().setPageSetup({ ...DEFAULT_PAGE_SETUP })
     render(<ColumnsDialogHost />)

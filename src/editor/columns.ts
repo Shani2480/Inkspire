@@ -141,6 +141,75 @@ export function applyColumnsFromHere(editor: Editor, columns: number, newColumn 
   return true
 }
 
+/**
+ * The top-level blocks of the caret's section, between the breaks that start a page around it (or the document's
+ * start and end), with the editor's trailing empty paragraph left out; null when the section holds a block of
+ * columns or a continuous break already (its parts have columns of their own).
+ */
+export function caretSectionRange(state: EditorState) {
+  const index = state.selection.$from.index(0)
+  const doc = state.doc
+  const pageBreak = (node: ProseNode) => node.type.name === "sectionBreak" && node.attrs.kind !== "continuous"
+  let first = index
+  while (first > 0 && !pageBreak(doc.child(first - 1))) {
+    first -= 1
+  }
+  let last = index
+  while (last + 1 < doc.childCount && !pageBreak(doc.child(last + 1))) {
+    last += 1
+  }
+  if (doc.child(index) && pageBreak(doc.child(index))) {
+    return null
+  }
+  // The empty paragraph the editor keeps at the end is not the section's text.
+  while (
+    last > first &&
+    last === doc.childCount - 1 &&
+    doc.child(last).isTextblock &&
+    doc.child(last).content.size === 0
+  ) {
+    last -= 1
+  }
+  let from = 0
+  for (let at = 0; at < first; at += 1) {
+    from += doc.child(at).nodeSize
+  }
+  let to = from
+  for (let at = first; at <= last; at += 1) {
+    const node = doc.child(at)
+    if (node.type.name === "columnSection" || node.type.name === "sectionBreak") {
+      return null
+    }
+    to += node.nodeSize
+  }
+  return to > from ? { from, to } : null
+}
+
+/**
+ * Columns > This section, for equal columns among sections of other columns: the caret's section becomes a block of
+ * its columns between its breaks (saved as that section's own w:cols), so its text flows through them as Word's
+ * does. False when it cannot (see `caretSectionRange`).
+ */
+export function columnsForSection(editor: Editor, columns: number, gap: number, line: boolean) {
+  restoreSelection(editor)
+  const { state } = editor
+  const type = state.schema.nodes.columnSection
+  const range = caretSectionRange(state)
+  if (!type || !range || columns < 2) {
+    return false
+  }
+  const content = state.doc.slice(range.from, range.to).content
+  const caret = state.selection.from
+  const tr = state.tr.replaceWith(
+    range.from,
+    range.to,
+    type.create({ columns, gap: clampColumnGap(gap), line }, content),
+  )
+  // The caret stays where it was, now one step deeper.
+  editor.view.dispatch(tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(caret + 1, tr.doc.content.size)))))
+  return true
+}
+
 export function removeColumnSection(editor: Editor) {
   restoreSelection(editor)
   const existing = findColumnSection(editor.state)
@@ -178,9 +247,10 @@ export function setColumnSectionLine(editor: Editor, pos: number, line: boolean)
 }
 
 /** A selected-text section's columns: 2 to `MAX_COLUMNS`, always equal. */
-function columnCountAttr(value: unknown) {
+export function columnCountAttr(value: unknown) {
   const count = Math.round(Number(value))
-  return Number.isFinite(count) ? Math.max(2, Math.min(MAX_COLUMNS, count)) : 2
+  // One column is a Word section of one column among pages of more (a title above two columns).
+  return Number.isFinite(count) ? Math.max(1, Math.min(MAX_COLUMNS, count)) : 2
 }
 
 export const ColumnSection = Node.create({

@@ -1,8 +1,11 @@
 import { contourOf, contourPolygon, onContourReady } from "@/editor/wrap-contour"
-import { keepWithNextMustMove, linesOnPage } from "@/editor/page-breaking"
+import { keepWithNextMustMove, linesOnPage, overrunsFoot, spillPastFoot } from "@/editor/page-breaking"
 import { useChromeExtent } from "@/document/chrome-extent"
 import { pageMetrics, setupColumns, type LineNumberRestart } from "@/document/page-setup"
+import { drawnPageSetup, setDrawnPageKeys } from "@/document/page-frames"
+import { columnsBlockwise, drawnColumns, sectionAt, type SectionChrome } from "@/document/sections"
 import { columnBoxes } from "@/document/column-widths"
+import { columnCountAttr } from "@/editor/columns"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
 import {
@@ -28,6 +31,8 @@ import {
 } from "@/editor/objects"
 import { rotatedBounds } from "@/editor/object-rotate"
 import {
+  cutColumnGuides,
+  fitColumnBlockGaps,
   cutShadedBlocks,
   cutSplitRows,
   finishPageGrid,
@@ -56,6 +61,12 @@ export type LineMark = {
 
 export type PaginationStorage = {
   pageCount: number
+  /**
+   * The section each page is in, as the key of a section before the last (`chrome.sections`), or "" for the
+   * document's own last section; and each page's number within its section's run (0 for a section's first page).
+   */
+  pageSections: string[]
+  sectionStarts: boolean[]
   breaks: number[]
   lines: LineMark[]
   /** Last layout duration in ms (for profiling / status). */
@@ -81,6 +92,17 @@ type PageBreak = {
   page?: number
   column?: number
   lift?: number
+  /**
+   * Columns: the height of a filler drawn before the gap, so the page's columns add up to whole columns. The browser
+   * balances a multi-column flow, so a page ended early (a page break) would be drawn with its text shared out and
+   * shorter than the page; filled, its columns fill from the first as Word's do and the next page starts at its top.
+   */
+  filler?: { height: number; fill: number; pos: number }
+  /**
+   * A break in a block of columns: the page's bottom margin, where the gap must start. The browser drops margins at a
+   * column's end that the paginator counts, so its filler is fitted to that once drawn (`fitColumnBlockGaps`).
+   */
+  foot?: number
   /** A break between a table's rows that draws the table's header row again at the top of the next page. */
   header?: boolean
   /**
@@ -109,6 +131,8 @@ export const Pagination = Extension.create<unknown, PaginationStorage>({
   addStorage() {
     return {
       pageCount: 1,
+      pageSections: [""],
+      sectionStarts: [true],
       breaks: [],
       lines: [],
       lastLayoutMs: 0,
@@ -172,6 +196,7 @@ function paginationPlugin(storage: PaginationStorage) {
   let placing = false
   let queued = false
   let sideKey = ""
+  let spanKey = ""
 
   return new Plugin<PaginationSnapshot>({
     key: paginationKey,
@@ -269,8 +294,8 @@ function paginationPlugin(storage: PaginationStorage) {
                 storage.peakDirtyFrom = from
               }
               const web = useViewStore.getState().layoutMode === "web"
-              const columns = web ? 1 : pageSetup.columns
-              const unequal = columns > 1 && pageSetup.columnWidths !== undefined
+              const columns = laid.columns
+              const unequal = columns > 1 && laid.unequal
               view.dom.toggleAttribute("data-unequal", unequal)
               view.dom.style.marginBottom = ""
               if (unequal) {
@@ -284,7 +309,7 @@ function paginationPlugin(storage: PaginationStorage) {
               } else if (columns > 1) {
                 view.dom.dataset.columns = String(columns)
                 view.dom.style.setProperty("--page-cols", String(columns))
-                view.dom.style.setProperty("--column-gap", `${pageSetup.columnGap}cm`)
+                view.dom.style.setProperty("--column-gap", `${laid.columnGap}cm`)
                 view.dom.style.paddingBottom = "0"
               } else {
                 delete view.dom.dataset.columns
@@ -300,6 +325,12 @@ function paginationPlugin(storage: PaginationStorage) {
                     countBy: pageSetup.lineNumberCountBy,
                   })
                 : []
+              if (laid.spanKey !== spanKey) {
+                // Blocks now drawn across the columns, or no longer, have new widths: measure afresh.
+                spanKey = laid.spanKey
+                measureCache.clear()
+                forceFull = true
+              }
               if (laid.sideKey !== sideKey) {
                 // The floats text wraps beside changed, so lines after them changed width: measure afresh.
                 sideKey = laid.sideKey
@@ -309,6 +340,11 @@ function paginationPlugin(storage: PaginationStorage) {
               placeFlowObjects(view, laid.placements)
               placeFloatingTables(view, laid.tables, metrics)
               storage.pageCount = laid.pageCount
+              storage.pageSections = laid.pageSections
+              setDrawnPageKeys(laid.pageSections)
+              storage.sectionStarts = laid.sectionStarts
+              // The first page's text starts at its own section's top margin; the canvas is padded by the last's.
+              view.dom.style.marginTop = laid.firstTop && !web ? `${laid.firstTop}px` : ""
               storage.breaks = laid.breaks.map((item) => item.pos)
               storage.lines = lines
               const lineSignature = lines.map((line) => `${line.n}:${line.pos}:${line.top}`).join(",")
@@ -332,6 +368,10 @@ function paginationPlugin(storage: PaginationStorage) {
                         lines,
                         laid.mirrors,
                         laid.cells,
+                        laid.spans,
+                        laid.sectionCells,
+                        laid.endFiller,
+                        laid.columnBreaks,
                       ),
                       signature,
                     } satisfies PaginationSnapshot)
@@ -345,7 +385,9 @@ function paginationPlugin(storage: PaginationStorage) {
               }
               if (stableNow || retries > 5) {
                 finishPageGrid(view, pageView, metrics)
+                fitColumnBlockGaps(view)
                 cutShadedBlocks(view)
+                cutColumnGuides(view)
                 cutSplitRows(view)
                 view.dom.dataset.pageGridKey = `${pageView}|${Math.round(metrics.width)}|${Math.round(metrics.height)}|${applied}`
                 view.dom.dataset.pageGridGaps = String(expected)
@@ -423,7 +465,12 @@ function paginationPlugin(storage: PaginationStorage) {
       })
       observer.observe(view.dom)
       const unsubscribe = useDocumentStore.subscribe((state, previous) => {
-        if (state.pageSetup === previous.pageSetup) {
+        // A section's setup (margins, columns) lays the pages out again; its headers' text does not.
+        if (
+          state.pageSetup === previous.pageSetup &&
+          (state.sections === previous.sections ||
+            sectionSetupKey(state.sections) === sectionSetupKey(previous.sections))
+        ) {
           return
         }
         forceFull = true
@@ -514,8 +561,35 @@ function decorationsFor(
   lines: LineMark[],
   mirrors: Layout["mirrors"] = [],
   cells: ColumnCell[] = [],
+  spans: Layout["spans"] = [],
+  sectionBoxes: SectionCell[] = [],
+  endFiller = 0,
+  columnBreaks: number[] = [],
 ) {
   const decorations: Decoration[] = []
+  for (const pos of columnBreaks) {
+    decorations.push(
+      Decoration.widget(pos, createColumnStart, { side: -1, ignoreSelection: true, key: `column-start-${pos}` }),
+    )
+  }
+  if (endFiller > 0) {
+    decorations.push(
+      Decoration.widget(doc.content.size, () => createFiller(endFiller), {
+        side: 1,
+        ignoreSelection: true,
+        key: `column-filler-end-${endFiller}`,
+      }),
+    )
+  }
+  for (const cell of sectionBoxes) {
+    const width = cell.width === undefined ? "" : `; --sec-w: ${cell.width}px`
+    decorations.push(
+      Decoration.node(cell.pos, cell.pos + cell.size, { class: "section-cell", style: `--sec-x: ${cell.x}px${width}` }),
+    )
+  }
+  for (const span of spans) {
+    decorations.push(Decoration.node(span.pos, span.pos + span.size, { class: "section-span" }))
+  }
   for (const item of breaks) {
     if (item.cells) {
       for (const cell of item.cells) {
@@ -529,7 +603,7 @@ function decorationsFor(
       }
       continue
     }
-    const height = item.height
+    let height = item.height
     const manual = item.manual
     const at = doc.resolve(item.pos)
     if (at.parent.type.name === "table" && at.nodeAfter) {
@@ -558,11 +632,22 @@ function decorationsFor(
       continue
     }
     const lift = item.lift ?? 0
+    if (item.filler) {
+      const filler = item.filler.height
+      height = Math.ceil(height - item.filler.fill)
+      decorations.push(
+        Decoration.widget(item.filler.pos, () => createFiller(filler), {
+          side: -2,
+          ignoreSelection: true,
+          key: `column-filler-${item.filler.pos}-${filler}`,
+        }),
+      )
+    }
     decorations.push(
-      Decoration.widget(item.pos, () => createGap(height, manual, lift), {
+      Decoration.widget(item.pos, () => createGap(height, manual, lift, item.foot), {
         side: -1,
         ignoreSelection: true,
-        key: `gap-${item.pos}-${height}-${manual ? 1 : 0}-${lift}`,
+        key: `gap-${item.pos}-${height}-${manual ? 1 : 0}-${lift}-${item.foot ?? ""}`,
       }),
     )
   }
@@ -851,10 +936,30 @@ function headerCopy(view: EditorView, pos: number) {
   return copy
 }
 
-function createGap(height: number, manual: boolean, lift = 0) {
+/** The empty end of a page's columns (`PageBreak.filler`): it breaks across them as the browser fills them. */
+function createFiller(height: number) {
+  const filler = document.createElement("span")
+  filler.className = "column-filler"
+  filler.style.height = `${height}px`
+  filler.contentEditable = "false"
+  return filler
+}
+
+/** Where a block of columns' next column starts on a page it runs on from, as the paginator found (`placeColumnBlock`). */
+function createColumnStart() {
+  const mark = document.createElement("span")
+  mark.className = "column-start"
+  mark.contentEditable = "false"
+  return mark
+}
+
+function createGap(height: number, manual: boolean, lift = 0, foot?: number) {
   const gap = document.createElement("span")
   gap.className = manual ? "page-gap page-gap-manual" : "page-gap"
   gap.style.height = `${height}px`
+  if (foot !== undefined) {
+    gap.dataset.foot = String(foot)
+  }
   if (lift > 0) {
     // Unequal columns: the blocks of the page's later columns are drawn up beside the first, so the flow runs on
     // below them by as much; the gap starts that much higher to end the page where it is drawn.
@@ -886,8 +991,27 @@ type Layout = {
   /** Changes when the floats text wraps beside change, which reshapes the lines after them. */
   sideKey: string
   lastUsed: number
+  /** Whether the columns are laid out block by block (`columnsBlockwise`), not in the browser's columns. */
+  unequal: boolean
+  /** Columns: the filler after the text that fills the last page's columns (`PageBreak.filler`). */
+  endFiller: number
+  /** Blocks of columns: where each column after the first starts on the pages they run on from. */
+  columnBreaks: number[]
   contentHeight: number
   pageCount: number
+  /** Each page's section key and whether it starts its section (see `PaginationStorage`). */
+  /** How many columns the editor is drawn in (the most any section has) and their gap (cm). */
+  columns: number
+  columnGap: number
+  /** Top-level blocks of one-column sections, drawn across the editor's columns. */
+  spans: { pos: number; size: number }[]
+  /** Top-level blocks of sections whose text is placed or as wide as the document's own is not. */
+  sectionCells: SectionCell[]
+  spanKey: string
+  pageSections: string[]
+  sectionStarts: boolean[]
+  /** How much lower (or higher) the first page's text starts than the document's own top margin puts it. */
+  firstTop: number
   signature: string
   layoutMs: number
   measureCount: number
@@ -920,6 +1044,42 @@ type PendingBand = {
 }
 
 /** Whether a block of `total` height that cannot be split would run off the page, though it fits one by itself. */
+/**
+ * How tall a page's columns filler is (`PageBreak.filler`): the rest of the column the text ends in (`fill`) and every
+ * column after it, so the page's columns add up to whole ones and the browser's balancing leaves them as they are.
+ */
+export function columnFiller(fill: number, contentHeight: number, columns: number, column: number) {
+  return Math.max(0, fill) + Math.max(0, columns - 1 - column) * contentHeight
+}
+
+/**
+ * The height the browser balances a block's last columns to (`column-fill: balance`): the least in which `units`, the
+ * heights of its lines in order, fill no more than `columns` columns, each column taking whole lines.
+ */
+export function balancedHeight(units: number[], columns: number, most: number) {
+  const total = units.reduce((sum, unit) => sum + unit, 0)
+  if (columns <= 1 || units.length === 0) {
+    return total
+  }
+  const fits = (height: number) => {
+    let column = 0
+    let filled = 0
+    for (const unit of units) {
+      if (filled > 0 && filled + unit > height + 0.5) {
+        column += 1
+        filled = 0
+      }
+      filled += unit
+    }
+    return column < columns
+  }
+  let height = Math.max(Math.ceil(Math.max(...units)), Math.ceil(total / columns))
+  while (height < most && !fits(height)) {
+    height += 1
+  }
+  return Math.min(height, Math.max(most, Math.ceil(Math.max(...units))))
+}
+
 export function mustMoveToNextPage(used: number, total: number, contentHeight: number) {
   return used > 0 && used + total > contentHeight + 1 && total <= contentHeight
 }
@@ -933,8 +1093,28 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   }
 
   const metrics = pageMetrics(useDocumentStore.getState().pageSetup)
-  const contentHeight = metrics.contentHeight
-  const columnCount = metricsColumns()
+  // Word's sections each have their own top and bottom margins: a page is laid out with its section's. The editor's
+  // section breaks (those that start a page) split the pages into sections; the last is the document's own.
+  const sectionIds: string[] = []
+  view.state.doc.forEach((node) => {
+    if (node.type.name === "sectionBreak" && node.attrs.kind !== "continuous") {
+      sectionIds.push(String(node.attrs.sectionId || ""))
+    }
+  })
+  const sectionList = useDocumentStore.getState().sections
+  const sectionKeys = [...sectionIds.map((_, index) => sectionAt(sectionList, sectionIds, index)?.key ?? ""), ""]
+  // A section's pages have its own paper and side margins in the usual view (`drawsSectionPaper`).
+  const sectionMetrics = sectionKeys.map((key) => {
+    const section = key ? (sectionList.find((item) => item.key === key) ?? null) : null
+    return section
+      ? pageMetrics(drawnPageSetup(useDocumentStore.getState().pageSetup, section), false, section.key)
+      : metrics
+  })
+  let section = 0
+  let contentHeight = sectionMetrics[0]!.contentHeight
+  const pageSections = [0]
+  const columns = sectionColumnLayout(view, sectionKeys, sectionList)
+  let columnCount = columns.counts[0]!
   const breaks: PageBreak[] = []
   const bands: FlowBand[] = []
   const contentWidth = metrics.width - metrics.marginLeft - metrics.marginRight
@@ -966,7 +1146,19 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   let used = 0
   // The bottom margin of the last block placed: the next block's top margin collapses into it.
   let trailing = 0
+  /** How much of the last paragraph's space after ran past the page's foot (see `place`). */
+  let spilled = 0
   let column = 0
+  /**
+   * A block of columns (`columnSection`) being laid out across pages: its columns, where they start on the page it is
+   * on (below the text above it on its first page, the page's top after), and the heights placed since that page
+   * began, which the browser balances at its end as Word does at a continuous section break.
+   */
+  let block: { columns: number; top: number; units: number[]; starts: number[] } | null = null
+  // The columns' starts on the pages a block of columns ran on from: the browser would balance them otherwise.
+  const columnBreaks: number[] = []
+  /** Where a column starts on this page: the page's top, or a block of columns' top on its first page. */
+  const columnTop = () => block?.top ?? 0
   let ready = true
   let measureCount = 0
   let cacheHits = 0
@@ -977,10 +1169,22 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   // column it starts in, moved across and up to the column's top, and a paragraph that does not fit the rest of a
   // column goes whole to the next one.
   const setup = useDocumentStore.getState().pageSetup
-  const unequal = !web && columnCount > 1 && setup.columnWidths !== undefined
-  const boxes = unequal ? columnBoxes(setupColumns(setup), PX_PER_CM) : []
+  const unequal = !web && columns.unequal
+  // Each section's columns, from its own text's left edge: its page may be another size (`sectionCells`).
+  const widest = Math.max(...sectionMetrics.map((item) => item.width))
+  const textLeft = (item: PageMetrics) => (widest - item.width) / 2 + item.marginLeft
+  const ownLeft = textLeft(sectionMetrics[sectionMetrics.length - 1]!)
+  const sectionBoxList = unequal
+    ? sectionKeys.map((key, index) => {
+        const found = key ? (sectionList.find((item) => item.key === key) ?? null) : null
+        const shift = textLeft(sectionMetrics[index]!) - ownLeft
+        const paper = { ...drawnPageSetup(setup, found), ...columns.drawn[index]! }
+        return columnBoxes(setupColumns(paper), PX_PER_CM).map((box) => ({ x: box.x + shift, width: box.width }))
+      })
+    : []
+  const boxesOf = (index: number) => sectionBoxList[index] ?? sectionBoxList[sectionBoxList.length - 1] ?? []
   // Where the top-level block being laid out started: its page, column and whether at the column's top.
-  type Starting = { page: number; column: number; atTop: boolean }
+  type Starting = { page: number; column: number; atTop: boolean; section: number }
   const track: { starting: Starting | null; top: number } = { starting: null, top: -1 }
   // Blocks given their column's width to be measured there, which get their drawn width back when the layout is done.
   const sized = new Set<HTMLElement>()
@@ -991,7 +1195,8 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     }
     const style = getComputedStyle(dom)
     const sides = (parseFloat(style.marginLeft) || 0) + (parseFloat(style.marginRight) || 0)
-    const width = `${Math.max(8, Math.round((boxes[column] ?? boxes[0]).width - sides))}px`
+    const boxes = boxesOf(section)
+    const width = `${Math.max(8, Math.round((boxes[column] ?? boxes[0]!).width - sides))}px`
     if (dom.style.width !== width) {
       holdObserver(view, () => {
         dom.style.width = width
@@ -1001,32 +1206,70 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   }
   /** Where the text has got to: changes when a block moves on to another column or page. */
   const whereNow = () => `${breaks.length}:${column}`
-  const pushBreak = (pos: number, manual: boolean) => {
+  /**
+   * Ends the page; `next` is the section the next page is in (a section break starts the next one). `fillAt` is where
+   * the columns' filler goes when not at the break: before a page break's mark, which is drawn across the columns.
+   */
+  const pushBreak = (pos: number, manual: boolean, next = section, fillAt = pos) => {
     if (web) {
       return
     }
     const ended = column
     column = 0
+    const following = Math.min(next, sectionMetrics.length - 1)
+    // The height of a block of columns' columns on this page, which its filler fills.
+    const blockHeight = block ? contentHeight - block.top : 0
+    if (block) {
+      block.top = 0
+      block.units = []
+      columnBreaks.push(...block.starts)
+      block.starts = []
+    }
     if (breaks.some((item) => item.pos === pos)) {
       used = 0
+      spilled = 0
+      section = following
+      contentHeight = sectionMetrics[section]!.contentHeight
+      columnCount = block?.columns ?? columns.counts[section]!
       return
     }
     const fill = Math.max(0, contentHeight - used)
+    // Space after that ran past the foot is already drawn above the gap: the next page starts where it would have.
+    const over = spilled
+    spilled = 0
+    // The gap runs from this page's bottom margin to the next page's top margin, each its own section's.
+    const below = sectionMetrics[section]!.marginBottom
+    const above = sectionMetrics[following]!.marginTop
+    // In CSS columns (equal ones, not a one-column section drawn across them) the page's columns left are filled.
+    const filled = block !== null || (!unequal && columns.editor > 1 && columns.counts[section]! > 1)
+    const filler = block
+      ? columnFiller(fill, blockHeight, block.columns, ended)
+      : filled
+        ? columnFiller(fill, contentHeight, columns.editor, ended)
+        : 0
     breaks.push({
       pos,
-      height: Math.ceil(fill + PAGE_GAP + metrics.marginTop + metrics.marginBottom),
+      height: Math.ceil(fill + PAGE_GAP + below + above - over),
       manual,
-      labelTop: Math.round(fill + metrics.marginBottom + PAGE_GAP / 2),
+      labelTop: Math.round(fill + below + PAGE_GAP / 2 - over),
+      // `fill` is then drawn by the filler, not the gap (between table rows the gap keeps it: no filler there).
+      ...(filler > 0 ? { filler: { height: Math.round(filler), fill, pos: fillAt } } : {}),
       ...(unequal ? { page: breaks.length + 1, column: ended } : {}),
+      ...(blockHeight > 0 ? { foot: below } : {}),
     })
     used = 0
+    section = following
+    contentHeight = sectionMetrics[section]!.contentHeight
+    columnCount = block?.columns ?? columns.counts[section]!
+    pageSections.push(section)
   }
 
   const overflow = (pos: number) => {
     // A block in unequal columns is drawn in one column: one that runs on past its end goes on to the next page.
-    if (column + 1 < columnCount && !(unequal && track.starting)) {
+    if (column + 1 < columnCount && (block !== null || !(unequal && track.starting))) {
       column += 1
-      used = 0
+      used = columnTop()
+      block?.starts.push(pos)
       return
     }
     pushBreak(pos, false)
@@ -1064,30 +1307,35 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     }
   }
 
-  /** `collapse` is how much of `height` is a top margin shared with the block above; a page's first block keeps it. */
-  const place = (pos: number, height: number, collapse = 0) => {
+  /**
+   * `collapse` is how much of `height` is a top margin shared with the block above; a page's first block keeps it.
+   * `spill` is how much of it (a paragraph's space after) may run past the page's foot, as Word lets it.
+   */
+  const place = (pos: number, height: number, collapse = 0, spill = 0) => {
     if (height <= 0) {
       return
     }
     reserveBands(pos, height)
     let size = used > 0 ? height - collapse : height
-    if (used > 0 && used + size > contentHeight + 1) {
+    if (overrunsFoot(used, size, spill, contentHeight)) {
       overflow(pos)
       reserveBands(pos, height)
       size = height
     }
     if (unequal && !track.starting) {
-      track.starting = { page: breaks.length + 1, column, atTop: used === 0 }
+      track.starting = { page: breaks.length + 1, column, atTop: used === 0, section }
     }
+    block?.units.push(size)
     used += size
+    spilled = spillPastFoot(used, spill, contentHeight)
   }
 
   /** Whether a block would run past the end of the page from where the text has got to. */
   const overruns = (height: number, top: number) =>
     !web && (used > 0 ? used + height - Math.min(trailing, top) : height) > contentHeight + 1
 
-  const placeBlock = (pos: number, height: number, top: number, bottom: number) => {
-    place(pos, height, Math.min(trailing, top))
+  const placeBlock = (pos: number, height: number, top: number, bottom: number, spill = 0) => {
+    place(pos, height, Math.min(trailing, top), spill)
     trailing = bottom
   }
 
@@ -1102,8 +1350,11 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     // when the lines land as predicted (no band or column change in between), or the extra break would be wrong.
     let forced = -1
     if (widowControl && lines.length > 1) {
-      const heights = lines.map((line, index) =>
-        index === 0 && used > 0 ? line.height - Math.min(trailing, top) : line.height,
+      // The space after the last line need not fit (see `place`).
+      const heights = lines.map(
+        (line, index) =>
+          (index === 0 && used > 0 ? line.height - Math.min(trailing, top) : line.height) -
+          (index === lines.length - 1 ? bottom : 0),
       )
       const fitting = linesOnPage(heights, used, contentHeight, false)
       const wanted = linesOnPage(heights, used, contentHeight, true)
@@ -1119,7 +1370,12 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
         trailing = 0
         reserveBands(index === 0 ? pos : line.pos, line.height)
       }
-      place(index === 0 ? pos : line.pos, line.height, index === 0 ? Math.min(trailing, top) : 0)
+      place(
+        index === 0 ? pos : line.pos,
+        line.height,
+        index === 0 ? Math.min(trailing, top) : 0,
+        index === lines.length - 1 ? bottom : 0,
+      )
       trailing = 0
     })
     trailing = bottom
@@ -1202,7 +1458,9 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
           return
         }
         const keep = Math.max(0, Math.round(room - (cut.top - from[index]!)))
-        const height = Math.ceil(keep + PAGE_GAP + metrics.marginTop + metrics.marginBottom + header)
+        const height = Math.ceil(
+          keep + PAGE_GAP + sectionMetrics[section]!.marginTop + sectionMetrics[section]!.marginBottom + header,
+        )
         gaps.push({ pos: cut.pos, keep, height, ...(header > 0 ? { header, draw: gaps.length === 0 } : {}) })
         from[index] = cut.top
       })
@@ -1253,22 +1511,22 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   }
 
   /** Unequal columns (22.7): a paragraph that would be split by the column's end moves whole to the next column. */
-  const keepWhole = (pos: number, lines: { height: number }[], top: number) => {
+  const keepWhole = (pos: number, lines: { height: number }[], top: number, bottom: number) => {
     if (!unequal || used <= 0) {
       return
     }
-    const total = lines.reduce((sum, line) => sum + line.height, 0) - Math.min(trailing, top)
+    const total = lines.reduce((sum, line) => sum + line.height, 0) - Math.min(trailing, top) - bottom
     if (used + total > contentHeight + 1 && total <= contentHeight) {
       overflow(pos)
     }
   }
 
   /** "Keep lines together" (22.8): a paragraph that would be split by the page end moves whole to the next page. */
-  const keepLinesTogether = (node: ProseNode, pos: number, lines: { height: number }[]) => {
+  const keepLinesTogether = (node: ProseNode, pos: number, lines: { height: number }[], bottom: number) => {
     if (node.attrs.keepLines !== true) {
       return
     }
-    const total = lines.reduce((sum, line) => sum + line.height, 0)
+    const total = lines.reduce((sum, line) => sum + line.height, 0) - bottom
     if (mustMoveToNextPage(used, total, contentHeight)) {
       overflow(pos)
       trailing = 0
@@ -1320,26 +1578,47 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     return heights.slice(0, take).reduce((sum, height) => sum + height, 0)
   }
 
+  /**
+   * A block of columns taller than the rest of the page, laid out as Word lays out a section of other columns: its
+   * columns filled from the first, the page's end spanning them (a filler fills what is left, `pushBreak`), and its
+   * last page's columns balanced. The text after it goes on below that.
+   */
+  const placeColumnBlock = (node: ProseNode, pos: number, dom: HTMLElement, count: number) => {
+    const style = getComputedStyle(dom)
+    placeEdge(style, "top")
+    block = { columns: count, top: used, units: [], starts: [] }
+    column = 0
+    columnCount = count
+    node.forEach((child, offset, index) => visit(child, pos + 1 + offset, () => followingNeed(node, index, pos + 1)))
+    // Its last page's columns are the browser's, balanced: the starts found there are not drawn.
+    const last = block as { columns: number; top: number; units: number[] }
+    block = null
+    column = 0
+    columnCount = columns.counts[section]!
+    used = last.top + balancedHeight(last.units, count, contentHeight - last.top)
+    placeEdge(style, "bottom")
+  }
+
   const visit = (node: ProseNode, pos: number, following: () => number = () => 0) => {
     if (node.type.name === "sectionBreak") {
       const kind = String(node.attrs.kind || "nextPage")
       if (kind === "continuous") {
-        place(pos, 12)
-        trailing = 0
+        // Drawn 0 px tall (a dashed line with formatting marks): the text goes on below, margins collapsing through.
       } else {
-        // As in Word, the break mark stays at the end of the page it ends; the next page starts after it.
-        pushBreak(pos + node.nodeSize, true)
+        // As in Word, the break mark stays at the end of the page it ends; the next page starts after it, in the
+        // next section.
+        pushBreak(pos + node.nodeSize, true, section + 1)
       }
       return
     }
     if (node.type.name === "pageBreak") {
-      pushBreak(pos + node.nodeSize, true)
+      pushBreak(pos + node.nodeSize, true, section, pos)
       return
     }
     if (node.type.name === "columnBreak") {
       if (columnCount > 1 && column + 1 < columnCount) {
         column += 1
-        used = 0
+        used = columnTop()
       } else {
         pushBreak(pos + node.nodeSize, true)
       }
@@ -1356,6 +1635,22 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       used = contentHeight
       column = columnCount - 1
       return
+    }
+
+    if (node.type.name === "columnSection" && !web && !block) {
+      const dom = view.nodeDOM(pos)
+      if (!(dom instanceof HTMLElement)) {
+        ready = false
+        return
+      }
+      const count = columnCountAttr(node.attrs.columns)
+      // One that fits the rest of the page is one box, as the browser balances it; one that does not (or that the
+      // last layout broke) goes on across the pages, its columns filled from the first on each.
+      const room = contentHeight - used + (used > 0 ? Math.min(trailing, edgeMargin(dom, "top")) : 0)
+      if (count > 1 && (dom.querySelector(".page-gap") || outerHeight(dom) > room + 1)) {
+        placeColumnBlock(node, pos, dom, count)
+        return
+      }
     }
 
     const float = node.type.name === "table" ? parseFloatValue(node.attrs.float) : null
@@ -1418,15 +1713,15 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
 
     const hit = cached(pos, node)
     if (hit?.kind === "text") {
-      keepLinesTogether(node, pos, hit.lines)
-      keepWhole(pos, hit.lines, hit.top)
+      keepLinesTogether(node, pos, hit.lines, hit.bottom)
+      keepWhole(pos, hit.lines, hit.top, hit.bottom)
       keepWithNext(node, pos, hit.lines, following)
       placeLines(hit.lines, pos, hit.top, hit.bottom, node.attrs.widowControl !== false)
       return
     }
     // A table that no longer fits where it now starts is measured again, row by row.
     if (hit?.kind === "block" && !(node.type.name === "table" && overruns(hit.height, hit.top))) {
-      placeBlock(pos, hit.height, hit.top, hit.bottom)
+      placeBlock(pos, hit.height, hit.top, hit.bottom, node.isTextblock ? hit.bottom : 0)
       return
     }
 
@@ -1484,7 +1779,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
         const top = edgeMargin(dom, "top")
         const bottom = edgeMargin(dom, "bottom")
         remember(pos, { kind: "block", node, height, top, bottom })
-        placeBlock(pos, height, top, bottom)
+        placeBlock(pos, height, top, bottom, bottom)
         return
       }
       const style = getComputedStyle(dom)
@@ -1497,8 +1792,8 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       }
       lines = withMargins(lines)
       const at = whereNow()
-      keepLinesTogether(node, pos, lines)
-      keepWhole(pos, lines, top)
+      keepLinesTogether(node, pos, lines, bottom)
+      keepWhole(pos, lines, top, bottom)
       if (unequal && whereNow() !== at) {
         // Moved on to another column: its lines at that column's width.
         sizeTo(node, pos, dom)
@@ -1528,7 +1823,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     placeBlock(pos, height, top, bottom)
   }
 
-  const begun: { pos: number; node: ProseNode; page: number; column: number; atTop: boolean }[] = []
+  const begun: { pos: number; node: ProseNode; page: number; column: number; atTop: boolean; section: number }[] = []
   view.state.doc.forEach((node, offset, index) => {
     track.starting = null
     track.top = offset
@@ -1549,7 +1844,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     return null
   }
   const { cells, lastLift } = unequal
-    ? columnCells(view, begun, boxes, breaks, `${breaks.length + 1}:${column}`)
+    ? columnCells(view, begun, boxesOf, breaks, `${breaks.length + 1}:${column}`)
     : { cells: [], lastLift: 0 }
   // The lifts above were read with each block at its new column's width; the decorations draw it so from now on.
   unsize()
@@ -1560,7 +1855,13 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     }
   }
 
+  const sectionBoxes = unequal ? [] : sectionCells(view, sectionMetrics, columns.counts)
   const lastUsed = Math.min(Math.max(used, 0), contentHeight)
+  // The last page's columns are filled from the first too, as Word does (only a continuous break balances them).
+  const endFiller =
+    !web && !unequal && columns.editor > 1 && columns.counts[section]! > 1
+      ? Math.round(columnFiller(contentHeight - lastUsed, contentHeight, columns.editor, column))
+      : 0
   const sideKey = bands
     .filter((band) => band.side)
     .map(
@@ -1578,21 +1879,45 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     tables,
     sideKey,
     lastUsed,
+    endFiller,
+    columnBreaks,
     contentHeight,
     pageCount: breaks.length + 1,
+    columns: columns.editor,
+    unequal,
+    columnGap: columns.gap,
+    spans: columns.spans,
+    sectionCells: sectionBoxes,
+    spanKey: [
+      columns.spans.map((item) => `${item.pos}:${item.size}`).join(","),
+      sectionBoxes.map((item) => `${item.pos}:${item.x}:${item.width ?? ""}`).join(","),
+    ].join("|"),
+    pageSections: pageSections.map((index) => sectionKeys[index]!),
+    sectionStarts: pageSections.map((index, page) => page === 0 || pageSections[page - 1] !== index),
+    firstTop: Math.round(sectionMetrics[0]!.marginTop - metrics.marginTop),
     layoutMs: performance.now() - started,
     measureCount,
     cacheHits,
     signature: [
-      breaks.map((item) => `${item.pos}:${item.height}:${item.manual ? 1 : 0}:${item.header ? 1 : 0}`).join(","),
+      breaks
+        .map(
+          (item) =>
+            `${item.pos}:${item.height}:${item.manual ? 1 : 0}:${item.header ? 1 : 0}:${item.filler?.pos ?? ""}:${item.filler?.height ?? ""}`,
+        )
+        .join(","),
+      endFiller,
+      columnBreaks.join(","),
       bands.map((item) => `${item.pos}:${item.height}`).join(","),
       sideKey,
       placements.map((item) => `${item.pos}:${item.page}:${item.y}`).join(","),
       tables.map((item) => `${item.pos}:${item.page}:${item.x}:${item.y}:${item.flow ? 1 : 0}`).join(","),
       mirrors.map((item) => `${item.pos}:${item.page % 2}`).join(","),
-      columnCount,
-      useDocumentStore.getState().pageSetup.columnGap,
-      `${Math.round(metrics.marginTop)}:${Math.round(metrics.marginBottom)}`,
+      columns.counts.join(","),
+      columns.editor,
+      columns.gap,
+      columns.spans.map((item) => item.pos).join(","),
+      sectionMetrics.map((item) => `${Math.round(item.marginTop)}:${Math.round(item.marginBottom)}`).join(","),
+      pageSections.join(","),
       cells.map((cell) => `${cell.pos}:${cell.column}:${cell.lift}:${cell.width ?? ""}`).join(","),
       breaks.map((item) => item.lift ?? 0).join(","),
       breaks
@@ -1605,12 +1930,84 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   }
 }
 
-function metricsColumns() {
+/**
+ * A top-level block of a section whose pages have another width or side margins than the document's own: drawn `x`
+ * across from where the document's text starts, and, for text, `width` wide (tables and objects keep their own).
+ */
+type SectionCell = { pos: number; size: number; x: number; width?: number }
+
+/**
+ * The blocks of sections drawn with their own paper or side margins. The pages are centred in a stack as wide as the
+ * widest (`stackFrames`), so a section's text starts at its page's left plus its left margin; the editor's text is the
+ * document's own section's. Blocks in columns are left where the columns put them.
+ */
+function sectionCells(view: EditorView, metrics: PageMetrics[], counts: number[]): SectionCell[] {
+  const own = metrics[metrics.length - 1]!
+  const widest = Math.max(...metrics.map((item) => item.width))
+  const textLeft = (item: PageMetrics) => (widest - item.width) / 2 + item.marginLeft
+  const textWidth = (item: PageMetrics) => item.width - item.marginLeft - item.marginRight
+  const base = textLeft(own)
+  const cells: SectionCell[] = []
+  let index = 0
+  view.state.doc.forEach((node, pos) => {
+    const item = metrics[Math.min(index, metrics.length - 1)]!
+    const x = Math.round(textLeft(item) - base)
+    const wide = Math.round(textWidth(item)) !== Math.round(textWidth(own))
+    // A floating object is placed on its own page already (`objectCell`): a cell's `left` would undo that.
+    if ((x !== 0 || wide) && (counts[index] ?? 1) === 1 && !isFloating(node)) {
+      const dom = view.nodeDOM(pos)
+      let width: number | undefined
+      if ((node.isTextblock || TEXT_BLOCKS.has(node.type.name)) && dom instanceof HTMLElement) {
+        const style = getComputedStyle(dom)
+        const sides = (parseFloat(style.marginLeft) || 0) + (parseFloat(style.marginRight) || 0)
+        width = Math.max(8, Math.round(textWidth(item) - sides))
+      }
+      cells.push({ pos, size: node.nodeSize, x, width })
+    }
+    if (node.type.name === "sectionBreak" && node.attrs.kind !== "continuous") {
+      index += 1
+    }
+  })
+  return cells
+}
+
+/** What of the sections lays the pages out: everything but their headers and footers. */
+function sectionSetupKey(sections: SectionChrome[]) {
+  return JSON.stringify(sections.map(({ parts: _parts, opened: _opened, ...setup }) => setup))
+}
+
+/**
+ * The columns of each section's pages (`counts`, by section in `keys` order) and how the editor draws them. The editor
+ * is one flow in CSS columns, as many as the section with the most has; a one-column section's blocks are drawn across
+ * them (`spans`), and a section with fewer columns above one is drawn with the editor's. Unequal columns are the
+ * document's own and are laid out block by block for every section, as before.
+ */
+function sectionColumnLayout(view: EditorView, keys: string[], sections: SectionChrome[]) {
+  const setup = useDocumentStore.getState().pageSetup
   if (useViewStore.getState().layoutMode === "web") {
-    return 1
+    return { counts: keys.map(() => 1), editor: 1, gap: setup.columnGap, spans: [], unequal: false, drawn: [] }
   }
-  const count = useDocumentStore.getState().pageSetup.columns
-  return count > 1 ? count : 1
+  const drawn = keys.map((key) =>
+    drawnColumns(setup, sections, key ? (sections.find((item) => item.key === key) ?? null) : null),
+  )
+  const counts = drawn.map((item) => item.columns)
+  const editor = Math.max(1, ...counts)
+  // Unequal widths, or sections whose columns differ: laid out block by block, each section in its own columns.
+  const unequal = editor > 1 && columnsBlockwise(setup, sections)
+  const gap = drawn.find((item) => item.columns > 1)?.columnGap ?? setup.columnGap
+  const spans: { pos: number; size: number }[] = []
+  if (editor > 1 && !unequal) {
+    let index = 0
+    view.state.doc.forEach((node, pos) => {
+      if (counts[index] === 1 && !isFloating(node)) {
+        spans.push({ pos, size: node.nodeSize })
+      }
+      if (node.type.name === "sectionBreak" && node.attrs.kind !== "continuous") {
+        index += 1
+      }
+    })
+  }
+  return { counts, editor, gap, spans, unequal, drawn }
 }
 
 /** The blocks that hold text, which take their column's width (tables and objects keep their own). */
@@ -1624,8 +2021,8 @@ const TEXT_BLOCKS = new Set(["bulletList", "orderedList", "taskList", "blockquot
  */
 function columnCells(
   view: EditorView,
-  started: { pos: number; node: ProseNode; page: number; column: number; atTop: boolean }[],
-  boxes: { x: number; width: number }[],
+  started: { pos: number; node: ProseNode; page: number; column: number; atTop: boolean; section: number }[],
+  boxesOf: (section: number) => { x: number; width: number }[],
   breaks: PageBreak[],
   lastKey: string,
 ) {
@@ -1658,7 +2055,8 @@ function columnCells(
   }
   const cells: ColumnCell[] = []
   for (const item of started) {
-    const box = boxes[item.column] ?? boxes[0]
+    const boxes = boxesOf(item.section)
+    const box = boxes[item.column] ?? boxes[0]!
     const dom = view.nodeDOM(item.pos)
     let width: number | undefined
     if ((item.node.isTextblock || TEXT_BLOCKS.has(item.node.type.name)) && dom instanceof HTMLElement) {
@@ -2128,11 +2526,18 @@ function measureLines(view: EditorView, dom: HTMLElement) {
     current = walker.nextNode()
   }
 
-  found.sort((a, b) => a.top - b.top || a.pos - b.pos)
+  // In columns a paragraph's lines go on at the next column's top: in text order, a line above the one before it
+  // starts a column, and the one before keeps its own height.
+  const inColumns = dom.closest(".column-section-body, .page-editor[data-columns]") !== null
+  found.sort((a, b) => (inColumns ? a.pos - b.pos || a.top - b.top : a.top - b.top || a.pos - b.pos))
   const lines: { pos: number; height: number }[] = []
   for (const line of found) {
     const previous = lines[lines.length - 1]
     const previousFound = previous ? found.find((item) => item.pos === previous.pos) : undefined
+    if (inColumns && previousFound && (line.top - previousFound.top) / zoom <= -1) {
+      lines.push({ pos: line.pos, height: line.height })
+      continue
+    }
     if (previousFound && (line.top - previousFound.top) / zoom < 1) {
       continue
     }
@@ -2207,7 +2612,7 @@ function charRect(text: Text, index: number) {
 
 function gapBetween(dom: HTMLElement, top: number, bottom: number) {
   let total = 0
-  dom.querySelectorAll(".page-gap").forEach((gap) => {
+  dom.querySelectorAll(".page-gap, .column-filler").forEach((gap) => {
     const rect = gap.getBoundingClientRect()
     if (rect.top >= top - 1 && rect.top < bottom - 1) {
       total += (gap as HTMLElement).offsetHeight

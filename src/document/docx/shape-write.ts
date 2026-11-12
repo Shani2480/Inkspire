@@ -1,9 +1,12 @@
 import { VARIANT_OF_PRESET, WORD_HIGHLIGHTS, WORD_UNDERLINES } from "@/document/docx/shape-import"
+import { W14_NS } from "@/document/docx/model"
 import { escapeXml, escapeXmlText } from "@/document/docx/xml"
 import { shapeMarkup } from "@/editor/insert-blocks"
 import { PRESET_DASH, effectListXml, plainEffects } from "@/document/docx/shape-effects"
 import { gradientStopList, gradientVector, parseWordGradient } from "@/editor/shape-style"
 import { custGeomXml, parsePath } from "@/editor/shape-points"
+import { avListXml } from "@/document/docx/preset-geometry"
+import { adjustOf } from "@/editor/shape-adjust"
 
 /**
  * A shape made or formatted in the app, written as Word's own drawing (a `wps:wsp` with a preset geometry, a solid
@@ -22,7 +25,8 @@ const NOT_PLAIN = ["fillImage", "texture", "arrowBegin", "arrowEnd"] as const
 
 type Attrs = Record<string, unknown>
 
-const HEX = /^#[0-9a-fA-F]{6}$/
+// Six digits, or eight with Word's alpha (a fill shown through).
+const HEX = /^#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?$/
 
 /** The colours the app draws a shape in when none was chosen: those of its own drawing. */
 function drawnColors(variant: string) {
@@ -48,7 +52,8 @@ function colorOf(value: unknown, fallback: string) {
 export function plainShapePreset(attrs: Attrs) {
   // A shape with edited points is Word's freeform (custom geometry), whatever it was drawn from.
   const points = typeof attrs.points === "string" && attrs.points ? parsePath(attrs.points) : []
-  const preset = points.length > 0 ? CUSTOM : PRESET_OF_VARIANT.get(String(attrs.variant ?? ""))
+  const preset =
+    points.length > 0 ? CUSTOM : String(attrs.geometry || "") || PRESET_OF_VARIANT.get(String(attrs.variant ?? ""))
   if (!preset || NOT_PLAIN.some((key) => attrs[key]) || !plainEffects(attrs)) {
     return null
   }
@@ -74,7 +79,48 @@ export function gradientFill(fill: string, gradient: string) {
   return `<a:gradFill rotWithShape="1"><a:gsLst>${stops}</a:gsLst>${direction}</a:gradFill>`
 }
 
-export const solid = (hex: string) => `<a:solidFill><a:srgbClr val="${hex.slice(1).toUpperCase()}"/></a:solidFill>`
+export const solid = (hex: string) => {
+  const alpha = hex.length === 9 ? Math.round((Number.parseInt(hex.slice(7), 16) / 255) * 100) * 1000 : 100000
+  const color = hex.slice(1, 7).toUpperCase()
+  return alpha < 100000
+    ? `<a:solidFill><a:srgbClr val="${color}"><a:alpha val="${alpha}"/></a:srgbClr></a:solidFill>`
+    : `<a:solidFill><a:srgbClr val="${color}"/></a:solidFill>`
+}
+
+/**
+ * Shape Format's WordArt Styles on a shape's text as Word's run effects (`w14`, after the run's other properties, in
+ * the schema's order): Text Effects' glow, shadow and reflection, Text Outline, and Text Fill's No Fill.
+ */
+export function wordArtRun(attrs: Attrs) {
+  const parts: string[] = []
+  const effect = String(attrs.textEffect ?? "")
+  if (effect === "glow") {
+    parts.push(
+      '<w14:glow w14:rad="63500"><w14:srgbClr w14:val="FFC000"><w14:alpha w14:val="40000"/></w14:srgbClr></w14:glow>',
+    )
+  }
+  if (effect === "shadow") {
+    parts.push(
+      '<w14:shadow w14:blurRad="38100" w14:dist="19050" w14:dir="2700000" w14:sx="100000" w14:sy="100000" w14:kx="0" w14:ky="0" w14:algn="tl">' +
+        '<w14:srgbClr w14:val="000000"><w14:alpha w14:val="60000"/></w14:srgbClr></w14:shadow>',
+    )
+  }
+  if (effect === "reflection") {
+    parts.push(
+      '<w14:reflection w14:blurRad="6350" w14:stA="55000" w14:stPos="0" w14:endA="300" w14:endPos="45500" w14:dist="0" w14:dir="5400000" w14:fadeDir="5400000" w14:sx="100000" w14:sy="-100000" w14:kx="0" w14:ky="0" w14:algn="bl"/>',
+    )
+  }
+  const outline = String(attrs.textOutline ?? "")
+  if (HEX.test(outline)) {
+    parts.push(
+      `<w14:textOutline w14:w="9525" w14:cap="flat" w14:cmpd="sng" w14:algn="ctr"><w14:solidFill><w14:srgbClr w14:val="${outline.slice(1).toUpperCase()}"/></w14:solidFill><w14:prstDash w14:val="solid"/><w14:round/></w14:textOutline>`,
+    )
+  }
+  if (attrs.textFill === "none") {
+    parts.push("<w14:textFill><w14:noFill/></w14:textFill>")
+  }
+  return parts.join("")
+}
 
 /** The text a shape holds as Word's `wps:txbx`, one paragraph per line in its alignment, and the body that centres it. */
 function textBody(attrs: Attrs) {
@@ -82,7 +128,10 @@ function textBody(attrs: Attrs) {
   if (!text) {
     return "<wps:bodyPr/>"
   }
-  const color = HEX.test(String(attrs.textColor ?? "")) ? String(attrs.textColor).slice(1).toUpperCase() : ""
+  // Text Fill, when set, is the text's colour; otherwise the font colour.
+  const fillColor = String(attrs.textFill ?? "")
+  const own = HEX.test(fillColor) ? fillColor : String(attrs.textColor ?? "")
+  const color = HEX.test(own) ? own.slice(1).toUpperCase() : ""
   const size = Math.round((Number(attrs.textSize) || 14) * 2)
   const font = String(attrs.textFont ?? "")
     .split(",")[0]!
@@ -98,7 +147,9 @@ function textBody(attrs: Attrs) {
   const shading =
     !named && HEX.test(mark) ? `<w:shd w:val="clear" w:color="auto" w:fill="${mark.slice(1).toUpperCase()}"/>` : ""
   const underline = WORD_UNDERLINES[String(attrs.textUnderline ?? "")]
-  const run = `<w:rPr>${fonts}${attrs.textBold ? "<w:b/>" : ""}${attrs.textItalic ? "<w:i/>" : ""}${color ? `<w:color w:val="${color}"/>` : ""}<w:sz w:val="${size}"/><w:szCs w:val="${size}"/>${highlight}${underline ? `<w:u w:val="${underline}"/>` : ""}${shading}</w:rPr>`
+  // Word 2010's run effects carry their namespace, which a new document's root does not declare.
+  const wordArt = wordArtRun(attrs)
+  const run = `<w:rPr${wordArt ? ` xmlns:w14="${W14_NS}"` : ""}>${fonts}${attrs.textBold ? "<w:b/>" : ""}${attrs.textItalic ? "<w:i/>" : ""}${color ? `<w:color w:val="${color}"/>` : ""}<w:sz w:val="${size}"/><w:szCs w:val="${size}"/>${highlight}${underline ? `<w:u w:val="${underline}"/>` : ""}${shading}${wordArt}</w:rPr>`
   const align = String(attrs.textAlign ?? "")
   const jc = align === "left" || align === "right" ? align : align === "justify" ? "both" : "center"
   const paragraphs = text
@@ -133,7 +184,7 @@ export function wordShapeGraphic(attrs: Attrs, cx: number, cy: number, rot = 0):
     `<a:xfrm${rot ? ` rot="${rot}"` : ""}${flips}><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm>` +
     (preset === CUSTOM
       ? custGeomXml(parsePath(String(attrs.points)))
-      : `<a:prstGeom prst="${preset}"><a:avLst/></a:prstGeom>`) +
+      : `<a:prstGeom prst="${preset}">${avListXml(adjustOf(attrs))}</a:prstGeom>`) +
     `${gradient ? gradientFill(fill, gradient) : fill === "none" ? "<a:noFill/>" : solid(fill)}${line}${effectListXml(attrs)}</wps:spPr>${textBody(attrs)}</wps:wsp></a:graphicData>`
   )
 }

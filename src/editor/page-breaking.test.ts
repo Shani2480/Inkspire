@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { keepWithNextMustMove, linesOnPage } from "@/editor/page-breaking"
+import { keepWithNextMustMove, linesOnPage, overrunsFoot, spillPastFoot } from "@/editor/page-breaking"
 
 const lines = (count: number) => Array.from({ length: count }, () => 20)
 
@@ -56,5 +56,24 @@ describe("mirror indents (22.8)", () => {
 
   it("is nothing for a paragraph with no indent", () => {
     expect(mirroredMargins({})).toEqual({ left: 0, right: 0 })
+  })
+})
+
+describe("space after at the page's foot", () => {
+  it("keeps a paragraph whose lines fit, though its space after does not", () => {
+    // 900 of 1000 used; a 70 px line with 60 px after it: the line fits, so the paragraph stays.
+    expect(overrunsFoot(900, 130, 60, 1000)).toBe(false)
+    expect(overrunsFoot(900, 130, 0, 1000)).toBe(true)
+    // The line itself must still fit.
+    expect(overrunsFoot(950, 130, 60, 1000)).toBe(true)
+    // At the top of a page anything goes.
+    expect(overrunsFoot(0, 2000, 0, 1000)).toBe(false)
+  })
+
+  it("counts only the space after that ran past the foot", () => {
+    expect(spillPastFoot(1030, 60, 1000)).toBe(30)
+    expect(spillPastFoot(990, 60, 1000)).toBe(0)
+    // A block taller than the page is not space after: nothing is taken off the gap for it.
+    expect(spillPastFoot(1500, 0, 1000)).toBe(0)
   })
 })

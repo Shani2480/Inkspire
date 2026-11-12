@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest"
-import { BUILT_IN_EQUATIONS, equationToText, loadSavedEquations, saveEquation } from "@/editor/equation-gallery"
+import {
+  BUILT_IN_EQUATIONS,
+  equationToText,
+  loadSavedEquations,
+  saveEquation,
+  texFromLinear,
+} from "@/editor/equation-gallery"
 
 afterEach(() => localStorage.clear())
 
@@ -32,6 +38,32 @@ describe("built-in equations convert (22.2)", () => {
   it("turns every built-in into text without leftover braces or commands", () => {
     for (const item of BUILT_IN_EQUATIONS) {
       expect(equationToText(item.tex, "unicode")).not.toMatch(/[{}\\]/)
+    }
+  })
+})
+
+describe("linear text to an equation", () => {
+  it("builds up scripts, fractions and roots, dropping brackets that only group", () => {
+    expect(texFromLinear("a^2+b^2=c^2")).toBe("a^{2}+b^{2}=c^{2}")
+    expect(texFromLinear("x_(i+1)")).toBe("x_{i+1}")
+    expect(texFromLinear("(a+b)/2")).toBe("\\frac{a+b}{2}")
+    expect(texFromLinear("nx/1!")).toBe("\\frac{nx}{1!}")
+    expect(texFromLinear("√(x+1)")).toBe("\\sqrt{x+1}")
+    expect(texFromLinear("x=(-b±√(b^2-4ac))/(2a)")).toBe("x=\\frac{-b\\pm \\sqrt{b^{2}-4ac}}{2a}")
+  })
+
+  it("keeps brackets that are part of the equation, and symbols as their commands", () => {
+    expect(texFromLinear("f(x)=πr²")).toBe("f\\left( x \\right) =\\pi r^{2}")
+    expect(texFromLinear("α≤β")).toBe("\\alpha \\leq \\beta")
+  })
+
+  it("takes text with a backslash as LaTeX", () => {
+    expect(texFromLinear("\\frac{1}{2}")).toBe("\\frac{1}{2}")
+  })
+
+  it("is the way back from Convert's Unicode text", () => {
+    for (const { tex } of BUILT_IN_EQUATIONS.filter((item) => item.label === "Pythagorean Theorem")) {
+      expect(texFromLinear(equationToText(tex, "unicode"))).toBe(tex)
     }
   })
 })

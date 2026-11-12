@@ -245,6 +245,15 @@ export type LineNumbering = {
   restart?: "continuous" | "newPage" | "newSection"
 }
 
+/** w:pgNumType: the number the section's first page takes (absent: it goes on from the previous section) and how
+ * the page numbers are written (`decimal`, `lowerRoman`, …); the chapter attributes are kept as Word wrote them. */
+export type PageNumbering = {
+  start?: number
+  format?: string
+  chapStyle?: number
+  chapSep?: string
+}
+
 /** w:pgBorders: the section's page border, the pages that show it and what its distances are measured from. */
 export type PageBorders = {
   display?: "allPages" | "firstPage" | "notFirstPage"
@@ -282,6 +291,8 @@ export type SectionProps = {
   lineNumbers?: LineNumbering
   /** w:pgBorders (22.4). */
   pageBorders?: PageBorders
+  /** w:pgNumType. */
+  pageNumbers?: PageNumbering
   /** Header and footer parts, in the order Word wrote the references. */
   references?: HeaderFooterRef[]
 }
@@ -336,6 +347,9 @@ export type RunContent =
       cy?: number
       /** a:xfrm rot, the turn clockwise in 60000ths of a degree. */
       rot?: number
+      /** a:xfrm flipH / flipV: the picture is drawn mirrored. */
+      flipH?: boolean
+      flipV?: boolean
       /** a:srcRect: how much of each side of the picture is cropped away, in 1000ths of a percent. */
       crop?: { l: number; t: number; r: number; b: number }
       /** A picture's own a:prstGeom when it is not a rectangle (Crop to Shape). */
@@ -402,6 +416,7 @@ export type RawMarkup = {
    * these blocks.
    */
   blocks?: Block[]
+  controls?: ContentControl[]
 }
 export type Inline =
   | Run
@@ -429,6 +444,7 @@ export type Paragraph = {
   inlines: Inline[]
   /** Editor anchor (data-docx) linking this paragraph to the one it was opened from. Never written. */
   key?: string
+  controls?: ContentControl[]
 }
 
 export const BORDER_VALUES = [
@@ -667,7 +683,15 @@ export type Table = {
   rows: TableRow[]
   /** Editor anchor (data-docx) linking this table to the one it was opened from. Never written. */
   key?: string
+  controls?: ContentControl[]
 }
+/**
+ * A block-level content control (w:sdt) whose content is read as ordinary blocks: its markup before and after the
+ * content, as written. Each block inside carries its controls, outermost first; saving wraps consecutive blocks of
+ * the same control back in it.
+ */
+export type ContentControl = { open: string; close: string }
+
 export type Block = Paragraph | Table | RawMarkup
 
 export type HeaderFooterRef = {
@@ -693,7 +717,17 @@ export type NumberingLevel = {
   ilvl: number
   start?: number
   format?: NumberFormat
+  /** w:lvlRestart: the level (1-based) after which this one counts again; 0 never. Unset: after any level above. */
+  restart?: number
+  /** w:pStyle: the paragraph style that goes with the level. */
+  pStyle?: string
+  /** w:isLgl: every number in the level's text is written as a decimal (Legal numbering). */
+  legal?: boolean
+  /** w:suff: what follows the marker; a tab when unset. */
+  suffix?: "tab" | "space" | "nothing"
   text?: string
+  /** w:lvlPicBulletId: the picture bullet (`NumberingDefinitions.pictureBullets`) the level shows. */
+  pictureBullet?: number
   justify?: JcValue
   pPr: ParagraphProperties
   rPr: RunProperties
@@ -706,10 +740,27 @@ export type AbstractNumbering = {
   tmpl?: string
   levels: NumberingLevel[]
 }
-export type NumberingInstance = { id: number; abstractNumId: number; durableId?: string }
+/**
+ * w:lvlOverride on a w:num: a level that counts from its own start (w:startOverride, Word's Restart at 1 and Set
+ * Numbering Value) or has a level of its own; `xml` is the element as written, kept on save.
+ */
+export type LevelOverride = { ilvl: number; startOverride?: number; level?: NumberingLevel; xml?: string }
+export type NumberingInstance = {
+  id: number
+  abstractNumId: number
+  durableId?: string
+  overrides?: LevelOverride[]
+}
+/** w:numPicBullet: a picture a level shows as its bullet, kept as written; `image` is its picture's r:id. */
+export type PictureBullet = { id: number; xml: string; image?: string }
 export type NumberingDefinitions = {
   abstracts: AbstractNumbering[]
   instances: NumberingInstance[]
+  pictureBullets?: PictureBullet[]
+  /** w:numIdMacAtCleanup, as written. */
+  macCleanup?: string
+  /** numbering.xml's relationships and the parts they point at: the picture bullets' images. */
+  links?: PartLinks
   /** Root declarations of a Transitional numbering.xml, written back unchanged. */
   rootAttributes?: RootAttribute[]
 }
@@ -911,10 +962,24 @@ export function emptyNumbering(): NumberingDefinitions {
   return { abstracts: [], instances: [] }
 }
 
-export function numberingLevel(numbering: NumberingDefinitions, numId: number, ilvl: number) {
+/**
+ * The level `ilvl` of list `numId` as Word shows it: the abstract numbering's, or the list's own override of it (a
+ * level of its own, or the abstract's counting from w:startOverride).
+ */
+export function numberingLevel(
+  numbering: NumberingDefinitions,
+  numId: number,
+  ilvl: number,
+): NumberingLevel | undefined {
   const instance = numbering.instances.find((item) => item.id === numId)
   const abstract = numbering.abstracts.find((item) => item.id === instance?.abstractNumId)
-  return abstract?.levels.find((level) => level.ilvl === ilvl)
+  const level = abstract?.levels.find((item) => item.ilvl === ilvl)
+  const override = instance?.overrides?.find((item) => item.ilvl === ilvl)
+  const own = override?.level ?? level
+  if (!own || override?.startOverride === undefined) {
+    return own
+  }
+  return { ...own, start: override.startOverride }
 }
 
 /** U+F0B7 in the Symbol font is the bullet Word stores. Show it as •. */
@@ -959,11 +1024,12 @@ export function paragraphsIn(blocks: Block[]): Paragraph[] {
   return paragraphs
 }
 
-export function paragraphText(paragraph: Paragraph) {
-  return inlineText(paragraph.inlines)
+/** A paragraph's text; `drawings` false leaves out the text inside its shapes and text boxes. */
+export function paragraphText(paragraph: Paragraph, drawings = true) {
+  return inlineText(paragraph.inlines, drawings)
 }
 
-function inlineText(inlines: Inline[]): string {
+function inlineText(inlines: Inline[], drawings = true): string {
   let text = ""
   for (const inline of inlines) {
     if (
@@ -972,7 +1038,7 @@ function inlineText(inlines: Inline[]): string {
       inline.kind === "ins" ||
       inline.kind === "del"
     ) {
-      text += inlineText(inline.inlines)
+      text += inlineText(inline.inlines, drawings)
       continue
     }
     if (inline.kind === "raw") {
@@ -983,7 +1049,7 @@ function inlineText(inlines: Inline[]): string {
       continue
     }
     for (const content of inline.content) {
-      if (content.kind === "text" || content.kind === "delText" || content.kind === "drawing") {
+      if (content.kind === "text" || content.kind === "delText" || (drawings && content.kind === "drawing")) {
         text += content.text
       }
     }

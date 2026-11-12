@@ -25,7 +25,7 @@ describe("picture formatting", () => {
 
   it("writes the formatting as DrawingML Word reads", () => {
     const none = pictureDrawingFormat({})
-    expect(none).toEqual({ blip: "", srcRect: "", geometry: "rect", line: "", effects: "" })
+    expect(none).toEqual({ blip: "", srcRect: "", geometry: "rect", flips: "", line: "", effects: "" })
     const format = pictureDrawingFormat({
       brightness: 20,
       contrast: -10,
@@ -46,6 +46,8 @@ describe("picture formatting", () => {
     expect(format.line).toBe(
       '<a:ln w="38100"><a:solidFill><a:srgbClr val="0f6cbd"/></a:solidFill><a:prstDash val="dash"/></a:ln>',
     )
-    expect(format.effects).toMatch(/^<a:effectLst><a:outerShdw .*<a:softEdge rad="63500"\/><a:reflection /)
+    expect(format.effects).toMatch(
+      /^<a:effectLst><a:outerShdw .*<a:reflection .*<a:softEdge rad="63500"\/><\/a:effectLst>$/,
+    )
   })
 })

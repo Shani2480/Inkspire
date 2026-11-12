@@ -37,6 +37,7 @@ import {
   type Border,
   type CellMargins,
   type Comment,
+  type ContentControl,
   type CommentEx,
   type CommentExtensible,
   type CommentId,
@@ -78,6 +79,9 @@ import {
   type LineNumbering,
   type PageBorders,
   type SectionProps,
+  type PageNumbering,
+  type LevelOverride,
+  type PictureBullet,
   type Settings,
   type Spacing,
   type Style,
@@ -293,6 +297,7 @@ export function readDocument(pkg: OpcPackage): WordDocument {
     settingsXml: partXml(pkg, "settings"),
     numberingXml: partXml(pkg, "numbering"),
   })
+  attachNumberingLinks(pkg, doc)
   attachStories(pkg, doc)
   attachNotes(pkg, doc)
   attachComments(pkg, doc)
@@ -348,6 +353,20 @@ export function readWordXml(input: {
     settings,
     rootAttributes: copiedAttributes(document),
     notes,
+  }
+}
+
+/** The pictures numbering.xml's picture bullets show, with their relationships, so a save writes them back. */
+function attachNumberingLinks(pkg: OpcPackage, doc: WordDocument) {
+  if (!doc.numbering.pictureBullets?.length) {
+    return
+  }
+  const relationship = relationshipsFor(pkg, pkg.mainPartName).find((item) =>
+    REL_TYPES.some((base) => item.type === `${base}numbering`),
+  )
+  const links = relationship?.partName ? partLinks(pkg, relationship.partName) : undefined
+  if (links) {
+    doc.numbering.links = links
   }
 }
 
@@ -837,9 +856,16 @@ function drawingContent(node: MarkupNode, raw: RawCursor): RunContent {
   if (cy !== undefined) {
     content.cy = cy
   }
-  const rot = readInt(anyAttr(descendant(node, "xfrm"), "rot"))
+  const xfrm = descendant(node, "xfrm")
+  const rot = readInt(anyAttr(xfrm, "rot"))
   if (rot) {
     content.rot = rot
+  }
+  if (isOn(anyAttr(xfrm, "flipH"))) {
+    content.flipH = true
+  }
+  if (isOn(anyAttr(xfrm, "flipV"))) {
+    content.flipV = true
   }
   const source = descendant(node, "srcRect")
   if (source) {
@@ -1076,9 +1102,56 @@ function readNumberingDefinitions(root: MarkupNode): NumberingDefinitions {
     if (durableId && /^[0-9A-Za-z]+$/.test(durableId)) {
       instance.durableId = durableId
     }
+    const overrides: LevelOverride[] = []
+    for (const child of wordChildren(node, "lvlOverride")) {
+      const ilvl = readUint(attr(child, "ilvl"))
+      if (ilvl === undefined) {
+        continue
+      }
+      const override: LevelOverride = { ilvl }
+      const startOverride = readUint(childVal(child, "startOverride"))
+      if (startOverride !== undefined) {
+        override.startOverride = startOverride
+      }
+      const levelNode = wordChild(child, "lvl")
+      const level = levelNode ? readNumberingLevel(levelNode) : undefined
+      if (level) {
+        override.level = level
+      }
+      const xml = sourceOf(child)
+      if (xml) {
+        override.xml = xml
+      }
+      overrides.push(override)
+    }
+    if (overrides.length > 0) {
+      instance.overrides = overrides
+    }
     instances.push(instance)
   }
-  return { abstracts, instances }
+  const definitions: NumberingDefinitions = { abstracts, instances }
+  const pictureBullets: PictureBullet[] = []
+  for (const node of wordChildren(root, "numPicBullet")) {
+    const id = readInt(attr(node, "numPicBulletId"))
+    const xml = sourceOf(node)
+    if (id === undefined || !xml) {
+      continue
+    }
+    const bullet: PictureBullet = { id, xml }
+    const image = /<(?:v:imagedata|a:blip)\b[^>]*?\br:(?:id|embed)="([^"]+)"/.exec(xml)?.[1]
+    if (image) {
+      bullet.image = image
+    }
+    pictureBullets.push(bullet)
+  }
+  if (pictureBullets.length > 0) {
+    definitions.pictureBullets = pictureBullets
+  }
+  const cleanup = sourceOf(wordChild(root, "numIdMacAtCleanup"))
+  if (cleanup) {
+    definitions.macCleanup = cleanup
+  }
+  return definitions
 }
 
 function readNumberingLevel(node: MarkupNode): NumberingLevel | undefined {
@@ -1101,6 +1174,21 @@ function readNumberingLevel(node: MarkupNode): NumberingLevel | undefined {
   if (start !== undefined) {
     level.start = start
   }
+  const restart = readUint(childVal(node, "lvlRestart"))
+  if (restart !== undefined) {
+    level.restart = restart
+  }
+  const pStyle = childVal(node, "pStyle")
+  if (pStyle) {
+    level.pStyle = pStyle
+  }
+  if (readOnOff(wordChild(node, "isLgl"))) {
+    level.legal = true
+  }
+  const suffix = oneOf(childVal(node, "suff"), ["tab", "space", "nothing"] as const)
+  if (suffix) {
+    level.suffix = suffix
+  }
   if (format) {
     level.format = format
   }
@@ -1109,6 +1197,10 @@ function readNumberingLevel(node: MarkupNode): NumberingLevel | undefined {
   }
   if (justify) {
     level.justify = justify
+  }
+  const picture = readInt(childVal(node, "lvlPicBulletId"))
+  if (picture !== undefined) {
+    level.pictureBullet = picture
   }
   return level
 }
@@ -1563,6 +1655,21 @@ function readSectionModel(node: MarkupNode): SectionProps {
       lines.restart = restart
     }
     section.lineNumbers = lines
+  }
+  const pageNumbering = wordChild(node, "pgNumType")
+  if (pageNumbering) {
+    const pages: PageNumbering = {}
+    assignUint(pages, "start", attr(pageNumbering, "start"))
+    assignUint(pages, "chapStyle", attr(pageNumbering, "chapStyle"))
+    const format = attr(pageNumbering, "fmt")
+    const separator = attr(pageNumbering, "chapSep")
+    if (format) {
+      pages.format = format
+    }
+    if (separator) {
+      pages.chapSep = separator
+    }
+    section.pageNumbers = pages
   }
   const borders = wordChild(node, "pgBorders")
   if (borders) {
@@ -2319,6 +2426,22 @@ function readBlockChildren(node: MarkupNode, notes: WordNote[], raw: RawCursor =
     } else if (child.local === "sdt") {
       const control: Block = { kind: "raw", xml: raw.take("sdt") ?? sourceOf(child) ?? "", text: visibleText(child) }
       const content = wordChild(child, "sdtContent")
+      const wrapper = content && opensAsBlocks(child) ? splitControl(control.xml) : undefined
+      if (content && wrapper) {
+        // Any other control (a cover page, a template's section) opens as its paragraphs and tables, each
+        // remembering the control so saving puts it back around them.
+        const inner = readBlockChildren(content, notes, rawCursor(wrapper.content))
+        for (const block of inner) {
+          block.controls = [wrapper.control, ...(block.controls ?? [])]
+        }
+        const first = inner[0]
+        if (first?.kind === "paragraph" && pending.length > 0) {
+          first.inlines = [...pending, ...first.inlines]
+          pending = []
+        }
+        blocks.push(...inner)
+        continue
+      }
       if (content && isTocControl(child)) {
         // Read for the editor's table of contents; the control itself is written back as read.
         control.blocks = readBlocks(content, [])
@@ -2742,6 +2865,48 @@ function bindHyperlinkStory(pkg: OpcPackage, source: string, blocks: Block[]) {
         inline.target = relationship.target
       }
     })
+  }
+}
+
+/** Controls whose own kind decides their content (a list, a date, plain text, a citation…). */
+const TYPED_CONTROLS = new Set([
+  "text",
+  "dropDownList",
+  "comboBox",
+  "date",
+  "picture",
+  "checkbox",
+  "citation",
+  "bibliography",
+  "equation",
+  "showingPlcHdr",
+])
+
+/**
+ * A rich text or building block control (a cover page, a template's section) holding real content, not its
+ * placeholder: opened as its blocks. A table of contents and the typed controls stay as written.
+ */
+function opensAsBlocks(node: MarkupNode) {
+  const properties = wordChild(node, "sdtPr")
+  const typed = properties?.children.some((child) => TYPED_CONTROLS.has(child.local))
+  return !typed && !isTocControl(node)
+}
+
+/**
+ * A block-level control's markup around its content, and the content itself, from the control as written. None
+ * when the content is empty: such a control has nothing to open and stays as it is.
+ */
+function splitControl(xml: string): { control: ContentControl; content: string } | undefined {
+  const opening = /<(?:[A-Za-z_][\w.-]*:)?sdtContent(?:\s[^>]*)?>/.exec(xml)
+  const closings = [...xml.matchAll(/<\/(?:[A-Za-z_][\w.-]*:)?sdtContent\s*>/g)]
+  const closing = closings[closings.length - 1]
+  if (!opening || !closing || closing.index < opening.index) {
+    return undefined
+  }
+  const start = opening.index + opening[0].length
+  return {
+    control: { open: xml.slice(0, start), close: xml.slice(closing.index) },
+    content: xml.slice(start, closing.index),
   }
 }
 

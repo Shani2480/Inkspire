@@ -1,4 +1,5 @@
 import { pageGridCell } from "@/document/page-grid"
+import { drawsSectionPaper, gridPageCell, stackedPageCell } from "@/document/page-frames"
 import { pageMetrics, type PageMetrics } from "@/document/page-setup"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
@@ -821,8 +822,9 @@ export function pagePoint(left: number, top: number) {
   let best = { page: 1, x: left, y: top, distance: Number.POSITIVE_INFINITY }
   for (let page = 1; page <= pageCount + 1; page += 1) {
     const cell = objectCell(page, metrics)
-    const inside = top >= cell.top && top < cell.top + metrics.height + PAGE_GAP
-    const distance = inside ? Math.abs(left - cell.left - metrics.width / 2) : Number.POSITIVE_INFINITY
+    const own = "metrics" in cell ? cell.metrics : metrics
+    const inside = top >= cell.top && top < cell.top + own.height + PAGE_GAP
+    const distance = inside ? Math.abs(left - cell.left - own.width / 2) : Number.POSITIVE_INFINITY
     if (distance < best.distance) {
       best = { page, x: left - cell.left, y: top - cell.top, distance }
     }
@@ -1207,7 +1209,16 @@ function paintImage(dom: HTMLElement, node: ProseNode) {
     trace?.remove()
   }
   shape.style.borderRadius = frame === "oval" ? "50%" : frame === "rounded" ? "12%" : ""
+  // In crop mode the shell lets the faint picture out, so the part that shows is rounded by its own clip.
+  const corner = frame === "oval" ? 0.5 : frame === "rounded" ? 0.12 : 0
+  if (shell && cropping && corner && width > 0 && height > 0) {
+    image.style.clipPath = `inset(${crop.t * 100}% ${crop.r * 100}% ${crop.b * 100}% ${crop.l * 100}% round ${corner * width}px / ${corner * height}px)`
+  }
   image.style.filter = pictureFilter(node.attrs)
+  // Flip Horizontal and Vertical mirror the picture inside its frame; the frame keeps its place and turn.
+  const flipX = node.attrs.flipH ? -1 : 1
+  const flipY = node.attrs.flipV ? -1 : 1
+  image.style.transform = flipX < 0 || flipY < 0 ? `scale(${flipX}, ${flipY})` : ""
   const transparency = Math.max(0, Math.min(100, Number(node.attrs.transparency) || 0))
   image.style.opacity = transparency ? String(1 - transparency / 100) : ""
   // Soft edges fade the picture's border into the page.
@@ -1223,11 +1234,23 @@ function paintImage(dom: HTMLElement, node: ProseNode) {
         ]
       : []),
   ].filter((layer): layer is string => Boolean(layer))
-  shape.style.setProperty("mask-image", layers.join(", "))
-  shape.style.setProperty("mask-size", layers.length ? layers.map(() => "100% 100%").join(", ") : "")
-  shape.style.setProperty("mask-repeat", layers.length ? "no-repeat" : "")
-  shape.style.setProperty("mask-composite", layers.length > 1 ? "intersect" : "")
-  shape.style.setProperty("-webkit-mask-composite", layers.length > 1 ? "source-in" : "")
+  // In crop mode the faint whole picture shows around the shape: the mask is then the sharp picture's own, at the
+  // part that shows (a flipped picture keeps it on the frame, where the flip cannot move it).
+  const own = Boolean(shell) && cropping && flipX > 0 && flipY > 0 && width > 0 && height > 0
+  const whole = wholeSize(width, height, crop)
+  const masks = (target: HTMLElement, on: boolean, size: string, position: string) => {
+    const list = on ? layers : []
+    target.style.setProperty("mask-image", list.join(", "))
+    target.style.setProperty("mask-size", list.map(() => size).join(", "))
+    target.style.setProperty("mask-position", list.length ? list.map(() => position).join(", ") : "")
+    target.style.setProperty("mask-repeat", list.length ? "no-repeat" : "")
+    target.style.setProperty("mask-composite", list.length > 1 ? "intersect" : "")
+    target.style.setProperty("-webkit-mask-composite", list.length > 1 ? "source-in" : "")
+  }
+  masks(shape, !own, "100% 100%", "")
+  if (shell) {
+    masks(image, own, `${width}px ${height}px`, `${crop.l * whole.width}px ${crop.t * whole.height}px`)
+  }
   const effects = effectStyle(node.attrs)
   dom.style.filter = effects.filter
   dom.style.setProperty("-webkit-box-reflect", effects.webkitBoxReflect)
@@ -1355,13 +1378,43 @@ function frameStyle(node: ProseNode, dom?: HTMLElement) {
     return { position: "static", left: "", top: "", zIndex: "" }
   }
   const place = dom ? flowPlace(dom, node) : { page: Number(node.attrs.page) || 1, y: Number(node.attrs.y) || 0 }
+  const x = Number(node.attrs.x) || 0
+  // The page it is on is cut at its own size: a section's landscape or narrower sheet (see `objectCell`).
+  const cell = objectCell(place.page, metrics)
+  const own = "metrics" in cell ? cell.metrics : metrics
   return {
     position: "absolute",
-    left: `${Math.round(objectLeft(place.page, Number(node.attrs.x) || 0, metrics))}px`,
-    top: `${objectTop(place.page, place.y, metrics)}px`,
+    left: `${Math.round(cell.left + x)}px`,
+    top: `${cell.top + place.y}px`,
     zIndex: wrap === "behind" ? String(-1000 + (Number(node.attrs.z) || 0)) : String(20 + (Number(node.attrs.z) || 0)),
     transform: Number(node.attrs.rotate) ? `rotate(${Number(node.attrs.rotate)}deg)` : "",
+    clipPath: pageClip(node, x, place.y, own, dom),
   }
+}
+
+/**
+ * Word draws nothing outside the page: the part of a floating object past the sheet's edges (a cover photo larger
+ * than the page) is cut off. `x` and `y` are from the text's top-left corner, the margins in from the sheet's. A
+ * polygon, not an inset: its corners are the sheet's, whatever size the frame's own box is (a wide picture overflows
+ * a frame the text's width). Not for a turned object (the clip would turn with it) or one in a header or footer box.
+ */
+export function pageClip(node: ProseNode, x: number, y: number, metrics: PageMetrics, dom?: HTMLElement) {
+  const width = Number(node.attrs.width) || 0
+  const height = Number(node.attrs.height) || 0
+  // A header's or footer's own editor is drawn off the page and copied onto each sheet, so its objects are placed
+  // from the header or footer box, not the page's text: the page's corners are not known here.
+  if (width <= 0 || height <= 0 || Number(node.attrs.rotate) || dom?.closest(".chrome-box, .chrome-editor")) {
+    return ""
+  }
+  const left = -(x + metrics.marginLeft)
+  const top = -(y + metrics.marginTop)
+  const right = left + metrics.width
+  const bottom = top + metrics.height
+  if (left <= 0.5 && top <= 0.5 && width <= right + 0.5 && height <= bottom + 0.5) {
+    return ""
+  }
+  const px = (value: number) => `${Math.round(value)}px`
+  return `polygon(${px(left)} ${px(top)}, ${px(right)} ${px(top)}, ${px(right)} ${px(bottom)}, ${px(left)} ${px(bottom)})`
 }
 
 export function objectTop(page: number, y: number, metrics: PageMetrics) {
@@ -1373,7 +1426,17 @@ export function objectLeft(page: number, x: number, metrics: PageMetrics) {
 }
 
 function objectCell(page: number, metrics: PageMetrics) {
+  // Each page is drawn at its own size (page-frames.ts), so its place comes from the pages before it: down the
+  // screen, or in Multiple Pages' grid.
   const pageView = useViewStore.getState().movement === "side" ? 1 : useViewStore.getState().pageView
+  if (drawsSectionPaper()) {
+    const store = useDocumentStore.getState()
+    if (store.sections.length) {
+      return pageView > 1
+        ? gridPageCell(store.pageSetup, store.sections, Math.max(0, page - 1), pageView, PAGE_GAP)
+        : stackedPageCell(store.pageSetup, store.sections, Math.max(0, page - 1), PAGE_GAP)
+    }
+  }
   return pageGridCell(Math.max(0, page - 1), pageView, metrics.width + PAGE_GAP, metrics.height + PAGE_GAP)
 }
 
@@ -1420,7 +1483,7 @@ export function bindDrag(
 ) {
   const onDown = (event: PointerEvent) => {
     const target = event.target instanceof Element ? event.target : null
-    if (event.button !== 0 || !target || target.closest("[data-rotate], [data-resize]")) {
+    if (event.button !== 0 || !target || target.closest("[data-rotate], [data-resize], [data-adjust]")) {
       return
     }
     const body = typeof options.body === "function" ? options.body(event) : Boolean(options.body)

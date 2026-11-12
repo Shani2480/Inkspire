@@ -1,7 +1,7 @@
 import { openTableProperties } from "@/components/table-properties-dialog"
 import { openBordersAndShading } from "@/components/borders-shading-dialog"
 import { ModelLibrary } from "@/components/model-library"
-import { askText } from "@/components/text-prompt"
+import { askConfirm, askText } from "@/components/text-prompt"
 import { ContextGlyph } from "@/components/ribbon/context-icons"
 import { GalleryNav } from "@/components/ribbon/shape-format-tab"
 import { MenuButton, RibbonCommand, RibbonGroup, RibbonHover } from "@/components/ribbon/ribbon-button"
@@ -95,15 +95,20 @@ import {
 } from "@/components/picture-menus"
 import { AlignObjectsMenu, GroupMenu } from "@/components/arrange-menus"
 import { ShapeEffectsMenu } from "@/components/shape-menus"
+import { PictureLayoutMenu } from "@/components/smartart-gallery"
+import { useRemoveBackground } from "@/components/remove-background-dialog"
 import { applyCrop, cancelCrop, resetPendingCrop, useCropMode } from "@/editor/picture-crop"
 import { PICTURE_RESET } from "@/editor/picture-format"
 import { PositionMenu } from "@/components/position-menu"
 import { CurrentPositionIcon, CurrentWrapIcon } from "@/components/object-layout-icons"
 import { openModelFormat } from "@/components/model-format-dialog"
 import { MODEL_LIGHTINGS } from "@/editor/model-format"
-import { chromeStep } from "@/document/chrome-editing"
-import { useDocumentStore } from "@/document/store"
+import { chromeHasContent } from "@/document/chrome-html"
+import { slotHtml, useDocumentStore } from "@/document/store"
+import { canLink, isLinked, pageStory, sectionChromeStep, sectionOfPage, slotOf } from "@/document/section-slots"
+import type { ChromeSlot } from "@/document/sections"
 import { useViewStore } from "@/document/view"
+import { usePagePlaces, usePageSectionSetup, useSlotState } from "@/components/chrome-section"
 import { useBodyEditor, useDocumentEditor } from "@/editor/document-editor"
 import { useTableDraw } from "@/editor/table-draw"
 import type { Editor } from "@tiptap/core"
@@ -961,11 +966,19 @@ export function PictureFormatTab() {
   const cropping = useCropMode((state) => state.active)
   const toggleCrop = () => (cropping ? applyCrop() : useCropMode.getState().set(true))
   const cropMenu = (close: () => void) => <CropMenu editor={editor} close={close} />
+  const layoutMenu = (close: () => void) => <PictureLayoutMenu editor={editor} close={close} />
   const resetPicture = () =>
     editor
       ?.chain()
       .focus()
-      .updateAttributes("image", { ...PICTURE_RESET, rotate: 0 })
+      .updateAttributes("image", {
+        ...PICTURE_RESET,
+        rotate: 0,
+        // A removed background comes back with the rest.
+        ...(selectedObject(editor)?.attrs.backgroundOf
+          ? { src: selectedObject(editor)?.attrs.backgroundOf, backgroundOf: "" }
+          : {}),
+      })
       .run()
   const stylesMenu = (close: () => void) => <PictureStyleGallery editor={editor} close={close} />
 
@@ -1026,6 +1039,13 @@ export function PictureFormatTab() {
         id: "adjust",
         commands: [
           {
+            id: "remove-background",
+            label: "Remove Background",
+            icon: <ContextGlyph label="Remove Background" />,
+            disabled: !ready,
+            onClick: () => useRemoveBackground.getState().show(),
+          },
+          {
             id: "color",
             label: "Color",
             icon: <ContextGlyph label="Color" />,
@@ -1085,6 +1105,13 @@ export function PictureFormatTab() {
             icon: <ContextGlyph label="Picture Effects" />,
             disabled: !ready,
             menu: effectsMenu,
+          },
+          {
+            id: "picture-layout",
+            label: "Picture Layout",
+            icon: <ContextGlyph label="Picture Layout" />,
+            disabled: !ready,
+            menu: layoutMenu,
           },
         ],
       },
@@ -1149,6 +1176,14 @@ export function PictureFormatTab() {
   return (
     <div role="toolbar" aria-label="Picture Format" className="ribbon-home flex items-stretch overflow-x-auto">
       <RibbonGroup label="Adjust">
+        <RibbonCommand
+          size="large"
+          label="Remove Background"
+          disabled={!ready}
+          onClick={() => useRemoveBackground.getState().show()}
+        >
+          <ContextGlyph label="Remove Background" />
+        </RibbonCommand>
         <RibbonCommand size="large" label="Corrections" disabled={!ready} menu={correctionsMenu}>
           <ContextGlyph label="Corrections" />
         </RibbonCommand>
@@ -1193,6 +1228,9 @@ export function PictureFormatTab() {
           </RibbonCommand>
           <RibbonCommand size="small" label="Picture Effects" disabled={!ready} menu={effectsMenu}>
             <ContextGlyph label="Picture Effects" />
+          </RibbonCommand>
+          <RibbonCommand size="small" label="Picture Layout" disabled={!ready} menu={layoutMenu}>
+            <ContextGlyph label="Picture Layout" />
           </RibbonCommand>
         </div>
       </RibbonGroup>
@@ -1815,29 +1853,63 @@ function goToChrome(part: "header" | "footer") {
 
 const LINK_TO_PREVIOUS_NOTE = "This document has one section, so there is no previous header to link to."
 
+/**
+ * Link to Previous: linking a header or footer that has content of its own first asks, as Word does, since its own is
+ * deleted; unlinking keeps a copy of the one it showed.
+ */
+async function toggleLinkToPrevious(key: string | null, slot: ChromeSlot, part: "header" | "footer", linked: boolean) {
+  // Not yet linked, the section's part is its own.
+  if (linked && chromeHasContent(slotHtml(key, slot))) {
+    const ok = await askConfirm({
+      title: "Link to Previous",
+      message: `Do you want to delete this ${part} and connect to the ${part} in the previous section?`,
+      ok: "Yes",
+      cancel: "No",
+    })
+    if (!ok) {
+      return
+    }
+  }
+  useDocumentStore.getState().setSlotLinked(key, slot, linked)
+}
+
 /** Word's Header & Footer tab, shown while the header and footer are being edited. */
 export function HeaderFooterTab() {
   const editor = useDocumentEditor()
   const ribbonLayout = useViewStore((state) => state.ribbonLayout)
   const setEditingChrome = useViewStore((state) => state.setEditingChrome)
-  const differentFirstPage = useDocumentStore((state) => state.differentFirstPage)
-  const setDifferentFirstPage = useDocumentStore((state) => state.setDifferentFirstPage)
   const setup = useDocumentStore((state) => state.pageSetup)
   const setPageSetup = useDocumentStore((state) => state.setPageSetup)
   const { headerMenu, footerMenu, pageNumberMenu } = useChromeMenus()
   const dateMenu = (close: () => void) => <DateMenu editor={editor} close={close} />
   const chromeTarget = useViewStore((state) => state.chromeTarget)
+  // Different First Page and the distances are the section's of the page being edited.
+  const section = usePageSectionSetup(chromeTarget.page)
+  const differentFirstPage = section.differentFirstPage
+  const setDifferentFirstPage = (enabled: boolean) => section.set({ differentFirstPage: enabled })
   const editChrome = useViewStore((state) => state.editChrome)
   // The page count is the body's (the editor above is the header's while one is open).
   const body = useBodyEditor()
   const pages =
     useEditorState({ editor: body, selector: ({ editor: current }) => current?.storage.pagination?.pageCount ?? 1 }) ??
     1
-  // Previous and Next step between the first-page, even and odd headers (one section, so nothing beyond those).
-  const stepTo = (step: 1 | -1) =>
-    chromeStep(chromeTarget.page, pages, differentFirstPage, setup.differentOddEven, step)
+  // Previous and Next step through each section's first-page, even and odd headers in page order.
+  const slots = useSlotState()
+  const places = usePagePlaces()
+  const stepTo = (step: 1 | -1) => sectionChromeStep(slots, places, pages, chromeTarget.page, step)
   const previous = stepTo(-1)
   const next = stepTo(1)
+  // Link to Previous, for the header or footer being edited.
+  const pageSection = sectionOfPage(slots, places, chromeTarget.page)
+  const slot = slotOf(pageStory(slots, places, chromeTarget.page), chromeTarget.part)
+  const linkable = canLink(slots, pageSection)
+  const linked = isLinked(slots, pageSection, slot)
+  const linkNote = !linkable
+    ? slots.sections.length === 0
+      ? LINK_TO_PREVIOUS_NOTE
+      : "This is the first section, so there is no previous header to link to."
+    : "Use the same header or footer as the previous section."
+  const toggleLink = () => void toggleLinkToPrevious(pageSection?.key ?? null, slot, chromeTarget.part, !linked)
   const go = (page: number | null) => {
     if (page !== null) {
       editChrome(chromeTarget.part, page)
@@ -1852,8 +1924,8 @@ export function HeaderFooterTab() {
           min={0}
           step={0.1}
           aria-label={`${label} in centimeters`}
-          value={Math.round(setup[key]) / 10}
-          onChange={(event) => setPageSetup({ ...setup, [key]: Math.max(0, Number(event.target.value) || 0) * 10 })}
+          value={Math.round(section[key]) / 10}
+          onChange={(event) => section.set({ [key]: Math.max(0, Number(event.target.value) || 0) * 10 })}
         />
         <span>cm</span>
       </label>
@@ -1902,9 +1974,11 @@ export function HeaderFooterTab() {
       {
         id: "link-previous",
         label: "Link to Previous",
-        description: LINK_TO_PREVIOUS_NOTE,
+        description: linkNote,
         icon: <ContextGlyph label="Link to Previous" />,
-        disabled: true,
+        disabled: !linkable,
+        active: linked,
+        onClick: toggleLink,
       },
       {
         id: "first-page",
@@ -1978,7 +2052,14 @@ export function HeaderFooterTab() {
           <RibbonCommand size="small" label="Next" disabled={next === null} onClick={() => go(next)}>
             <ContextGlyph label="Next" />
           </RibbonCommand>
-          <RibbonCommand size="small" label="Link to Previous" description={LINK_TO_PREVIOUS_NOTE} disabled>
+          <RibbonCommand
+            size="small"
+            label="Link to Previous"
+            description={linkNote}
+            disabled={!linkable}
+            active={linked}
+            onClick={toggleLink}
+          >
             <ContextGlyph label="Link to Previous" />
           </RibbonCommand>
         </div>

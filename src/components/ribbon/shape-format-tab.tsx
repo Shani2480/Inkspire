@@ -124,7 +124,8 @@ export function ShapeFormatTab() {
   })
   const ready = Boolean(editor && target)
   const icon = target?.kind === "icon"
-  const textual = Boolean(target?.textBox)
+  // Word's WordArt Styles act on any text a shape can hold: a text box's, and a drawn shape's own.
+  const textual = Boolean(target?.textBox || (target?.name === "figure" && target.kind === "shape"))
   const linking = useTextBoxLinking((state) => state.source !== null)
   // Create Link picks the box the text flows on to; on a box that already passes it on it is Break Link.
   const link = () => {

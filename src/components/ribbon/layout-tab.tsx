@@ -5,6 +5,7 @@ import {
   RotateObjectMenu,
   SendBackwardMenu,
 } from "@/components/arrange-menus"
+import { useCaretSectionSetup } from "@/components/chrome-section"
 import { openColumnsDialog } from "@/components/columns-dialog"
 import { ColorMenu } from "@/components/color-menu"
 import { RibbonSvg } from "@/components/ribbon/icons"
@@ -70,6 +71,8 @@ export function LayoutTab() {
   function update(next: Partial<PageSetup>) {
     setPageSetup({ ...setup, ...next })
   }
+  // Margins, Orientation, Size and Columns change the section the caret is in, as in Word.
+  const { setup: section, update: updateSection } = useCaretSectionSetup()
 
   const marginsMenu = () => (
     <div className="flex w-56 flex-col gap-2 p-1">
@@ -77,9 +80,9 @@ export function LayoutTab() {
         {MARGIN_PRESETS.map((item) => (
           <MenuButton
             key={item.id}
-            selected={marginPresetId(setup) === item.id}
+            selected={marginPresetId(section) === item.id}
             onClick={() =>
-              update({
+              updateSection({
                 marginTop: item.top,
                 marginRight: item.right,
                 marginBottom: item.bottom,
@@ -96,8 +99,8 @@ export function LayoutTab() {
           <MarginField
             key={field.key}
             label={field.label}
-            value={setup[field.key]}
-            onCommit={(value) => update({ [field.key]: value })}
+            value={section[field.key]}
+            onCommit={(value) => updateSection({ [field.key]: value })}
           />
         ))}
       </div>
@@ -106,18 +109,18 @@ export function LayoutTab() {
   const orientationMenu = (close: () => void) => (
     <div className="flex w-40 flex-col">
       <MenuButton
-        selected={setup.orientation === "portrait"}
+        selected={section.orientation === "portrait"}
         onClick={() => {
-          update({ orientation: "portrait" })
+          updateSection({ orientation: "portrait" })
           close()
         }}
       >
         Portrait
       </MenuButton>
       <MenuButton
-        selected={setup.orientation === "landscape"}
+        selected={section.orientation === "landscape"}
         onClick={() => {
-          update({ orientation: "landscape" })
+          updateSection({ orientation: "landscape" })
           close()
         }}
       >
@@ -130,9 +133,9 @@ export function LayoutTab() {
       {PAPER_SIZES.map((item) => (
         <MenuButton
           key={item.id}
-          selected={setup.paper === item.id}
+          selected={section.paper === item.id}
           onClick={() => {
-            update({ paper: item.id })
+            updateSection({ paper: item.id })
             close()
           }}
         >
@@ -144,8 +147,8 @@ export function LayoutTab() {
       ))}
     </div>
   )
-  const textCm = contentWidthCm(setup)
-  const preset = columnPreset(setup.columns, setup.columnWidths, textCm, setup.columnGap)
+  const textCm = contentWidthCm(section)
+  const preset = columnPreset(section.columns, section.columnWidths, textCm, section.columnGap)
   const columnsMenu = (close: () => void) => (
     <div className="flex w-52 flex-col">
       {(["one", "two", "three", "left", "right"] as const).map((choice) => (
@@ -153,8 +156,8 @@ export function LayoutTab() {
           key={choice}
           selected={preset === choice}
           onClick={() => {
-            const picked = presetColumns(choice, textCm, setup.columnGap)
-            update({ columns: picked.count, columnWidths: picked.widths })
+            const picked = presetColumns(choice, textCm, section.columnGap)
+            updateSection({ columns: picked.count, columnWidths: picked.widths })
             close()
           }}
         >
@@ -489,7 +492,7 @@ export function LayoutTab() {
           <MarginsIcon />
         </RibbonCommand>
         <RibbonCommand label="Orientation" menu={orientationMenu}>
-          <OrientationIcon landscape={setup.orientation === "landscape"} />
+          <OrientationIcon landscape={section.orientation === "landscape"} />
         </RibbonCommand>
         <RibbonCommand label="Size" menu={sizeMenu}>
           <SizeIcon />

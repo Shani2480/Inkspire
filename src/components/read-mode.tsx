@@ -1,10 +1,18 @@
 import { MenuButton, RibbonPopover } from "@/components/ribbon/ribbon-button"
 import { documentName, useDocumentStore } from "@/document/store"
-import { READ_COLUMN_GAP, READ_COLUMN_WIDTHS, readPageAt, readPageCount, readPageStep } from "@/document/read-pages"
+import {
+  findInPieces,
+  READ_COLUMN_GAP,
+  READ_COLUMN_WIDTHS,
+  readPageAt,
+  readPageCount,
+  readPageStep,
+  useReadFind,
+} from "@/document/read-pages"
 import { useViewStore, type ReadColumnWidth, type ReadLayout, type ReadPageColor } from "@/document/view"
 import { useBodyEditor } from "@/editor/document-editor"
 import { useEditorState } from "@tiptap/react"
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Pencil, X } from "lucide-react"
+import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Pencil, Search, X } from "lucide-react"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 
 const WIDTH_CHOICES: { id: ReadColumnWidth; label: string }[] = [
@@ -66,6 +74,14 @@ export function ReadBar({ headings, onHeading }: { headings: string[]; onHeading
 
   const tools = (close: () => void) => (
     <div className="flex max-h-80 w-60 flex-col overflow-y-auto">
+      <MenuButton
+        onClick={() => {
+          useReadFind.getState().show()
+          close()
+        }}
+      >
+        Find
+      </MenuButton>
       <MenuButton
         onClick={() => {
           readAloud()
@@ -139,6 +155,7 @@ export function ReadBar({ headings, onHeading }: { headings: string[]; onHeading
       <span className="min-w-0 flex-1 truncate text-center text-xs opacity-80">
         {documentName(currentFilePath ?? fileName)}
       </span>
+      <ReadFindBox />
       <button
         type="button"
         className="inline-flex h-7 items-center gap-1.5 rounded px-2 text-xs font-medium hover:bg-[var(--app-hover)]"
@@ -155,6 +172,71 @@ export function ReadBar({ headings, onHeading }: { headings: string[]; onHeading
         onClick={() => setLayoutMode("print")}
       >
         <X className="size-4" />
+      </button>
+    </div>
+  )
+}
+
+/** Find in Read Mode: the box in the read bar, how many it found, and the way to the next and the previous. */
+function ReadFindBox() {
+  const open = useReadFind((state) => state.open)
+  const query = useReadFind((state) => state.query)
+  const count = useReadFind((state) => state.count)
+  const current = useReadFind((state) => state.current)
+  const { hide, setQuery, move } = useReadFind.getState()
+  if (!open) {
+    return null
+  }
+  return (
+    <div className="read-find flex items-center gap-1" role="search">
+      <Search aria-hidden className="size-3.5 opacity-70" />
+      <input
+        autoFocus
+        type="search"
+        aria-label="Find in document"
+        placeholder="Find"
+        className="h-6 w-44 rounded border border-[var(--app-divider)] bg-[var(--app-ribbon-card)] px-1.5 text-xs"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            event.preventDefault()
+            move(event.shiftKey ? -1 : 1)
+          } else if (event.key === "Escape") {
+            event.preventDefault()
+            event.stopPropagation()
+            hide()
+          }
+        }}
+      />
+      <span className="w-16 text-center text-[11px] opacity-80" aria-live="polite">
+        {query ? (count ? `${current + 1} of ${count}` : "No results") : ""}
+      </span>
+      <button
+        type="button"
+        aria-label="Previous result"
+        className="inline-flex size-6 items-center justify-center rounded hover:bg-[var(--app-hover)] disabled:opacity-40"
+        disabled={count === 0}
+        onClick={() => move(-1)}
+      >
+        <ChevronUp className="size-3.5" />
+      </button>
+      <button
+        type="button"
+        aria-label="Next result"
+        className="inline-flex size-6 items-center justify-center rounded hover:bg-[var(--app-hover)] disabled:opacity-40"
+        disabled={count === 0}
+        onClick={() => move(1)}
+      >
+        <ChevronDown className="size-3.5" />
+      </button>
+      <button
+        type="button"
+        aria-label="Close Find"
+        className="inline-flex size-6 items-center justify-center rounded hover:bg-[var(--app-hover)]"
+        onClick={hide}
+      >
+        <X className="size-3.5" />
       </button>
     </div>
   )
@@ -186,7 +268,8 @@ export function ReadView({ onHeadings }: { onHeadings: (headings: string[], go: 
     if (!scroller) {
       return
     }
-    setPages(readPageCount(scroller.scrollWidth, scroller.clientWidth))
+    // The text's own width, not the scroller's: the spacer below must not hold the count up when the text shrinks.
+    setPages(readPageCount(bodyRef.current?.scrollWidth ?? scroller.scrollWidth, scroller.clientWidth))
     setPage(readPageAt(scroller.scrollLeft, scroller.clientWidth))
   }, [])
 
@@ -195,7 +278,7 @@ export function ReadView({ onHeadings }: { onHeadings: (headings: string[], go: 
     if (!scroller) {
       return
     }
-    const last = readPageCount(scroller.scrollWidth, scroller.clientWidth) - 1
+    const last = readPageCount(bodyRef.current?.scrollWidth ?? scroller.scrollWidth, scroller.clientWidth) - 1
     const target = Math.max(0, Math.min(last, next))
     scroller.scrollTo({ left: target * readPageStep(scroller.clientWidth), behavior: "smooth" })
   }, [])
@@ -238,6 +321,56 @@ export function ReadView({ onHeadings }: { onHeadings: (headings: string[], go: 
       },
     )
   }, [html, onHeadings, goToPage])
+
+  // Find: every match highlighted, the current one more strongly, and the page turned to it.
+  const findQuery = useReadFind((state) => state.query)
+  const findCurrent = useReadFind((state) => state.current)
+  const findOpen = useReadFind((state) => state.open)
+  const matches = useRef<Range[]>([])
+  // Find belongs to this visit to Read Mode.
+  useEffect(() => () => useReadFind.getState().hide(), [])
+  useEffect(() => {
+    const body = bodyRef.current
+    const nodes: Text[] = []
+    if (body && findOpen && findQuery) {
+      const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        nodes.push(node as Text)
+      }
+    }
+    matches.current = findInPieces(
+      nodes.map((node) => node.data),
+      findOpen ? findQuery : "",
+    ).map((match) => {
+      const range = document.createRange()
+      range.setStart(nodes[match.start.piece]!, match.start.offset)
+      range.setEnd(nodes[match.end.piece]!, match.end.offset)
+      return range
+    })
+    useReadFind.getState().setCount(matches.current.length)
+    const highlights = typeof CSS !== "undefined" && "highlights" in CSS ? CSS.highlights : null
+    if (highlights && typeof Highlight !== "undefined") {
+      highlights.set("read-find", new Highlight(...matches.current))
+    }
+    return () => {
+      highlights?.delete("read-find")
+      highlights?.delete("read-find-current")
+    }
+  }, [html, findQuery, findOpen])
+  useEffect(() => {
+    const range = matches.current[findCurrent]
+    const scroller = scrollerRef.current
+    const body = bodyRef.current
+    if (!range || !scroller || !body || typeof range.getBoundingClientRect !== "function") {
+      return
+    }
+    const highlights = typeof CSS !== "undefined" && "highlights" in CSS ? CSS.highlights : null
+    if (highlights && typeof Highlight !== "undefined") {
+      highlights.set("read-find-current", new Highlight(range))
+    }
+    const left = range.getBoundingClientRect().left - body.getBoundingClientRect().left
+    goToPage(Math.floor(left / readPageStep(scroller.clientWidth)))
+  }, [findCurrent, findQuery, findOpen, goToPage, pages])
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -323,6 +456,12 @@ export function ReadView({ onHeadings }: { onHeadings: (headings: string[], go: 
             className="read-body page-editor"
             style={{ columnWidth: colWidth, columnGap: gap }}
             dangerouslySetInnerHTML={{ __html: html ?? "" }}
+          />
+          {/* The last page is a whole screen even when its columns do not fill it, so it never shows the one before. */}
+          <span
+            aria-hidden
+            className="read-end"
+            style={{ left: Math.max(0, pages * readPageStep(scrollerRef.current?.clientWidth ?? 0) - gap - 1) }}
           />
         </div>
         <button
