@@ -13,11 +13,13 @@ import {
 } from "@/document/column-widths"
 import { contentWidthCm, setupColumns } from "@/document/page-setup"
 import { useDocumentStore } from "@/document/store"
+import { columnsBlockwise } from "@/document/sections"
 import { useCaretSectionSetup } from "@/components/chrome-section"
 import {
   applyColumnSection,
   applyColumnsFromHere,
   clampColumnGap,
+  columnsForSection,
   findColumnSection,
   removeColumnSection,
   setColumnSectionGap,
@@ -46,6 +48,15 @@ export function ColumnsDialogHost() {
 }
 
 const PRESETS: ColumnPreset[] = ["one", "two", "three", "left", "right"]
+
+/** Whether the body has a block of columns (other sections' columns drawn as their blocks). */
+function hasColumnBlock(editor: Editor) {
+  let found = false
+  editor.state.doc.forEach((node) => {
+    found ||= node.type.name === "columnSection"
+  })
+  return found
+}
 
 function ColumnsDialog({ editor, onClose }: { editor: Editor | null; onClose: () => void }) {
   const ownSetup = useDocumentStore((state) => state.pageSetup)
@@ -111,7 +122,22 @@ function ColumnsDialog({ editor, onClose }: { editor: Editor | null; onClose: ()
       columnWidths: unequal ? columns : undefined,
     }
     if (scope === "section") {
-      caret.update(next)
+      // Equal columns that would differ from other sections' are this section's block of columns, which the
+      // browser flows its text through; its pages stay one column. Otherwise the section's pages take them.
+      const store = useDocumentStore.getState()
+      const others = store.sections.map((item) => (item.key === caret.section?.key ? { ...item, ...next } : item))
+      const document = caret.section ? store.pageSetup : { ...store.pageSetup, ...next }
+      const asBlock =
+        editor !== null &&
+        count > 1 &&
+        !unequal &&
+        (columnsBlockwise(document, others) || hasColumnBlock(editor)) &&
+        columnsForSection(editor, count, gap, count > 1 && line)
+      if (asBlock) {
+        caret.update({ columns: 1, columnGap: gap, columnLine: false, columnWidths: undefined })
+      } else {
+        caret.update(next)
+      }
     } else if (scope === "document") {
       setPageSetup({ ...ownSetup, ...next })
       // Every Word section has its own columns: the whole document is each of them.

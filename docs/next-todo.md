@@ -754,7 +754,15 @@ own `w:sectPr` (`changes.md`). Open:
   - Phase 1, **done** 2026-11-12: a block of columns runs on across pages (filled from the first column, the page's
     end spanning its columns, its last page balanced); a long continuous section opens as one (`changes.md`).
   - Phase 2: a Word section of other columns that starts a page opens as a block of columns after its break, and
-    Columns > This section makes one; saved as that section's own w:cols, not an extra continuous section.
+    Columns > This section makes one; saved as that section's own w:cols, not an extra continuous section. **Done
+    2026-11-12:** where the page-starting sections' equal columns differ (two, then three), each opens as a block of
+    its columns between its breaks, on pages of one column, so its paragraphs split between columns as in Word.
+    A block filling a section (a page break or the start before it, one or the end after it) saves as that section's
+    own w:cols, also one made in the editor; Page Setup's one column does not overwrite it, and the section is one
+    column again once its block is removed. Columns > This section with equal columns that would differ from other
+    sections' (or beside blocks) makes the section's block. Open: undo takes back the block but not the section's
+    page columns the dialog set at the same time (they were one before in the cases checked); sections of other text
+    widths keep the block-by-block layout.
   - Phase 3: unequal widths (Left, Right, custom), which the browser's columns cannot draw, keep the blockwise
     layout; decide then whether they need more.
 

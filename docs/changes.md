@@ -7,6 +7,24 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-12
 
+### Sections of other columns open as blocks of columns (option 2, phase 2)
+
+- **What was wrong:** where sections that start a page had different columns (two, then three), the paginator laid
+  the blocks out one by one, each moved whole into its column: a paragraph never split between columns, and the
+  last page was not balanced. Columns > This section did the same for a section given columns of its own.
+- **What changed:** `pageSectionsAsBlocks` (`project.ts`) opens such sections (equal widths, same text width) as
+  blocks of their columns between their breaks, on pages of one column, the break to the next page after the block;
+  continuous sections between them stay blocks of their own. Saving takes a block that fills its section (a page
+  break or the start before it, one or the end after it) as that section's own w:cols, for a section read from
+  Word, one the editor's breaks make, and the body's last; the section's Page Setup no longer overwrites a block's
+  columns, and a section whose block is removed saves as one column. `columnsForSection` (`columns.ts`): the
+  Columns dialog's This section makes the section a block when its equal columns would differ from other sections'
+  or other blocks exist.
+- **Tests:** `section-blocks.test.ts` (opening as blocks, saving each as its section's w:cols with no extra section,
+  a changed and a removed block, a one-column title above two columns, This section, a block made in the editor).
+  Checked in Chrome: two then three columns, five paragraphs now split between columns (none before) and the last
+  page balanced; This section from the dialog and undo. Saved files pass the Open XML SDK validator.
+
 ### A paragraph's space after may run past the page's foot
 
 - **What was wrong:** the paginator counted a paragraph's space after when deciding whether its last line fit

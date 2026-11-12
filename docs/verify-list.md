@@ -152,6 +152,11 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - [ ] **Space after at the page foot (2026-11-12)** — a document of one-line paragraphs with 50 pt after each:
       the same paragraph is the last on page 1 in Word and in the app (its space after runs past the foot).
 
+- [ ] **Sections of other columns as blocks (2026-11-12)** — a document of two sections each starting a page, two
+      columns then three: opened, edited (a paragraph added in each) and saved, Word shows the same two sections
+      with two and three columns, no extra continuous section, and paragraphs split between columns at the same
+      places.
+
 ## Needs Chrome (the web build in a browser)
 
 - [ ] **Multiple Pages with columns (2026-11-11)** — a two-column document long enough to reach the second column on
@@ -259,6 +264,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - [ ] **Shift+click several objects (2026-11-12)** — select a shape, Shift+click a picture and a text box: each is
       framed with its handles; Shift+click one again drops it; Shape Format → Group groups them; a click in the text
       lets go. Shift+click inside a text box being typed in still extends its text selection.
+
+- [ ] **This section as a block of columns (2026-11-12)** — in a document of one column then two (each section
+      starting a page), caret in the first, Layout → Columns → More Columns, Three, This section: the first section
+      flows in three columns, the second keeps two; Ctrl+Z puts it back.
 
 ## Needs the desktop app (Tauri build)
 
