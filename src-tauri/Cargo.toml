@@ -2,7 +2,7 @@
 name = "tauri-app"
 version = "0.1.5"
 description = "Inkspire desktop word processor"
-authors = ["Shani"]
+authors = ["The Inkspire authors"]
 license = "MIT"
 edition = "2024"
 
