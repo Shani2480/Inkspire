@@ -233,6 +233,11 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       picture becomes a SmartArt with the picture in its shape and the alt text under it. Saved and reopened in the
       app it is the same.
 
+- [ ] **Remove Background (2026-11-12)** — on a photo with a plain backdrop, Picture Format → Remove Background: the
+      backdrop shows magenta; strokes with Mark Areas to Keep and to Remove correct it; Keep Changes leaves the
+      backdrop transparent on the page; Reset Picture brings it back. Saved, the picture opens in Word without its
+      backdrop.
+
 ## Needs the desktop app (Tauri build)
 
 - [ ] **Options in dark mode; SmartArt layouts (2026-10-29)** — in the desktop app in dark mode open File → Options:

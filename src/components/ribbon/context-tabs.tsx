@@ -96,6 +96,7 @@ import {
 import { AlignObjectsMenu, GroupMenu } from "@/components/arrange-menus"
 import { ShapeEffectsMenu } from "@/components/shape-menus"
 import { PictureLayoutMenu } from "@/components/smartart-gallery"
+import { useRemoveBackground } from "@/components/remove-background-dialog"
 import { applyCrop, cancelCrop, resetPendingCrop, useCropMode } from "@/editor/picture-crop"
 import { PICTURE_RESET } from "@/editor/picture-format"
 import { PositionMenu } from "@/components/position-menu"
@@ -970,7 +971,14 @@ export function PictureFormatTab() {
     editor
       ?.chain()
       .focus()
-      .updateAttributes("image", { ...PICTURE_RESET, rotate: 0 })
+      .updateAttributes("image", {
+        ...PICTURE_RESET,
+        rotate: 0,
+        // A removed background comes back with the rest.
+        ...(selectedObject(editor)?.attrs.backgroundOf
+          ? { src: selectedObject(editor)?.attrs.backgroundOf, backgroundOf: "" }
+          : {}),
+      })
       .run()
   const stylesMenu = (close: () => void) => <PictureStyleGallery editor={editor} close={close} />
 
@@ -1030,6 +1038,13 @@ export function PictureFormatTab() {
       {
         id: "adjust",
         commands: [
+          {
+            id: "remove-background",
+            label: "Remove Background",
+            icon: <ContextGlyph label="Remove Background" />,
+            disabled: !ready,
+            onClick: () => useRemoveBackground.getState().show(),
+          },
           {
             id: "color",
             label: "Color",
@@ -1161,6 +1176,14 @@ export function PictureFormatTab() {
   return (
     <div role="toolbar" aria-label="Picture Format" className="ribbon-home flex items-stretch overflow-x-auto">
       <RibbonGroup label="Adjust">
+        <RibbonCommand
+          size="large"
+          label="Remove Background"
+          disabled={!ready}
+          onClick={() => useRemoveBackground.getState().show()}
+        >
+          <ContextGlyph label="Remove Background" />
+        </RibbonCommand>
         <RibbonCommand size="large" label="Corrections" disabled={!ready} menu={correctionsMenu}>
           <ContextGlyph label="Corrections" />
         </RibbonCommand>

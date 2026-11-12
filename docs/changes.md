@@ -7,6 +7,27 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-12
 
+### Remove Background
+
+- **What was missing:** Word's Picture Format → Adjust → Remove Background.
+- **What changed:** `src/editor/remove-background.ts` guesses the background by growing from the picture's edges
+  through colours near the ones most common along them (with a step tolerance, so a gradient backdrop goes too);
+  `markArea` flips the run of similar colour under a Keep or Remove stroke; `withoutBackground` makes the removed
+  pixels transparent. `src/components/remove-background-dialog.tsx` is a Background Removal dialog with the picture
+  tinted magenta where it will be removed, Mark Areas to Keep, Mark Areas to Remove, Undo Mark, Keep Changes and
+  Discard All Changes. Keep Changes writes a PNG and keeps the picture before in a new `backgroundOf` attribute, so
+  doing it again starts from the original and Reset Picture restores it. Large button first in Adjust (and in the
+  collapsed ribbon), with a new glyph.
+- **Tests:** `remove-background.test.ts` (backdrop colours, the guess on a gradient backdrop, an enclosed hole kept
+  and then removed by a mark, a backdrop-coloured part brought back, the transparent result, a large picture's
+  working size).
+- **Checked:** in headless Chrome on a red disc and blue square over a grey sweep: the guess tinted the sweep only,
+  a Remove stroke on the square took it, Keep Changes gave a PNG transparent at the corner and the square with the
+  disc unchanged, Reset Picture brought the sweep back; no console errors. A picture whose source changed saves as
+  new media and the file passes the Open XML SDK validator.
+- **Open:** Word's contextual Background Removal tab and its subject marquee; Word's own background removal
+  (`a14:imgEffect`) is not read; the original is not kept in the .docx.
+
 ### Picture Layout turns a picture into a SmartArt picture layout
 
 - **What was missing:** Word's Picture Format → Picture Styles → Picture Layout.

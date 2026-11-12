@@ -34,6 +34,8 @@ export function pictureFormatAttributes() {
     // Word's Flip Horizontal and Flip Vertical (a:xfrm flipH / flipV).
     flipH: booleanAttr("flipH"),
     flipV: booleanAttr("flipV"),
+    // Remove Background: the picture as it was before, so the marks can be redone and Reset Picture brings it back.
+    backgroundOf: stringAttr("backgroundOf"),
   }
 }
 

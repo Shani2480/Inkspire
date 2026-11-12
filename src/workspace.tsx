@@ -2,6 +2,7 @@ import { QuickAccessToolbar } from "@/components/quick-access"
 import { ChartFormatPane } from "@/components/chart-format-pane"
 import { HelperToolsDialog } from "@/components/helper-tools-dialog"
 import { CompressDialog } from "@/components/picture-menus"
+import { RemoveBackgroundDialog } from "@/components/remove-background-dialog"
 import { TableStylesDialog } from "@/components/table-design-menus"
 import { TextPromptHost } from "@/components/text-prompt"
 import { ChartTypeDialog, SelectDataDialog } from "@/components/chart-menus"
@@ -318,6 +319,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
       <CustomizeDialogHost />
       <OptimizeDialogHost />
       <CompressDialog editor={editor} />
+      <RemoveBackgroundDialog editor={editor} />
       <TableStylesDialog editor={editor} />
     </div>
   )
