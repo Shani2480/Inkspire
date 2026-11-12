@@ -7,6 +7,20 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-12
 
+### Picture Layout turns a picture into a SmartArt picture layout
+
+- **What was missing:** Word's Picture Format → Picture Styles → Picture Layout.
+- **What changed:** `pictureToSmartArt(layout)` in `src/editor/smartart.ts` replaces the selected picture with a
+  SmartArt of that picture layout, one shape holding the picture and its alt text (or "Text 1"). `PictureLayoutMenu`
+  in `src/components/smartart-gallery.tsx` lists the picture layouts the app draws (Picture Caption List, Vertical
+  Picture List); the ribbon (full and collapsed) has the button with a new glyph.
+- **Tests:** `smartart.test.ts` (the picture becomes the SmartArt's picture and text; nothing happens without a
+  selected picture or with a layout without pictures).
+- **Checked:** in headless Chrome: the gallery opens under Picture Layout, a pick makes the SmartArt with the picture
+  and caption between the paragraphs around it, Ctrl+Z gives the picture back; no console errors.
+- **Open:** several pictures selected at once become one SmartArt in Word; the app takes one. Word's other picture
+  layouts (Bending Picture, Snapshot, …) are not drawn.
+
 ### Crop mode shows the faint picture around a Crop to Shape outline
 
 - **What was wrong:** in crop mode a picture cropped to a shape hid everything outside the shape, so the cut-away

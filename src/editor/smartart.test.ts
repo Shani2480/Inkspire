@@ -51,3 +51,54 @@ describe("SmartArt layouts", () => {
     editor.destroy()
   })
 })
+
+describe("Picture Layout", () => {
+  const PICTURE =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQABpfZFQAAAAABJRU5ErkJggg=="
+
+  function withPicture(alt: string) {
+    const element = document.createElement("div")
+    document.body.append(element)
+    const editor = new Editor({
+      element,
+      extensions: createExtensions().filter((extension) => extension.name !== "spellcheck"),
+      content: `<p>Before</p><p><img src="${PICTURE}" alt="${alt}" width="120" height="80"></p><p>After</p>`,
+    })
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === "image") {
+        editor.commands.setNodeSelection(pos)
+      }
+    })
+    return editor
+  }
+
+  it("turns the selected picture into a picture layout holding it, captioned with its alt text", () => {
+    const editor = withPicture("Harbour at dusk")
+    expect(editor.commands.pictureToSmartArt("piclist")).toBe(true)
+    const kinds: string[] = []
+    let attrs: Record<string, unknown> = {}
+    editor.state.doc.descendants((node) => {
+      kinds.push(node.type.name)
+      if (node.type.name === "smartArt") {
+        attrs = node.attrs
+      }
+    })
+    expect(kinds).not.toContain("image")
+    expect(attrs.layout).toBe("piclist")
+    expect(JSON.parse(String(attrs.labels))).toEqual(["Harbour at dusk"])
+    expect(JSON.parse(String(attrs.pictures))).toEqual([PICTURE])
+    expect(editor.getText()).toContain("Before")
+    expect(editor.getText()).toContain("After")
+    const slot = editor.view.dom.querySelector(".smartart .smartart-picture img")
+    expect(slot?.getAttribute("src")).toBe(PICTURE)
+    editor.destroy()
+  })
+
+  it("needs a selected picture and a picture layout", () => {
+    const editor = withPicture("")
+    expect(editor.commands.pictureToSmartArt("process")).toBe(false)
+    editor.commands.setTextSelection(1)
+    expect(editor.commands.pictureToSmartArt("vpiclist")).toBe(false)
+    editor.destroy()
+  })
+})

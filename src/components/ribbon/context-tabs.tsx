@@ -95,6 +95,7 @@ import {
 } from "@/components/picture-menus"
 import { AlignObjectsMenu, GroupMenu } from "@/components/arrange-menus"
 import { ShapeEffectsMenu } from "@/components/shape-menus"
+import { PictureLayoutMenu } from "@/components/smartart-gallery"
 import { applyCrop, cancelCrop, resetPendingCrop, useCropMode } from "@/editor/picture-crop"
 import { PICTURE_RESET } from "@/editor/picture-format"
 import { PositionMenu } from "@/components/position-menu"
@@ -964,6 +965,7 @@ export function PictureFormatTab() {
   const cropping = useCropMode((state) => state.active)
   const toggleCrop = () => (cropping ? applyCrop() : useCropMode.getState().set(true))
   const cropMenu = (close: () => void) => <CropMenu editor={editor} close={close} />
+  const layoutMenu = (close: () => void) => <PictureLayoutMenu editor={editor} close={close} />
   const resetPicture = () =>
     editor
       ?.chain()
@@ -1089,6 +1091,13 @@ export function PictureFormatTab() {
             disabled: !ready,
             menu: effectsMenu,
           },
+          {
+            id: "picture-layout",
+            label: "Picture Layout",
+            icon: <ContextGlyph label="Picture Layout" />,
+            disabled: !ready,
+            menu: layoutMenu,
+          },
         ],
       },
       {
@@ -1196,6 +1205,9 @@ export function PictureFormatTab() {
           </RibbonCommand>
           <RibbonCommand size="small" label="Picture Effects" disabled={!ready} menu={effectsMenu}>
             <ContextGlyph label="Picture Effects" />
+          </RibbonCommand>
+          <RibbonCommand size="small" label="Picture Layout" disabled={!ready} menu={layoutMenu}>
+            <ContextGlyph label="Picture Layout" />
           </RibbonCommand>
         </div>
       </RibbonGroup>

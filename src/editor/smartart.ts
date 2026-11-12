@@ -2,6 +2,7 @@ import { objectBox, objectLayoutAttributes } from "@/editor/object-frame"
 import { blockEnd, readItems, writeItems, type SmartArtItem } from "@/editor/smartart-model"
 import { Node, mergeAttributes } from "@tiptap/core"
 import type { Node as ProseNode } from "@tiptap/pm/model"
+import { NodeSelection } from "@tiptap/pm/state"
 import { create } from "zustand"
 
 export type SmartArtLayout =
@@ -76,6 +77,8 @@ declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     smartArt: {
       insertSmartArt: (layout: SmartArtLayout) => ReturnType
+      /** Picture Format → Picture Layout: the selected picture becomes a SmartArt picture layout holding it. */
+      pictureToSmartArt: (layout: SmartArtLayout) => ReturnType
     }
   }
 }
@@ -536,6 +539,33 @@ export const SmartArt = Node.create({
             .insertContent({
               type: "smartArt",
               attrs: { layout, labels, levels, accent: "#0f6cbd" },
+            })
+            .run()
+        },
+      pictureToSmartArt:
+        (layout) =>
+        ({ state, chain }) => {
+          const selection = state.selection
+          if (!(selection instanceof NodeSelection) || selection.node.type.name !== "image") {
+            return false
+          }
+          if (!PICTURE_LAYOUTS.includes(layout)) {
+            return false
+          }
+          const picture = selection.node.attrs
+          // The picture's alt text, when it has one, is the shape's text, as Word puts it in the text pane.
+          const label = String(picture.alt || "").trim() || "Text 1"
+          return chain()
+            .deleteSelection()
+            .insertContent({
+              type: "smartArt",
+              attrs: {
+                layout,
+                labels: JSON.stringify([label]),
+                levels: "[0]",
+                pictures: JSON.stringify([String(picture.src || "")]),
+                accent: "#0f6cbd",
+              },
             })
             .run()
         },

@@ -1,4 +1,4 @@
-import { SMARTART_LAYOUTS, type SmartArtLayout } from "@/editor/smartart"
+import { PICTURE_LAYOUTS, SMARTART_LAYOUTS, type SmartArtLayout } from "@/editor/smartart"
 import type { Editor } from "@tiptap/core"
 import { useState } from "react"
 import { createPortal } from "react-dom"
@@ -116,6 +116,34 @@ export function SmartArtMenu({ editor, onClose, onMore }: { editor: Editor; onCl
       <button type="button" className="smartart-more" onMouseDown={(event) => event.preventDefault()} onClick={onMore}>
         More SmartArt Graphics…
       </button>
+    </div>
+  )
+}
+
+/** Picture Format → Picture Layout: Word's picture layouts, each turning the selected picture into that SmartArt. */
+export function PictureLayoutMenu({ editor, close }: { editor: Editor | null; close: () => void }) {
+  const layouts = SMARTART_LAYOUTS.filter((layout) => PICTURE_LAYOUTS.includes(layout.id))
+  return (
+    <div className="smartart-menu">
+      <div className="smartart-menu-row">
+        {layouts.map((layout) => (
+          <button
+            key={layout.id}
+            type="button"
+            title={layout.label}
+            className="smartart-thumb"
+            disabled={!editor}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              editor?.chain().focus().pictureToSmartArt(layout.id).run()
+              close()
+            }}
+          >
+            <SmartArtThumb layout={layout.id} />
+            <span>{layout.label}</span>
+          </button>
+        ))}
+      </div>
     </div>
   )
 }

@@ -229,6 +229,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       mode: the crop frame stays and the picture slides under it, stopping at its edge; Enter applies, Ctrl+Z undoes
       the crop and the slide together.
 
+- [ ] **Picture Layout (2026-11-12)** — select a picture, Picture Format → Picture Layout → Picture Caption List: the
+      picture becomes a SmartArt with the picture in its shape and the alt text under it. Saved and reopened in the
+      app it is the same.
+
 ## Needs the desktop app (Tauri build)
 
 - [ ] **Options in dark mode; SmartArt layouts (2026-10-29)** — in the desktop app in dark mode open File → Options:
