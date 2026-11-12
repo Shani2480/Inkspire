@@ -7,6 +7,16 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-12
 
+### A deleted section break takes its section with it
+
+- **What was wrong:** deleting a section break left its section in the store, unused, where it still counted: its
+  columns could make the paginator lay the document out block by block.
+- **What changed:** `followSectionBreaks` (`section-break.ts`, run after each change to the body): a section whose
+  break an edit removes is set aside, and put back where it was when an edit (undo) brings the break back. A new
+  document replacing the body starts afresh.
+- **Tests:** `section-break.test.ts` (delete and undo keep the section's own setup; a new document's sections are
+  left alone).
+
 ### Sections of other columns open as blocks of columns (option 2, phase 2)
 
 - **What was wrong:** where sections that start a page had different columns (two, then three), the paginator laid
@@ -318,6 +328,7 @@ in Word, Chrome or the desktop app.
 - **Checked:** in headless Chrome: two lines, Layout > Breaks > Next Page between them, Orientation > Landscape on the
   first: the first page is drawn landscape (1123 × 794 px) and the second portrait.
 - **Open:** deleting the break leaves the section in the store, unused (undo brings the break back with it).
+  **Fixed** 2026-11-12 (see that day's entry).
 
 ### Section breaks and blocks of columns made in the editor are saved; continuous sections open
 
