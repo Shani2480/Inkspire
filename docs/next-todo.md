@@ -8,6 +8,12 @@ Where a simpler version already exists, the note says so. The item is still open
 
 Items built but not yet checked in Word, Chrome or the desktop app are collected in `verify-list.md`; tick them there, do not re-check them here.
 
+**Fidelity audit (2026-11-13).** When a .docx "opens weird", run `npm run audit:docx -- file.docx` with the dev
+server up before reading XML: it lists every run and paragraph whose drawn formatting differs from Word's rules,
+with the style and text. Done: run toggles turned off against styles, highlight, automatic colour on shading, row
+borders, explicit left alignment, theme-font merge. Left over: table-style run formatting in the audit; automatic
+colour on dark highlights (see verify list); extending the audit to spacing and indents.
+
 Every fix or feature also gets a dated entry in `changes.md` (newest first) the session it lands: what was wrong, what changed and where, how it was checked, what is open.
 
 **Done.** Icons (Iconify + cache), 3D Models Stock library from Insert + catalog cache, SmartArt gallery with in-place text edit, more Design themes, Section Break (next page / continuous), Spreadsheet block with A1-style cross-cell formulas, and Mailings Start / Recipients / Preview / Finish & Merge.

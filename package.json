@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run",
-    "lint": "eslint . && prettier --check ."
+    "lint": "eslint . && prettier --check .",
+    "audit:docx": "node tools/fidelity-audit.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

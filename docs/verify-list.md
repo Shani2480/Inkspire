@@ -7,6 +7,12 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Runs that turn off their style, highlight, automatic colour (2026-11-13)** — a form whose heading-styled
+      paragraphs turn bold/italic off per run, with yellow highlights and a dark header row in automatic colour,
+      looks the same in Word and the app (`npm run audit:docx` reports no differences). Saved after adding a
+      magenta and a light-yellow highlight in the app, it opens in Word with both (magenta as a highlight, the other as
+      shading) and nothing else changed. Also check in Word whether automatic text is white on a dark highlight
+      (dark blue) and on a mid fill (#808080, #4472C4), to settle the threshold in `autoColorRule`.
 - [ ] **Word's picture formatting read back (2026-11-12)** — in Word, give a picture Corrections (Brightness +20%,
       Contrast −40%), Transparency 30%, a dotted blue border, an outer shadow and a glow. It opens in the app with
       them. Saved unchanged it opens in Word as it was; after changing the brightness in the app it opens in Word

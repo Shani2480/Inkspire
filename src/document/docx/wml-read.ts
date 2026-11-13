@@ -1279,6 +1279,10 @@ function readTable(node: MarkupNode, notes: WordNote[], raw: RawCursor = NO_RAW)
     if (margins) {
       row.cellMargins = margins
     }
+    const exceptionBorders = readBorders(wordChild(exceptions, "tblBorders"))
+    if (exceptionBorders) {
+      row.exceptionBorders = exceptionBorders
+    }
     if (header) {
       row.header = readOnOff(header) ?? true
     }

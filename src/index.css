@@ -1425,6 +1425,36 @@ button.line-menu-row:focus-visible {
   z-index: 1;
 }
 
+/*
+ * A Word run that turns off what its paragraph or character style turns on (<w:b w:val="0"/> in a bold heading;
+ * data-run-off, `runOffTokens`). :root and the attribute pair outrank the document stylesheet's
+ * `:root .page-editor [data-word-rstyle]` rules; bold or italic set in the editor (strong, em) still wins.
+ */
+:root .page-editor [data-docx-run][data-run-off~="b"] {
+  font-weight: normal;
+}
+:root .page-editor [data-docx-run][data-run-off~="i"] {
+  font-style: normal;
+}
+:root .page-editor [data-docx-run][data-run-off~="caps"] {
+  text-transform: none;
+}
+:root .page-editor [data-docx-run][data-run-off~="smallCaps"] {
+  font-variant: normal;
+}
+:root .page-editor [data-docx-run]:is([data-run-off~="u"], [data-run-off~="strike"]) {
+  text-decoration: none;
+}
+:root .page-editor [data-docx-run][data-run-off~="color"] {
+  color: var(--word-auto-color, #000000);
+}
+:root .page-editor strong [data-docx-run][data-run-off~="b"] {
+  font-weight: bold;
+}
+:root .page-editor em [data-docx-run][data-run-off~="i"] {
+  font-style: italic;
+}
+
 /* The empty end of a page's columns (pages.ts, PageBreak.filler): breaks across the columns it fills. */
 .column-filler {
   display: block;

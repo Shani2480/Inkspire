@@ -641,6 +641,8 @@ export type TableRow = {
   source?: ElementSource
   /** w:tblPrEx as written. */
   exceptionSource?: ElementSource
+  /** The row's own table borders (w:tblPrEx/w:tblBorders), drawn over the table's; saved from exceptionSource. */
+  exceptionBorders?: TableBorders
 }
 /** w:tblpPr: a table text wraps around, and where it sits. Distances are in twips. */
 export type TablePosition = {
@@ -1171,6 +1173,8 @@ function applyRunLayer(base: RunProperties, next: RunProperties, mode: "absolute
     sz: next.sz ?? base.sz,
     szCs: next.szCs ?? base.szCs,
     highlight: next.highlight ?? base.highlight,
+    shd: next.shd ?? base.shd,
+    bdr: next.bdr ?? base.bdr,
     u: next.u ?? base.u,
     vertAlign: next.vertAlign ?? base.vertAlign,
     lang: mergeLanguage(base.lang, next.lang),
@@ -1191,17 +1195,22 @@ function mergeFonts(base: RunFonts | undefined, next: RunFonts | undefined): Run
   if (!next) {
     return base
   }
-  return {
-    ascii: next.ascii ?? base?.ascii,
-    hAnsi: next.hAnsi ?? base?.hAnsi,
-    cs: next.cs ?? base?.cs,
-    eastAsia: next.eastAsia ?? base?.eastAsia,
-    hint: next.hint ?? base?.hint,
-    asciiTheme: next.asciiTheme ?? base?.asciiTheme,
-    hAnsiTheme: next.hAnsiTheme ?? base?.hAnsiTheme,
-    eastAsiaTheme: next.eastAsiaTheme ?? base?.eastAsiaTheme,
-    csTheme: next.csTheme ?? base?.csTheme,
+  // Each script's typeface is one setting written two ways, by name or as a theme font (the theme wins on one
+  // element). A level that names either replaces both: a run's own w:ascii="Arial" shows Arial under a style or
+  // document default of w:asciiTheme="minorHAnsi", as in Word.
+  const slot = (name: "ascii" | "hAnsi" | "cs" | "eastAsia") => {
+    const theme = `${name}Theme` as const
+    return next[name] !== undefined || next[theme] !== undefined
+      ? { [name]: next[name], [theme]: next[theme] }
+      : { [name]: base?.[name], [theme]: base?.[theme] }
   }
+  return {
+    ...slot("ascii"),
+    ...slot("hAnsi"),
+    ...slot("cs"),
+    ...slot("eastAsia"),
+    hint: next.hint ?? base?.hint,
+  } as RunFonts
 }
 
 function mergeLanguage(base: Language | undefined, next: Language | undefined): Language | undefined {
@@ -1260,6 +1269,12 @@ function compactRun(props: RunProperties): RunProperties {
   }
   if (props.highlight !== undefined) {
     result.highlight = props.highlight
+  }
+  if (props.shd) {
+    result.shd = props.shd
+  }
+  if (props.bdr) {
+    result.bdr = props.bdr
   }
   if (props.u) {
     result.u = props.u.color ? { value: props.u.value, color: props.u.color } : { value: props.u.value }

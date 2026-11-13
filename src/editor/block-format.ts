@@ -1,4 +1,5 @@
 import { patternImage } from "@/document/docx/shading-pattern"
+import { autoColorRule } from "@/document/docx/word-styles"
 import type { Editor } from "@tiptap/core"
 
 const MM_TO_PX = 96 / 25.4
@@ -38,7 +39,8 @@ export function blockFormatAttributes() {
         if (!attributes.shading) {
           return {}
         }
-        return { style: `background-color: ${attributes.shading}` }
+        const auto = autoColorRule(attributes.shading)
+        return { style: `background-color: ${attributes.shading}${auto ? `; ${auto}` : ""}` }
       },
     },
     /** Word's shading pattern over the fill (22.4): its w:shd value and, unless automatic, its colour. */

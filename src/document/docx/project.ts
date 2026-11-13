@@ -871,6 +871,16 @@ function blockHtml(block: Block, ctx: Projection) {
 }
 
 function paragraphHtml(paragraph: Paragraph, ctx: Projection) {
+  const outer = ctx.paragraphStyleId
+  ctx.paragraphStyleId = paragraph.styleId
+  try {
+    return paragraphInnerHtml(paragraph, ctx)
+  } finally {
+    ctx.paragraphStyleId = outer
+  }
+}
+
+function paragraphInnerHtml(paragraph: Paragraph, ctx: Projection) {
   // Text of its own, not a shape's or a text box's: a paragraph holding only a shape with text is not a line of text.
   ctx.textParagraph = paragraphText(paragraph, false).trim() !== ""
   const floatingOnly = paragraph.inlines.every(
@@ -888,8 +898,9 @@ function paragraphHtml(paragraph: Paragraph, ctx: Projection) {
   const tag = headingTag(paragraph.styleId)
   const outline = tag === "p" ? outlineLevelOf(paragraph, ctx.doc) : null
   const attrs =
-    blockHtmlAttributes(blockFromProperties(shownProperties(paragraph.pPr)), paragraph.key) +
-    (outline ? ` data-outline="${outline}"` : "")
+    blockHtmlAttributes(blockFromProperties(shownProperties(paragraph.pPr)), paragraph.key, {
+      alignLeft: paragraph.pPr.jc === "left" || paragraph.pPr.jc === "start",
+    }) + (outline ? ` data-outline="${outline}"` : "")
   const style = tag === "p" && paragraph.styleId ? ` data-word-style="${escapeAttribute(paragraph.styleId)}"` : ""
   const stops = editorTabStops(paragraph, ctx.doc)
   const tabs = stops ? ` data-tab-stops="${stops}"` : ""
@@ -1041,7 +1052,10 @@ function tableHtml(table: Table, ctx: Projection) {
       const height = row.height ? ` style="height: ${Math.round(row.height.value / TWIP_PER_PX)}px"` : ""
       const rule = row.height?.rule === "exact" ? ` data-height-rule="exact"` : ""
       const split = row.cantSplit ? ` data-cant-split="1"` : ""
-      return `<tr${height}${rule}${split}>${cells}</tr>`
+      // A row's own borders (w:tblPrEx) set the edges its cells draw, over the table's.
+      const rowFrame = tableVariables(row.exceptionBorders, undefined).join("; ")
+      const frame = rowFrame ? ` data-word-frame="${escapeAttribute(rowFrame)}"` : ""
+      return `<tr${height}${rule}${split}${frame}>${cells}</tr>`
     })
     .join("")
   const key = table.key ? ` data-docx="${table.key}"` : ""

@@ -2,6 +2,7 @@ import { patternImage, patternValue } from "@/document/docx/shading-pattern"
 import { decodeXml } from "@/document/docx/xml"
 import {
   paragraphsIn,
+  resolveRunProperties,
   type Border,
   type CellMargins,
   type ParagraphProperties,
@@ -154,6 +155,101 @@ function mergeRun(base: RunProperties, next: RunProperties): RunProperties {
   }
 }
 
+/**
+ * Word draws text of automatic colour white on dark shading and black elsewhere. A dark fill (a cell's, a
+ * paragraph's) sets the colour its automatic text inherits; "" for a light or unknown fill.
+ */
+export function autoColorRule(fill: string | null | undefined) {
+  const value = (fill ?? "").trim()
+  const hex = /^#?([0-9a-f]{6})$/i.exec(value)?.[1]
+  const rgb = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/i.exec(value)
+  const channels = hex
+    ? [0, 2, 4].map((at) => Number.parseInt(hex.slice(at, at + 2), 16))
+    : rgb && (rgb[4] === undefined || Number(rgb[4]) > 0.5)
+      ? [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])]
+      : null
+  if (!channels) {
+    return ""
+  }
+  const [red, green, blue] = channels as [number, number, number]
+  return 0.299 * red + 0.587 * green + 0.114 * blue < 128 ? "--word-auto-color: #ffffff" : ""
+}
+
+/** Toggles (and a colour) a run can switch off against its styles, as `data-run-off` tokens (index.css draws them). */
+const OFF_TOKENS = ["b", "i", "caps", "smallCaps", "u", "strike", "color"] as const
+export type RunOffToken = (typeof OFF_TOKENS)[number]
+
+const shownCache = new WeakMap<WordDocument, Map<string, { para: RunProperties; char: RunProperties }>>()
+
+/** The paragraph style a paragraph without its own takes (Word's default paragraph style). */
+export function defaultParagraphStyleId(doc: WordDocument) {
+  return doc.styles.styles.find((style) => style.type === "paragraph" && style.default)?.id ?? "Normal"
+}
+
+/**
+ * What the document stylesheet shows a run as, before its direct formatting: its paragraph style's run properties
+ * (inherited) and its character style's (on the run's own span, so they win).
+ */
+function shownByStyles(doc: WordDocument, paragraphStyleId: string, rStyle: string | undefined) {
+  let cache = shownCache.get(doc)
+  if (!cache) {
+    cache = new Map()
+    shownCache.set(doc, cache)
+  }
+  const key = `${paragraphStyleId}\u0000${rStyle ?? ""}`
+  const known = cache.get(key)
+  if (known) {
+    return known
+  }
+  const styles = new Map(doc.styles.styles.map((style) => [style.id, style]))
+  const defaults: Resolved = { pPr: doc.styles.docDefaults.pPr, rPr: doc.styles.docDefaults.rPr }
+  const para = resolveStyle(paragraphStyleId, styles, defaults).rPr
+  const char = rStyle ? resolveStyle(rStyle, styles, { pPr: {}, rPr: {} }).rPr : {}
+  const shown = { para, char }
+  cache.set(key, shown)
+  return shown
+}
+
+/**
+ * The toggles the stylesheet would show on a run that Word draws without: a run that turns off its style's bold
+ * or italic (`<w:b w:val="0"/>` in a bold heading), or a character style's bold over a bold paragraph style, which
+ * Word's toggle rule cancels (17.7.3). Underline and strike only from a character style: a decoration drawn on the
+ * paragraph cannot be taken off a part of it.
+ */
+export function runOffTokens(doc: WordDocument, paragraphStyleId: string | undefined, rPr: RunProperties) {
+  const pStyle = paragraphStyleId ?? defaultParagraphStyleId(doc)
+  const { para, char } = shownByStyles(doc, pStyle, rPr.rStyle)
+  const effective = resolveRunProperties({
+    styles: doc.styles,
+    paragraphStyleId: pStyle,
+    characterStyleId: rPr.rStyle,
+    direct: rPr,
+  })
+  const underlined = (props: RunProperties) => (props.u ? props.u.value !== "none" : undefined)
+  const struck = (props: RunProperties) =>
+    props.strike === undefined && props.dstrike === undefined ? undefined : Boolean(props.strike || props.dstrike)
+  const shown: Record<RunOffToken, boolean> = {
+    b: (char.b ?? para.b) === true,
+    i: (char.i ?? para.i) === true,
+    caps: (char.caps ?? para.caps) === true,
+    smallCaps: (char.smallCaps ?? para.smallCaps) === true,
+    u: underlined(char) === true,
+    strike: struck(char) === true,
+    // A colour from a style that the run sets back to automatic.
+    color: Boolean((char.color ?? para.color) && (char.color ?? para.color) !== "auto"),
+  }
+  const drawn: Record<RunOffToken, boolean> = {
+    b: effective.b === true,
+    i: effective.i === true,
+    caps: effective.caps === true,
+    smallCaps: effective.smallCaps === true,
+    u: underlined(effective) === true,
+    strike: struck(effective) === true,
+    color: Boolean(effective.color && effective.color !== "auto"),
+  }
+  return OFF_TOKENS.filter((token) => shown[token] && !drawn[token])
+}
+
 /** A style with everything it inherits through basedOn, starting from `start`. */
 /** A style's properties with those it is based on (and the document defaults) under them. */
 export function resolvedStyle(doc: WordDocument, id: string) {
@@ -189,7 +285,8 @@ function runCss(props: RunProperties, theme: ThemeFonts, complete: boolean) {
   if (props.color && props.color !== "auto") {
     rules.push(`color: #${props.color}`)
   } else if (complete) {
-    rules.push("color: #000000")
+    // Automatic colour: black, or white on dark shading (`autoColorRule`).
+    rules.push("color: var(--word-auto-color, #000000)")
   }
   if (props.b !== undefined || complete) {
     rules.push(`font-weight: ${props.b ? "bold" : "normal"}`)
@@ -425,6 +522,10 @@ export function cellCss(part: {
   const color = shadingColor(part.shading)
   if (color) {
     rules.push(`background-color: ${color}`)
+    const auto = autoColorRule(color)
+    if (auto) {
+      rules.push(auto)
+    }
   }
   const diagonals = [
     ["tl2br", "to top right"],

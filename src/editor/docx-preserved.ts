@@ -144,6 +144,9 @@ export const WordBlock = Node.create({
  */
 export const DocxRun = Mark.create({
   name: "docxRun",
+  // Outside the formatting marks (text style 101, bold 100): the character style it carries is drawn on its span,
+  // so the run's direct formatting, on spans inside it, wins as in Word. Links (1000) stay outside it.
+  priority: 200,
   inclusive: true,
   spanning: true,
 
@@ -154,6 +157,15 @@ export const DocxRun = Mark.create({
         parseHTML: (element: HTMLElement) => element.getAttribute("data-docx-run"),
         renderHTML: (attributes: { key?: string | null }) =>
           attributes.key ? { "data-docx-run": attributes.key } : {},
+      },
+      /**
+       * Toggles its styles give that the Word run turns off ("b i"), drawn by index.css. Never saved: the run's own
+       * properties keep them.
+       */
+      off: {
+        default: null as string | null,
+        parseHTML: (element: HTMLElement) => element.getAttribute("data-run-off"),
+        renderHTML: (attributes: { off?: string | null }) => (attributes.off ? { "data-run-off": attributes.off } : {}),
       },
       /** The Word character style, shown by the document stylesheet. */
       rstyle: {

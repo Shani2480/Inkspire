@@ -5,6 +5,58 @@ wrong or missing, what changed, where (files, tests), how it was checked, and wh
 story of each feature stays in `next-todo.md` under its section; `verify-list.md` holds what still needs a check
 in Word, Chrome or the desktop app.
 
+## 2026-11-13
+
+### Runs that turn off their style's formatting open as Word draws them; a fidelity audit for any .docx
+
+- **What was wrong:** a conference registration form opened with nearly all its text bold and italic, no
+  highlights, black text on its dark header cells, no borders on its first table, and left paragraphs centred.
+  Its paragraphs use heading styles (bold italic, centred) and every run turns them off (`<w:b w:val="0"/>`,
+  `<w:i w:val="0"/>`, `<w:jc w:val="left"/>`). The projection only ever emitted formatting that is _on_, so a
+  style's bold showed through; `w:highlight` was read but never drawn (nor saved from the editor); automatic text
+  stayed black on dark shading, where Word draws it white; a row's own borders (`w:tblPrEx/w:tblBorders`) were
+  kept for saving but not drawn; and an explicit left alignment was dropped as the editor's default. A run's own
+  colour and size also lost to its character style (`blue_title1`): the style's span sat inside the direct
+  formatting's span, so the style rule beat the inherited direct values.
+- **What changed:**
+  - `word-styles.ts` `runOffTokens`: Word's resolved run (`resolveRunProperties`, with the toggle rule) against
+    what the stylesheet shows (paragraph style, then character style); each toggle the styles show and Word does
+    not (b, i, caps, smallCaps, u and strike from a character style, a style colour set back to auto) becomes a
+    token in `data-run-off` on the run's span (`inlines.ts`; `DocxRun.off` in `docx-preserved.ts`, never saved);
+    `index.css` draws the tokens, while bold or italic set in the editor still win.
+  - `DocxRun` has priority 200, so its span (which carries the character style) wraps the formatting marks and a
+    run's direct formatting wins over its character style, as in Word.
+  - Highlight: `w:highlight` opens as the editor's highlight mark (`wrapText`); a highlight set in the editor saves
+    as `w:highlight` in one of Word's sixteen colours, any other colour as the run's `w:shd`
+    (`propsFromMarks`, `runPropertiesFromEdit`).
+  - Automatic colour: the stylesheet writes it as `var(--word-auto-color, #000000)`; a dark fill (luminance below 128) on a cell (`cellCss`, the cell's `backgroundColor`) or a paragraph (`shading`) sets the variable to white
+    (`autoColorRule`).
+  - Row exceptions: `TableRow.exceptionBorders` (`wml-read.ts`) is drawn as the row's `--wb-*` variables
+    (`data-word-frame` on `<tr>`, `SizedTableRow.wordFrame`, display only); saving still writes `w:tblPrEx` from
+    its source.
+  - `blockHtmlAttributes` writes `text-align: left` when the paragraph sets left itself.
+  - `model.ts`: `resolveRunProperties` treats a font name and its theme font as one setting (a run's
+    `w:ascii="Arial"` now beats an inherited `w:asciiTheme`), and merges run shading and borders (`shd`, `bdr`).
+  - New `tools/fidelity-audit.mjs` (`npm run audit:docx -- file.docx …`) with `src/document/docx/fidelity-audit.ts`:
+    opens each file in the running app (headless Chrome against the dev server), resolves every run and
+    paragraph through Word's style rules and compares with the computed style of the element drawn for it
+    (bold, italic, size, colour with automatic colour on shading, highlight or shading, underline, strike, caps,
+    font, alignment). It prints each mismatch with the style and text and exits 1 when there is any.
+- **Tests:** `style-overrides.test.ts` (6): off tokens and the toggle rule, tokens/highlight/alignment through the
+  editor, a run's own size inside its character style's span, save keeps `b=0`/`i=0`/`highlight` and writes an
+  editor highlight, row borders and white automatic text, `autoColorRule`, a named font over a theme font.
+  `word-display.test.ts`: the table style's dark header fill now also sets the automatic colour (updated on
+  purpose). 199 files, 1363 tests pass; typecheck, lint and Prettier clean.
+- **Checked:** in headless Chrome, before and after, against a LibreOffice render of the form: the audit went from
+  well over a hundred mismatches (mostly bold and italic, then alignment, highlight and colour) to none, and the page looks like
+  the reference in light and dark mode. The audit also reports no differences on every authored fixture and two other
+  real documents (it found the theme-font merge bug in three of them). An edited save of the form passes the
+  Open XML SDK validator (0 errors) and audits clean when reopened.
+- **Open:** not opened in Word itself (verify list). Whether Word also turns automatic text white on a dark
+  _highlight_ (not only shading), and Word's exact dark threshold, are not settled; the audit only judges
+  automatic text against paragraph and cell shading. Table-style run formatting (conditional `tblStylePr` rPr)
+  is not yet part of the audit's resolution.
+
 ## 2026-11-12
 
 ### v0.1.6: Google Docs forms keep their margins; no personal name in the installers

@@ -25,7 +25,7 @@ import {
 } from "@/document/docx/chartex-xml"
 import { MC_NS } from "@/document/docx/mce"
 import { decodeXml } from "@/document/docx/xml"
-import { readWordShape, schemeColors, shapeLook, wordShapeMark } from "@/document/docx/shape-import"
+import { WORD_HIGHLIGHTS, readWordShape, schemeColors, shapeLook, wordShapeMark } from "@/document/docx/shape-import"
 import { wordShapeGraphic } from "@/document/docx/shape-write"
 import { boxLink, readWordTextBox, textBoxMark, wordTextBoxGraphic } from "@/document/docx/word-text-box"
 import { looseParagraphsXml } from "@/document/docx/wml-write"
@@ -48,7 +48,7 @@ import { readItems, writeItems } from "@/editor/smartart-model"
 import { pointsMarkup, shapeMarkup } from "@/editor/insert-blocks"
 import { geometryPoints } from "@/editor/shape-adjust"
 import { hasPictureFormat } from "@/editor/picture-format"
-import { fontOf, fontStack, themeFontsOf, type ThemeFonts } from "@/document/docx/word-styles"
+import { fontOf, fontStack, runOffTokens, themeFontsOf, type ThemeFonts } from "@/document/docx/word-styles"
 import { pictureLookHtml, readPictureLook } from "@/document/docx/picture-look"
 import { runBoxOf, textBoxAttributes, textBoxOfRun, type TextBox } from "@/document/docx/text-box"
 import { expandSpec } from "@/editor/chart-expand"
@@ -123,6 +123,8 @@ export type Projection = {
   listSeen: Set<number>
   /** The paragraph being shown has text of its own, so a shape in it stays in place (21.35). */
   textParagraph?: boolean
+  /** The style of the paragraph being shown, for the toggles its runs turn off (`runOffTokens`). */
+  paragraphStyleId?: string
 }
 
 export function projectionFor(doc: WordDocument): Projection {
@@ -328,8 +330,13 @@ function runHtml(run: Run, ctx: Projection) {
   const style = spaced ? ` style="white-space: pre-wrap"` : ""
   // The character style is shown by the document stylesheet (data-word-rstyle); saving keeps it from the source.
   const rstyle = run.rPr.rStyle ? ` data-word-rstyle="${escapeHtml(run.rPr.rStyle)}"` : ""
+  // Bold or italic its paragraph or character style gives that the run turns off (index.css draws it).
+  const offTokens = runOffTokens(ctx.doc, ctx.paragraphStyleId, run.rPr)
+  const off = offTokens.length > 0 ? ` data-run-off="${offTokens.join(" ")}"` : ""
   const anchored =
-    run.key || spaced || rstyle ? `<span data-docx-run="${run.key ?? ""}"${rstyle}${style}>${inner}</span>` : inner
+    run.key || spaced || rstyle || off
+      ? `<span data-docx-run="${run.key ?? ""}"${rstyle}${off}${style}>${inner}</span>`
+      : inner
   return wrapComments(anchored, ctx)
 }
 
@@ -1219,6 +1226,10 @@ function wrapText(text: string, props: RunProperties, theme: ThemeFonts) {
   if (style) {
     html = `<span style="${style}">${html}</span>`
   }
+  const highlight = highlightHex(props)
+  if (highlight) {
+    html = `<mark data-color="${highlight}" style="background-color: ${highlight}; color: inherit">${html}</mark>`
+  }
   const box = textBoxOfRun(props)
   if (box) {
     const attributes = Object.entries(textBoxAttributes(box))
@@ -1227,6 +1238,18 @@ function wrapText(text: string, props: RunProperties, theme: ThemeFonts) {
     html = `<span ${attributes}>${html}</span>`
   }
   return html
+}
+
+/** A run's w:highlight as the editor's highlight colour; none for "none" and for no highlight. */
+function highlightHex(props: RunProperties) {
+  return props.highlight && props.highlight !== "none" ? WORD_HIGHLIGHTS[props.highlight] : undefined
+}
+
+/** Word's highlight name for the editor's highlight colour, if it is one of Word's. */
+function highlightName(hex: string): RunProperties["highlight"] | undefined {
+  const value = hex.toLowerCase()
+  return Object.keys(WORD_HIGHLIGHTS).find((name) => WORD_HIGHLIGHTS[name] === value) as
+    RunProperties["highlight"] | undefined
 }
 
 function runStyle(props: RunProperties, theme: ThemeFonts) {
@@ -1288,6 +1311,8 @@ type VisibleRun = {
   sz: number
   /** The box and shading (Borders and Shading > Apply to Text), as the editor draws them. */
   box: string
+  /** The highlight colour (hex), or "". */
+  highlight: string
 }
 
 function visibleRun(props: RunProperties, theme: ThemeFonts): VisibleRun {
@@ -1301,6 +1326,7 @@ function visibleRun(props: RunProperties, theme: ThemeFonts): VisibleRun {
     font: fontOf(props.rFonts, theme) || "",
     sz: props.sz ?? 0,
     box: JSON.stringify(textBoxOfRun(props)),
+    highlight: highlightHex(props) ?? "",
   }
 }
 
@@ -1356,6 +1382,9 @@ export function runPropertiesFromEdit(
   if (after.box !== before.box) {
     base.bdr = edited.bdr
     base.shd = edited.shd
+  }
+  if (after.highlight !== before.highlight) {
+    base.highlight = edited.highlight
   }
   return Object.fromEntries(Object.entries(base).filter(([, value]) => value !== undefined)) as RunProperties
 }
@@ -1716,6 +1745,19 @@ export function propsFromMarks(marks: JsonMark[]): RunProperties {
   const box = marks.find((mark) => mark.type === "textBorder")
   if (box?.attrs) {
     Object.assign(props, runBoxOf(box.attrs as TextBox))
+  }
+  const highlight = marks.find((mark) => mark.type === "highlight")
+  if (highlight) {
+    // Word highlights in its own sixteen colours; the editor offers those (Text Highlight Color).
+    const color = typeof highlight.attrs?.color === "string" ? highlight.attrs.color : "#ffff00"
+    const hex = colorHex(color)
+    const name = highlightName(hex ? `#${hex}` : color)
+    if (name) {
+      props.highlight = name
+    } else if (hex && !props.shd) {
+      // Any other colour is the run's shading, as Word keeps it.
+      props.shd = { value: "clear", color: "auto", fill: hex }
+    }
   }
   const style = marks.find((mark) => mark.type === "textStyle")
   const color = colorHex(style?.attrs?.color)

@@ -253,10 +253,11 @@ function bordersFromBlock(block: BlockFormat): ParagraphProperties["borders"] {
 }
 
 /** HTML attributes the editor's parseHTML rules read back into exactly `block`, plus the source anchor. */
-export function blockHtmlAttributes(block: BlockFormat, key?: string) {
+export function blockHtmlAttributes(block: BlockFormat, key?: string, options: { alignLeft?: boolean } = {}) {
   const style: string[] = []
   const data: string[] = []
-  if (block.textAlign !== "left") {
+  // Left is the editor's default, written only when the paragraph sets it over a style that aligns otherwise.
+  if (block.textAlign !== "left" || options.alignLeft) {
     style.push(`text-align: ${block.textAlign}`)
   }
   if (block.spaceBefore !== null) {
