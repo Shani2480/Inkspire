@@ -15,6 +15,7 @@ import { emptyChrome, packDocument, unpackDocument, type DocumentChrome } from "
 import { useOptimizeDialog } from "@/document/optimize-dialog-state"
 import { documentWithObjectPictures, restoreObjects } from "@/document/object-pictures"
 import { clearWordDocument, currentWordDocument, rememberWordDocument } from "@/document/docx/session"
+import { setWordNoteTexts } from "@/editor/page-notes"
 import { htmlToMarkdown, markdownToHtml } from "@/document/markdown"
 import { rtfToHtml } from "@/document/rtf"
 import {
@@ -326,6 +327,7 @@ async function loadOpenedFile(file: OpenedFile) {
   // Prior dirty draft stays in IndexedDB for the Unsaved Documents rail.
   resetRecoverySession()
   clearWordDocument()
+  setWordNoteTexts(undefined)
   // Each document has its own styles: a Word or Inkspire file brings them, anything else starts from the defaults.
   useStyleStore.getState().load(defaultStyles())
   const ext = fileExtension(file.name || file.path || "")
@@ -333,6 +335,7 @@ async function loadOpenedFile(file: OpenedFile) {
     const opened = await (await docxIo()).openDocxBytes(file.bytes, file.name || file.path || "document.docx")
     rememberWordDocument(opened.word)
     useStyleStore.getState().load(stylesFromWord(opened.word))
+    setWordNoteTexts(opened.view.notes)
     applyEditorHtml(opened.view.html, opened.view.chrome, file.path, file.name, opened.view.props, true)
     return
   }

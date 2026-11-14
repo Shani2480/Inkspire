@@ -311,6 +311,8 @@ function BordersShadingDialog({
         updateBlocks(editor, {
           border,
           borderPen,
+          // The dialog draws every side with one pen.
+          borderSides: null,
           borderShadow: Boolean(border) && shadow,
           borderFrame: Boolean(border) && frame,
           borderSpace,

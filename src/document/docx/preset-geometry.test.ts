@@ -67,9 +67,11 @@ describe("Word's preset geometry (21.35)", () => {
     expect(shape).toMatchObject({ preset: "cloudCallout", variant: "rect", geometry: "cloudCallout", points: "" })
     expect(shape?.fill).toBe("#ffc000")
     expect(geometryPoints({ geometry: "cloudCallout" }, 192, 96)).toMatch(/^M[\d. ]+C/)
-    // One the app draws keeps its own drawing, unless Word moved its handles.
+    // The app's own heart is a lookalike: Word's opens drawn from Word's geometry, keeping the app's variant.
     const heart = xml.replace("cloudCallout", "heart")
-    expect(readWordShape(heart, null)).toMatchObject({ variant: "heart", points: "", geometry: "" })
+    expect(readWordShape(heart, null)).toMatchObject({ variant: "heart", points: "", geometry: "heart" })
+    // A rectangle is the same either way and keeps the app's drawing, unless Word moved its handles.
+    expect(readWordShape(xml.replace("cloudCallout", "rect"), null)).toMatchObject({ variant: "rect", geometry: "" })
     const snipped = xml.replace(
       '<a:prstGeom prst="cloudCallout"><a:avLst/>',
       '<a:prstGeom prst="roundRect"><a:avLst><a:gd name="adj" fmla="val 50000"/></a:avLst>',

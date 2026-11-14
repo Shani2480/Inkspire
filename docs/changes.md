@@ -5,6 +5,59 @@ wrong or missing, what changed, where (files, tests), how it was checked, and wh
 story of each feature stays in `next-todo.md` under its section; `verify-list.md` holds what still needs a check
 in Word, Chrome or the desktop app.
 
+## 2026-11-14
+
+### Word comparison fixes: lists in cells, notes, border sides, line numbers, styles, fields, Word's defaults
+
+- **What was wrong:** comparing every fixture with Word's own render found 13 differences on opening (listed in
+  `next-todo.md` the same day): list markers in table cells drawn in the previous cell and a cell's last column
+  losing its borders; endnotes and footnotes not drawn; a list item's own indent ignored; a paragraph's bottom border
+  drawn in the top border's style; line numbers small and grey; a style's own font lost under the theme font; preset
+  shapes drawn by hand; TOC leaders a thin line and DATE fields showing the cached value; content control
+  placeholders black; display equations too large; Word's fallback defaults (no styles part, no `w:pPrDefault`)
+  unknown; header text faded; files Word refuses kept their invalid values on save.
+- **What changed:**
+  - Lists: a cell's list measures tab stops and markers from the cell's text edge and clips a marker hung outside
+    the cell; an item's own `w:ind` moves it (`data-word-shift`) and its own first-line indent sets its hang
+    (`data-word-own-hang`) (`project.ts`, `indent.ts`). Rowspan cells reaching the last row keep their bottom border.
+  - Notes: each referenced footnote and endnote is projected with its label (`noteTexts`, `inlines.ts`); the
+    paginator keeps room for a page's footnotes and draws them with Word's separator at the page's foot, and the
+    endnotes after the last paragraph (`page-notes.ts`, `pages.ts`). Superscript character styles are drawn raised.
+  - Paragraph borders keep each side's own line (`data-border-sides`, `paragraph-sides.ts`); a double is drawn at
+    Word's width (each line the border's width).
+  - Line numbers use the LineNumber style; a style's own `w:ascii` replaces an inherited theme font (`mergeFonts`).
+  - Preset shapes use the ECMA geometry for every preset but rect and ellipse.
+  - TOC leaders are dots (also hyphens, underscores); DATE and TIME fields show the moment the file opens, formatted
+    by their `\@` picture (`field-date.ts`).
+  - Content controls show their content with its run styles (PlaceholderText grey).
+  - Display equations at the paragraph's size with no extra margin; the paragraph is one line tall.
+  - Word's fallback defaults, taken from Word's own re-save: no styles part → Aptos 12 pt, 8 pt after, line 278/240 (1.16);
+    styles without `w:pPrDefault` → the same paragraph spacing (`wml-read.ts`, `defaultsOf`).
+  - Contextual spacing also drops the space at a cell's first and last paragraph and before a table.
+  - Save leaves out values Word refuses (`w:sz="abc"`, `w:jc="sideways"`), so Word opens the file (`x12`, `r08`).
+  - Tests: `word-comparison.test.ts` (12), `preset-geometry.test.ts` updated.
+- **How it was checked:** all fixtures re-rendered by Word in the VM and re-captured in Inkspire; mean page
+  difference 0.133 → 0.080 (e.g. `w03`/`w04` 0.42/0.46 → 0, `f16` 0.40 → 0.05, `f05` 0.23 → 0.03, `f23` 0.53 → 0.23,
+  `f17` 0.45 → 0.19). Word opens all 72 saves (was 70), each identical to the original in Word. Unit tests, typecheck,
+  lint and the fidelity audit are clean.
+- **Open:** `w13` 0.01 → 0.26: with Word's paragraph defaults now applied, multiple line spacing shows that Word puts
+  the extra space below the text and CSS splits it. That and the rest are in `next-todo.md`.
+
+### Saving keeps the settings part's own links (attached template); corpus checked against Word itself
+
+- **What was wrong:** a document with an attached template (`w:attachedTemplate r:id` in settings.xml) saved
+  without `word/_rels/settings.xml.rels`, so settings.xml pointed at a relationship that did not exist and Word
+  refused the saved file as corrupt.
+- **What changed:** the reader keeps the settings part's external relationships (`Settings.relationships`,
+  `wml-read.ts` `attachSettingsLinks`) and the writer writes them back with settings.xml (`wml-write.ts`).
+  Test: `settings-links.test.ts`.
+- **How it was checked:** every fixture in `tests/docx-fixtures` was opened in Word (Microsoft 365, in a local VM,
+  through COM) and exported to PDF, then opened in Inkspire and saved through the regenerating path and exported by
+  Word again. All 70 saves Word opens render identically to the originals in Word; the attached-template fixture now
+  validates with 0 errors. Inkspire's own screen was compared with Word's PDF page by page; the differences found
+  are listed in `next-todo.md` ("Word comparison, 2026-11-14").
+- **Open:** see that list.
+
 ## 2026-11-13
 
 ### Runs that turn off their style's formatting open as Word draws them; a fidelity audit for any .docx

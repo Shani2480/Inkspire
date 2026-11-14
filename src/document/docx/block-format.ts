@@ -1,6 +1,7 @@
 import { borderOf, hexOf } from "@/document/docx/cell-edits"
 import type { Indent, ParagraphProperties, ShadingValue, Spacing } from "@/document/docx/model"
 import { patternImage, patternOf, patternValue } from "@/document/docx/shading-pattern"
+import { borderSidesStyle, parseBorderSides } from "@/document/paragraph-sides"
 
 /** Editor paragraph attributes (src/editor/block-format.ts, indent.ts, LineHeight, TextAlign) that map to w:pPr. */
 export type BlockFormat = {
@@ -25,6 +26,11 @@ export type BlockFormat = {
   border: string | null
   /** The line the border is drawn with, as the CSS shorthand ("1px dashed #c00000"); null for the app's own. */
   borderPen: string | null
+  /**
+   * A Word paragraph whose sides are drawn with different lines: each drawn side's w:val, w:sz and colour
+   * ("top:single,12,C00000;bottom:double,18,0070C0", `paragraph-sides.ts`); null when they share one pen.
+   */
+  borderSides: string | null
   /** Word's Shadow setting: the border casts a shadow to the bottom right. */
   borderShadow: boolean
   /** Word's 3-D setting: the border's frame effect. */
@@ -58,6 +64,7 @@ export const PLAIN_BLOCK: BlockFormat = {
   tightWrap: "none",
   border: null,
   borderPen: null,
+  borderSides: null,
   borderShadow: false,
   borderFrame: false,
   borderSpace: null,
@@ -91,7 +98,7 @@ const GROUPS: (keyof BlockFormat)[][] = [
   ["dontHyphenate"],
   ["mirrorIndents"],
   ["tightWrap"],
-  ["border", "borderPen", "borderShadow", "borderFrame", "borderSpace"],
+  ["border", "borderPen", "borderSides", "borderShadow", "borderFrame", "borderSpace"],
   ["shading", "shadingPattern"],
 ]
 
@@ -158,6 +165,7 @@ export function blockFromProperties(pPr: ParagraphProperties): BlockFormat {
   block.tightWrap = pPr.textboxTightWrap ?? "none"
   block.border = borderOfProperties(pPr.borders)
   block.borderPen = penOfProperties(pPr.borders)
+  block.borderSides = sidesOfProperties(pPr.borders)
   block.borderSpace = spaceOfProperties(pPr.borders)
   block.borderShadow = BORDER_SIDES.some((side) => drawn(pPr.borders?.[side]) && pPr.borders?.[side]?.shadow)
   block.borderFrame = BORDER_SIDES.some((side) => drawn(pPr.borders?.[side]) && pPr.borders?.[side]?.frame)
@@ -201,6 +209,18 @@ function penOfProperties(borders: ParagraphProperties["borders"]): string | null
   return `${px}px ${CSS_STYLES[border.value] ?? "solid"} #${color.toLowerCase()}`
 }
 
+/** Each drawn side's own line when the sides differ (`BlockFormat.borderSides`); null when they share one. */
+function sidesOfProperties(borders: ParagraphProperties["borders"]): string | null {
+  const sides = BORDER_SIDES.filter((side) => drawn(borders?.[side])).map((side) => {
+    const border = borders![side]!
+    const color = border.color && /^[0-9A-Fa-f]{6}$/.test(border.color) ? border.color.toUpperCase() : "auto"
+    return { side, line: `${border.value},${border.sz ?? 4},${color}` }
+  })
+  return sides.length > 1 && sides.some((item) => item.line !== sides[0]!.line)
+    ? sides.map((item) => `${item.side}:${item.line}`).join(";")
+    : null
+}
+
 /** Word's gap between a paragraph's text and each side of its box, in points: top, right, bottom, left. */
 const DEFAULT_SPACE = [1, 4, 1, 4]
 
@@ -242,9 +262,15 @@ function bordersFromBlock(block: BlockFormat): ParagraphProperties["borders"] {
   const line = pen
     ? borderOf(pen)
     : { value: "single" as const, sz: PARAGRAPH_BORDER_SZ, color: PARAGRAPH_BORDER_COLOR }
+  const own = parseBorderSides(block.borderSides)
   return Object.fromEntries(
     sides.map((side) => {
       const index = BORDER_SIDES.indexOf(side)
+      const mine = own[side]
+      if (mine) {
+        const space = Math.min(31, Math.max(0, Math.round(gaps.length === 4 ? gaps[index] : DEFAULT_SPACE[index])))
+        return [side, { ...mine, space, ...(shadow ? { shadow: true } : {}), ...(frame ? { frame: true } : {}) }]
+      }
       // w:space is whole points, at most 31.
       const space = Math.min(31, Math.max(0, Math.round(gaps.length === 4 ? gaps[index] : DEFAULT_SPACE[index])))
       return [side, { ...line, space, ...(shadow ? { shadow: true } : {}), ...(frame ? { frame: true } : {}) }]
@@ -315,6 +341,10 @@ export function blockHtmlAttributes(block: BlockFormat, key?: string, options: {
   if (block.borderPen) {
     style.push(`--para-border: ${block.borderPen}`, `--para-border-color: ${block.borderPen.split(" ")[2] ?? ""}`)
   }
+  if (block.borderSides) {
+    data.push(`data-border-sides="${block.borderSides}"`)
+    style.push(...borderSidesStyle(block.borderSides))
+  }
   if (block.borderShadow) {
     data.push(`data-border-shadow="1"`)
   }
@@ -377,6 +407,7 @@ export function blockFromAttrs(attrs: Record<string, unknown> | undefined): Bloc
     tightWrap: TIGHT_WRAPS.includes(text("tightWrap", "none")) ? text("tightWrap", "none") : "none",
     border: text("border", "") && text("border", "") !== "none" ? text("border", "") : null,
     borderPen: text("borderPen", "") || null,
+    borderSides: Object.keys(parseBorderSides(value.borderSides)).length > 0 ? text("borderSides", "") : null,
     borderShadow: value.borderShadow === true,
     borderFrame: value.borderFrame === true,
     borderSpace: text("borderSpace", "") || null,

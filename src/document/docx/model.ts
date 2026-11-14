@@ -1,4 +1,5 @@
 import type { ElementSource } from "@/document/docx/element-source"
+import type { OpcRelationship } from "@/document/docx/opc"
 
 /** The namespace of the app's own objects kept in a drawing's docPr extension list. */
 export const INKSPIRE_OBJECT_NS = "https://inkspire.app/2026/object"
@@ -788,6 +789,11 @@ export type Style = {
 
 export type StyleCatalog = {
   docDefaults: { pPr: ParagraphProperties; rPr: RunProperties }
+  /**
+   * What Word draws with where the file leaves its defaults out (no styles part, no w:pPrDefault): its own fallbacks
+   * over `docDefaults`. Display only; saving writes `docDefaults` as read.
+   */
+  wordDefaults?: { pPr: ParagraphProperties; rPr: RunProperties }
   styles: Style[]
   /**
    * Every child of w:styles as written (latentStyles, docDefaults, styles), in source order, with the root's
@@ -830,6 +836,8 @@ export type Settings = {
    * The writer swaps in the modelled elements and keeps the rest (zoom, compat flags, themeFontLang…) as they were.
    */
   raw?: { rootAttributes: RootAttribute[]; children: { name: string; xml: string }[] }
+  /** The settings part's external relationships (w:attachedTemplate, mail merge sources), kept as read. */
+  relationships?: OpcRelationship[]
 }
 
 export type Note = {
@@ -1080,7 +1088,7 @@ export function resolveRunProperties(input: {
   table?: RunProperties
   numbering?: RunProperties
 }): RunProperties {
-  let result = applyRunLayer({}, input.styles.docDefaults.rPr, "absolute")
+  let result = applyRunLayer({}, defaultsOf(input.styles).rPr, "absolute")
   if (input.table) {
     result = applyRunLayer(result, input.table, "style")
   }
@@ -1099,6 +1107,11 @@ export function resolveRunProperties(input: {
   return compactRun(result)
 }
 
+/** The defaults a document is drawn with: Word's fallbacks where the file has none (`StyleCatalog.wordDefaults`). */
+export function defaultsOf(styles: StyleCatalog) {
+  return styles.wordDefaults ?? styles.docDefaults
+}
+
 export function resolveParagraphProperties(input: {
   styles: StyleCatalog
   paragraphStyleId?: string
@@ -1106,7 +1119,7 @@ export function resolveParagraphProperties(input: {
   table?: ParagraphProperties
   numbering?: ParagraphProperties
 }): ParagraphProperties {
-  let result = compactParagraph(input.styles.docDefaults.pPr)
+  let result = compactParagraph(defaultsOf(input.styles).pPr)
   if (input.table) {
     result = mergeParagraph(result, input.table)
   }
@@ -1191,7 +1204,7 @@ function applyToggle(current: boolean | undefined, specified: boolean | undefine
   return specified ? !current : false
 }
 
-function mergeFonts(base: RunFonts | undefined, next: RunFonts | undefined): RunFonts | undefined {
+export function mergeFonts(base: RunFonts | undefined, next: RunFonts | undefined): RunFonts | undefined {
   if (!next) {
     return base
   }

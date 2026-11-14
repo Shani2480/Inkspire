@@ -1,6 +1,8 @@
 import { patternImage, patternValue } from "@/document/docx/shading-pattern"
 import { decodeXml } from "@/document/docx/xml"
 import {
+  defaultsOf,
+  mergeFonts,
   paragraphsIn,
   resolveRunProperties,
   type Border,
@@ -26,9 +28,10 @@ export type ThemeFonts = {
   minorBidi: string
 }
 
+/** Without a theme part, Word draws theme fonts from its own Office theme. */
 const NO_THEME: ThemeFonts = {
-  majorLatin: "",
-  minorLatin: "",
+  majorLatin: "Aptos Display",
+  minorLatin: "Aptos",
   majorEastAsia: "",
   minorEastAsia: "",
   majorBidi: "",
@@ -151,7 +154,7 @@ function mergeRun(base: RunProperties, next: RunProperties): RunProperties {
   return {
     ...base,
     ...next,
-    rFonts: base.rFonts || next.rFonts ? { ...base.rFonts, ...next.rFonts } : undefined,
+    rFonts: mergeFonts(base.rFonts, next.rFonts),
   }
 }
 
@@ -202,7 +205,7 @@ function shownByStyles(doc: WordDocument, paragraphStyleId: string, rStyle: stri
     return known
   }
   const styles = new Map(doc.styles.styles.map((style) => [style.id, style]))
-  const defaults: Resolved = { pPr: doc.styles.docDefaults.pPr, rPr: doc.styles.docDefaults.rPr }
+  const defaults: Resolved = { pPr: defaultsOf(doc.styles).pPr, rPr: defaultsOf(doc.styles).rPr }
   const para = resolveStyle(paragraphStyleId, styles, defaults).rPr
   const char = rStyle ? resolveStyle(rStyle, styles, { pPr: {}, rPr: {} }).rPr : {}
   const shown = { para, char }
@@ -254,7 +257,7 @@ export function runOffTokens(doc: WordDocument, paragraphStyleId: string | undef
 /** A style's properties with those it is based on (and the document defaults) under them. */
 export function resolvedStyle(doc: WordDocument, id: string) {
   const styles = new Map(doc.styles.styles.map((style) => [style.id, style]))
-  return resolveStyle(id, styles, { pPr: doc.styles.docDefaults.pPr, rPr: doc.styles.docDefaults.rPr })
+  return resolveStyle(id, styles, { pPr: defaultsOf(doc.styles).pPr, rPr: defaultsOf(doc.styles).rPr })
 }
 
 function resolveStyle(id: string, styles: Map<string, Style>, start: Resolved): Resolved {
@@ -306,6 +309,11 @@ function runCss(props: RunProperties, theme: ThemeFonts, complete: boolean) {
   ].filter(Boolean)
   if (lines.length > 0) {
     rules.push(`text-decoration: ${lines.join(" ")}`)
+  }
+  // Superscript and subscript (the Footnote Reference style): raised or lowered, at about two thirds the size.
+  if (props.vertAlign === "superscript" || props.vertAlign === "subscript") {
+    rules.push(`vertical-align: ${props.vertAlign === "superscript" ? "super" : "sub"}`)
+    rules.push(`font-size: ${props.sz ? `${Math.round((props.sz / 2) * 0.65 * 100) / 100}pt` : "0.65em"}`)
   }
   return rules
 }
@@ -371,6 +379,14 @@ function contextualRules(page: string, same: string, fromStyle: boolean) {
   return [
     `${page} ${same} + ${own}, ${page} li:has(> ${same}) + li > ${own} { margin-top: 0 !important; }`,
     `${page} ${own}:has(+ ${same}), ${page} li:has(+ li > ${same}) > ${own} { margin-bottom: 0 !important; }`,
+    // Word leaves out such a paragraph's space at the top and foot of a table cell too.
+    `${page} :is(td, th) > ${own}:first-child, ${page} :is(td, th) > :is(ul, ol):first-child > li:first-child > ${own}:first-child { margin-top: 0 !important; }`,
+    `${page} :is(td, th) > ${own}:last-child, ${page} :is(td, th) > :is(ul, ol):last-child > li:last-child > ${own}:last-child { margin-bottom: 0 !important; }`,
+    // …and before a table whose first cell starts with a paragraph of the same style.
+    ...[`${same}:first-child`, `:is(ul, ol):first-child > li:first-child > ${same}:first-child`].map((first) => {
+      const table = `:is(.tableWrapper, table) tr:first-child > :is(td, th):first-child > ${first}`
+      return `${page} ${own}:has(+ ${table}), ${page} :is(ul, ol):has(+ ${table}) > li:last-child > ${own}:last-child { margin-bottom: 0 !important; }`
+    }),
   ]
 }
 
@@ -390,7 +406,7 @@ function cssString(value: string) {
 export function documentStyleSheet(doc: WordDocument): string {
   const theme = themeFontsOf(doc)
   const styles = new Map(doc.styles.styles.map((style) => [style.id, style]))
-  const defaults: Resolved = { pPr: doc.styles.docDefaults.pPr, rPr: doc.styles.docDefaults.rPr }
+  const defaults: Resolved = { pPr: defaultsOf(doc.styles).pPr, rPr: defaultsOf(doc.styles).rPr }
   const normal = doc.styles.styles.find((style) => style.type === "paragraph" && style.default) ?? styles.get("Normal")
   const base = normal ? resolveStyle(normal.id, styles, defaults) : defaults
   // :root raises specificity above the app stylesheet's .page-editor rules whatever order they load in.
@@ -438,6 +454,9 @@ export function documentStyleSheet(doc: WordDocument): string {
       css.push(rule(`${page} [data-word-rstyle="${cssString(style.id)}"]`, runCss(resolved.rPr, theme, false)))
     }
   }
+  // Line numbers are drawn in the Line Number character style, which starts from the document defaults (not Normal).
+  const lineNumber = styles.has("LineNumber") ? resolveStyle("LineNumber", styles, defaults) : defaults
+  css.push(rule(`${page} .line-number`, runCss({ ...lineNumber.rPr, vertAlign: undefined }, theme, true)))
   return css.filter(Boolean).join("\n")
 }
 

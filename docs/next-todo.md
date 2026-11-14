@@ -8,6 +8,29 @@ Where a simpler version already exists, the note says so. The item is still open
 
 Items built but not yet checked in Word, Chrome or the desktop app are collected in `verify-list.md`; tick them there, do not re-check them here.
 
+**Word comparison (2026-11-14).** Each fixture rendered by Word itself (PDF) next to Inkspire's screen and
+next to Word's render of Inkspire's save. Saving: Word opens all 72 saves and each renders as the original.
+Opening: the 13 differences found first are fixed (see `changes.md`, 2026-11-14); mean page difference 0.133 →
+0.080, 20 files closer to Word, 1 further (w13, below). Still different from Word, most visible first:
+
+1. Multiple line spacing (1.15, 1.5, exact 20 pt over a smaller font): Word puts a line's extra space below its text,
+   CSS splits it above and below, so text sits 3–5 px higher in Word (`w13`, `f03`, `w12`). A fix needs each line's
+   text moved down (e.g. a `padding-top`/negative `margin-bottom` pair per paragraph from its spacing), checked against
+   line numbers and floating objects positioned from the paragraph.
+2. A TOC's field-end paragraph: Word keeps it as an empty line after the entries; Inkspire folds it into the TOC
+   block (`f12`).
+3. Endnotes: the space above the endnote separator is a little larger than Word's (`combined`).
+4. Footnotes are not placed on page breaks inside a table or in unequal columns (they move to the next ordinary
+   break), and endnotes that do not fit the last page are not split across pages.
+5. The heart preset sits about 2 px off Word's (`f20`).
+6. Header text is faded while the header is closed, as Word does on screen; Word's PDF draws it in full colour, so the
+   comparison shows a difference that is not one (`f07`).
+
+Environment notes: Aptos (the Office default font) is not installed on the Linux host, so Inkspire's text uses a
+fallback and widths differ (tab positions too); the VM's background Word draws no 3D models; Word's first start can
+pick other fallback fonts, so render both sides in the same warm Word. Tools (local): `tools/word-render.py`,
+`tools/corpus/` (save every fixture), `tools/fidelity-audit.mjs --pages dir`.
+
 **Fidelity audit (2026-11-13).** When a .docx "opens weird", run `npm run audit:docx -- file.docx` with the dev
 server up before reading XML: it lists every run and paragraph whose drawn formatting differs from Word's rules,
 with the style and text. Done: run toggles turned off against styles, highlight, automatic colour on shading, row

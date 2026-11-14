@@ -1473,6 +1473,40 @@ button.line-menu-row:focus-visible {
   pointer-events: none;
 }
 
+/* Footnotes at the page's foot and endnotes after the text (page-notes.ts), drawn in the document's own styles. */
+.page-gap > .page-footnotes,
+.page-end-notes > .page-footnotes {
+  position: absolute;
+  left: 0;
+  right: 0;
+}
+
+.page-end-notes {
+  position: relative;
+  display: block;
+  user-select: none;
+  pointer-events: none;
+}
+
+.page-notes {
+  display: flow-root;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* Word's note separator: a rule 2" long across the middle of its line. */
+.word-note-separator {
+  display: inline-block;
+  width: 144pt;
+  height: 0;
+  border-top: 0.5pt solid currentColor;
+  vertical-align: middle;
+}
+
+.word-note-separator-wide {
+  width: 100%;
+}
+
 .page-header,
 .page-footer,
 .page-number {
@@ -1974,7 +2008,7 @@ button.line-menu-row:focus-visible {
   content: var(--word-marker);
   display: inline-block;
   box-sizing: border-box;
-  min-width: var(--word-box, var(--word-hang, 18pt));
+  min-width: var(--word-box, max(0pt, var(--word-hang, 18pt)));
   max-width: var(--word-box, none);
   margin-left: calc(-1 * var(--word-hang, 18pt));
   transform: translateX(var(--word-shift, 0));
@@ -2194,16 +2228,18 @@ button.line-menu-row:focus-visible {
 :is(p, h1, h2, h3, h4, h5, h6)[data-border] {
   --para-line: var(--para-border-width, 1px);
   position: relative;
-  padding-top: calc(var(--para-top-on, 0) * (var(--para-space-top, 1pt) + var(--para-line)));
-  padding-bottom: calc(var(--para-bottom-on, 0) * (var(--para-space-bottom, 1pt) + var(--para-line)));
+  padding-top: calc(var(--para-top-on, 0) * (var(--para-space-top, 1pt) + var(--para-line-top, var(--para-line))));
+  padding-bottom: calc(
+    var(--para-bottom-on, 0) * (var(--para-space-bottom, 1pt) + var(--para-line-bottom, var(--para-line)))
+  );
 }
 
 :is(p, h1, h2, h3, h4, h5, h6)[data-border]::before {
   position: absolute;
   top: 0;
-  right: calc(-1 * var(--para-right-on, 0) * (var(--para-space-right, 4pt) + var(--para-line)));
+  right: calc(-1 * var(--para-right-on, 0) * (var(--para-space-right, 4pt) + var(--para-line-right, var(--para-line))));
   bottom: 0;
-  left: calc(-1 * var(--para-left-on, 0) * (var(--para-space-left, 4pt) + var(--para-line)));
+  left: calc(-1 * var(--para-left-on, 0) * (var(--para-space-left, 4pt) + var(--para-line-left, var(--para-line))));
   box-sizing: border-box;
   border-top: var(--para-top, 0 none);
   border-right: var(--para-right, 0 none);
@@ -2262,6 +2298,28 @@ button.line-menu-row:focus-visible {
 
 .page-editor table[data-word-table="1"] :where(tr:last-child > td, tr:last-child > th) {
   border-bottom: var(--wb-bottom, none);
+}
+
+/* A cell merged down to the last row (w:vMerge) takes the table's bottom border too. */
+.page-editor
+  table[data-word-table="1"]
+  :where(
+    tr:nth-last-child(2) > [rowspan="2"],
+    tr:nth-last-child(3) > [rowspan="3"],
+    tr:nth-last-child(4) > [rowspan="4"],
+    tr:nth-last-child(5) > [rowspan="5"],
+    tr:nth-last-child(6) > [rowspan="6"],
+    tr:nth-last-child(7) > [rowspan="7"],
+    tr:nth-last-child(8) > [rowspan="8"],
+    tr:nth-last-child(9) > [rowspan="9"],
+    tr:nth-last-child(10) > [rowspan="10"]
+  ) {
+  border-bottom: var(--wb-bottom, none);
+}
+
+/* Word does not draw a list marker hung out past a cell's left edge. */
+.page-editor table[data-word-table="1"] :is(td, th) > :is(ul, ol) {
+  overflow-x: clip;
 }
 
 .page-editor table[data-word-table="1"] :where(td:first-child, th:first-child) {
@@ -2928,23 +2986,31 @@ button.line-menu-row:focus-visible {
   white-space: nowrap;
 }
 
+/* The leader as Word draws it: the text's own dots (hyphens, underscore) along the baseline, in the text's colour. */
 .page-editor .toc-leader {
   flex: 1 1 auto;
-  border-bottom: 1px dotted #a3a3a3;
-  transform: translateY(-0.25em);
+  align-self: stretch;
+  margin-left: -0.2em;
+  background-image: radial-gradient(circle, currentColor 0.05em, transparent 0.07em);
+  background-repeat: repeat-x;
+  background-position: left bottom 0.24em;
+  background-size: 0.27em 0.27em;
 }
 
 .page-editor .toc-block[data-leader="hyphen"] .toc-leader {
-  border-bottom-style: dashed;
+  background-image: linear-gradient(to right, currentColor 55%, transparent 55%);
+  background-size: 0.4em 0.06em;
+  background-position: left bottom 0.42em;
 }
 
 .page-editor .toc-block[data-leader="underscore"] .toc-leader {
-  border-bottom-style: solid;
-  transform: none;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-size: 100% 0.06em;
+  background-position: left bottom 0.12em;
 }
 
 .page-editor .toc-block[data-leader="none"] .toc-leader {
-  border-bottom-color: transparent;
+  background-image: none;
 }
 
 /* Page numbers not right aligned follow the entry's text. */
@@ -3589,9 +3655,10 @@ button.line-menu-row:focus-visible {
   user-select: none;
 }
 
+/* Word's line numbers: 0.25" from the text when the distance is Auto, in the Line Number style (word-styles.ts). */
 .line-number {
   position: absolute;
-  left: calc(-40px - var(--line-number-gap, 12px));
+  left: calc(-40px - var(--line-number-gap, 0.25in));
   width: 40px;
   text-align: right;
   font-family: var(--font-sans);
@@ -5706,10 +5773,15 @@ body,
   border-radius: 2px;
 }
 
+/* Word draws a block content control as its content alone; its box shows only when pointed at or selected. */
 .page-editor .word-block {
-  border: 1px dashed var(--border);
-  border-radius: 4px;
-  padding: 2px 6px;
+  outline: 1px dashed transparent;
+  outline-offset: 1px;
+}
+
+.page-editor .word-block:hover,
+.page-editor .word-block.ProseMirror-selectednode {
+  outline-color: var(--border);
 }
 
 .insert-figure {
@@ -6182,12 +6254,29 @@ li[data-drop-cap="margin"]::first-letter {
 /* Display: on a line of its own, centred (Word's Change to Display). */
 .equation.equation-display {
   display: block;
-  margin: 0.25em 0;
+  margin: 0;
   text-align: center;
 }
 
 .equation.equation-display .katex-display {
   margin: 0;
+}
+
+/* A paragraph that holds only a display equation is the equation's height in Word: no empty line before or after it
+   for the editor's cursor helpers. */
+.page-editor
+  p:has(> .equation-display):not(
+    :has(> :not(.equation-display, img.ProseMirror-separator, br.ProseMirror-trailingBreak))
+  )
+  > :is(img.ProseMirror-separator, br.ProseMirror-trailingBreak) {
+  /* Over ProseMirror's own display: inline !important. */
+  display: none !important;
+}
+
+/* Word draws an equation at its paragraph's size in Cambria Math, whose letters are about as large as KaTeX's at
+   1em (KaTeX's own 1.21em matches Computer Modern to a 10pt text). */
+.page-editor .equation .katex {
+  font-size: 1em;
 }
 
 .signature-line {

@@ -166,6 +166,9 @@ export function writeDocument(doc: WordDocument, fileName = "document.docx"): Op
       ...glossaryGroups,
       ...preservedGroups,
       ...storyGroups,
+      ...(doc.settings.relationships?.length
+        ? [{ source: "/word/settings.xml", items: doc.settings.relationships }]
+        : []),
     ],
     warnings: [],
     zipEntries: [],

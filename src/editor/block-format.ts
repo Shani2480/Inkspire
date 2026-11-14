@@ -1,4 +1,5 @@
 import { patternImage } from "@/document/docx/shading-pattern"
+import { borderSidesStyle } from "@/document/paragraph-sides"
 import { autoColorRule } from "@/document/docx/word-styles"
 import type { Editor } from "@tiptap/core"
 
@@ -70,6 +71,15 @@ export function blockFormatAttributes() {
               style: `--para-border: ${attributes.borderPen}; --para-border-width: ${attributes.borderPen.split(" ")[0]}; --para-border-color: ${attributes.borderPen.split(" ")[2] ?? ""}`,
             }
           : {},
+    },
+    /** A Word paragraph's sides drawn with their own lines (`document/paragraph-sides.ts`), over the pen above. */
+    borderSides: {
+      default: null as string | null,
+      parseHTML: (element: HTMLElement) => element.getAttribute("data-border-sides"),
+      renderHTML: (attributes: { borderSides?: string | null }) => {
+        const style = borderSidesStyle(attributes.borderSides)
+        return style.length > 0 ? { "data-border-sides": attributes.borderSides, style: style.join("; ") } : {}
+      },
     },
     /**
      * The gap between the text and each side of its box, in points: "top right bottom left" (Word's w:space, set in

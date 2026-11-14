@@ -1,4 +1,5 @@
 import { frameOfPreset, presetOfFrame } from "@/editor/picture-shape"
+import { dateFieldResult } from "@/document/field-date"
 import { equationOmml, isOmml, ommlToTex } from "@/document/docx/omml"
 import { equationToText } from "@/editor/equation-gallery"
 import {
@@ -113,6 +114,10 @@ export type Projection = {
   /** Main comments whose range is open at the current point, in document order. */
   open: Set<number>
   notes: { footnote: number; endnote: number }
+  /** The number or mark each note reference drew, by note id: what its note's own w:footnoteRef shows. */
+  noteLabels: { footnote: Map<number, string>; endnote: Map<number, string> }
+  /** While a note's text is shown: the mark its w:footnoteRef / w:endnoteRef draws. */
+  noteMark?: string
   theme: ThemeFonts
   /**
    * The number the next first-level item of each list takes, by its abstract numbering: Word counts every w:num of
@@ -135,6 +140,7 @@ export function projectionFor(doc: WordDocument): Projection {
     replies,
     open: new Set(),
     notes: { footnote: 0, endnote: 0 },
+    noteLabels: { footnote: new Map(), endnote: new Map() },
     theme: themeFontsOf(doc),
     listNext: new Map(),
     listSeen: new Set(),
@@ -204,7 +210,7 @@ export function inlinesHtml(inlines: Inline[], ctx: Projection): string {
     const end = fieldEnd(inlines, index)
     if (end >= 0) {
       const field = inlines.slice(index, end + 1)
-      html += wrapComments(atomHtml("field", field, visibleText(field)), ctx)
+      html += wrapComments(atomHtml("field", field, fieldText(field)), ctx)
       index = end
       continue
     }
@@ -251,7 +257,7 @@ function inlineHtml(inline: Inline, ctx: Projection): string {
     case "del":
       return revisionHtml(inline, ctx)
     case "simpleField":
-      return wrapComments(atomHtml("field", [inline], visibleText([inline])), ctx)
+      return wrapComments(atomHtml("field", [inline], fieldText([inline])), ctx)
     case "raw":
       return wrapComments(equationHtml(inline.xml) ?? atomHtml("raw", [inline], inline.text), ctx)
     case "bookmarkStart":
@@ -283,7 +289,33 @@ function runHtml(run: Run, ctx: Projection) {
   if (run.content.some((item) => item.kind === "footnoteReference" || item.kind === "endnoteReference")) {
     const footnote = run.content.some((item) => item.kind === "footnoteReference")
     const number = footnote ? ++ctx.notes.footnote : ++ctx.notes.endnote
-    return wrapComments(atomHtml("note", [run], footnote ? String(number) : romanNumeral(number)), ctx)
+    const label = footnote ? String(number) : romanNumeral(number)
+    for (const item of run.content) {
+      if (item.kind === "footnoteReference") {
+        ctx.noteLabels.footnote.set(item.id, label)
+      } else if (item.kind === "endnoteReference") {
+        ctx.noteLabels.endnote.set(item.id, label)
+      }
+    }
+    return wrapComments(atomHtml("note", [run], label), ctx)
+  }
+  // A note's separator line (footnotes.xml), drawn as Word draws it: a short rule across the line.
+  if (run.content.some((item) => item.kind === "separator" || item.kind === "continuationSeparator")) {
+    const wide = run.content.some((item) => item.kind === "continuationSeparator")
+    return `<span class="word-note-separator${wide ? " word-note-separator-wide" : ""}"></span>`
+  }
+  if (
+    ctx.noteMark !== undefined &&
+    run.content.some((item) => item.kind === "footnoteRef" || item.kind === "endnoteRef")
+  ) {
+    // The note's own number, in its run's formatting (the Footnote Reference style).
+    const mark = ctx.noteMark
+    run = {
+      ...run,
+      content: run.content.map((item) =>
+        item.kind === "footnoteRef" || item.kind === "endnoteRef" ? { kind: "text" as const, text: mark } : item,
+      ),
+    }
   }
   const chart = chartPictureHtml(run, ctx)
   if (chart) {
@@ -926,17 +958,54 @@ function pageFieldOf(payload: unknown) {
 }
 
 /** A block content control or display equation, kept whole. */
-export function blockAtomHtml(block: Block, text: string) {
+export function blockAtomHtml(block: Block, text: string, shown = "") {
   const attrs = [
     "data-word-block",
     `data-role="raw"`,
     `data-payload="${escapeHtml(JSON.stringify(block))}"`,
     `data-text="${escapeHtml(text)}"`,
+    // The content drawn as the body's paragraphs are (`WordBlock`); the payload above is what is saved.
+    ...(shown ? [`data-shown="${escapeHtml(shown)}"`] : []),
   ]
   return `<div ${attrs.join(" ")}>${text
     .split("\n")
     .map((line) => `<p>${escapeHtml(line)}</p>`)
     .join("")}</div>`
+}
+
+/**
+ * What a field shows: its result as last saved, except a DATE or TIME field, which Word updates whenever the document
+ * opens (`field-date.ts`).
+ */
+function fieldText(inlines: Inline[]) {
+  return dateFieldResult(fieldInstruction(inlines)) ?? visibleText(inlines)
+}
+
+/** A field's own instruction: a simple field's w:instr, or a complex field's w:instrText before its separator. */
+function fieldInstruction(inlines: Inline[]) {
+  const first = inlines[0]
+  if (first?.kind === "simpleField") {
+    return first.instr
+  }
+  let depth = 0
+  let code = true
+  let text = ""
+  for (const inline of inlines) {
+    if (inline.kind !== "run") {
+      continue
+    }
+    for (const content of inline.content) {
+      if (content.kind === "fldChar") {
+        depth += content.fieldType === "begin" ? 1 : content.fieldType === "end" ? -1 : 0
+        if (content.fieldType === "separate" && depth === 1) {
+          code = false
+        }
+      } else if (content.kind === "instrText" && depth === 1 && code) {
+        text += content.text
+      }
+    }
+  }
+  return text
 }
 
 /** Text a reader sees: field results without their codes, deleted text left out. */

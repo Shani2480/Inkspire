@@ -306,7 +306,25 @@ export function readDocument(pkg: OpcPackage): WordDocument {
   attachGlossary(pkg, doc)
   attachPreserved(pkg, doc)
   bindHyperlinks(pkg, doc)
+  attachSettingsLinks(pkg, doc)
   return doc
+}
+
+/**
+ * The settings part's external links (an attached template, a mail merge data source): settings.xml refers to them
+ * by r:id, so they go back out with it or Word calls the file corrupt.
+ */
+function attachSettingsLinks(pkg: OpcPackage, doc: WordDocument) {
+  const settings = relationshipsFor(pkg, pkg.mainPartName).find((item) =>
+    REL_TYPES.some((base) => item.type === `${base}settings`),
+  )
+  if (!settings?.partName) {
+    return
+  }
+  const external = relationshipsFor(pkg, settings.partName).filter((item) => item.targetMode === "External")
+  if (external.length > 0) {
+    doc.settings.relationships = external
+  }
 }
 
 export function readWordXml(input: {
@@ -395,10 +413,28 @@ function parseDocument(xml: string) {
   return document
 }
 
+/** Word's paragraph defaults where a file has none (what it writes into w:pPrDefault when it saves such a file). */
+const WORD_PARAGRAPH_DEFAULTS: ParagraphProperties = { spacing: { after: 160, line: 278, lineRule: "auto" } }
+
+/** Word's defaults for a document without a styles part: its theme's body font at 12 pt, and its paragraph spacing. */
+const WORD_DEFAULTS: StyleCatalog["docDefaults"] = {
+  pPr: WORD_PARAGRAPH_DEFAULTS,
+  rPr: {
+    rFonts: {
+      asciiTheme: "minorHAnsi",
+      hAnsiTheme: "minorHAnsi",
+      eastAsiaTheme: "minorEastAsia",
+      csTheme: "minorBidi",
+    },
+    sz: 24,
+  },
+}
+
 function readStyles(xml: string | undefined, notes: WordNote[]): StyleCatalog {
   const catalog: StyleCatalog = { docDefaults: { pPr: {}, rPr: {} }, styles: [] }
   if (xml === undefined) {
     notes.push({ code: "missing-styles", message: "The document has no styles part." })
+    catalog.wordDefaults = WORD_DEFAULTS
     return catalog
   }
   let root: MarkupNode
@@ -409,15 +445,23 @@ function readStyles(xml: string | undefined, notes: WordNote[]): StyleCatalog {
       code: "broken-styles",
       message: error instanceof Error ? error.message : "styles.xml is not usable.",
     })
+    catalog.wordDefaults = WORD_DEFAULTS
     return catalog
   }
   const defaults = wordChild(root, "docDefaults")
+  if (!wordChild(defaults, "pPrDefault")) {
+    // Word spaces paragraphs as its own Normal template does when the file sets no paragraph defaults.
+    catalog.wordDefaults = { pPr: WORD_PARAGRAPH_DEFAULTS, rPr: {} }
+  }
   if (defaults) {
     const rPr = wordChild(wordChild(defaults, "rPrDefault"), "rPr")
     const pPr = wordChild(wordChild(defaults, "pPrDefault"), "pPr")
     const paragraph = pPr ? readParagraphFormatting(pPr) : undefined
     catalog.docDefaults.rPr = rPr ? readRunProperties(rPr) : (paragraph?.markRPr ?? {})
     catalog.docDefaults.pPr = paragraph?.pPr ?? {}
+  }
+  if (catalog.wordDefaults) {
+    catalog.wordDefaults = { pPr: catalog.wordDefaults.pPr, rPr: catalog.docDefaults.rPr }
   }
   for (const node of wordChildren(root, "style")) {
     const style = readStyle(node)
@@ -2384,8 +2428,28 @@ function elementSource(node: MarkupNode | undefined, model: unknown): ElementSou
   if (!xml || strictSource?.strict) {
     return undefined
   }
-  const children = elementChildren(xml)
+  // A child whose value the schema does not allow (w:sz="abc", w:jc="sideways") is not kept: the model left it out, and
+  // written back it would leave a file Word refuses to open.
+  const children = elementChildren(xml).filter(allowedValue)
   return children.length > 0 ? { children, model: snapshot(model) } : undefined
+}
+
+/** Property elements whose w:val is a whole number (half-points, percent, a level). */
+const NUMBER_VALUES = new Set(["w:sz", "w:szCs", "w:kern", "w:position", "w:w", "w:outlineLvl"])
+const JUSTIFY_VALUES = new Set<string>([...JC_VALUES, "start", "end", "left", "right"])
+
+function allowedValue(child: { name: string; xml: string }) {
+  const value = /\bw:val="([^"]*)"/.exec(child.xml)?.[1]
+  if (value === undefined) {
+    return true
+  }
+  if (NUMBER_VALUES.has(child.name)) {
+    return /^-?\d+$/.test(value.trim())
+  }
+  if (child.name === "w:jc") {
+    return JUSTIFY_VALUES.has(value)
+  }
+  return true
 }
 
 /** Inline markers Word may put between paragraphs; they belong to the paragraph next to them. */
@@ -2447,8 +2511,9 @@ function readBlockChildren(node: MarkupNode, notes: WordNote[], raw: RawCursor =
         blocks.push(...inner)
         continue
       }
-      if (content && isTocControl(child)) {
-        // Read for the editor's table of contents; the control itself is written back as read.
+      if (content) {
+        // Read for the editor's table of contents, and to show any other control's content as Word draws it (its
+        // runs' styles, such as Placeholder Text); the control itself is written back as read.
         control.blocks = readBlocks(content, [])
       }
       blocks.push(control)

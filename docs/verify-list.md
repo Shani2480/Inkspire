@@ -7,6 +7,11 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Footnotes and endnotes drawn (2026-11-14)** — a long Word document with footnotes on several pages: each
+      page's footnotes sit at its foot below Word's separator, and the page breaks where Word's do. Also a footnote
+      referenced inside a table that breaks across pages (not placed yet, see `next-todo.md`).
+- [ ] **DATE field formats (2026-11-14)** — fields with `\@ "dddd, d MMMM yyyy"` and `\@ "h:mm am/pm"` show the same
+      text in the app as in Word on a non-English system locale.
 - [ ] **Runs that turn off their style, highlight, automatic colour (2026-11-13)** — a form whose heading-styled
       paragraphs turn bold/italic off per run, with yellow highlights and a dark header row in automatic colour,
       looks the same in Word and the app (`npm run audit:docx` reports no differences). Saved after adding a

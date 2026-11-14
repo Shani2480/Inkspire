@@ -113,6 +113,7 @@ const PARAGRAPH_FORMAT = [
   "shadingPattern",
   "border",
   "borderPen",
+  "borderSides",
   "borderSpace",
   "borderShadow",
   "borderFrame",

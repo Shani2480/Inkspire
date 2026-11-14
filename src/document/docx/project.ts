@@ -101,6 +101,14 @@ export type EditorView = {
   html: string
   chrome: DocumentChrome
   props: Partial<DocumentProps>
+  /** Each footnote's and endnote's text as HTML, by note id, and each kind's separator (`editor/page-notes.ts`). */
+  notes?: WordNoteTexts
+}
+
+export type WordNoteTexts = {
+  footnote: Record<string, string>
+  endnote: Record<string, string>
+  separator: { footnote?: string; endnote?: string }
 }
 
 type Build = InlineBuild & {
@@ -162,11 +170,48 @@ type Origins = {
 
 export function wordToEditor(doc: WordDocument): EditorView {
   assignKeys(doc)
+  const ctx = projectionFor(doc)
+  const html = sectionsHtml(doc, ctx)
+  const notes = noteTexts(doc, ctx)
   return {
-    html: sectionsHtml(doc, projectionFor(doc)),
+    html,
     chrome: chromeFromDocument(doc),
     props: {},
+    ...(notes ? { notes } : {}),
   }
+}
+
+/**
+ * The text of every note the body refers to, shown as the body's paragraphs are (each with its own style, its
+ * w:footnoteRef drawn as the reference's number), and the separator line each kind's notes start under.
+ */
+function noteTexts(doc: WordDocument, body: Projection): WordNoteTexts | undefined {
+  const texts: WordNoteTexts = { footnote: {}, endnote: {}, separator: {} }
+  let any = false
+  for (const kind of ["footnote", "endnote"] as const) {
+    const part = kind === "footnote" ? doc.footnotes : doc.endnotes
+    if (!part) {
+      continue
+    }
+    const noteDoc = (blocks: Block[]): WordDocument => ({
+      ...doc,
+      blocks,
+      media: storyMedia({ kind: "header", type: "default", relId: "", blocks, links: part.links }),
+      comments: undefined,
+    })
+    for (const [id, label] of body.noteLabels[kind]) {
+      const note = part.items.find((item) => item.id === id && !item.type)
+      if (note) {
+        texts[kind][String(id)] = blocksToHtml(note.blocks, { ...projectionFor(noteDoc(note.blocks)), noteMark: label })
+        any = true
+      }
+    }
+    const separator = part.items.find((item) => item.type === "separator")
+    if (separator) {
+      texts.separator[kind] = blocksToHtml(separator.blocks, projectionFor(noteDoc(separator.blocks)))
+    }
+  }
+  return any ? texts : undefined
 }
 
 export function editorToWord(
@@ -524,7 +569,7 @@ function blocksToHtml(blocks: Block[], ctx: Projection) {
         items.push(next)
         index += 1
       }
-      html += `<${tag}${listAttributes(tag, numId, items, ctx)}>${items.map((item) => listItemHtml(item, ctx)).join("")}</${tag}>`
+      html += `<${tag}${listAttributes(tag, numId, items, ctx)}>${items.map((item) => listItemHtml(item, numId, items, ctx)).join("")}</${tag}>`
       html += sectionBreakHtml(items[items.length - 1]!, ctx.doc)
       continue
     }
@@ -569,17 +614,9 @@ function listStart(numId: number, ctx: Projection) {
  * level's, for the first level and as the step to each deeper one.
  */
 function listAttributes(tag: string, numId: number, items: Paragraph[], ctx: Projection) {
-  const level = numberingLevel(ctx.doc.numbering, numId, 0)
   const start = listStart(numId, ctx)
   ctx.listNext.set(listKey(numId, ctx), start + items.filter((item) => (item.pPr.numPr?.ilvl ?? 0) === 0).length)
-  const leftOf = (item: Paragraph) =>
-    item.pPr.ind?.left ?? numberingLevel(ctx.doc.numbering, numId, item.pPr.numPr?.ilvl ?? 0)?.pPr.ind?.left
-  const first = items.find((item) => (item.pPr.numPr?.ilvl ?? 0) === 0) ?? items[0]
-  const left = (first && leftOf(first)) ?? level?.pPr.ind?.left
-  const deeper = items.find((item) => (item.pPr.numPr?.ilvl ?? 0) > 0)
-  const deeperLeft = deeper ? leftOf(deeper) : numberingLevel(ctx.doc.numbering, numId, 1)?.pPr.ind?.left
-  const depth = deeper?.pPr.numPr?.ilvl ?? 1
-  const step = left !== undefined && deeperLeft !== undefined ? (deeperLeft - left) / depth : undefined
+  const { left, step } = listGeometry(numId, items, ctx)
   const indent =
     left !== undefined
       ? `padding-left: ${left / 20}pt${step !== undefined && step > 0 ? `; --list-indent-step: ${step / 20}pt` : ""}`
@@ -587,6 +624,23 @@ function listAttributes(tag: string, numId: number, items: Paragraph[], ctx: Pro
   return `${tag === "ol" && start !== 1 ? ` start="${start}"` : ""} data-word-list="1"${
     indent ? ` data-word-indent="${indent}"` : ""
   }${wordLevelsAttribute(ctx.doc.numbering, numId, ctx.doc.settings.defaultTabStop)}`
+}
+
+/** An item's left indent in twips: its own, or else its numbering level's. */
+function itemLeft(item: Paragraph, numId: number, ctx: Projection) {
+  return item.pPr.ind?.left ?? numberingLevel(ctx.doc.numbering, numId, item.pPr.numPr?.ilvl ?? 0)?.pPr.ind?.left
+}
+
+/** Where a run of list items starts its text (twips from the margin), and the step to each deeper level. */
+function listGeometry(numId: number, items: Paragraph[], ctx: Projection) {
+  const level = numberingLevel(ctx.doc.numbering, numId, 0)
+  const first = items.find((item) => (item.pPr.numPr?.ilvl ?? 0) === 0) ?? items[0]
+  const left = (first && itemLeft(first, numId, ctx)) ?? level?.pPr.ind?.left
+  const deeper = items.find((item) => (item.pPr.numPr?.ilvl ?? 0) > 0)
+  const deeperLeft = deeper ? itemLeft(deeper, numId, ctx) : numberingLevel(ctx.doc.numbering, numId, 1)?.pPr.ind?.left
+  const depth = deeper?.pPr.numPr?.ilvl ?? 1
+  const step = left !== undefined && deeperLeft !== undefined ? (deeperLeft - left) / depth : undefined
+  return { left, step }
 }
 
 /**
@@ -663,12 +717,28 @@ function listTag(doc: WordDocument, numId: number) {
   return level?.format === "bullet" ? "ul" : "ol"
 }
 
-function listItemHtml(paragraph: Paragraph, ctx: Projection) {
+/**
+ * One list item. Its own w:ind wins over its level's, as in Word: a left indent other than where the list puts its
+ * level moves the item (`data-word-shift`, pt), and its own hanging or first-line indent replaces the level's hanging
+ * one for its marker (`data-word-own-hang`, pt; a first-line indent of 0 puts the marker at the text's start).
+ */
+function listItemHtml(paragraph: Paragraph, numId: number, items: Paragraph[], ctx: Projection) {
   const level = paragraph.pPr.numPr?.ilvl ?? 0
   const indent = level > 0 ? ` data-indent="${level}"` : ""
+  const { left, step } = listGeometry(numId, items, ctx)
+  const own = itemLeft(paragraph, numId, ctx)
+  const expected =
+    left === undefined ? undefined : level === 0 ? left : step !== undefined ? left + level * step : undefined
+  const shift = own !== undefined && expected !== undefined && own !== expected ? (own - expected) / 20 : 0
+  const ind = paragraph.pPr.ind
+  const hang =
+    ind?.hanging !== undefined ? ind.hanging / 20 : ind?.firstLine !== undefined ? -ind.firstLine / 20 : undefined
+  const attributes = `${indent}${shift ? ` data-word-shift="${Math.round(shift * 100) / 100}"` : ""}${
+    hang !== undefined ? ` data-word-own-hang="${Math.round(hang * 100) / 100}"` : ""
+  }`
   // A list item has to open with a paragraph; without a blank one the picture would be pushed out of the list.
   const opening = picturesOnly(paragraph, ctx.doc) ? "<p></p>" : ""
-  return `<li${indent}>${opening}${paragraphHtml(paragraph, ctx)}</li>`
+  return `<li${attributes}>${opening}${paragraphHtml(paragraph, ctx)}</li>`
 }
 
 const breakTypes = new WeakMap<WordDocument, Map<Paragraph, SectionProps["type"]>>()
@@ -858,7 +928,8 @@ function blockHtml(block: Block, ctx: Projection) {
     return tableHtml(block, ctx)
   }
   if (block.kind === "raw") {
-    return blockAtomHtml(block, block.text)
+    const shown = block.blocks?.length && /^<(?:\w+:)?sdt[\s>]/.test(block.xml) ? blocksToHtml(block.blocks, ctx) : ""
+    return blockAtomHtml(block, block.text, shown)
   }
   if (isPageBreak(block)) {
     const key = block.key ? ` data-docx="${block.key}"` : ""

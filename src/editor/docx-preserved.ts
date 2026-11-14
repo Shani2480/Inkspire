@@ -109,6 +109,26 @@ export const WordInline = Node.create({
   },
 })
 
+/** Markup a Word block shows, without anything that could run or navigate. */
+function shownMarkup(html: string) {
+  const template = document.createElement("template")
+  template.innerHTML = html
+  template.content
+    .querySelectorAll("script, style, iframe, object, embed, link, meta, form")
+    .forEach((node) => node.remove())
+  template.content.querySelectorAll("*").forEach((element) => {
+    for (const attribute of [...element.attributes]) {
+      if (
+        /^on/i.test(attribute.name) ||
+        ((attribute.name === "href" || attribute.name === "src") && !/^(#|data:image\/)/i.test(attribute.value))
+      ) {
+        element.removeAttribute(attribute.name)
+      }
+    }
+  })
+  return template.content
+}
+
 /** A block content control or display equation from a Word document. */
 export const WordBlock = Node.create({
   name: "wordBlock",
@@ -117,7 +137,40 @@ export const WordBlock = Node.create({
   selectable: true,
 
   addAttributes() {
-    return preservedAttributes()
+    return {
+      ...preservedAttributes(),
+      /** The control's content drawn as the body's paragraphs are (its styles, Placeholder Text); display only. */
+      shown: {
+        default: "",
+        parseHTML: (element: HTMLElement) => element.getAttribute("data-shown") ?? "",
+        renderHTML: (attributes: { shown?: string }) => (attributes.shown ? { "data-shown": attributes.shown } : {}),
+      },
+    }
+  },
+
+  addNodeView() {
+    return ({ node, HTMLAttributes }) => {
+      const dom = document.createElement("div")
+      for (const [name, value] of Object.entries(
+        mergeAttributes(HTMLAttributes, { "data-word-block": "", class: "word-block" }),
+      )) {
+        if (typeof value === "string" && name !== "data-shown" && name !== "data-payload") {
+          dom.setAttribute(name, value)
+        }
+      }
+      dom.contentEditable = "false"
+      const shown = String(node.attrs.shown ?? "")
+      if (shown) {
+        dom.append(shownMarkup(shown))
+      } else {
+        for (const line of String(node.attrs.text ?? "").split("\n")) {
+          const paragraph = document.createElement("p")
+          paragraph.textContent = line
+          dom.append(paragraph)
+        }
+      }
+      return { dom, ignoreMutation: () => true }
+    }
   },
 
   parseHTML() {
