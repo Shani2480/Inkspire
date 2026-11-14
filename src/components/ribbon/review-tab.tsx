@@ -1,5 +1,3 @@
-import { useEditingOptions } from "@/document/editing-options"
-import { readability } from "@/lib/readability"
 import { useProofing } from "@/ai/proofing"
 import { useEditorPane } from "@/editor/grammar"
 import { EditorIcon, RibbonSvg } from "@/components/ribbon/icons"
@@ -31,7 +29,6 @@ import { addComment, deleteComment, listComments, selectComment } from "@/editor
 import { useDocumentEditor } from "@/editor/document-editor"
 import { checkSpellingNow } from "@/editor/spellcheck"
 import { acceptChanges, changeAtSelection, listChanges, rejectChanges } from "@/editor/track-changes"
-import { DOCUMENT_LANGUAGES } from "@/document/languages"
 import { useDocumentStore } from "@/document/store"
 import { useAccessibility } from "@/ai/accessibility-check"
 import { openCompare } from "@/components/compare-dialog"
@@ -39,6 +36,7 @@ import type { Editor } from "@tiptap/core"
 import { useEditorState } from "@tiptap/react"
 import { useState } from "react"
 import { DialogFrame } from "@/components/word-dialog"
+import { LanguageDialog, WordCountDialog } from "@/components/status-dialogs"
 
 const MARKUP: { id: MarkupMode; label: string }[] = [
   { id: "simple", label: "Simple Markup" },
@@ -79,6 +77,7 @@ export function ReviewTab() {
   const openProofing = useProofing((state) => state.openPanel)
   const openEditorPane = useEditorPane((state) => state.openPane)
   const [countOpen, setCountOpen] = useState(false)
+  const [languageOpen, setLanguageOpen] = useState(false)
   const openAccessibility = useAccessibility((state) => state.openPane)
   const [notesOpen, setNotesOpen] = useState(false)
   const ribbonLayout = useViewStore((state) => state.ribbonLayout)
@@ -267,6 +266,7 @@ export function ReviewTab() {
   const dialogs = (
     <>
       {countOpen ? <WordCountDialog editor={editor} onClose={() => setCountOpen(false)} /> : null}
+      {languageOpen ? <LanguageDialog editor={editor} onClose={() => setLanguageOpen(false)} /> : null}
       {notesOpen && editor ? <LinkedNotesDialog editor={editor} onClose={() => setNotesOpen(false)} /> : null}
     </>
   )
@@ -417,7 +417,7 @@ export function ReviewTab() {
             id: "language",
             label: "Language",
             icon: <LanguageIcon />,
-            menu: (close) => <LanguageList close={close} />,
+            menu: (close) => <LanguageList close={close} onProofing={() => setLanguageOpen(true)} />,
           },
         ],
       },
@@ -515,7 +515,10 @@ export function ReviewTab() {
         <RibbonCommand label="Translate" disabled={off} menu={translateMenu}>
           <TranslateIcon />
         </RibbonCommand>
-        <RibbonCommand label="Language" menu={(close) => <LanguageList close={close} />}>
+        <RibbonCommand
+          label="Language"
+          menu={(close) => <LanguageList close={close} onProofing={() => setLanguageOpen(true)} />}
+        >
           <LanguageIcon />
         </RibbonCommand>
       </RibbonGroup>
@@ -728,23 +731,18 @@ function stepChange(editor: Editor, direction: 1 | -1) {
   }
 }
 
-function LanguageList({ close }: { close: () => void }) {
-  const setup = useDocumentStore((state) => state.pageSetup)
-  const setPageSetup = useDocumentStore((state) => state.setPageSetup)
+/** Review > Language > Language, as in Word: Set Proofing Language… opens the Language dialog. */
+function LanguageList({ close, onProofing }: { close: () => void; onProofing: () => void }) {
   return (
     <div className="flex w-56 flex-col">
-      {DOCUMENT_LANGUAGES.map((item) => (
-        <MenuButton
-          key={item.id}
-          selected={setup.language === item.id}
-          onClick={() => {
-            setPageSetup({ ...setup, language: item.id })
-            close()
-          }}
-        >
-          {item.label}
-        </MenuButton>
-      ))}
+      <MenuButton
+        onClick={() => {
+          close()
+          onProofing()
+        }}
+      >
+        Set Proofing Language…
+      </MenuButton>
     </div>
   )
 }
@@ -1097,52 +1095,6 @@ function LinkedNotesDialog({ editor, onClose }: { editor: Editor; onClose: () =>
         </button>
         <button type="submit" className="dialog-btn is-primary">
           Save Note
-        </button>
-      </div>
-    </DialogFrame>
-  )
-}
-
-function WordCountDialog({ editor, onClose }: { editor: Editor | null; onClose: () => void }) {
-  const text = editor?.state.doc.textContent ?? ""
-  const words = text.trim() ? text.trim().split(/\s+/).length : 0
-  let paragraphs = 0
-  editor?.state.doc.descendants((node) => {
-    if (node.type.name === "paragraph" || node.type.name === "heading") {
-      paragraphs += 1
-    }
-  })
-  const pages = editor?.storage.pagination?.pageCount ?? 1
-  const showReadability = useEditingOptions((state) => state.readability)
-  const scores = showReadability
-    ? readability(editor?.state.doc.textBetween(0, editor.state.doc.content.size, "\n", " ") ?? "")
-    : null
-  return (
-    <DialogFrame title="Word Count" width={288} onClose={onClose}>
-      <dl className="mt-3 grid grid-cols-2 gap-y-1 text-sm">
-        <dt>Pages</dt>
-        <dd>{pages}</dd>
-        <dt>Words</dt>
-        <dd>{words}</dd>
-        <dt>Characters</dt>
-        <dd>{text.length}</dd>
-        <dt>Paragraphs</dt>
-        <dd>{paragraphs}</dd>
-      </dl>
-      {showReadability ? (
-        <dl aria-label="Readability" className="mt-3 grid grid-cols-2 gap-y-1 border-t pt-2 text-sm">
-          <dt>Sentences</dt>
-          <dd>{scores?.sentences ?? 0}</dd>
-          <dt>Flesch Reading Ease</dt>
-          <dd>{scores?.ease ?? "—"}</dd>
-          <dt>Flesch-Kincaid Grade Level</dt>
-          <dd>{scores?.grade ?? "—"}</dd>
-        </dl>
-      ) : null}
-      <div className="word-dialog-actions">
-        <span className="flex-1" />
-        <button type="button" className="dialog-btn is-primary" onClick={onClose}>
-          Close
         </button>
       </div>
     </DialogFrame>

@@ -442,6 +442,9 @@ export function savedMarksOf(props: RunProperties): JsonMark[] {
   if (Object.keys(style).length > 0) {
     add("textStyle", style)
   }
+  if (props.lang?.val || props.noProof) {
+    add("proofing", { lang: props.lang?.val ?? null, noProof: props.noProof === true })
+  }
   return marks.sort((left, right) => String(left.type).localeCompare(String(right.type)))
 }
 
@@ -1437,6 +1440,11 @@ function wrapText(text: string, props: RunProperties, theme: ThemeFonts) {
       .join(" ")
     html = `<span ${attributes}>${html}</span>`
   }
+  // The run's language and "Do not check spelling or grammar", for the spell checker and the Language dialog.
+  if (props.lang?.val || props.noProof) {
+    const lang = props.lang?.val ? ` data-lang="${escapeHtml(props.lang.val)}"` : ""
+    html = `<span data-proofing${lang}${props.noProof ? " data-no-proof" : ""}>${html}</span>`
+  }
   return html
 }
 
@@ -1514,6 +1522,9 @@ type VisibleRun = {
   box: string
   /** The highlight colour (hex), or "". */
   highlight: string
+  /** The run's language (w:lang w:val), or "". */
+  lang: string
+  noProof: boolean
 }
 
 function visibleRun(props: RunProperties, theme: ThemeFonts): VisibleRun {
@@ -1528,6 +1539,8 @@ function visibleRun(props: RunProperties, theme: ThemeFonts): VisibleRun {
     sz: props.sz ?? 0,
     box: JSON.stringify(textBoxOfRun(props)),
     highlight: highlightHex(props) ?? "",
+    lang: props.lang?.val ?? "",
+    noProof: props.noProof === true,
   }
 }
 
@@ -1587,6 +1600,14 @@ export function runPropertiesFromEdit(
   }
   if (after.highlight !== before.highlight) {
     base.highlight = edited.highlight
+  }
+  if (after.lang !== before.lang) {
+    // The Language dialog sets the run's language; East Asian and complex script languages stay as they were.
+    const lang = { ...base.lang, val: after.lang || undefined }
+    base.lang = lang.val || lang.eastAsia || lang.bidi ? lang : undefined
+  }
+  if (after.noProof !== before.noProof) {
+    base.noProof = after.noProof || undefined
   }
   return Object.fromEntries(Object.entries(base).filter(([, value]) => value !== undefined)) as RunProperties
 }
@@ -2116,6 +2137,13 @@ export function propsFromMarks(marks: JsonMark[]): RunProperties {
   if (size) {
     props.sz = Math.round(size * 2)
     props.szCs = props.sz
+  }
+  const proofing = marks.find((mark) => mark.type === "proofing")
+  if (typeof proofing?.attrs?.lang === "string" && proofing.attrs.lang) {
+    props.lang = { val: proofing.attrs.lang }
+  }
+  if (proofing?.attrs?.noProof === true) {
+    props.noProof = true
   }
   return props
 }

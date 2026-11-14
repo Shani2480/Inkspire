@@ -16027,3 +16027,181 @@ textarea.tp-input {
 .theme-fonts-sample-box > span:last-child {
   font-size: 11px;
 }
+
+/* Status bar dialogs (U17): Word Count, Zoom and Language. */
+.status-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.status-dialog-heading {
+  margin: 0;
+}
+
+.status-dialog-note {
+  margin: 0;
+  color: var(--dlg-muted);
+  line-height: 1.4;
+}
+
+.word-count-table {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 0 12px;
+}
+
+.word-count-table > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  line-height: 20px;
+}
+
+.word-count-table dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.zoom-dialog-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.zoom-dialog-grid select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 24px;
+  border: 1px solid var(--dlg-control-border);
+  border-radius: 2px;
+  background: var(--dlg-surface);
+  color: var(--dlg-text);
+  font-size: 12px;
+}
+
+.zoom-dialog-lower {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+}
+
+.zoom-dialog-percent {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding-top: 10px;
+}
+
+.zoom-dialog-sample {
+  display: flex;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid #c8c8c8;
+  background: #ffffff;
+  color: #000000;
+  white-space: nowrap;
+}
+
+.language-dialog-list {
+  display: flex;
+  max-height: min(220px, calc(100vh - 320px));
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 1px solid var(--dlg-control-border);
+  background: var(--dlg-surface);
+}
+
+.language-dialog-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--dlg-text);
+  font-size: 12px;
+  line-height: 20px;
+  text-align: left;
+  cursor: default;
+}
+
+.language-dialog-item:hover {
+  background: var(--dlg-item-hover);
+}
+
+.language-dialog-item[aria-selected="true"] {
+  background: var(--dlg-accent);
+  color: var(--dlg-accent-text);
+}
+
+.language-dialog-proofed {
+  width: 14px;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+/* Customize Status Bar: Word's ticked list with each item's value on the right. */
+.status-customize {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  width: 360px;
+  max-width: calc(100vw - 16px);
+  flex-direction: column;
+  border: 1px solid var(--app-popover-border);
+  border-radius: 6px;
+  background: var(--app-popover-bg);
+  box-shadow: var(--dlg-shadow);
+  padding: 4px 0;
+  color: var(--dlg-text);
+  font-size: 12px;
+  will-change: opacity;
+}
+
+.status-customize-title {
+  margin: 0;
+  padding: 4px 12px 6px;
+  font-weight: 600;
+}
+
+.status-customize-row {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  border: 0;
+  background: transparent;
+  padding: 0 12px 0 6px;
+  color: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.status-customize-row:hover,
+.status-customize-row:focus-visible {
+  background: var(--dlg-hover);
+  outline: none;
+}
+
+.status-customize-check {
+  display: flex;
+  justify-content: center;
+}
+
+.status-customize-value {
+  max-width: 170px;
+  overflow: hidden;
+  color: var(--dlg-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -9,6 +9,7 @@ import { FontSize, TextStyle } from "@tiptap/extension-text-style"
 import { WordLineHeight } from "@/editor/line-height"
 import StarterKit from "@tiptap/starter-kit"
 import { CharacterStyle, StyledUnderline, SubscriptMark, SuperscriptMark, TextBoxMark } from "@/editor/character-format"
+import { ProofingMark } from "@/editor/proofing"
 import { FormatPainter } from "@/editor/home-actions"
 import { StyledBulletList, StyledOrderedList } from "@/editor/lists"
 import { BlankPage } from "@/editor/blank-page"
@@ -105,6 +106,7 @@ export function createExtensions() {
     SubscriptMark.configure(),
     SuperscriptMark.configure(),
     TextBoxMark.configure(),
+    ProofingMark.configure(),
     CharacterStyle.configure(),
     FormatPainter.configure(),
     TextStyle.configure(),

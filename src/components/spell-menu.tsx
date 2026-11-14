@@ -2,7 +2,7 @@ import { MenuButton } from "@/components/ribbon/ribbon-button"
 import { replaceSpelling } from "@/editor/actions"
 import { refreshDisplayedMarks } from "@/editor/display-refresh"
 import { useBodyEditor } from "@/editor/document-editor"
-import { addToDictionary, ignoreSpelling, spellingSuggestions } from "@/editor/spellcheck"
+import { addToDictionary, ignoreSpelling, markedLanguageAt, spellingSuggestions } from "@/editor/spellcheck"
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 
@@ -50,7 +50,7 @@ export function SpellMenu() {
         from,
         to,
         word,
-        suggestions: spellingSuggestions(word),
+        suggestions: spellingSuggestions(word, markedLanguageAt(editor.state.doc, from)),
         x: rect.left,
         y: rect.bottom + 4,
       })

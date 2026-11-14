@@ -1,5 +1,5 @@
 import { useEditingOptions } from "@/document/editing-options"
-import { normalizeDocumentLanguage, type DocumentLanguageId } from "@/document/languages"
+import { normalizeDocumentLanguage, proofingLanguage, type DocumentLanguageId } from "@/document/languages"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
 import { refreshDisplayedMarks } from "@/editor/display-refresh"
@@ -206,8 +206,12 @@ export function addToDictionary(word: string) {
   return lang
 }
 
-export function spellingSuggestions(word: string) {
-  if (!activeSpell) {
+/** Suggestions for a word, from the dictionary of the language its text is marked with (a w:lang tag) if any. */
+export function spellingSuggestions(word: string, tag?: string | null) {
+  const marked = tag ? proofingLanguage(tag) : null
+  const spell = (marked && cache.get(marked)) || activeSpell
+  const language = (marked && cache.has(marked) ? marked : activeLanguage) ?? currentLanguage()
+  if (!spell) {
     return []
   }
   const target = normalizeToken(word)
@@ -215,10 +219,8 @@ export function spellingSuggestions(word: string) {
     return []
   }
   try {
-    const own = useEditingOptions.getState().mainDictionaryOnly
-      ? customWordSet(activeLanguage ?? currentLanguage())
-      : null
-    return activeSpell
+    const own = useEditingOptions.getState().mainDictionaryOnly ? customWordSet(language) : null
+    return spell
       .suggest(target)
       .filter((suggestion) => !own?.has(normalizeToken(suggestion)))
       .slice(0, SUGGESTION_LIMIT)
@@ -232,36 +234,35 @@ function normalizeToken(word: string) {
   return word.normalize("NFC").replace(/’/g, "'").toLowerCase()
 }
 
-function knownWord(word: string) {
-  if (!activeSpell) {
+function knownWord(word: string, spell = activeSpell, language = activeLanguage) {
+  if (!spell) {
     return true
   }
   const lower = normalizeToken(word)
   if (!lower || ignoredWords.has(lower)) {
     return true
   }
-  const language = activeLanguage ?? currentLanguage()
-  if (customWordSet(language).has(lower)) {
+  if (customWordSet(language ?? currentLanguage()).has(lower)) {
     return true
   }
   try {
-    if (activeSpell.correct(lower) || activeSpell.correct(word)) {
+    if (spell.correct(lower) || spell.correct(word)) {
       return true
     }
   } catch {
     return true
   }
   // English-style possessives / contractions against the stem.
-  if (activeLanguage === "en-US" || activeLanguage === "en-GB") {
+  if (language === "en-US" || language === "en-GB") {
     if (lower === "won't" || lower === "can't" || lower === "shan't") {
       return true
     }
     const possessive = /^([\p{L}]+)'s$/u.exec(lower)
-    if (possessive && activeSpell.correct(possessive[1])) {
+    if (possessive && spell.correct(possessive[1])) {
       return true
     }
     const contraction = /^([\p{L}]+)(?:n't|'(?:re|ve|ll|d|m))$/u.exec(lower)
-    if (contraction && activeSpell.correct(contraction[1])) {
+    if (contraction && spell.correct(contraction[1])) {
       return true
     }
   }
@@ -321,10 +322,26 @@ const checkedText = new WeakMap<ProseMirrorNode, { key: string; errors: [number,
 /** Bumped when a word is ignored or added, which changes what counts as misspelt. */
 let wordsVersion = 0
 
+/** The editor whose page shows the underlines, redrawn once a dictionary for text in another language has loaded. */
+let shownEditor: Editor | null = null
+
+/** Loads the dictionary for text marked with another language, then draws its underlines. */
+function requestLanguage(language: DocumentLanguageId) {
+  if (loading.has(language)) {
+    return
+  }
+  void loadSpell(language).then(() => {
+    if (shownEditor && !shownEditor.isDestroyed) {
+      refreshDisplayedMarks(shownEditor)
+    }
+  })
+}
+
 function checkSettingsKey() {
   const options = useEditingOptions.getState()
   return [
     activeLanguage,
+    [...cache.keys()].join(","),
     wordsVersion,
     options.ignoreAddresses,
     options.ignoreNumbers,
@@ -346,6 +363,29 @@ function spellingDecorations(doc: ProseMirrorNode) {
     }
     if (!node.isText || !node.text || node.marks.some((mark) => mark.type.name === "code")) {
       return
+    }
+    // Word's Language dialog: text marked "Do not check spelling or grammar" is skipped, text in another language is
+    // checked with that language's dictionary, and text in a language without one is not checked.
+    const proofing = node.marks.find((mark) => mark.type.name === "proofing")
+    if (proofing?.attrs.noProof) {
+      return
+    }
+    let spell: SpellChecker | null = activeSpell
+    let language = activeLanguage
+    if (proofing?.attrs.lang) {
+      const marked = proofingLanguage(String(proofing.attrs.lang))
+      if (!marked) {
+        return
+      }
+      if (marked !== activeLanguage) {
+        const other = cache.get(marked)
+        if (!other) {
+          requestLanguage(marked)
+          return
+        }
+        spell = other
+        language = marked
+      }
     }
     // Typing changes one paragraph; the words of every other one were checked already.
     const kept = checkedText.get(node)
@@ -375,7 +415,7 @@ function spellingDecorations(doc: ProseMirrorNode) {
         /^\s+$/.test(node.text.slice(previousEnd, match.index))
       previous = word.toLowerCase()
       previousEnd = match.index + word.length
-      if (repeated || (!skipped && !knownWord(word))) {
+      if (repeated || (!skipped && !knownWord(word, spell, language))) {
         errors.push([match.index, match.index + word.length])
         decorations.push(spellDecoration(pos + match.index, pos + match.index + word.length))
       }
@@ -471,6 +511,7 @@ export const Spellcheck = Extension.create({
 
   onCreate() {
     const editor = this.editor
+    shownEditor = editor
     const reload = () => {
       void ensureDictionary().then(() => {
         refreshDisplayedMarks(editor)
@@ -492,6 +533,9 @@ export const Spellcheck = Extension.create({
   },
 
   onDestroy() {
+    if (shownEditor === this.editor) {
+      shownEditor = null
+    }
     this.storage.cancelStart?.()
     this.storage.cancelStart = null
     this.storage.unsubscribe?.()
@@ -538,3 +582,10 @@ export const Spellcheck = Extension.create({
     ]
   },
 })
+
+/** The language tag (w:lang) the text at a position is marked with, for that language's suggestions. */
+export function markedLanguageAt(doc: ProseMirrorNode, pos: number): string | null {
+  const node = pos >= 0 && pos < doc.content.size ? doc.nodeAt(pos) : null
+  const mark = node?.marks.find((item) => item.type.name === "proofing")
+  return typeof mark?.attrs.lang === "string" ? mark.attrs.lang : null
+}

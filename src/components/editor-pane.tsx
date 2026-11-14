@@ -19,6 +19,7 @@ import {
   checkSpellingNow,
   ignoreSpelling,
   listSpellingErrors,
+  markedLanguageAt,
   spellingSuggestions,
   type SpellingError,
 } from "@/editor/spellcheck"
@@ -240,7 +241,10 @@ function goTo(editor: Editor | null, from: number, to: number) {
 }
 
 function SpellingCard({ error, editor }: { error: SpellingError; editor: Editor | null }) {
-  const suggestions = spellingSuggestions(error.word)
+  const suggestions = spellingSuggestions(
+    error.word,
+    editor && !editor.isDestroyed ? markedLanguageAt(editor.state.doc, error.from) : null,
+  )
   return (
     <li className="comment-card" data-issue="spelling">
       <button

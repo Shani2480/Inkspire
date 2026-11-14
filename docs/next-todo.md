@@ -116,11 +116,12 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
       subdocuments in the app); Heading 7-9's own look.
 - [x] U16. Design: Style Sets gallery, Paragraph Spacing presets, Customize Colors / Fonts, Save Current Theme.
       Done 2026-11-14 (`document/design.ts`, `components/ribbon/design-tab.tsx`, `components/theme-dialogs.tsx`).
-      Left: Save as a New Style Set…, Custom Paragraph Spacing…, Edit / Delete on a custom scheme; the status
-      bar's word count reads an editor that is not ready at startup (React recovers; also before U16).
-- [ ] U17. Status bar: click the word count (Word Count), the page (Go To), the zoom % (Zoom dialog); "12 of 340
+      Left: Save as a New Style Set…, Custom Paragraph Spacing…, Edit / Delete on a custom scheme.
+- [x] U17. Status bar: click the word count (Word Count), the page (Go To), the zoom % (Zoom dialog); "12 of 340
       words" for a selection; Track Changes indicator; right-click Customize Status Bar; the language applies to the
-      selection, with "Do not check spelling".
+      selection, with "Do not check spelling". Done 2026-11-14 (`components/status-bar.tsx`,
+      `components/status-dialogs.tsx`, `editor/proofing.ts`, `editor/word-count.ts`). Left: Formatted Page Number,
+      Vertical Page Position, Line Number and Column; Zoom's Text width; Detect language automatically.
 - [ ] U18. KeyTips (Alt shows letter badges on tabs and commands).
 - [ ] U19. List context menu: Restart at 1, Continue Numbering, Set Numbering Value, Adjust List Indents.
 - [ ] U20. Spelling context menu: Ignore All, AutoCorrect submenu, Language; grammar marks (listed: Editor pane).

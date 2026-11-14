@@ -7,6 +7,55 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-14
 
+### Status bar: Go To, Word Count, Zoom, Language and Customize Status Bar (U17)
+
+- **What was wrong or missing:** the status bar's page number, word count and zoom were plain text. A selection
+  had no count of its own. The language button changed the whole document's language, and there was no way to
+  mark some text as another language or as not to be checked. There was no Track Changes indicator and no Customize
+  Status Bar.
+- **What changed:**
+  - **Clicks** (`components/status-bar.tsx`): the page number opens Go To, the word count Word Count, the language
+    the Language dialog, and the zoom percentage the Zoom dialog. The book icon opens the Editor pane (a tick, or a
+    cross when there are spelling errors).
+  - **Selection counts:** "3 of 43 words" while text is selected, the character count likewise.
+  - **Customize Status Bar** on right-click: Word's items with ticks and current values, saved per user
+    (`document/status-bar.ts`). Section, Character Count, Track Changes (click to turn on or off), Caps Lock and
+    Overtype are off by default, as in Word.
+  - **Shared dialogs** (`components/status-dialogs.tsx`), now also used by Review > Word Count and View > Zoom:
+    - Word Count with Word's statistics (pages, words, characters with and without spaces, paragraphs, lines) for
+      the selection or the document, and "Include textboxes, footnotes and endnotes" (`editor/word-count.ts`).
+    - Zoom with 200 / 100 / 75 %, Page width, Whole page, Many pages, Percent and a preview.
+    - Language: marks the selection (or the word at the caret) with a language, or "Do not check spelling or
+      grammar"; Set As Default changes the document's language. Review > Language now opens it through Set Proofing
+      Language….
+  - **Language on text:** a new `proofing` mark (`editor/proofing.ts`) carries `w:lang` and `w:noProof`. It is
+    read from and written to .docx (`docx/inlines.ts`), and an opened run keeps its other properties when only its
+    language changes.
+  - **Spelling:** `editor/spellcheck.ts` skips "do not check" text and checks text in another language with that
+    language's dictionary, loading it when needed. Text in a language the app has no dictionary for is not checked,
+    as in Word. Suggestions come from the word's language.
+  - **Startup fix** (`editor/document-editor.tsx`): the editor is now made after the first render
+    (`immediatelyRender: false`). TipTap destroyed an editor made during render 1 ms later unless the app had
+    mounted by then, and the app's first render is split into chunks by React. Components then started with a
+    destroyed editor and the first one to read its view took the window down. Until now, the status bar's start-up
+    error (logged in U16) happened to force React to finish the render in one go. Start-up now logs no errors.
+- **Checked:**
+  - `editor/proofing.test.ts` (8 tests): marking a selection, the word at the caret, noProof saved and opened,
+    changing an opened run's language, word and selection counts.
+  - The full suite: 1514 tests pass. Typecheck and ESLint are clean.
+  - The validator: 0 errors on a save with `w:lang` and `w:noProof`.
+  - Chrome, light and dark: each click opens its dialog; "3 of 43 words"; marking "een Nederlandse zin" as Dutch
+    takes its three red underlines off and shows "Dutch"; Zoom 75 % applies; Customize Status Bar turns on
+    Section, Character Count and Track Changes, and Track Changes then toggles from the bar; start-up has no console
+    errors (four runs).
+  - The dialog overflow crawl.
+- **Still open:**
+  - Formatted Page Number, Vertical Page Position, Line Number and Column in Customize Status Bar.
+  - Text width in the Zoom dialog.
+  - Detect language automatically.
+  - Language Preferences… (Options > Language, U24).
+  - The Customize Status Bar list follows Word from memory; there is no screenshot of it in the repo.
+
 ### Design tab: Style Sets, Paragraph Spacing, Customize Colors / Fonts, Save Current Theme (U16)
 
 - **What was wrong or missing:** the Design tab had a short list of app-made themes and colour/font choices that
@@ -47,9 +96,8 @@ in Word, Chrome or the desktop app.
   - Custom Paragraph Spacing… (needs Manage Styles).
   - Editing or deleting a custom scheme from its right-click menu.
   - Save Current Theme… and Browse for Themes… were not run in the desktop app (`verify-list.md`).
-  - At startup the status bar's word count reads an editor that is not ready yet, and React recovers by rendering
-    again. This happens before this change too. A guard in `use-settled.ts` changed startup timing, so it was left
-    for its own fix.
+  - At startup the status bar's word count read an editor that was not ready yet (before this change too); found
+    and fixed with U17 (the editor is made after the first render).
 
 ### Outline view and the Outlining tab (U15)
 

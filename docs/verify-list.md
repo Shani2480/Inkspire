@@ -13,6 +13,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - [x] **Citations, bibliography and sources (2026-11-14)** — checked in Word in the VM: an app-made document in each
       of APA, Chicago, Harvard, IEEE, MLA and Turabian opens with that style and its 9 sources in Source Manager;
       Update Field gives the same citations and bibliography (IEEE as a table); Word keeps the app's citations on save.
+- [ ] **Language on text (2026-11-14)**: a phrase marked Dutch in the app shows "Dutch (Netherlands)" in
+  Word's status bar with the caret in it, and a word marked "Do not check spelling or grammar" gets no red
+  underline in Word; a Word document with a German paragraph opens in the app with "German" in the status bar.
 - [ ] **Design tab in the desktop app (2026-11-14)**: Save Current Theme… writes a `.thmx` that Word's Themes >
   Browse for Themes… loads; Browse for Themes… in the app loads a `.thmx` saved by Word; a custom colour scheme made
   in the app shows its colours in Word's Design > Colors after the document is saved.
