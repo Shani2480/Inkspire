@@ -1489,6 +1489,10 @@ function readBorder(node: MarkupNode | undefined): Border | undefined {
   if (color) {
     border.color = color
   }
+  const colorTheme = readThemeRef(node, "themeColor", "themeTint", "themeShade")
+  if (colorTheme) {
+    border.colorTheme = colorTheme
+  }
   if (isOn(attr(node, "shadow"))) {
     border.shadow = true
   }
@@ -1611,7 +1615,26 @@ function readShading(node: MarkupNode | undefined) {
   if (fill) {
     shading.fill = fill
   }
+  const colorTheme = readThemeRef(node, "themeColor", "themeTint", "themeShade")
+  if (colorTheme) {
+    shading.colorTheme = colorTheme
+  }
+  const fillTheme = readThemeRef(node, "themeFill", "themeFillTint", "themeFillShade")
+  if (fillTheme) {
+    shading.fillTheme = fillTheme
+  }
   return shading
+}
+
+/** A theme colour reference on a border or shading (w:themeColor with its tint and shade, or the fill's). */
+function readThemeRef(node: MarkupNode, nameAttr: string, tintAttr: string, shadeAttr: string) {
+  const name = attr(node, nameAttr)
+  if (!name) {
+    return undefined
+  }
+  const tint = attr(node, tintAttr)
+  const shade = attr(node, shadeAttr)
+  return { name, ...(tint ? { tint } : {}), ...(shade ? { shade } : {}) }
 }
 
 /** w:tblpPr: where a table text wraps around sits. */
@@ -1996,6 +2019,13 @@ function readRunModel(node: MarkupNode): RunProperties {
   const color = readColor(childVal(node, "color"))
   if (color) {
     props.color = color
+    const colorNode = wordChild(node, "color")
+    const themeColor = colorNode ? attr(colorNode, "themeColor") : undefined
+    if (themeColor) {
+      const tint = colorNode ? attr(colorNode, "themeTint") : undefined
+      const shade = colorNode ? attr(colorNode, "themeShade") : undefined
+      props.colorTheme = { name: themeColor, ...(tint ? { tint } : {}), ...(shade ? { shade } : {}) }
+    }
   }
   assignInt(props, "spacing", childVal(node, "spacing"))
   assignInt(props, "w", childVal(node, "w"))

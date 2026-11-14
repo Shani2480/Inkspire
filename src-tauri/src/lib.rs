@@ -622,7 +622,7 @@ fn assert_local_document_path(path: &str) -> Result<PathBuf, String> {
 fn is_local_document_extension(ext: &str) -> bool {
     matches!(
         ext,
-        "html" | "htm" | "txt" | "md" | "rtf" | "docx" | "docm" | "dotx" | "dotm" | "odt" | "pdf"
+        "html" | "htm" | "txt" | "md" | "rtf" | "docx" | "docm" | "dotx" | "dotm" | "odt" | "pdf" | "thmx"
     )
 }
 

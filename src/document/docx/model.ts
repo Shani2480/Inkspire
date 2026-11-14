@@ -161,6 +161,8 @@ export type RunProperties = {
   noProof?: boolean
   vanish?: boolean
   color?: string
+  /** w:color's theme colour (accent1, text1…) with its tint or shade (hex 00–FF): Word draws it from the theme. */
+  colorTheme?: ThemeColorRef
   spacing?: number
   w?: number
   kern?: number
@@ -558,11 +560,16 @@ export type MergeValue = (typeof MERGE_VALUES)[number]
  * One w:top / w:bottom … border: its line, width in eighths of a point, gap in points, colour, Word's shadow, and its
  * frame effect (the 3-D setting, which reverses the line's inner and outer edges).
  */
+/** A colour taken from the theme (accent1, text1…) with its tint or shade (hex 00–FF); Word draws it from the theme. */
+export type ThemeColorRef = { name: string; tint?: string; shade?: string }
+
 export type Border = {
   value: BorderValue
   sz?: number
   space?: number
   color?: string
+  /** w:themeColor with w:themeTint / w:themeShade: the line's colour follows the theme. */
+  colorTheme?: ThemeColorRef
   shadow?: boolean
   frame?: boolean
 }
@@ -588,7 +595,15 @@ export type TableLook = {
 }
 export type CellMargin = { value: number; type: TableWidthType }
 export type CellMargins = { top?: CellMargin; left?: CellMargin; bottom?: CellMargin; right?: CellMargin }
-export type Shading = { value: ShadingValue; color?: string; fill?: string }
+export type Shading = {
+  value: ShadingValue
+  color?: string
+  fill?: string
+  /** w:themeColor / w:themeTint / w:themeShade of the pattern colour. */
+  colorTheme?: ThemeColorRef
+  /** w:themeFill / w:themeFillTint / w:themeFillShade: the fill follows the theme. */
+  fillTheme?: ThemeColorRef
+}
 export type TableWidth = { value: number; type: TableWidthType }
 /** How cells look beyond their shading. Shown in the editor; saving writes w:tcPr from its source. */
 export type CellLook = { borders?: TableBorders; margins?: CellMargins; vAlign?: "top" | "center" | "bottom" }
@@ -1195,6 +1210,7 @@ function applyRunLayer(base: RunProperties, next: RunProperties, mode: "absolute
     noProof: next.noProof ?? base.noProof,
     vanish: applyToggle(base.vanish, next.vanish, mode),
     color: next.color ?? base.color,
+    colorTheme: next.color !== undefined ? next.colorTheme : base.colorTheme,
     spacing: next.spacing ?? base.spacing,
     w: next.w ?? base.w,
     kern: next.kern ?? base.kern,
@@ -1277,6 +1293,9 @@ function compactRun(props: RunProperties): RunProperties {
   assignToggle(result, "vanish", props.vanish)
   if (props.color !== undefined) {
     result.color = props.color
+  }
+  if (props.colorTheme !== undefined) {
+    result.colorTheme = { ...props.colorTheme }
   }
   if (props.spacing !== undefined) {
     result.spacing = props.spacing

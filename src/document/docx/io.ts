@@ -11,6 +11,8 @@ import { decodeXml, escapeXml, xmlBytes } from "@/document/docx/xml"
 import { paragraphsIn, type WordDocument } from "@/document/docx/model"
 import type { DocumentProps } from "@/document/store"
 import type { StyleDef } from "@/document/styles"
+import { currentTheme, designedCatalog, themeChanged, writeThemePart } from "@/document/design"
+import { designChanged } from "@/document/docx/session"
 
 const CORE_TYPE = "application/vnd.openxmlformats-package.core-properties+xml"
 const CORE_REL = "http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties"
@@ -51,10 +53,17 @@ export async function saveDocxBytes(input: {
     input.review !== undefined &&
     (Boolean(settings?.trackRevisions) !== input.review.trackRevisions ||
       JSON.stringify(settings?.protection ?? null) !== JSON.stringify(input.review.protection))
-  const word =
+  // Older callers (and some tests) pass chrome without a page setup.
+  const setup = input.chrome.pageSetup as typeof input.chrome.pageSetup | undefined
+  const designed = setup ? designChanged(setup) : false
+  let word =
     input.unchanged && input.word && !reviewChanged && !input.notes && !input.bibliography
       ? input.word
       : editorToWord(input.json, input.chrome, input.props ?? {}, input.word, input.styles)
+  if (setup && designed) {
+    // Design tab: the Style Set and Paragraph Spacing go into styles.xml, the theme into the theme part.
+    word = { ...word, styles: designedCatalog(word.styles, setup, !input.word) }
+  }
   if (input.review && reviewChanged) {
     word.settings = {
       ...word.settings,
@@ -66,6 +75,9 @@ export async function saveDocxBytes(input: {
     applyNoteSettings(word, input.notes)
   }
   const pkg = writeDocument(word, /\.(docx|docm|dotx|dotm)$/i.test(input.fileName) ? input.fileName : "document.docx")
+  if (setup && themeChanged(setup)) {
+    writeThemePart(pkg, currentTheme(setup, input.word))
+  }
   attachCoreProperties(pkg, input.props ?? {})
   if (input.bibliography) {
     writeSourcesPart(pkg, input.bibliography.sources, input.bibliography.style, citationOrder(input.json))

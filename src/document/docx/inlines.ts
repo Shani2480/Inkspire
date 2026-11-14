@@ -1497,6 +1497,7 @@ const NO_THEME_FONTS: ThemeFonts = {
   minorEastAsia: "",
   majorBidi: "",
   minorBidi: "",
+  colors: {},
 }
 
 /** Run properties the editor shows. Everything else on a run is carried from its source. */
@@ -1563,6 +1564,7 @@ export function runPropertiesFromEdit(
   }
   if (after.color !== before.color) {
     base.color = after.color || undefined
+    base.colorTheme = undefined
   }
   if (after.font !== before.font) {
     // A theme font overrides the explicit name in Word, so a chosen font replaces it.

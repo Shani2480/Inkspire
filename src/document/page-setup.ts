@@ -97,9 +97,19 @@ export type PageSetup = {
   pageNumber: PageNumberPlace
   hyphenation: boolean
   language: string
+  /** Theme fonts as CSS stacks (the first family is the typeface), "" for the document's own. */
   bodyFont: string
   headingFont: string
+  /** The colour scheme's name, "" for the document's own. */
   colorScheme: string
+  /** The scheme's twelve colours (Dark 1 … Followed Hyperlink), comma separated, "" for the document's own. */
+  themeColors: string
+  /** The font scheme's name, "" for the document's own. */
+  fontScheme: string
+  /** The theme picked from Themes, "" for the document's own. */
+  themeName: string
+  /** The Style Set applied (word-style-sets id), "" for the document's own styles. */
+  styleSet: string
   effects: EffectPreset
   spacing: SpacingPreset
   headerStyle: BuiltInHeader
@@ -203,6 +213,10 @@ export const DEFAULT_PAGE_SETUP: PageSetup = {
   bodyFont: "",
   headingFont: "",
   colorScheme: "",
+  themeColors: "",
+  fontScheme: "",
+  themeName: "",
+  styleSet: "",
   effects: "",
   spacing: "default",
   headerStyle: "blank",
@@ -306,6 +320,10 @@ export function samePageSetup(left: PageSetup, right: PageSetup) {
     left.bodyFont === right.bodyFont &&
     left.headingFont === right.headingFont &&
     left.colorScheme === right.colorScheme &&
+    left.themeColors === right.themeColors &&
+    left.fontScheme === right.fontScheme &&
+    left.themeName === right.themeName &&
+    left.styleSet === right.styleSet &&
     left.effects === right.effects &&
     left.spacing === right.spacing &&
     left.headerStyle === right.headerStyle &&

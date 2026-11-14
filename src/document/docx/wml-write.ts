@@ -42,6 +42,7 @@ import {
   type RunProperties,
   type SectionProps,
   type Shading,
+  type ThemeColorRef,
   type Settings,
   type Spacing,
   type Style,
@@ -1012,6 +1013,9 @@ function writeBorder(name: string, border: Border | undefined) {
   if (border.color) {
     attributes.push(`w:color="${border.color}"`)
   }
+  if (border.colorTheme) {
+    attributes.push(themeRefXml(border.colorTheme, "themeColor", "themeTint", "themeShade").trim())
+  }
   if (border.shadow) {
     attributes.push(`w:shadow="1"`)
   }
@@ -1051,9 +1055,7 @@ function generateCellProperties(cell: ReturnType<typeof cellPropertiesInput>) {
     .map((side) => writeBorder(side, cell.borders?.[side]))
     .join("")
   const borders = sides ? `<w:tcBorders>${sides}</w:tcBorders>` : ""
-  const shading = cell.shading
-    ? `<w:shd w:val="${cell.shading.value}"${cell.shading.color ? ` w:color="${cell.shading.color}"` : ""}${cell.shading.fill ? ` w:fill="${cell.shading.fill}"` : ""}/>`
-    : ""
+  const shading = cell.shading ? shadingXml(cell.shading) : ""
   const vAlign = cell.vAlign ? `<w:vAlign w:val="${cell.vAlign}"/>` : ""
   const noWrap = cell.noWrap ? "<w:noWrap/>" : ""
   const margins = writeCellMargins(cell.margins, "tcMar")
@@ -1325,9 +1327,22 @@ function writeParagraphBox(props: ParagraphProperties) {
 }
 
 function writeShading(shading: Shading | undefined) {
-  return shading
-    ? `<w:shd w:val="${shading.value}"${shading.color ? ` w:color="${shading.color}"` : ""}${shading.fill ? ` w:fill="${shading.fill}"` : ""}/>`
+  return shading ? shadingXml(shading) : ""
+}
+
+/** w:shd with its theme colour and fill references, which Word draws from the theme. */
+function shadingXml(shading: Shading) {
+  const color = shading.color ? ` w:color="${shading.color}"` : ""
+  const colorTheme = shading.colorTheme ? themeRefXml(shading.colorTheme, "themeColor", "themeTint", "themeShade") : ""
+  const fill = shading.fill ? ` w:fill="${shading.fill}"` : ""
+  const fillTheme = shading.fillTheme
+    ? themeRefXml(shading.fillTheme, "themeFill", "themeFillTint", "themeFillShade")
     : ""
+  return `<w:shd w:val="${shading.value}"${color}${colorTheme}${fill}${fillTheme}/>`
+}
+
+function themeRefXml(ref: ThemeColorRef, name: string, tint: string, shade: string) {
+  return ` w:${name}="${ref.name}"${ref.tint ? ` w:${tint}="${ref.tint}"` : ""}${ref.shade ? ` w:${shade}="${ref.shade}"` : ""}`
 }
 
 function writeTabs(tabs: ParagraphProperties["tabs"]) {
@@ -1406,7 +1421,7 @@ function generateRunProperties(props: RunProperties): string {
     onOff("imprint", props.imprint),
     onOff("noProof", props.noProof),
     onOff("vanish", props.vanish),
-    props.color ? `<w:color w:val="${props.color}"/>` : "",
+    props.color ? `<w:color w:val="${props.color}"${themeColorAttributes(props.colorTheme)}/>` : "",
     props.spacing !== undefined ? `<w:spacing w:val="${props.spacing}"/>` : "",
     props.w !== undefined ? `<w:w w:val="${props.w}"/>` : "",
     props.kern !== undefined ? `<w:kern w:val="${props.kern}"/>` : "",
@@ -1837,4 +1852,13 @@ function validParaId(value: string | undefined) {
   }
   const hex = value.toUpperCase()
   return Number.parseInt(hex, 16) < 0x80000000 ? hex : undefined
+}
+
+function themeColorAttributes(theme: RunProperties["colorTheme"]) {
+  if (!theme) {
+    return ""
+  }
+  const tint = theme.tint ? ` w:themeTint="${theme.tint}"` : ""
+  const shade = theme.shade ? ` w:themeShade="${theme.shade}"` : ""
+  return ` w:themeColor="${theme.name}"${tint}${shade}`
 }

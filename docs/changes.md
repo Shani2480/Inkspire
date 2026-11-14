@@ -7,6 +7,50 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-14
 
+### Design tab: Style Sets, Paragraph Spacing, Customize Colors / Fonts, Save Current Theme (U16)
+
+- **What was wrong or missing:** the Design tab had a short list of app-made themes and colour/font choices that
+  only changed CSS on screen. There was no Style Set gallery, the Paragraph Spacing presets were not Word's, colours
+  and fonts could not be customized, and a theme could not be saved or loaded. A saved .docx kept none of it, and
+  theme colours on borders, shading and runs (`w:themeColor`, `w:themeFill` with tint/shade) were lost.
+- **What changed:** Word's own design data, generated from Word's files by `tools/word-design-extract.py`
+  (`document/word-design-data.ts`: themes, colour and font schemes, the Office theme part;
+  `document/word-style-sets.ts`: the 18 Style Sets). `document/design.ts` holds the logic: themes,
+  custom schemes and themes (kept in local storage), the theme part written with the chosen colours and fonts,
+  `.thmx` save and load, Style Set catalogs, and the Paragraph Spacing values. On the Design tab
+  (`components/ribbon/design-tab.tsx`), classic and single-line ribbon:
+  - **Themes** menu: Office and Custom thumbnails, Reset to Theme from Template, Browse for Themes… (`.thmx`),
+    Save Current Theme….
+  - **Style Set** gallery: each thumbnail drawn in the current theme, with scroll arrows and a More panel.
+  - **Colors** and **Fonts** menus: Word's schemes plus Custom ones. Customize Colors… opens Create New Theme
+    Colors (twelve colours with a light and dark sample); Customize Fonts… opens Create New Theme Fonts
+    (`components/theme-dialogs.tsx`).
+  - **Paragraph Spacing**: Default plus Word's six built-in presets, each with a sample.
+  
+  The page is drawn from the chosen Style Set and theme (`docx/session.ts` `showDocumentDesign` /
+  `designStyleSheet`). Saving writes the Style Set and spacing into `styles.xml` and the theme into the theme part,
+  changing an opened document's theme in place (`docx/io.ts`). Theme colour references on runs, borders and
+  shading are read and written (`wml-read.ts`, `wml-write.ts`, `model.ts`). The choices survive the app's own HTML
+  (`header.ts`, `page-setup.ts`), and the desktop app can open `.thmx` (`src-tauri/src/lib.rs`).
+- **Checked:**
+  - `document/design.test.ts` (10 tests).
+  - Typecheck, ESLint and the full suite: 1506 tests pass.
+  - The Open XML SDK validator: 0 errors on four saves (Lines (Distinctive) + Ion; Shaded + Relaxed + Slipstream
+    colours; Double; f02 opened and saved with Casual + Facet).
+  - **Word (VM)** renders all four with the set's headings, the theme's fonts and colours, and the spacing; the
+    Lines + Ion page matches the app's screen.
+  - Chrome, light and dark: the Themes, Colors, Fonts and Paragraph Spacing menus, both Customize dialogs, and
+    applying a theme, a Style Set and Double spacing.
+  - The dialog overflow crawl.
+- **Still open:**
+  - Save as a New Style Set… (needs a Word template the app does not write).
+  - Custom Paragraph Spacing… (needs Manage Styles).
+  - Editing or deleting a custom scheme from its right-click menu.
+  - Save Current Theme… and Browse for Themes… were not run in the desktop app (`verify-list.md`).
+  - At startup the status bar's word count reads an editor that is not ready yet, and React recovers by rendering
+    again. This happens before this change too. A guard in `use-settled.ts` changed startup timing, so it was left
+    for its own fix.
+
 ### Outline view and the Outlining tab (U15)
 
 - **What was wrong or missing:** View > Outline only hid every paragraph that was not a heading; there was no

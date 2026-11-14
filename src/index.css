@@ -1653,40 +1653,47 @@ button.line-menu-row:focus-visible {
   hyphens: auto;
 }
 
+/* Design > Paragraph Spacing, Word's values (a single line is about 1.2 times the font size). */
 .page-editor[data-spacing="none"] p,
 .page-editor[data-spacing="none"] li {
+  margin-top: 0;
   margin-bottom: 0;
-  line-height: 1;
+  line-height: 1.2;
 }
 
 .page-editor[data-spacing="compact"] p,
 .page-editor[data-spacing="compact"] li {
-  margin-bottom: 0;
-  line-height: 1.05;
+  margin-top: 0;
+  margin-bottom: 4pt;
+  line-height: 1.2;
 }
 
 .page-editor[data-spacing="tight"] p,
 .page-editor[data-spacing="tight"] li {
+  margin-top: 0;
   margin-bottom: 6pt;
-  line-height: 1.15;
+  line-height: 1.38;
 }
 
 .page-editor[data-spacing="open"] p,
 .page-editor[data-spacing="open"] li {
+  margin-top: 0;
   margin-bottom: 10pt;
-  line-height: 1.15;
+  line-height: 1.38;
 }
 
 .page-editor[data-spacing="relaxed"] p,
 .page-editor[data-spacing="relaxed"] li {
+  margin-top: 0;
   margin-bottom: 6pt;
-  line-height: 1.5;
+  line-height: 1.8;
 }
 
 .page-editor[data-spacing="double"] p,
 .page-editor[data-spacing="double"] li {
+  margin-top: 0;
   margin-bottom: 8pt;
-  line-height: 2;
+  line-height: 2.4;
 }
 
 /* Room for the app's own page number beside a footer; none when it is not shown (a Word file's footer numbers itself). */
@@ -15720,4 +15727,303 @@ textarea.tp-input {
   display: flex;
   gap: 16px;
   padding-left: 12px;
+}
+
+/* ---------- Design tab: Themes, Style Sets, Colors, Fonts, Paragraph Spacing ---------- */
+
+.design-menu {
+  display: flex;
+  flex-direction: column;
+  padding: 2px;
+}
+
+.design-menu-list {
+  display: flex;
+  max-height: min(420px, calc(100vh - 220px));
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.design-menu-actions {
+  margin-top: 2px;
+  border-top: 1px solid var(--app-popover-border);
+  padding-top: 2px;
+}
+
+.design-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 4px;
+}
+
+.design-theme-thumb {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  padding: 2px;
+  font-size: 11px;
+  color: var(--app-ribbon-text);
+}
+
+.design-theme-thumb:hover {
+  background: var(--app-hover);
+}
+
+.design-theme-thumb[aria-pressed="true"] {
+  border-color: var(--app-theme-primary);
+  background: var(--app-theme-light);
+}
+
+.design-theme-face {
+  display: flex;
+  height: 50px;
+  flex-direction: column;
+  justify-content: space-between;
+  border: 1px solid #d1d1d1;
+  padding: 4px 5px 4px;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.design-theme-accents {
+  display: flex;
+  gap: 1px;
+}
+
+.design-theme-accents > span {
+  height: 8px;
+  flex: 1;
+}
+
+.design-theme-name {
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.design-chip {
+  display: block;
+  width: 12px;
+  height: 12px;
+  outline: 1px solid rgb(0 0 0 / 0.12);
+  outline-offset: -1px;
+}
+
+.design-font-glyph {
+  display: flex;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d1d1d1;
+  background: #ffffff;
+  color: #242424;
+  font-size: 18px;
+}
+
+.design-spacing-sample {
+  width: 24px;
+  height: 24px;
+  flex: none;
+}
+
+.style-set-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 76px);
+  gap: 4px;
+  padding: 4px;
+}
+
+.style-set-thumb {
+  display: flex;
+  width: 76px;
+  height: 58px;
+  flex: none;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid #d1d1d1;
+  border-radius: 2px;
+  background: #ffffff;
+  padding: 3px 4px;
+  text-align: left;
+}
+
+.style-set-thumb:hover {
+  border-color: #8a8886;
+}
+
+.style-set-thumb[aria-pressed="true"] {
+  border-color: var(--app-theme-primary);
+  box-shadow: inset 0 0 0 1px var(--app-theme-primary);
+}
+
+.style-set-line {
+  overflow: hidden;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.style-set-body {
+  overflow: hidden;
+  line-height: 1.25;
+}
+
+.design-gallery-popup {
+  z-index: 60;
+  border: 1px solid var(--app-popover-border);
+  border-radius: 4px;
+  background: var(--app-popover-bg);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.18);
+  color: var(--app-ribbon-text);
+}
+
+.theme-dialog {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 190px;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.theme-dialog fieldset {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--app-popover-border);
+  border-radius: 2px;
+  padding: 4px 8px 8px;
+}
+
+.theme-dialog legend,
+.theme-fonts-dialog legend {
+  padding: 0 4px;
+}
+
+.theme-dialog-color-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 24px;
+}
+
+.theme-dialog-swatch {
+  display: flex;
+  width: 44px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--app-popover-border);
+  border-radius: 2px;
+  background: var(--app-ribbon-card);
+}
+
+.theme-dialog-swatch > span {
+  width: 30px;
+  height: 12px;
+  outline: 1px solid rgb(0 0 0 / 0.15);
+}
+
+.theme-dialog-samples {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.theme-dialog-swatches {
+  display: grid;
+  height: 128px;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 3px;
+  border: 1px solid #c8c8c8;
+  padding: 6px;
+  font-size: 11px;
+}
+
+.theme-dialog-sample-text {
+  justify-self: start;
+  padding: 0 4px;
+}
+
+.theme-dialog-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.theme-dialog-bars > span {
+  flex: 1;
+}
+
+.theme-dialog-links {
+  display: flex;
+  gap: 8px;
+}
+
+.theme-dialog-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 12px;
+}
+
+.theme-dialog-name input {
+  min-width: 0;
+  flex: 1;
+}
+
+.theme-fonts-dialog {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 12px;
+  font-size: 12px;
+}
+
+.theme-fonts-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.theme-fonts-fields label:not(:first-child) {
+  margin-top: 8px;
+}
+
+.theme-fonts-fields select {
+  width: 100%;
+  min-width: 0;
+}
+
+.theme-fonts-sample {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid var(--app-popover-border);
+  border-radius: 2px;
+  padding: 4px 8px 8px;
+}
+
+.theme-fonts-sample-box {
+  display: flex;
+  height: 96px;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+  border: 1px solid #c8c8c8;
+  background: #ffffff;
+  padding: 8px;
+  color: #000000;
+}
+
+.theme-fonts-sample-box > span:first-child {
+  font-size: 18px;
+}
+
+.theme-fonts-sample-box > span:last-child {
+  font-size: 11px;
 }

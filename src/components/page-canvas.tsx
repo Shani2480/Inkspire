@@ -10,6 +10,7 @@ import { TextContextMenu } from "@/components/text-context-menu"
 import { TableHandles } from "@/components/table-handles"
 import { pageGridCell, pageGridColumns, pageGridRows } from "@/document/page-grid"
 import { paintDesignVars } from "@/document/design-format"
+import { showDocumentDesign } from "@/document/docx/session"
 import { ChromeBox, NO_PART, SectionParts, useChromePart, type ChromePart } from "@/components/chrome-editors"
 import { chromeHasContent, chromeHasPageField } from "@/document/chrome-html"
 import { useActiveChromeEditor } from "@/document/chrome-editing"
@@ -159,6 +160,7 @@ export function PageCanvas() {
     const style = document.documentElement.style
     applyPageChrome(pageSetup)
     paintDesignVars(pageSetup)
+    showDocumentDesign(pageSetup)
     style.setProperty("--print-title", header ? cssString(header) : "none")
     const footer = footerBoxes(chromeText(footerHtml))
     style.setProperty("--print-center", footer.center)

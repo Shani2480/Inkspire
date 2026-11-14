@@ -1,19 +1,37 @@
 import { ColorMenu } from "@/components/color-menu"
 import { requestPageBorders } from "@/components/design-dialogs"
-import { MenuButton, RibbonCommand, RibbonGroup, RibbonHover } from "@/components/ribbon/ribbon-button"
+import { MenuButton, RibbonCommand, RibbonGroup, RibbonHover, RibbonPopover } from "@/components/ribbon/ribbon-button"
+import { MenuHeading } from "@/components/shape-menus"
+import { nextCustomName, ThemeColorsDialog, ThemeFontsDialog } from "@/components/theme-dialogs"
 import {
-  COLOR_SCHEMES,
-  DESIGN_THEMES,
-  EFFECT_PRESETS,
-  FONT_PAIRS,
-  SPACING_PRESETS,
-  colorSchemeById,
-  saveFormatDefault,
-  type DesignTheme,
-} from "@/document/design-format"
+  builtInTheme,
+  colorSetup,
+  currentTheme,
+  customColorSchemes,
+  customFontSchemes,
+  customThemes,
+  fontSetup,
+  saveCustomColors,
+  saveCustomFonts,
+  saveCustomTheme,
+  stackOf,
+  styleLooks,
+  styleSetCatalog,
+  STYLE_SETS,
+  themeFromThmx,
+  themeSetup,
+  thmxEntries,
+  type SavedTheme,
+  type StyleLook,
+} from "@/document/design"
+import { EFFECT_PRESETS, SPACING_PRESETS, saveFormatDefault } from "@/document/design-format"
+import { currentWordDocument } from "@/document/docx/session"
+import { readZip, writeZip } from "@/document/docx/zip"
 import { clipWatermark, type PageSetup } from "@/document/page-setup"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
+import { WORD_COLOR_SCHEMES, WORD_FONT_SCHEMES, WORD_THEMES } from "@/document/word-design-data"
+import { openLocalFile, pickSavePath, writeBytes } from "@/lib/file-io"
 import {
   LineColorsIcon,
   LineFontsIcon,
@@ -23,79 +41,263 @@ import {
   LineWatermarkIcon,
 } from "@/components/ribbon/line-icons"
 import { SingleLineBar, type LineCommand, type LineGroup } from "@/components/ribbon/single-line"
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react"
 import { DialogFrame } from "@/components/word-dialog"
 
 const WATERMARKS = ["CONFIDENTIAL", "DO NOT COPY", "DRAFT", "SAMPLE", "ASAP", "URGENT"]
 
+/** The fields a theme sets; cleared by Reset to Theme from Template. */
+const NO_THEME: Partial<PageSetup> = {
+  themeName: "",
+  colorScheme: "",
+  themeColors: "",
+  fontScheme: "",
+  headingFont: "",
+  bodyFont: "",
+}
+
+/** "Office Theme" and "Office" are one theme: Word's menus drop the suffix its files carry. */
+const sameName = (left: string, right: string) => left.replace(/ Theme$/, "") === right.replace(/ Theme$/, "")
+
+/**
+ * Design tab, Document Formatting as in Word: Themes, the Style Set gallery, Colors, Fonts, Paragraph Spacing,
+ * Effects and Set as Default. The themes, colour and font schemes and Style Sets are Word's own (generated from
+ * its files by tools/word-design-extract.py). Left out: Save as a New Style Set… (a Word template the app does not
+ * write) and Custom Paragraph Spacing… (Manage Styles, which the app does not have).
+ */
 export function DesignTab() {
   const ribbonLayout = useViewStore((state) => state.ribbonLayout)
   const setup = useDocumentStore((state) => state.pageSetup)
   const setPageSetup = useDocumentStore((state) => state.setPageSetup)
   const [confirmDefault, setConfirmDefault] = useState(false)
+  const [dialog, setDialog] = useState<"colors" | "fonts" | null>(null)
+  // Custom schemes and themes live in local storage: re-read them after one is saved.
+  const [, refresh] = useReducer((count: number) => count + 1, 0)
+  const word = currentWordDocument()
+  const theme = currentTheme(setup, word)
 
   function update(next: Partial<PageSetup>) {
     setPageSetup({ ...setup, ...next })
   }
 
-  function applyTheme(theme: DesignTheme) {
-    update({
-      bodyFont: theme.bodyFont,
-      headingFont: theme.headingFont,
-      colorScheme: theme.colors,
-      effects: theme.effects,
-    })
+  const applyTheme = useCallback(
+    (picked: SavedTheme) => setPageSetup({ ...useDocumentStore.getState().pageSetup, ...themeSetup(picked) }),
+    [setPageSetup],
+  )
+
+  async function browseThemes() {
+    const opened = await openLocalFile(
+      [{ name: "Office Themes", extensions: ["thmx"] }],
+      "Choose Theme or Themed Document",
+    )
+    if (!opened) {
+      return
+    }
+    const picked = themeFromThmx(await readZip(opened.bytes), opened.name)
+    if (picked) {
+      saveCustomTheme(picked)
+      refresh()
+      applyTheme(picked)
+    }
   }
 
-  const colorsMenu = (close: () => void) => (
-    <div className="flex max-h-80 w-72 flex-col overflow-auto">
-      {COLOR_SCHEMES.map((scheme) => (
-        <MenuButton
-          key={scheme.id}
-          selected={setup.colorScheme === scheme.id}
-          onClick={() => {
-            update({ colorScheme: scheme.id })
-            close()
-          }}
-        >
-          <span className="flex w-full items-center justify-between gap-2">
-            <span className="truncate">{scheme.name}</span>
-            <span className="flex shrink-0 gap-0.5">
-              {scheme.chips.map((color) => (
-                <span key={color} className="size-3 border border-black/15" style={{ background: color }} />
-              ))}
+  async function saveTheme() {
+    const name = theme.name.replace(/ Theme$/, "") || "Theme"
+    const path = await pickSavePath(
+      [{ name: "Office Theme", extensions: ["thmx"] }],
+      `${name}.thmx`,
+      "Save Current Theme",
+    )
+    if (!path) {
+      return
+    }
+    const bytes = await writeZip(thmxEntries(theme).map((entry) => ({ ...entry, stored: false })))
+    await writeBytes(path, bytes)
+    const saved = { ...theme, name: (path.split(/[/\\]/).pop() ?? name).replace(/\.thmx$/i, "") }
+    saveCustomTheme(saved)
+    refresh()
+  }
+
+  const themesMenu = (close: () => void) => {
+    const thumb = (item: SavedTheme) => (
+      <ThemeThumb
+        key={item.name}
+        theme={item}
+        pressed={sameName(item.name, theme.name)}
+        onApply={(picked) => {
+          applyTheme(picked)
+          close()
+        }}
+      />
+    )
+    const custom = customThemes()
+    return (
+      <div className="design-menu w-[332px]">
+        {custom.length > 0 ? (
+          <>
+            <MenuHeading>Custom</MenuHeading>
+            <div className="design-theme-grid" role="group" aria-label="Custom themes">
+              {custom.map(thumb)}
+            </div>
+          </>
+        ) : null}
+        <MenuHeading>Office</MenuHeading>
+        <div className="design-theme-grid" role="group" aria-label="Themes">
+          {WORD_THEMES.map((item) => builtInTheme(item.name))
+            .filter((item): item is SavedTheme => item !== null)
+            .map(thumb)}
+        </div>
+        <div className="design-menu-actions">
+          <MenuButton
+            onClick={() => {
+              update(NO_THEME)
+              close()
+            }}
+          >
+            Reset to Theme from Template
+          </MenuButton>
+          <MenuButton
+            onClick={() => {
+              close()
+              void browseThemes()
+            }}
+          >
+            Browse for Themes…
+          </MenuButton>
+          <MenuButton
+            onClick={() => {
+              close()
+              void saveTheme()
+            }}
+          >
+            Save Current Theme…
+          </MenuButton>
+        </div>
+      </div>
+    )
+  }
+
+  const colorsMenu = (close: () => void) => {
+    const row = (scheme: { name: string; colors: string[] }) => (
+      <MenuButton
+        key={scheme.name}
+        selected={scheme.name === theme.colorsName}
+        onClick={() => {
+          update(colorSetup(scheme))
+          close()
+        }}
+      >
+        <span className="flex w-full items-center gap-2">
+          <span className="flex shrink-0 gap-px" data-keep-light>
+            {[2, 3, 4, 5, 6, 7, 8, 9].map((index) => (
+              <span key={index} className="design-chip" style={{ background: scheme.colors[index] }} />
+            ))}
+          </span>
+          <span className="truncate">{scheme.name}</span>
+        </span>
+      </MenuButton>
+    )
+    const custom = customColorSchemes()
+    return (
+      <div className="design-menu w-[280px]">
+        <div className="design-menu-list">
+          {custom.length > 0 ? (
+            <>
+              <MenuHeading>Custom</MenuHeading>
+              {custom.map(row)}
+            </>
+          ) : null}
+          <MenuHeading>Office</MenuHeading>
+          {WORD_COLOR_SCHEMES.filter((scheme) => scheme.menu).map(row)}
+        </div>
+        <div className="design-menu-actions">
+          <MenuButton
+            onClick={() => {
+              close()
+              setDialog("colors")
+            }}
+          >
+            Customize Colors…
+          </MenuButton>
+        </div>
+      </div>
+    )
+  }
+
+  const fontsMenu = (close: () => void) => {
+    const row = (scheme: { name: string; major: string; minor: string }) => (
+      <MenuButton
+        key={scheme.name}
+        className="h-auto py-1"
+        selected={scheme.name === theme.fontsName}
+        onClick={() => {
+          update(fontSetup(scheme))
+          close()
+        }}
+      >
+        <span className="flex w-full items-center gap-2">
+          <span className="design-font-glyph" style={{ fontFamily: stackOf(scheme.major) }} data-keep-light>
+            Aa
+          </span>
+          <span className="flex min-w-0 flex-col items-start leading-tight">
+            <span className="text-[11px] text-[var(--app-ribbon-muted)]">{scheme.name}</span>
+            <span className="truncate text-[14px]" style={{ fontFamily: stackOf(scheme.major) }}>
+              {scheme.major}
+            </span>
+            <span className="truncate text-[11px]" style={{ fontFamily: stackOf(scheme.minor) }}>
+              {scheme.minor}
             </span>
           </span>
-        </MenuButton>
-      ))}
-    </div>
-  )
-  const fontsMenu = (close: () => void) => (
-    <div className="flex max-h-80 w-64 flex-col overflow-auto">
-      {FONT_PAIRS.map((font) => (
-        <MenuButton
-          key={font.id}
-          className="h-auto py-1"
-          selected={setup.bodyFont === font.body && setup.headingFont === font.heading}
-          onClick={() => {
-            update({ bodyFont: font.body, headingFont: font.heading })
-            close()
-          }}
-        >
-          <span className="flex w-full flex-col items-start">
-            <span className="text-[15px] leading-none" style={{ fontFamily: font.heading }}>
-              {font.label}
-            </span>
-            <span className="text-[11px] text-neutral-500" style={{ fontFamily: font.body }}>
-              The quick brown fox jumps
-            </span>
-          </span>
-        </MenuButton>
-      ))}
-    </div>
-  )
+        </span>
+      </MenuButton>
+    )
+    const custom = customFontSchemes()
+    return (
+      <div className="design-menu w-[264px]">
+        <div className="design-menu-list">
+          {custom.length > 0 ? (
+            <>
+              <MenuHeading>Custom</MenuHeading>
+              {custom.map(row)}
+            </>
+          ) : null}
+          <MenuHeading>Office</MenuHeading>
+          {WORD_FONT_SCHEMES.filter((scheme) => scheme.menu).map(row)}
+        </div>
+        <div className="design-menu-actions">
+          <MenuButton
+            onClick={() => {
+              close()
+              setDialog("fonts")
+            }}
+          >
+            Customize Fonts…
+          </MenuButton>
+        </div>
+      </div>
+    )
+  }
+
   const spacingMenu = (close: () => void) => (
-    <div className="flex w-64 flex-col">
+    <div className="design-menu w-[248px]">
+      <MenuHeading>Style Set</MenuHeading>
+      <MenuButton
+        className="h-auto py-1"
+        selected={setup.spacing === "default"}
+        onClick={() => {
+          update({ spacing: "default" })
+          close()
+        }}
+      >
+        <span className="flex w-full items-center gap-2">
+          <SpacingSample line={1.15} after={2} />
+          <span className="flex flex-col items-start leading-tight">
+            <span>Default</span>
+            <span className="text-[11px] text-[var(--app-ribbon-muted)]">The Style Set’s own spacing</span>
+          </span>
+        </span>
+      </MenuButton>
+      <MenuHeading>Built-In</MenuHeading>
       {SPACING_PRESETS.map((item) => (
         <MenuButton
           key={item.id}
@@ -106,9 +308,12 @@ export function DesignTab() {
             close()
           }}
         >
-          <span className="flex w-full flex-col items-start">
-            <span>{item.label}</span>
-            <span className="text-[11px] text-neutral-500">{item.detail}</span>
+          <span className="flex w-full items-center gap-2">
+            <SpacingSample {...SPACING_SAMPLES[item.id as keyof typeof SPACING_SAMPLES]} />
+            <span className="flex flex-col items-start leading-tight">
+              <span>{item.label}</span>
+              <span className="text-[11px] text-[var(--app-ribbon-muted)]">{item.detail}</span>
+            </span>
           </span>
         </MenuButton>
       ))}
@@ -203,48 +408,78 @@ export function DesignTab() {
     />
   )
   const openPageBorders = () => requestPageBorders({ setup, onApply: (patch) => update(patch) })
-  const selectedTheme = DESIGN_THEMES.find((theme) => themeMatches(setup, theme))?.id ?? ""
-  const themesMenu = (close: () => void) => (
-    <div className="grid max-h-80 w-80 grid-cols-3 gap-1 overflow-auto p-1" role="group" aria-label="Themes">
-      {DESIGN_THEMES.map((theme) => (
-        <ThemeThumb
-          key={theme.id}
-          theme={theme}
-          pressed={theme.id === selectedTheme}
-          onApply={(picked) => {
-            applyTheme(picked)
-            close()
+  const styleSetMenu = (close: () => void) => (
+    <StyleSetPanel
+      setup={setup}
+      theme={theme}
+      onApply={(id) => {
+        update({ styleSet: id, spacing: "default" })
+        close()
+      }}
+    />
+  )
+  const dialogs = (
+    <>
+      {confirmDefault ? (
+        <DialogFrame title="Set as Default" width={420} onClose={() => setConfirmDefault(false)}>
+          <p className="mt-2 text-sm text-neutral-700">
+            Set the current style set, theme, colors, fonts, paragraph spacing, and effects as the default for new
+            documents?
+          </p>
+          <div className="word-dialog-actions">
+            <button
+              type="button"
+              className="dialog-btn is-primary"
+              onClick={() => {
+                saveFormatDefault(setup)
+                setConfirmDefault(false)
+              }}
+            >
+              Yes
+            </button>
+            <button type="button" className="dialog-btn" onClick={() => setConfirmDefault(false)}>
+              No
+            </button>
+          </div>
+        </DialogFrame>
+      ) : null}
+      {dialog === "colors" ? (
+        <ThemeColorsDialog
+          initial={{
+            name: nextCustomName(customColorSchemes().map((item) => item.name)),
+            colors: theme.colors,
+          }}
+          onClose={() => setDialog(null)}
+          onSave={(scheme) => {
+            saveCustomColors(scheme)
+            refresh()
+            update(colorSetup(scheme))
+            setDialog(null)
           }}
         />
-      ))}
-    </div>
-  )
-  const confirmDialog = confirmDefault ? (
-    <DialogFrame title="Set as Default" width={420} onClose={() => setConfirmDefault(false)}>
-      <p className="mt-2 text-sm text-neutral-700">
-        Set the current theme, colors, fonts, paragraph spacing, and effects as the default for new documents?
-      </p>
-      <div className="word-dialog-actions">
-        <button
-          type="button"
-          className="dialog-btn is-primary"
-          onClick={() => {
-            saveFormatDefault(setup)
-            setConfirmDefault(false)
+      ) : null}
+      {dialog === "fonts" ? (
+        <ThemeFontsDialog
+          initial={{
+            name: nextCustomName(customFontSchemes().map((item) => item.name)),
+            major: theme.major,
+            minor: theme.minor,
           }}
-        >
-          Yes
-        </button>
-        <button type="button" className="dialog-btn" onClick={() => setConfirmDefault(false)}>
-          No
-        </button>
-      </div>
-    </DialogFrame>
-  ) : null
-
+          onClose={() => setDialog(null)}
+          onSave={(scheme) => {
+            saveCustomFonts(scheme)
+            refresh()
+            update(fontSetup(scheme))
+            setDialog(null)
+          }}
+        />
+      ) : null}
+    </>
+  )
   if (ribbonLayout === "single") {
     const formatting: LineCommand[] = [
       { id: "themes", label: "Themes", icon: <LineThemesIcon />, priority: 2, menu: themesMenu },
+      { id: "style-set", label: "Style Set", icon: <StyleSetIcon />, priority: 1, menu: styleSetMenu },
       { id: "colors", label: "Colors", icon: <LineColorsIcon />, priority: 1, menu: colorsMenu },
       { id: "fonts", label: "Fonts", icon: <LineFontsIcon />, priority: 1, menu: fontsMenu },
     ]
@@ -278,21 +513,23 @@ export function DesignTab() {
           ]}
           more={more}
         />
-        {confirmDialog}
+        {dialogs}
       </>
     )
   }
-
   return (
     <div role="toolbar" aria-label="Design" className="ribbon-home flex items-stretch overflow-x-auto">
       <RibbonGroup label="Document Formatting" className="min-w-0 flex-1">
         <div className="flex min-w-0 flex-1 items-stretch">
-          <ThemeGallery setup={setup} onApply={applyTheme} />
+          <RibbonCommand label="Themes" description="Change the overall design of the document." menu={themesMenu}>
+            <ThemesIcon />
+          </RibbonCommand>
+          <StyleSetGallery setup={setup} theme={theme} onApply={(id) => update({ styleSet: id, spacing: "default" })} />
           <div className="flex shrink-0">
-            <RibbonCommand label="Colors" menu={colorsMenu}>
+            <RibbonCommand label="Colors" description="Change the theme colors." menu={colorsMenu}>
               <ColorsIcon />
             </RibbonCommand>
-            <RibbonCommand label="Fonts" menu={fontsMenu}>
+            <RibbonCommand label="Fonts" description="Change the theme fonts." menu={fontsMenu}>
               <FontIcon />
             </RibbonCommand>
             <div className="flex flex-col justify-center">
@@ -320,246 +557,313 @@ export function DesignTab() {
           <BorderIcon />
         </RibbonCommand>
       </RibbonGroup>
-      {confirmDialog}
+      {dialogs}
     </div>
   )
 }
 
-function placePanel(panel: HTMLDivElement | null, anchor: HTMLButtonElement | null) {
-  if (!panel || !anchor) {
-    return
-  }
-  const rect = anchor.getBoundingClientRect()
-  panel.style.position = "fixed"
-  panel.style.top = `${rect.bottom + 2}px`
-  panel.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 336))}px`
+/** Lines of text with the preset's line height and gap, as Word's Paragraph Spacing pictures. */
+const SPACING_SAMPLES = {
+  none: { line: 1, after: 0 },
+  compact: { line: 1, after: 1 },
+  tight: { line: 1.15, after: 1.5 },
+  open: { line: 1.15, after: 3 },
+  relaxed: { line: 1.5, after: 1.5 },
+  double: { line: 2, after: 2 },
 }
 
-function themeMatches(setup: PageSetup, theme: DesignTheme) {
+function SpacingSample({ line, after }: { line: number; after: number }) {
+  const step = 2.4 * line
+  const rows: number[] = []
+  let y = 3
+  for (const _ of [0, 1]) {
+    for (const __ of [0, 1]) {
+      rows.push(y)
+      y += step
+    }
+    y += after
+  }
   return (
-    setup.bodyFont === theme.bodyFont &&
-    setup.headingFont === theme.headingFont &&
-    setup.colorScheme === theme.colors &&
-    setup.effects === theme.effects
+    <svg className="design-spacing-sample" viewBox="0 0 24 24" aria-hidden data-keep-light>
+      <rect x="0.5" y="0.5" width="23" height="23" fill="#fff" stroke="#c8c8c8" />
+      {rows.map((top, index) => (
+        <path key={index} d={`M4 ${top.toFixed(2)}h${index % 2 ? 11 : 16}`} stroke="#7a7a7a" strokeWidth="1" />
+      ))}
+    </svg>
   )
 }
 
+/** A theme in the Themes menu: "Aa" in its heading font over its six accents, and its name. */
 const ThemeThumb = memo(function ThemeThumb({
   theme,
   pressed,
   onApply,
 }: {
-  theme: DesignTheme
+  theme: SavedTheme
   pressed: boolean
-  onApply: (theme: DesignTheme) => void
+  onApply: (theme: SavedTheme) => void
 }) {
-  const scheme = colorSchemeById(theme.colors)
   return (
     <button
       type="button"
-      className="theme-thumb"
+      className="design-theme-thumb"
       aria-label={theme.name}
       aria-pressed={pressed}
       onMouseDown={(event) => event.preventDefault()}
       onClick={() => onApply(theme)}
     >
       <span
-        className="truncate text-[11px] leading-none font-semibold"
-        style={{ color: scheme?.heading, fontFamily: theme.headingFont }}
+        className="design-theme-face"
+        data-keep-light
+        style={{ background: theme.colors[1], color: theme.colors[0] }}
       >
-        Title
+        <span style={{ fontFamily: stackOf(theme.major) }}>Aa</span>
+        <span className="design-theme-accents">
+          {theme.colors.slice(4, 10).map((color, index) => (
+            <span key={index} style={{ background: color }} />
+          ))}
+        </span>
       </span>
-      <span
-        className="truncate text-[9px] leading-none font-semibold"
-        style={{ color: scheme?.accent, fontFamily: theme.headingFont }}
-      >
-        Heading 1
-      </span>
-      <span
-        className="truncate text-[8px] leading-none text-neutral-700"
-        style={{ color: scheme?.chips[0], fontFamily: theme.bodyFont }}
-      >
-        Body text
-      </span>
+      <span className="design-theme-name">{theme.name}</span>
     </button>
   )
 })
 
-function ThemeGallery({ setup, onApply }: { setup: PageSetup; onApply: (theme: DesignTheme) => void }) {
-  const scroller = useRef<HTMLDivElement>(null)
-  const themesButton = useRef<HTMLButtonElement>(null)
-  const moreButton = useRef<HTMLButtonElement>(null)
-  const menuPanel = useRef<HTMLDivElement>(null)
-  const morePanel = useRef<HTMLDivElement>(null)
-  const [count, setCount] = useState(3)
-  const [start, setStart] = useState(0)
-  const [menu, setMenu] = useState(false)
-  const [more, setMore] = useState(false)
+/** The look of the document as it is now: its own styles, or the app's when it was made in the app. */
+function documentLooks(setup: PageSetup, theme: SavedTheme) {
+  const word = currentWordDocument()
+  const set = setup.styleSet ? styleSetCatalog(setup.styleSet) : null
+  if (set || word) {
+    return styleLooks(set ?? word!.styles, theme)
+  }
+  const heading = stackOf(theme.major)
+  const body = stackOf(theme.minor)
+  const colors = theme.colors
+  const look = (patch: Partial<StyleLook>): StyleLook => ({
+    family: body,
+    size: 12,
+    color: "#000000",
+    bold: false,
+    italic: false,
+    caps: false,
+    rule: "",
+    ...patch,
+  })
+  return {
+    title: look({ family: heading, size: 28, color: setup.themeColors ? colors[4]! : "#2e75b6" }),
+    heading: look({ family: heading, size: 22, bold: true, color: setup.themeColors ? colors[4]! : "#000000" }),
+    body: look({}),
+  }
+}
+
+/** A Style Set thumbnail: its Title, Heading 1 and body text, drawn in the document's theme. */
+const StyleSetThumb = memo(function StyleSetThumb({
+  name,
+  looks,
+  pressed,
+  onApply,
+}: {
+  name: string
+  looks: ReturnType<typeof styleLooks>
+  pressed: boolean
+  onApply: () => void
+}) {
+  const text = (look: StyleLook, scale: number, max: number) => ({
+    fontFamily: look.family,
+    fontSize: `${Math.min(max, Math.max(4, look.size * scale))}px`,
+    color: look.color,
+    fontWeight: look.bold ? 700 : 400,
+    fontStyle: look.italic ? "italic" : "normal",
+    textTransform: look.caps ? ("uppercase" as const) : undefined,
+    borderBottom: look.rule ? `1px solid ${look.rule}` : undefined,
+  })
+  return (
+    <RibbonHover label={name}>
+      <button
+        type="button"
+        className="style-set-thumb"
+        aria-label={name}
+        aria-pressed={pressed}
+        data-keep-light
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={onApply}
+      >
+        <span className="style-set-line" style={text(looks.title, 0.5, 15)}>
+          Title
+        </span>
+        <span className="style-set-line" style={text(looks.heading, 0.5, 9)}>
+          Heading 1
+        </span>
+        <span className="style-set-body" style={{ ...text(looks.body, 0.42, 5), borderBottom: undefined }}>
+          Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Maecenas porttitor congue massa.
+        </span>
+      </button>
+    </RibbonHover>
+  )
+})
+
+function useStyleSetThumbs(setup: PageSetup, theme: SavedTheme, onApply: (id: string) => void) {
   const applyRef = useRef(onApply)
   applyRef.current = onApply
-  const stableApply = useCallback((theme: DesignTheme) => {
-    applyRef.current(theme)
-    setMenu(false)
-    setMore(false)
-  }, [])
-  const selectedId = DESIGN_THEMES.find((theme) => themeMatches(setup, theme))?.id ?? ""
-  const thumbs = useMemo(
-    () =>
-      DESIGN_THEMES.map((theme) => (
-        <ThemeThumb key={theme.id} theme={theme} pressed={theme.id === selectedId} onApply={stableApply} />
-      )),
-    [selectedId, stableApply],
+  const key = `${theme.colors.join()}|${theme.major}|${theme.minor}`
+  return useMemo(
+    () => ({
+      current: documentLooks(setup, theme),
+      sets: STYLE_SETS.map((set) => ({
+        ...set,
+        looks: styleLooks(styleSetCatalog(set.id)!, theme),
+        apply: () => applyRef.current(set.id),
+      })),
+    }),
+    [key, setup.styleSet, setup.themeColors],
   )
-  const moreThumbs = useMemo(
-    () =>
-      DESIGN_THEMES.map((theme) => (
-        <ThemeThumb key={`more-${theme.id}`} theme={theme} pressed={theme.id === selectedId} onApply={stableApply} />
-      )),
-    [selectedId, stableApply],
-  )
-  const menuThumbs = useMemo(
-    () =>
-      DESIGN_THEMES.map((theme) => (
-        <ThemeThumb key={`menu-${theme.id}`} theme={theme} pressed={theme.id === selectedId} onApply={stableApply} />
-      )),
-    [selectedId, stableApply],
-  )
+}
 
-  useEffect(() => {
-    if (!menu && !more) {
-      return
-    }
-    const close = (event: PointerEvent) => {
-      const target = event.target
-      if (!(target instanceof Node)) {
-        return
-      }
-      if (
-        menuPanel.current?.contains(target) ||
-        morePanel.current?.contains(target) ||
-        themesButton.current?.contains(target) ||
-        moreButton.current?.contains(target)
-      ) {
-        return
-      }
-      setMenu(false)
-      setMore(false)
-    }
-    document.addEventListener("pointerdown", close)
-    return () => document.removeEventListener("pointerdown", close)
-  }, [menu, more])
+/** Design > Style Set: "This Document" and Word's built-in Style Sets, with Reset to the Default Style Set. */
+function StyleSetPanel({
+  setup,
+  theme,
+  onApply,
+}: {
+  setup: PageSetup
+  theme: SavedTheme
+  onApply: (id: string) => void
+}) {
+  const thumbs = useStyleSetThumbs(setup, theme, onApply)
+  return (
+    <div className="design-menu w-[352px]">
+      <MenuHeading>This Document</MenuHeading>
+      <div className="style-set-grid">
+        <StyleSetThumb
+          name="This Document"
+          looks={thumbs.current}
+          pressed={false}
+          onApply={() => onApply(setup.styleSet)}
+        />
+      </div>
+      <MenuHeading>Built-In</MenuHeading>
+      <div className="style-set-grid" role="group" aria-label="Style Sets">
+        {thumbs.sets.map((set) => (
+          <StyleSetThumb
+            key={set.id}
+            name={set.name}
+            looks={set.looks}
+            pressed={set.id === setup.styleSet}
+            onApply={set.apply}
+          />
+        ))}
+      </div>
+      <div className="design-menu-actions">
+        <MenuButton disabled={!setup.styleSet} onClick={() => onApply("")}>
+          Reset to the Default Style Set
+        </MenuButton>
+      </div>
+    </div>
+  )
+}
 
+const THUMB_STEP = 80
+
+/** The Style Set gallery on the ribbon: as many sets as fit, the scroll arrows, and More for the whole panel. */
+function StyleSetGallery({
+  setup,
+  theme,
+  onApply,
+}: {
+  setup: PageSetup
+  theme: SavedTheme
+  onApply: (id: string) => void
+}) {
+  const scroller = useRef<HTMLDivElement>(null)
+  const [count, setCount] = useState(3)
+  const [start, setStart] = useState(0)
+  const thumbs = useStyleSetThumbs(setup, theme, onApply)
+  const total = thumbs.sets.length + 1
   useEffect(() => {
     const element = scroller.current
     if (!element) {
       return
     }
-    const measure = () => {
-      const fit = Math.max(1, Math.floor((element.clientWidth + 4) / 80))
-      setCount(Math.min(DESIGN_THEMES.length, fit))
-    }
+    const measure = () => setCount(Math.min(total, Math.max(1, Math.floor((element.clientWidth + 4) / THUMB_STEP))))
     measure()
     const observer = new ResizeObserver(measure)
     observer.observe(element)
     return () => observer.disconnect()
-  }, [])
-
-  const maxStart = Math.max(0, DESIGN_THEMES.length - count)
+  }, [total])
+  const maxStart = Math.max(0, total - count)
   const origin = Math.min(start, maxStart)
-
   return (
-    <div className="relative flex min-w-0 flex-1 items-stretch gap-0.5 pt-1 pr-1">
-      <RibbonHover label="Themes" description="Apply a document theme.">
-        <button
-          type="button"
-          aria-label="Themes"
-          aria-expanded={menu}
-          ref={themesButton}
-          className="ribbon-command shrink-0"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => {
-            setMore(false)
-            placePanel(menuPanel.current, themesButton.current)
-            setMenu((open) => !open)
-          }}
-        >
-          <span className="ribbon-command-icon">
-            <ThemesIcon />
-          </span>
-          <span className="ribbon-command-label">
-            <span className="ribbon-command-label-end">Themes</span>
-          </span>
-        </button>
-      </RibbonHover>
+    <div className="relative flex min-w-0 flex-1 items-stretch gap-0.5 pt-1 pr-1" role="group" aria-label="Style Set">
       <div ref={scroller} className="flex min-w-[80px] flex-1 overflow-hidden">
-        <div className="flex gap-1" style={{ transform: `translateX(-${origin * 80}px)` }}>
-          {thumbs}
+        <div className="flex gap-1" style={{ transform: `translateX(-${origin * THUMB_STEP}px)` }}>
+          <StyleSetThumb
+            name="This Document"
+            looks={thumbs.current}
+            pressed={false}
+            onApply={() => onApply(setup.styleSet)}
+          />
+          {thumbs.sets.map((set) => (
+            <StyleSetThumb
+              key={set.id}
+              name={set.name}
+              looks={set.looks}
+              pressed={set.id === setup.styleSet}
+              onApply={set.apply}
+            />
+          ))}
         </div>
       </div>
       <div className="ribbon-gallery-nav">
-        <RibbonHover label="Previous themes">
+        <RibbonHover label="Previous style sets">
           <button
             type="button"
-            aria-label="Previous themes"
+            aria-label="Previous style sets"
             aria-disabled={origin === 0 || undefined}
             onMouseDown={(event) => event.preventDefault()}
-            onClick={() => {
-              if (origin > 0) {
-                setStart(origin - 1)
-              }
-            }}
+            onClick={() => origin > 0 && setStart(origin - 1)}
           >
             <GalleryArrow direction="up" />
           </button>
         </RibbonHover>
-        <RibbonHover label="Next themes">
+        <RibbonHover label="Next style sets">
           <button
             type="button"
-            aria-label="Next themes"
+            aria-label="Next style sets"
             aria-disabled={origin >= maxStart || undefined}
             onMouseDown={(event) => event.preventDefault()}
-            onClick={() => {
-              if (origin < maxStart) {
-                setStart(origin + 1)
-              }
-            }}
+            onClick={() => origin < maxStart && setStart(origin + 1)}
           >
             <GalleryArrow direction="down" />
           </button>
         </RibbonHover>
-        <RibbonHover label="More themes">
-          <button
-            type="button"
-            ref={moreButton}
-            aria-label="More"
-            aria-expanded={more}
-            className="ribbon-gallery-more"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => {
-              setMenu(false)
-              placePanel(morePanel.current, moreButton.current)
-              setMore((open) => !open)
-            }}
-          >
-            <GalleryMoreIcon />
-          </button>
-        </RibbonHover>
-      </div>
-      <div
-        ref={menuPanel}
-        hidden={!menu}
-        className="z-50 flex max-h-80 w-72 flex-col gap-1 overflow-auto rounded border border-black/10 bg-white p-1 shadow-lg"
-      >
-        {menuThumbs}
-      </div>
-      <div
-        ref={morePanel}
-        hidden={!more}
-        className="z-50 grid max-h-80 w-80 grid-cols-3 gap-1 overflow-auto rounded border border-black/10 bg-white p-1 shadow-lg"
-      >
-        {moreThumbs}
+        <RibbonPopover
+          label="More style sets"
+          className="ribbon-gallery-more"
+          content={(close) => (
+            <StyleSetPanel
+              setup={setup}
+              theme={theme}
+              onApply={(id) => {
+                onApply(id)
+                close()
+              }}
+            />
+          )}
+        >
+          <GalleryMoreIcon />
+        </RibbonPopover>
       </div>
     </div>
+  )
+}
+
+function StyleSetIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
+      <rect x="2.5" y="2.5" width="11" height="11" rx="1" fill="none" stroke="var(--icon-base-color, #444)" />
+      <path d="M5 5.5h6" stroke="var(--icon-accent-color, #0f6cbd)" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M5 8.5h5M5 11h4" stroke="var(--icon-base-color, #444)" strokeLinecap="round" />
+    </svg>
   )
 }
 

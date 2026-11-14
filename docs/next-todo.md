@@ -114,7 +114,10 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
       Text Formatting, Show First Line Only). Done 2026-11-14 (`editor/outline-view.ts`,
       `components/ribbon/outlining-tab.tsx`). Left: dragging a symbol to move a heading; the Master Document group (no
       subdocuments in the app); Heading 7-9's own look.
-- [ ] U16. Design: Style Sets gallery, Paragraph Spacing presets, Customize Colors / Fonts, Save Current Theme.
+- [x] U16. Design: Style Sets gallery, Paragraph Spacing presets, Customize Colors / Fonts, Save Current Theme.
+      Done 2026-11-14 (`document/design.ts`, `components/ribbon/design-tab.tsx`, `components/theme-dialogs.tsx`).
+      Left: Save as a New Style Set…, Custom Paragraph Spacing…, Edit / Delete on a custom scheme; the status
+      bar's word count reads an editor that is not ready at startup (React recovers; also before U16).
 - [ ] U17. Status bar: click the word count (Word Count), the page (Go To), the zoom % (Zoom dialog); "12 of 340
       words" for a selection; Track Changes indicator; right-click Customize Status Bar; the language applies to the
       selection, with "Do not check spelling".
