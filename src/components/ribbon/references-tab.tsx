@@ -1,3 +1,4 @@
+import { openFootnoteDialog } from "@/components/footnote-dialog"
 import { openCaptionDialog, openCrossReferenceDialog } from "@/components/caption-dialogs"
 import { MenuButton, RibbonCommand, RibbonGroup } from "@/components/ribbon/ribbon-button"
 import { LineCitationIcon, LineContentsIcon, LineEndnoteIcon, LineFootnoteIcon } from "@/components/ribbon/line-icons"
@@ -352,6 +353,13 @@ export function ReferencesTab() {
         commands: [
           { id: "next-footnote", label: "Next Footnote", icon: <NextIcon />, disabled: noNotes, menu: nextNoteMenu },
           { id: "show-notes", label: "Show Notes", icon: <NoteIcon />, disabled: noNotes, onClick: showNotes },
+          {
+            id: "footnote-dialog",
+            label: "Footnote and Endnote…",
+            icon: <NoteIcon />,
+            disabled: off,
+            onClick: () => openFootnoteDialog(editor),
+          },
         ],
       },
       {
@@ -471,7 +479,12 @@ export function ReferencesTab() {
         </div>
       </RibbonGroup>
 
-      <RibbonGroup label="Footnotes" className="shrink-0">
+      <RibbonGroup
+        label="Footnotes"
+        className="shrink-0"
+        onLaunch={() => openFootnoteDialog(editor)}
+        launchLabel="Footnote and Endnote"
+      >
         <RibbonCommand label="Insert Footnote" disabled={off} menu={footnoteMenu}>
           <NoteIcon />
         </RibbonCommand>

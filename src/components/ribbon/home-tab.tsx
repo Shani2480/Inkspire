@@ -214,7 +214,7 @@ function ClassicHome() {
               label="Paste"
               className="ribbon-large"
               disabled={!editor}
-              onClick={() => editor && void pasteFromClipboard(editor, "source")}
+              onClick={() => editor && void pasteFromClipboard(editor, "default")}
             >
               <PasteIcon />
             </Pressable>
@@ -223,7 +223,7 @@ function ClassicHome() {
                 label="Paste"
                 className="px-0.5 text-[11px] text-[var(--app-ribbon-text)]"
                 disabled={!editor}
-                onClick={() => editor && void pasteFromClipboard(editor, "source")}
+                onClick={() => editor && void pasteFromClipboard(editor, "default")}
               >
                 Paste
               </Pressable>

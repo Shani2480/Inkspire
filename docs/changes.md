@@ -7,6 +7,51 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-14
 
+### Footnote and Endnote dialog, note numbering and Convert (U13)
+
+- **What was wrong or missing:** the References > Footnotes launcher did nothing; notes were always numbered 1, 2, 3
+  and i, ii, iii, whatever the document said; notes made in the app were **not saved to .docx at all**; a custom mark
+  (`w:customMarkFollows`) and the numbering options in settings.xml were dropped on save; Word's own notes ignored
+  their number format.
+- **What changed:** Word's **Footnote and Endnote** dialog (launcher, single line ribbon, Tell Me): Location
+  (footnotes Bottom of page / Below text, endnotes End of document / End of section), Convert… (all footnotes to
+  endnotes, all endnotes to footnotes, swap; one Undo step), Number format, Custom mark, Start at (with the number as
+  it will show), Numbering (Continuous, Restart each section, Restart each page), Insert and Apply. App notes and
+  Word's notes are numbered together, in Word's formats (a…z aa, I II, *, †, ‡, §), on the page and in the note area.
+  The options are read from settings.xml and the last section, saved to both when changed, and app notes are saved
+  as real footnotes/endnotes (with separators, FootnoteText/Reference styles, next free ids); a converted Word note's
+  text moves to the other part (`document/note-numbering.ts`, `document/note-settings.ts`, `editor/note-labels.ts`,
+  `editor/note-convert.ts`, `components/footnote-dialog.tsx`, `docx/project.ts`, `docx/wml-write.ts`).
+- **Checked:** unit tests (`editor/footnote-options.test.ts`: formats, numbering with start / restart / custom marks,
+  save of app notes, options round trip, Convert moving Word's note text); the Open XML SDK validator passes a saved
+  file with converted notes, a custom mark and changed options; LibreOffice draws its notes; typecheck, lint, the
+  full suite; Chrome light and dark: Apply (a, b, c from 3) relabels the text and the note area to c, d, Convert turns
+  them into i, ii endnotes; both dialogs fit without scrolling and the overflow crawl finds nothing new.
+- **Still open:** notes are still drawn only at the page bottom and the document end (Below text and End of section
+  are saved, not drawn); one set of options per document (no "This section"); no footnote layout columns; no
+  Symbol… button for the custom mark; the note text is typed in the dialog (app notes hold plain text).
+
+### Paste Special, Paste as Picture and Set Default Paste (U12)
+
+- **What was wrong or missing:** there was no Paste Special or Set Default Paste; Merge Formatting from the Paste
+  menu pasted plain text; the Paste button always kept the source formatting, whatever Options said.
+- **What changed:** the Paste menu has Word's Paste Options (Keep Source Formatting, Merge Formatting, Picture, Keep
+  Text Only), Paste Special… and Set Default Paste… (Options > Advanced, Cut, copy, and paste). **Paste Special**
+  (Ctrl+Alt+V, Tell Me) shows the source and lists what the clipboard holds: HTML Format, Unformatted Text,
+  Unformatted Unicode Text, Picture (PNG), with Word's Result text; Paste link is shown disabled. **Picture** pastes
+  copied text as a PNG of how it looks, at the text's size; a copied picture pastes as itself. Merge Formatting now
+  keeps bold, italic, links and lists and drops fonts, sizes and colours, through the editor's own paste handling;
+  the Paste button, Ctrl+V's menu twin and the object menus follow the default paste options
+  (`editor/paste-special.ts`, `components/paste-special-dialog.tsx`, `editor/editing-behavior.ts`,
+  `editor/home-actions.ts`).
+- **Checked:** unit tests (`editor/paste-special.test.ts`: the formats list, the source, keep / merge / unformatted,
+  lines as paragraphs); typecheck, lint, the full suite; Chrome light and dark with formatted HTML on the clipboard:
+  each option pastes as described, the picture keeps the list and the text size, Ctrl+Alt+V opens the dialog, Set
+  Default Paste opens Options at Cut, copy, and paste; the menu and dialog fit without scrolling and the overflow
+  crawl finds nothing new.
+- **Still open:** Paste link and Display as icon, RTF and metafile formats (not readable from a web view's
+  clipboard); the Paste Options button after a paste; Picture in the desktop app's WebKitGTK is not yet checked.
+
 ### Track Changes options, Show Markup and Restrict Editing (U11)
 
 - **What was wrong or missing:** formatting made with Track Changes on was not tracked, and Word's formatting changes

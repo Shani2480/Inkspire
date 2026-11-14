@@ -226,7 +226,7 @@ function itemsFor(
   const shared = [
     leaf("Cut", () => run(() => cutSelection(editor))),
     leaf("Copy", () => run(() => copySelection(editor))),
-    leaf("Paste", () => run(() => void pasteFromClipboard(editor, "source"))),
+    leaf("Paste", () => run(() => void pasteFromClipboard(editor, "default"))),
     sep(),
   ]
   if (target.name === "image") {
@@ -284,7 +284,7 @@ function itemsFor(
       <>
         {leaf("Cut", () => run(() => cutSelection(editor)), empty)}
         {leaf("Copy", () => run(() => copySelection(editor)), empty)}
-        {leaf("Paste", () => run(() => void pasteFromClipboard(editor, "source")))}
+        {leaf("Paste", () => run(() => void pasteFromClipboard(editor, "default")))}
         {sep()}
         {submenu("Insert", openSub, setOpenSub, [
           leaf(

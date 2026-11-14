@@ -1,3 +1,4 @@
+import { openPasteSpecial } from "@/components/paste-special-dialog"
 import { applyAlign, selectedShapeText, toggleBold, toggleItalic, toggleUnderline } from "@/editor/shape-text"
 import { askText } from "@/components/text-prompt"
 import { openLinkDialog } from "@/components/link-dialog"
@@ -180,6 +181,7 @@ function insertNote(kind: "footnote" | "endnote") {
 
 /** Commands F4 does not repeat: dialogs, panes, switches and Repeat itself. */
 export const NOT_REPEATED = new Set([
+  "paste-special",
   "mark-index-entry",
   "link",
   "comment",
@@ -294,6 +296,13 @@ export const SHORTCUTS: ShortcutDef[] = [
     run: copyFormatting,
   },
   { id: "paste-formatting", label: "Paste Formatting", group: "Text", keys: ["Mod+Shift+V"], run: pasteFormatting },
+  {
+    id: "paste-special",
+    label: "Paste Special",
+    group: "Text",
+    keys: ["Mod+Alt+V"],
+    run: (editor) => (void openPasteSpecial(editor), true),
+  },
   {
     id: "double-underline",
     label: "Double Underline",

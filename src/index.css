@@ -15147,3 +15147,169 @@ textarea.tp-input {
   gap: 5px 12px;
   margin-bottom: 8px;
 }
+
+/* Home > Paste > Paste Special… */
+.paste-special {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.paste-special-source {
+  margin: 0;
+}
+
+.paste-special-source span {
+  color: var(--dlg-muted);
+}
+
+.paste-special-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+}
+
+.paste-special-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 20px;
+}
+
+.paste-special-modes label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.paste-special-modes label.is-disabled {
+  color: var(--dlg-disabled-text);
+}
+
+.paste-special-as {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.paste-special-list {
+  height: 112px;
+  overflow-y: auto;
+  border: 1px solid var(--dlg-control-border);
+  background: var(--dlg-surface);
+  color: var(--dlg-text);
+}
+
+.paste-special-list [role="option"] {
+  padding: 2px 6px;
+  cursor: default;
+}
+
+.paste-special-list [role="option"]:hover {
+  background: var(--dlg-item-hover);
+}
+
+.paste-special-list [role="option"].is-selected {
+  background: var(--dlg-accent);
+  color: var(--dlg-accent-text);
+}
+
+.paste-special-empty {
+  margin: 0;
+  padding: 6px;
+  color: var(--dlg-muted);
+}
+
+.paste-special-result {
+  margin: 0;
+  padding: 6px 10px 8px;
+  border: 1px solid var(--dlg-rule);
+  border-radius: 2px;
+}
+
+.paste-special-result legend {
+  padding: 0 4px;
+}
+
+.paste-special-result p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* References > Footnotes > Footnote and Endnote. */
+.footnote-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.footnote-dialog-grid {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.footnote-dialog-grid select,
+.footnote-dialog-grid input,
+.footnote-dialog-text {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.footnote-dialog-radio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.footnote-dialog-convert {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.footnote-dialog-start {
+  display: grid;
+  grid-template-columns: 80px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.footnote-dialog-start span {
+  overflow: hidden;
+  color: var(--dlg-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.footnote-dialog-text {
+  height: auto;
+  padding: 4px 6px;
+  resize: none;
+  font-family: inherit;
+}
+
+.footnote-dialog-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0 8px;
+  font-size: 12px;
+}
+
+.footnote-dialog-options label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.footnote-dialog-options label.is-disabled {
+  color: var(--dlg-disabled-text);
+}

@@ -1,3 +1,4 @@
+import type { NoteProps } from "@/document/note-numbering"
 import { protectionXml } from "@/document/protection"
 import { ORDER, writeChildren } from "@/document/docx/element-source"
 import { MC_NS, REL_NS, WORD_NS } from "@/document/docx/mce"
@@ -867,11 +868,11 @@ function writeRunContent(content: Run["content"][number]) {
   if (content.kind === "raw") {
     return content.xml
   }
-  if (
-    content.kind === "footnoteReference" ||
-    content.kind === "endnoteReference" ||
-    content.kind === "commentReference"
-  ) {
+  if (content.kind === "footnoteReference" || content.kind === "endnoteReference") {
+    const custom = content.customMarkFollows ? ` w:customMarkFollows="1"` : ""
+    return `<w:${content.kind}${custom} w:id="${content.id}"/>`
+  }
+  if (content.kind === "commentReference") {
     return `<w:${content.kind} w:id="${content.id}"/>`
   }
   if (
@@ -1178,6 +1179,8 @@ function generateSection(section: SectionProps) {
     const tag = ref.kind === "header" ? "headerReference" : "footerReference"
     parts.push(`<w:${tag} w:type="${ref.type}" r:id="${escapeXml(ref.relId)}"/>`)
   }
+  parts.push(writeNotePr("footnote", undefined, section.footnoteProps))
+  parts.push(writeNotePr("endnote", undefined, section.endnoteProps))
   if (section.type) {
     parts.push(`<w:type w:val="${section.type}"/>`)
   }
@@ -1590,8 +1593,8 @@ function writeSettings(settings: Settings) {
     ["w:alignBordersAndEdges", settings.alignBordersAndEdges ? "<w:alignBordersAndEdges/>" : ""],
     ["w:bordersDoNotSurroundHeader", settings.bordersDoNotSurroundHeader ? "<w:bordersDoNotSurroundHeader/>" : ""],
     ["w:bordersDoNotSurroundFooter", settings.bordersDoNotSurroundFooter ? "<w:bordersDoNotSurroundFooter/>" : ""],
-    ["w:footnotePr", writeNotePr("footnote", settings.footnotePr)],
-    ["w:endnotePr", writeNotePr("endnote", settings.endnotePr)],
+    ["w:footnotePr", writeNotePr("footnote", settings.footnotePr, settings.footnoteProps)],
+    ["w:endnotePr", writeNotePr("endnote", settings.endnotePr, settings.endnoteProps)],
     ["w:compat", writeCompat(settings.raw?.children.find((child) => child.name === "w:compat")?.xml)],
     ["w:rsids", writeRsids(settings)],
   ])
@@ -1756,13 +1759,26 @@ function settingsRank(name: string) {
   return rank < 0 ? SETTINGS_ORDER.length : rank
 }
 
-function writeNotePr(local: "footnote" | "endnote", ids: number[] | undefined) {
-  if (!ids || ids.length === 0) {
+/** w:footnotePr / w:endnotePr: position and numbering first, then (in settings) the separator notes' ids. */
+function writeNotePr(local: "footnote" | "endnote", ids: number[] | undefined, props?: NoteProps) {
+  const items = noteProps(props) + (ids ?? []).map((id) => `<w:${local} w:id="${id}"/>`).join("")
+  if (!items) {
     return ""
   }
-  const items = ids.map((id) => `<w:${local} w:id="${id}"/>`).join("")
   const tag = local === "footnote" ? "footnotePr" : "endnotePr"
   return `<w:${tag}>${items}</w:${tag}>`
+}
+
+function noteProps(props: NoteProps | undefined) {
+  if (!props) {
+    return ""
+  }
+  return [
+    props.pos ? `<w:pos w:val="${props.pos}"/>` : "",
+    props.numFmt ? `<w:numFmt w:val="${escapeXml(props.numFmt)}"/>` : "",
+    props.numStart !== undefined ? `<w:numStart w:val="${props.numStart}"/>` : "",
+    props.numRestart ? `<w:numRestart w:val="${props.numRestart}"/>` : "",
+  ].join("")
 }
 
 function onOff(name: string, value: boolean | undefined) {

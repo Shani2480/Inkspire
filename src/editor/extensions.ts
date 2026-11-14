@@ -60,6 +60,7 @@ import { TellMeFlash } from "@/tell-me/flash"
 import { ThreeDModel } from "@/editor/three-d-model"
 import { Deletion, FormatChange, Insertion, TrackChanges } from "@/editor/track-changes"
 import { Protection } from "@/editor/protection"
+import { NoteLabels } from "@/editor/note-labels"
 import { AutoCorrect, useAutoCorrect } from "@/editor/autocorrect"
 import { SearchHighlight } from "@/editor/search-highlight"
 import { WordKeys } from "@/editor/word-keys"
@@ -174,6 +175,7 @@ export function createExtensions() {
     FormatChange.configure(),
     TrackChanges.configure(),
     Protection,
+    NoteLabels,
   ]
 }
 

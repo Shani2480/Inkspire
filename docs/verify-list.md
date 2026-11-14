@@ -7,6 +7,11 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Footnotes and endnotes (2026-11-14)** — a document with a footnote and an endnote inserted in the app, one
+      with a custom mark (†), and options set to a, b, c starting at 3 with Restart each page, opens in Word with the
+      same marks; Word's Footnote and Endnote dialog shows those options; a Word document whose footnote was converted
+      to an endnote in the app shows it as an endnote with its text, and Word opens it without a repair prompt.
+
 - [ ] **Restrict Editing, Lock Tracking and formatting changes (2026-11-14)** — a document protected in the app for
       Comments with the password "secret" opens in Word as protected for comments, and Word's Stop Protection accepts
       "secret" (the SHA-512 hash the app writes) and refuses anything else; Lock Tracking with a password keeps Word's
@@ -306,6 +311,11 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       wraps at its width; a floating picture on a landscape page stays on it.
 
 ## Needs the desktop app (Tauri build)
+
+- [ ] **Paste Special in the desktop app (2026-11-14)** — in the Tauri app on Linux, copy formatted text from Word
+      (or a browser) and use Paste Special: the list shows HTML Format, Unformatted Text, Unformatted Unicode Text and
+      Picture (PNG); Picture pastes a sharp picture of the text at its size (WebKitGTK may refuse to draw it, in which
+      case nothing is pasted); a copied screenshot offers Picture (PNG) only.
 
 - [ ] **Word 97–2003 files (2026-11-14)** — in the desktop app, File > Open a real .doc with LibreOffice installed
       (opens as an unsaved .docx; Save asks where), and once without it (the older-Word-file message).

@@ -51,6 +51,8 @@ import type { Node as ProseNode } from "@tiptap/pm/model"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view"
 import { createNotesBox, notesHeight, notesIn, noteTextsVersion, type NoteRef } from "@/editor/page-notes"
+import { labelsForView } from "@/editor/note-labels"
+import { useNoteSettings } from "@/document/note-settings"
 
 export const PAGE_GAP = 40
 
@@ -504,6 +506,14 @@ function paginationPlugin(storage: PaginationStorage) {
         applied = ""
         schedule()
       })
+      const unsubscribeNotes = useNoteSettings.subscribe((state, previous) => {
+        // New note numbers (format, start, restart) change the note areas' text, and so their heights.
+        if (state.settings !== previous.settings) {
+          forceFull = true
+          applied = ""
+          schedule()
+        }
+      })
       const unsubscribeContour = onContourReady(() => {
         // A picture's or shape's outline finished loading: text wraps to it from now on.
         forceFull = true
@@ -531,6 +541,7 @@ function paginationPlugin(storage: PaginationStorage) {
           unsubscribeView()
           unsubscribeContour()
           unsubscribeReach()
+          unsubscribeNotes()
         },
       }
     },
@@ -1194,7 +1205,8 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   let noteHeight = 0
   let placingNotes: NoteRef[] = []
   const endnotes: NoteRef[] = []
-  const noteCounts = { footnote: 0, endnote: 0 }
+  // Each note reference's number in the document's options, from the pages laid out last (Restart each page).
+  const noteNumbers = labelsForView(view)
   const footnoteRoom = (refs: NoteRef[]) => notesHeight(view, refs, "footnote")
   let used = 0
   // The bottom margin of the last block placed: the next block's top margin collapses into it.
@@ -1892,7 +1904,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   view.state.doc.forEach((node, offset, index) => {
     track.starting = null
     track.top = offset
-    const refs = notesIn(node, noteCounts)
+    const refs = notesIn(node, offset, noteNumbers)
     endnotes.push(...refs.filter((ref) => ref.kind === "endnote"))
     const footnotes = web ? [] : refs.filter((ref) => ref.kind === "footnote")
     if (footnotes.length > 0) {

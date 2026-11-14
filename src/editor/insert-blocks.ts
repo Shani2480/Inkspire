@@ -1,3 +1,4 @@
+import { currentNoteLabels, watchNoteLabel } from "@/editor/note-labels"
 import { onMapCountries } from "@/editor/chart-map"
 import { useViewStore } from "@/document/view"
 import { chartSpecOf, defaultChartSpec, renderChart, serializeChartSpec, type ChartSpec } from "@/editor/chart-spec"
@@ -30,7 +31,7 @@ declare module "@tiptap/core" {
       insertWordArt: (preset: string) => ReturnType
       insertSignature: (name?: string, title?: string) => ReturnType
       insertBookmark: (name: string) => ReturnType
-      insertNote: (kind: "footnote" | "endnote", text: string) => ReturnType
+      insertNote: (kind: "footnote" | "endnote", text: string, mark?: string) => ReturnType
       insertFigureTable: () => ReturnType
       refreshFigureTable: () => ReturnType
     }
@@ -927,6 +928,12 @@ export const Note = Node.create({
         parseHTML: (element) => element.getAttribute("data-text") ?? "",
         renderHTML: (attributes) => ({ "data-text": attributes.text ?? "" }),
       },
+      /** A custom mark (the dialog's Custom mark) shown instead of a number. */
+      mark: {
+        default: "",
+        parseHTML: (element) => element.getAttribute("data-mark") ?? "",
+        renderHTML: (attributes) => (attributes.mark ? { "data-mark": attributes.mark } : {}),
+      },
     }
   },
   parseHTML() {
@@ -939,33 +946,32 @@ export const Note = Node.create({
     return ({ node, getPos, editor }) => {
       const dom = document.createElement("sup")
       dom.className = "doc-note"
-      const paint = (next: ProseNode) => {
+      let current = node
+      // The number from the document's footnote and endnote options, counted with Word's notes.
+      const paint = () => {
         const pos = getPos()
-        const kind = next.attrs.kind === "endnote" ? "endnote" : "footnote"
-        let number = 1
-        if (typeof pos === "number") {
-          let count = 0
-          editor.state.doc.nodesBetween(0, pos + 1, (child) => {
-            if (child.type.name === "note" && child.attrs.kind === kind) {
-              count += 1
-            }
-          })
-          number = Math.max(1, count)
+        const kind = current.attrs.kind === "endnote" ? "endnote" : "footnote"
+        const label = typeof pos === "number" ? currentNoteLabels(editor).get(pos) : undefined
+        const text = label ?? (String(current.attrs.mark ?? "") || "1")
+        if (dom.textContent !== text) {
+          dom.textContent = text
         }
-        dom.textContent = String(number)
-        dom.title = String(next.attrs.text ?? "")
+        dom.title = String(current.attrs.text ?? "")
         dom.dataset.kind = kind
       }
-      paint(node)
+      paint()
+      const stop = watchNoteLabel(paint)
       return {
         dom,
         update(next) {
           if (next.type.name !== "note") {
             return false
           }
-          paint(next)
+          current = next
+          paint()
           return true
         },
+        destroy: stop,
       }
     }
   },
@@ -1180,14 +1186,15 @@ export const insertBlockCommands = Node.create({
           return true
         },
       insertNote:
-        (kind, text) =>
+        (kind, text, mark = "") =>
         ({ state, tr }) => {
           const type = state.schema.nodes.note
           const body = text.trim().slice(0, 500)
           if (!type || !body) {
             return false
           }
-          tr.insert(state.selection.to, type.create({ id: crypto.randomUUID(), kind, text: body }))
+          const custom = mark.trim().slice(0, 10)
+          tr.insert(state.selection.to, type.create({ id: crypto.randomUUID(), kind, text: body, mark: custom }))
           return true
         },
       insertFigureTable:

@@ -1,3 +1,5 @@
+import { useEditingOptions } from "@/document/editing-options"
+import { pasteClipAs, readClipboard, type PasteFormat } from "@/editor/paste-special"
 import { useClipboard } from "@/document/clipboard"
 import { currentWordDocument } from "@/document/docx/session"
 import { findStyle, wordIdForNamedStyle, type StyleDef } from "@/document/styles"
@@ -209,37 +211,26 @@ export function cutSelection(editor: Editor) {
   document.execCommand("cut")
 }
 
-export async function pasteFromClipboard(editor: Editor, mode: "source" | "merge" | "text") {
-  restoreSelection(editor)
-  editor.commands.focus()
-  try {
-    if (mode === "source") {
-      const items = await navigator.clipboard.read()
-      for (const item of items) {
-        if (item.types.includes("text/html")) {
-          const html = await (await item.getType("text/html")).text()
-          chainWithSelection(editor).insertContent(html).run()
-          return
-        }
-      }
-    }
-    const text = await navigator.clipboard.readText()
-    if (!text) {
-      return
-    }
-    if (mode === "text") {
-      chainWithSelection(editor)
-        .command(({ tr }) => {
-          tr.insertText(text)
-          return true
-        })
-        .run()
-      return
-    }
-    chainWithSelection(editor).insertContent(text).run()
-  } catch {
-    // The browser refused the clipboard read. Leave the document unchanged.
+/**
+ * Paste, or one of Paste Options: Keep Source Formatting, Merge Formatting, Picture, Keep Text Only. "default" is
+ * the Paste button and Ctrl+V's choice in Options > Advanced (within the document, or from other programs).
+ */
+export async function pasteFromClipboard(editor: Editor, mode: "default" | "source" | "merge" | "text" | "picture") {
+  const clip = await readClipboard()
+  if (!clip) {
+    return false
   }
+  let choice: PasteFormat | "merge" =
+    mode === "source" ? "html" : mode === "default" ? "html" : mode === "text" ? "text" : mode
+  if (mode === "default") {
+    const options = useEditingOptions.getState()
+    const option = clip.html?.includes("data-pm-slice") ? options.pasteSameDocument : options.pasteOtherPrograms
+    choice = option === "merge" ? "merge" : option === "text" ? "text" : "html"
+  }
+  if (choice === "html" && !clip.html) {
+    choice = clip.image && !clip.text ? "picture" : "text"
+  }
+  return pasteClipAs(editor, clip, choice)
 }
 
 export function clearFormatting(editor: Editor) {

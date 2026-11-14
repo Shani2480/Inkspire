@@ -66,17 +66,35 @@ function textSlice(view: EditorView, text: string) {
   return new Slice(Fragment.from(nodes), 1, 1)
 }
 
+/** A paste option chosen for the next paste (Paste Options, Paste Special), instead of the defaults in Options. */
+let forced: "keep" | "merge" | null = null
+
+/** Pastes HTML through the editor's own paste handling (Word's markup cleaned up), with the formatting chosen. */
+export function pasteHtmlAs(view: EditorView, html: string, mode: "keep" | "merge") {
+  forced = mode
+  try {
+    return view.pasteHTML(html)
+  } finally {
+    forced = null
+  }
+}
+
+/** Pastes text as paragraphs, one for each line, in the formatting where it lands. */
+export function pastePlainText(view: EditorView, text: string) {
+  view.dispatch(view.state.tr.replaceSelection(textSlice(view, text)).scrollIntoView().setMeta("paste", true))
+}
+
 function handlePaste(view: EditorView, event: ClipboardEvent, slice: Slice) {
   const options = useEditingOptions.getState()
   const html = event.clipboardData?.getData("text/html") ?? ""
-  const choice = html.includes("data-pm-slice") ? options.pasteSameDocument : options.pasteOtherPrograms
+  const choice = forced ?? (html.includes("data-pm-slice") ? options.pasteSameDocument : options.pasteOtherPrograms)
   if (choice === "text") {
     const text = event.clipboardData?.getData("text/plain") ?? ""
     if (!text) {
       return false
     }
     event.preventDefault()
-    view.dispatch(view.state.tr.replaceSelection(textSlice(view, text)).scrollIntoView().setMeta("paste", true))
+    pastePlainText(view, text)
     return true
   }
   if (choice === "merge") {

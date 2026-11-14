@@ -104,6 +104,7 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
       children: [
         { label: "Keep Source Formatting", run: () => void pasteFromClipboard(editor, "source") },
         { label: "Merge Formatting", run: () => void pasteFromClipboard(editor, "merge") },
+        { label: "Picture", run: () => void pasteFromClipboard(editor, "picture") },
         { label: "Keep Text Only", run: () => void pasteFromClipboard(editor, "text") },
         ...items.slice(0, 3).map((item) => ({ label: item.text.slice(0, 42), run: () => pasteStored(editor, item) })),
       ],

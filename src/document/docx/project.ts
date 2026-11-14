@@ -1,3 +1,4 @@
+import { NOTE_MARK } from "@/document/note-numbering"
 import { BUILT_IN_STYLES, catalogWithStyles, wordIdForNamedStyle, type StyleDef } from "@/document/styles"
 import type { DocumentChrome } from "@/document/header"
 import { emptyChrome } from "@/document/header"
@@ -49,6 +50,7 @@ import {
   payloadInlines,
   placeCommentRanges,
   projectionFor,
+  type EditorNote,
   type InlineBuild,
   type JsonNode,
   type Projection,
@@ -76,6 +78,8 @@ import {
   type PageNumbering,
   type PageBorders,
   type MediaPart,
+  type Note,
+  type NotePart,
   type NumberingDefinitions,
   type Paragraph,
   type ParagraphProperties,
@@ -204,7 +208,11 @@ function noteTexts(doc: WordDocument, body: Projection): WordNoteTexts | undefin
     for (const [id, label] of body.noteLabels[kind]) {
       const note = part.items.find((item) => item.id === id && !item.type)
       if (note) {
-        texts[kind][String(id)] = blocksToHtml(note.blocks, { ...projectionFor(noteDoc(note.blocks)), noteMark: label })
+        // The note's number is drawn where the page shows it, in the document's number format (NOTE_MARK).
+        texts[kind][String(id)] = blocksToHtml(note.blocks, {
+          ...projectionFor(noteDoc(note.blocks)),
+          noteMark: body.noteCustom[kind].has(id) ? label : NOTE_MARK,
+        })
         any = true
       }
     }
@@ -246,7 +254,12 @@ export function editorToWord(
   const numbering = build.numbering
   section.references = stories.length > 0 ? stories : undefined
   const sectionStories = paragraphsIn(blocks).flatMap((paragraph) => paragraph.sectionBreak?.references ?? [])
-  const partBlocks = [...blocks, ...[...stories, ...sectionStories].flatMap((story) => story.blocks)]
+  const notes = notePartsWithEditorNotes(source, build.notes ?? [], blocks, build.nextNote)
+  const partBlocks = [
+    ...blocks,
+    ...[...stories, ...sectionStories].flatMap((story) => story.blocks),
+    ...[notes.footnotes, notes.endnotes].flatMap((part) => part?.items.flatMap((note) => note.blocks) ?? []),
+  ]
   const comments = commentsFromEditor(build.comments, source?.comments)
   placeCommentRanges(blocks, build.tags, comments.ids, commentReferenceProps(source))
   const styles = ensureEditorStyles(
@@ -260,6 +273,7 @@ export function editorToWord(
   )
   const settings = {
     ...(source?.settings ?? { compatibilityMode: 15, rsids: [] }),
+    ...notes.settings,
     evenAndOddHeaders: chrome.pageSetup.differentOddEven ? true : undefined,
     alignBordersAndEdges: chrome.pageSetup.borderAlign ? true : undefined,
     bordersDoNotSurroundHeader: chrome.pageSetup.borderSurroundHeader ? undefined : true,
@@ -279,8 +293,143 @@ export function editorToWord(
     settings,
     media: build.media.length > 0 ? build.media : undefined,
     comments: comments.part,
+    footnotes: notes.footnotes,
+    endnotes: notes.endnotes,
   }
   return document
+}
+
+/** The first id after a notes part's own (Word's notes start at 1; the separators are -1 and 0, or 0 and 1). */
+function nextNoteId(part: NotePart | undefined) {
+  return Math.max(1, ...(part?.items ?? []).map((note) => note.id + 1))
+}
+
+/**
+ * The opened document's notes parts with the editor's new notes added: each a Footnote Text paragraph that starts
+ * with the reference mark (w:footnoteRef) and holds the note's text. A document without notes gets Word's
+ * separator and continuation separator (ids -1 and 0), listed in settings as Word lists them.
+ */
+function notePartsWithEditorNotes(
+  source: WordDocument | null,
+  notes: EditorNote[],
+  blocks: Block[],
+  nextNote: InlineBuild["nextNote"],
+) {
+  const parts: { footnotes?: NotePart; endnotes?: NotePart; settings: Partial<WordDocument["settings"]> } = {
+    footnotes: source?.footnotes,
+    endnotes: source?.endnotes,
+    settings: {},
+  }
+  const converted = convertedNotes(blocks, parts, nextNote ?? { footnote: 1, endnote: 1 })
+  for (const kind of ["footnote", "endnote"] as const) {
+    const made = notes.filter((note) => note.kind === kind)
+    const moved = converted.filter((note) => note.kind === kind)
+    if (made.length === 0 && moved.length === 0) {
+      continue
+    }
+    const key = kind === "footnote" ? "footnotes" : "endnotes"
+    const style = kind === "footnote" ? "Footnote" : "Endnote"
+    const separator = (type: "separator" | "continuationSeparator", id: number): Note => ({
+      id,
+      type,
+      blocks: [
+        {
+          kind: "paragraph",
+          pPr: { spacing: { after: 0, line: 240, lineRule: "auto" } },
+          markRPr: {},
+          inlines: [{ kind: "run", rPr: {}, content: [{ kind: type }] }],
+        },
+      ],
+    })
+    const part: NotePart = structuredClone(parts[key]) ?? {
+      items: [separator("separator", -1), separator("continuationSeparator", 0)],
+    }
+    if (!parts[key]) {
+      parts.settings[kind === "footnote" ? "footnotePr" : "endnotePr"] = [-1, 0]
+    }
+    part.items.push(...moved.map((note) => note.note))
+    for (const note of made) {
+      part.items.push({
+        id: note.id,
+        blocks: [
+          {
+            kind: "paragraph",
+            styleId: `${style}Text`,
+            pPr: {},
+            markRPr: {},
+            inlines: [
+              {
+                kind: "run",
+                rPr: { rStyle: `${style}Reference` },
+                content: [note.mark ? { kind: "text", text: note.mark } : { kind: `${kind}Ref` }],
+              },
+              { kind: "run", rPr: {}, content: [{ kind: "text", text: ` ${note.text}` }] },
+            ],
+          },
+        ],
+      })
+    }
+    parts[key] = part
+  }
+  return parts
+}
+
+/**
+ * Word notes the editor converted (References > Footnotes > Convert…): a reference whose kind changed carries the
+ * part its text was read from (`from`). Each such note leaves that part and joins the other with a new id, its
+ * footnote styles and reference mark swapped for the endnote ones (or back).
+ */
+function convertedNotes(
+  blocks: Block[],
+  parts: { footnotes?: NotePart; endnotes?: NotePart },
+  next: { footnote: number; endnote: number },
+) {
+  const moved: { kind: "footnote" | "endnote"; note: Note }[] = []
+  const swap = (value: string | undefined, to: "footnote" | "endnote") => {
+    const [from, into] = to === "endnote" ? ["Footnote", "Endnote"] : ["Endnote", "Footnote"]
+    return value?.startsWith(from) ? `${into}${value.slice(from.length)}` : value
+  }
+  for (const run of runsIn(blocks)) {
+    for (const item of run.content) {
+      if (item.kind !== "footnoteReference" && item.kind !== "endnoteReference") {
+        continue
+      }
+      const reference = item as typeof item & { from?: "footnote" | "endnote" }
+      const kind = item.kind === "footnoteReference" ? "footnote" : "endnote"
+      const from = reference.from
+      delete reference.from
+      if (!from || from === kind) {
+        continue
+      }
+      const sourcePart = from === "footnote" ? parts.footnotes : parts.endnotes
+      const index = sourcePart?.items.findIndex((note) => note.id === item.id && !note.type) ?? -1
+      if (!sourcePart || index < 0) {
+        continue
+      }
+      const owned: NotePart = structuredClone(sourcePart)
+      const [note] = owned.items.splice(index, 1)
+      if (from === "footnote") {
+        parts.footnotes = owned
+      } else {
+        parts.endnotes = owned
+      }
+      const id = next[kind]
+      next[kind] += 1
+      for (const paragraph of paragraphsIn(note!.blocks)) {
+        paragraph.styleId = swap(paragraph.styleId, kind)
+      }
+      for (const noteRun of runsIn(note!.blocks)) {
+        noteRun.rPr.rStyle = swap(noteRun.rPr.rStyle, kind)
+        noteRun.content = noteRun.content.map((content) =>
+          content.kind === "footnoteRef" || content.kind === "endnoteRef" ? { kind: `${kind}Ref` as const } : content,
+        )
+      }
+      moved.push({ kind, note: { ...note!, id } })
+      item.id = id
+      run.rPr.rStyle = swap(run.rPr.rStyle, kind)
+    }
+  }
+  return moved
 }
 
 /**
@@ -427,6 +576,7 @@ function newBuild(
     theme: source ? themeFontsOf(source) : undefined,
     toc: { bookmarks: new Map(), anchors: new Map(), textWidth: 0 },
     sectionEnds: [],
+    nextNote: { footnote: nextNoteId(source?.footnotes), endnote: nextNoteId(source?.endnotes) },
   }
 }
 
@@ -2886,6 +3036,28 @@ function ensureEditorStyles(styles: StyleCatalog, blocks: Block[], fresh: boolea
       pPr: { spacing: { after: 0 } },
       rPr: {},
     })
+  }
+  for (const kind of ["Footnote", "Endnote"] as const) {
+    // Word's built-in footnote / endnote text (10 pt, single spaced, no space after) and reference (superscript).
+    if (!ids.has(`${kind}Text`) && paragraphStyles.has(`${kind}Text`)) {
+      extra.push({
+        id: `${kind}Text`,
+        type: "paragraph",
+        name: `${kind.toLowerCase()} text`,
+        basedOn: "Normal",
+        pPr: { spacing: { after: 0, line: 240, lineRule: "auto" } },
+        rPr: { sz: 20, szCs: 20 },
+      })
+    }
+    if (!ids.has(`${kind}Reference`) && runStyles.has(`${kind}Reference`)) {
+      extra.push({
+        id: `${kind}Reference`,
+        type: "character",
+        name: `${kind.toLowerCase()} reference`,
+        pPr: {},
+        rPr: { vertAlign: "superscript" },
+      })
+    }
   }
   if (!ids.has("Hyperlink") && runStyles.has("Hyperlink")) {
     extra.push({

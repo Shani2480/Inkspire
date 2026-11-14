@@ -1,3 +1,4 @@
+import { currentNoteLabels, watchNoteLabel } from "@/editor/note-labels"
 import { Mark, Node, mergeAttributes } from "@tiptap/core"
 import { paintField, preservedFieldCode } from "@/editor/field-codes"
 
@@ -68,7 +69,7 @@ export const WordInline = Node.create({
   },
 
   addNodeView() {
-    return ({ node }) => {
+    return ({ node, editor, getPos }) => {
       const tag = node.attrs.role === "note" ? "sup" : "span"
       const dom = document.createElement(tag)
       dom.setAttribute("data-word-inline", "")
@@ -89,18 +90,29 @@ export const WordInline = Node.create({
         if (role === "field") {
           // The result in a span of its own, and the code beside it, for Show field codes (Alt+F9).
           paintField(dom, text, preservedFieldCode(payload))
+        } else if (role === "note") {
+          // A note's number in the document's options, as the app numbers its own notes alongside.
+          const pos = getPos()
+          const label = (typeof pos === "number" ? currentNoteLabels(editor).get(pos) : undefined) ?? text
+          if (dom.textContent !== label) {
+            dom.textContent = label
+          }
         } else if (dom.textContent !== text) {
           dom.textContent = text
         }
       }
+      let latest = node
       paint(node)
+      const stop = node.attrs.role === "note" ? watchNoteLabel(() => paint(latest)) : undefined
       return {
         dom,
+        destroy: stop,
         ignoreMutation: () => true,
         update(current) {
           if (current.type.name !== "wordInline" || (current.attrs.role === "note") !== (tag === "sup")) {
             return false
           }
+          latest = current
           paint(current)
           return true
         },

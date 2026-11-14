@@ -1,3 +1,5 @@
+import { openFootnoteDialog } from "@/components/footnote-dialog"
+import { openDefaultPaste, openPasteSpecial } from "@/components/paste-special-dialog"
 import { useProofing } from "@/ai/proofing"
 import { useEditorPane } from "@/editor/grammar"
 import { openCompare } from "@/components/compare-dialog"
@@ -170,7 +172,23 @@ function buildCommands(): TellMeCommand[] {
       description: tip("Paste"),
       keywords: ["paste"],
       category: "Home",
-      run: () => withEditor((current) => void pasteFromClipboard(current, "merge")),
+      run: () => withEditor((current) => void pasteFromClipboard(current, "default")),
+    },
+    {
+      id: "edit.paste-special",
+      label: "Paste Special…",
+      description: "Paste the clipboard in a format you choose: HTML, unformatted text or a picture.",
+      keywords: ["paste special", "paste as", "unformatted", "picture"],
+      category: "Home",
+      run: () => withEditor((current) => void openPasteSpecial(current)),
+    },
+    {
+      id: "edit.set-default-paste",
+      label: "Set Default Paste…",
+      description: "Choose how Paste formats text from this document and from other programs.",
+      keywords: ["default paste", "paste options", "keep text only", "merge formatting"],
+      category: "Home",
+      run: () => openDefaultPaste(),
     },
     {
       id: "edit.bold",
@@ -363,6 +381,14 @@ function buildCommands(): TellMeCommand[] {
       keywords: ["index", "insert index", "back of the book"],
       category: "References",
       run: () => withEditor((current) => openIndexDialog(current)),
+    },
+    {
+      id: "references.footnote-dialog",
+      label: "Footnote and Endnote…",
+      description: "Choose where notes go and how they are numbered, insert one, or convert footnotes and endnotes.",
+      keywords: ["footnote", "endnote", "note number", "convert notes", "custom mark", "numbering"],
+      category: "References",
+      run: () => withEditor((current) => openFootnoteDialog(current)),
     },
     {
       id: "references.insert-caption",

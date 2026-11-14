@@ -8,6 +8,7 @@ import { openPackage } from "@/document/docx/opc"
 import { documentStyleSheet } from "@/document/docx/word-styles"
 import { decodeXml } from "@/document/docx/xml"
 import { borderSidesStyle } from "@/document/paragraph-sides"
+import { NOTE_MARK } from "@/document/note-numbering"
 
 /** What the fixtures look like in Word itself (rendered in Word, 2026-11-14), and Inkspire drawing them so. */
 const AUTHORED = path.resolve(process.cwd(), "tests/docx-fixtures/authored")
@@ -31,11 +32,11 @@ describe("list items with their own indent", () => {
 })
 
 describe("footnotes and endnotes", () => {
-  it("carries each note's text, numbered as its reference, and each kind's separator", async () => {
+  it("carries each note's text, with a mark for its number (the editor labels it), and each kind's separator", async () => {
     const { view } = await open(path.join(AUTHORED, "f08_footnote_endnote.docx"))
     expect(view.notes?.footnote["1"]).toContain('data-word-style="FootnoteText"')
-    expect(view.notes?.footnote["1"]).toMatch(/data-word-rstyle="FootnoteReference">1</)
-    expect(view.notes?.endnote["1"]).toMatch(/data-word-rstyle="EndnoteReference">i</)
+    expect(view.notes?.footnote["1"]).toContain(`data-word-rstyle="FootnoteReference">${NOTE_MARK}<`)
+    expect(view.notes?.endnote["1"]).toContain(`data-word-rstyle="EndnoteReference">${NOTE_MARK}<`)
     expect(view.notes?.separator.footnote).toContain("word-note-separator")
   })
 

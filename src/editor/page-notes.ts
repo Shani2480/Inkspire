@@ -1,6 +1,8 @@
 import type { Node as ProseNode } from "@tiptap/pm/model"
 import type { EditorView } from "@tiptap/pm/view"
 import type { WordNoteTexts } from "@/document/docx/project"
+import { NOTE_MARK } from "@/document/note-numbering"
+import { noteReferenceOf } from "@/editor/note-labels"
 
 /**
  * Footnotes at the foot of the page that refers to them and endnotes after the document's last paragraph, as Word
@@ -28,82 +30,39 @@ export function noteTextsVersion() {
 const escapeHtml = (text: string) =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 
-/** The note a Word note reference's payload (its w:r) points at. */
-function wordReference(payload: unknown): { kind: "footnote" | "endnote"; id: number } | null {
-  if (typeof payload !== "string" || !payload) {
-    return null
-  }
-  try {
-    const runs = JSON.parse(payload) as { content?: { kind?: string; id?: number }[] }[]
-    for (const run of Array.isArray(runs) ? runs : []) {
-      for (const item of run.content ?? []) {
-        if ((item.kind === "footnoteReference" || item.kind === "endnoteReference") && typeof item.id === "number") {
-          return { kind: item.kind === "footnoteReference" ? "footnote" : "endnote", id: item.id }
-        }
-      }
-    }
-  } catch {
-    return null
-  }
-  return null
-}
-
-/** The notes `node` refers to, in order; editor notes are numbered from `counts`, which this advances. */
-export function notesIn(node: ProseNode, counts: { footnote: number; endnote: number }): NoteRef[] {
+/** The notes `node` (a top-level block at `offset`) refers to, in order, labelled as `labels` says. */
+export function notesIn(node: ProseNode, offset: number, labels: Map<number, string>): NoteRef[] {
   const refs: NoteRef[] = []
-  const visit = (child: ProseNode) => {
-    if (child.type.name === "wordInline" && child.attrs.role === "note") {
-      const target = wordReference(child.attrs.payload)
-      const html = target ? texts[target.kind][String(target.id)] : undefined
-      if (target && html) {
-        refs.push({ kind: target.kind, key: `w${target.id}`, label: String(child.attrs.text ?? ""), html })
+  node.descendants((child, at) => {
+    const reference = noteReferenceOf(child)
+    if (!reference) {
+      return true
+    }
+    const pos = offset + 1 + at
+    const label = labels.get(pos) ?? String(child.attrs.text ?? "")
+    if (reference.wordId !== undefined) {
+      // A Word note's text, from the part it was read from (Convert moves it on save).
+      const html = texts[reference.from ?? reference.kind][String(reference.wordId)]
+      if (html) {
+        refs.push({
+          kind: reference.kind,
+          key: `w${reference.from ?? reference.kind}${reference.wordId}`,
+          label,
+          html: html.split(NOTE_MARK).join(escapeHtml(label)),
+        })
       }
       return false
     }
-    if (child.type.name === "note") {
-      const kind = child.attrs.kind === "endnote" ? "endnote" : "footnote"
-      counts[kind] += 1
-      const label = kind === "footnote" ? String(counts[kind]) : romanNumeral(counts[kind])
-      const text = String(child.attrs.text ?? "")
-      refs.push({
-        kind,
-        key: `e${String(child.attrs.id || counts[kind])}`,
-        label,
-        html: `<p class="note-text"><sup>${escapeHtml(label)}</sup> ${escapeHtml(text)}</p>`,
-      })
-      return false
-    }
-    return true
-  }
-  node.descendants(visit)
+    const text = String(child.attrs.text ?? "")
+    refs.push({
+      kind: reference.kind,
+      key: `e${String(child.attrs.id || pos)}`,
+      label,
+      html: `<p class="note-text"><sup>${escapeHtml(label)}</sup> ${escapeHtml(text)}</p>`,
+    })
+    return false
+  })
   return refs
-}
-
-function romanNumeral(value: number) {
-  const numerals: [number, string][] = [
-    [1000, "m"],
-    [900, "cm"],
-    [500, "d"],
-    [400, "cd"],
-    [100, "c"],
-    [90, "xc"],
-    [50, "l"],
-    [40, "xl"],
-    [10, "x"],
-    [9, "ix"],
-    [5, "v"],
-    [4, "iv"],
-    [1, "i"],
-  ]
-  let rest = Math.max(1, Math.floor(value))
-  let out = ""
-  for (const [amount, numeral] of numerals) {
-    while (rest >= amount) {
-      out += numeral
-      rest -= amount
-    }
-  }
-  return out
 }
 
 /** Word's own separator: a paragraph holding a rule a third of a page wide. */

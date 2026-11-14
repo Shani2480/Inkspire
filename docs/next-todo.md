@@ -95,8 +95,15 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
       content controls are kept as read); Just Mine behaves as For Everyone (no co-authoring); passwords from Word
       2007–2019 (legacy hash) cannot be checked, so Stop Protection offers to stop anyway; Restrict Editing's
       exceptions (parts anyone may edit) and the styles list of "Limit formatting"; per-reviewer colours.
-- [ ] U12. Paste Special… (Ctrl+Alt+V; formats list, paste link) and Set Default Paste; Paste as Picture.
-- [ ] U13. Footnote and Endnote dialog (location, number format, start at, numbering restart, convert).
+- [x] U12. Paste Special… (Ctrl+Alt+V; formats list, paste link) and Set Default Paste; Paste as Picture. Done
+      2026-11-14 (`editor/paste-special.ts`, `components/paste-special-dialog.tsx`). Left: Paste link and Display as
+      icon (the clipboard a web view reads never carries a link source or an object), Word's RTF and metafile formats
+      (not readable there), the Paste Options button that appears after a paste.
+- [x] U13. Footnote and Endnote dialog (location, number format, start at, numbering restart, convert). Done
+      2026-11-14 (`components/footnote-dialog.tsx`, `editor/note-labels.ts`, `editor/note-convert.ts`); app notes are
+      now saved to .docx. Left: Below text and End of section are saved but notes are still drawn at the page bottom /
+      document end; options per section ("This section"); footnote layout columns; Symbol… for the custom mark; the
+      note text is asked for in the dialog rather than typed in the note area.
 - [ ] U14. Source Manager and Create Source with every source type and field, master list, Edit Citation,
       placeholders.
 - [ ] U15. Outline view with the Outlining tab (Promote/Demote, Show Level, Expand/Collapse, Move Up/Down, Show

@@ -1,3 +1,4 @@
+import type { NoteProps } from "@/document/note-numbering"
 import type { ElementSource } from "@/document/docx/element-source"
 import type { OpcRelationship } from "@/document/docx/opc"
 import type { DocumentProtection } from "@/document/review"
@@ -270,6 +271,9 @@ export type PageBorders = {
 export type SectionProps = {
   /** w:sectPr as written. */
   source?: ElementSource
+  /** The section's own footnote and endnote position and numbering (w:footnotePr, w:endnotePr). */
+  footnoteProps?: NoteProps
+  endnoteProps?: NoteProps
   type?: SectionType
   pageWidth?: number
   pageHeight?: number
@@ -324,8 +328,9 @@ export type RunContent =
   | { kind: "break"; breakType: BreakType }
   | { kind: "instrText"; text: string }
   | { kind: "fldChar"; fieldType: FieldCharType }
-  | { kind: "footnoteReference"; id: number }
-  | { kind: "endnoteReference"; id: number }
+  /** A note's reference mark; with customMarkFollows the run's text after it is the mark, not a number. */
+  | { kind: "footnoteReference"; id: number; customMarkFollows?: boolean }
+  | { kind: "endnoteReference"; id: number; customMarkFollows?: boolean }
   | { kind: "footnoteRef" }
   | { kind: "endnoteRef" }
   | { kind: "separator" }
@@ -836,6 +841,10 @@ export type Settings = {
   protection?: DocumentProtection | null
   /** Separator note ids listed in w:footnotePr, including -1 and 0. */
   footnotePr?: number[]
+  /** Footnote position and numbering for the document (w:footnotePr's pos, numFmt, numStart, numRestart). */
+  footnoteProps?: NoteProps
+  /** Endnote position and numbering for the document. */
+  endnoteProps?: NoteProps
   /** Separator note ids listed in w:endnotePr. */
   endnotePr?: number[]
   /**

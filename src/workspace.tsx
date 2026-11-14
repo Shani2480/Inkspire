@@ -31,6 +31,8 @@ import { Ribbon } from "@/components/ribbon/ribbon"
 import { FieldEditor } from "@/components/field-editor"
 import { TocDialogHost } from "@/components/toc-dialogs"
 import { IndexDialogsHost } from "@/components/index-dialogs"
+import { FootnoteDialogHost } from "@/components/footnote-dialog"
+import { PasteSpecialHost } from "@/components/paste-special-dialog"
 import { ProtectDialogsHost, RestrictEditingPane } from "@/components/protect-pane"
 import { ProofingPanel } from "@/components/proofing-panel"
 import { AccessibilityPane } from "@/components/accessibility-pane"
@@ -354,6 +356,8 @@ function DocumentShell({ onReady }: WorkspaceProps) {
       <InsertTableDialogHost />
       <CaptionDialogsHost />
       <IndexDialogsHost />
+      <FootnoteDialogHost />
+      <PasteSpecialHost />
       <ProtectDialogsHost editor={editor} />
       <StyleInspector />
       <ApplyStylesBox />

@@ -1,3 +1,4 @@
+import { openDefaultPaste, openPasteSpecial } from "@/components/paste-special-dialog"
 import { useStylePanes } from "@/document/style-panes"
 import { applyFontColor, applyFontFamily, applyHighlight, applyUnderline, setShapeText } from "@/editor/shape-text"
 import { openBordersAndShading } from "@/components/borders-shading-dialog"
@@ -182,7 +183,7 @@ export function themeBodyLabel(bodyFont: string) {
 }
 
 export function PasteMenu({ editor, close }: { editor: Editor | null; close: () => void }) {
-  const paste = (mode: "source" | "merge" | "text") => {
+  const paste = (mode: "source" | "merge" | "picture" | "text") => {
     if (editor) {
       void pasteFromClipboard(editor, mode)
     }
@@ -191,13 +192,33 @@ export function PasteMenu({ editor, close }: { editor: Editor | null; close: () 
 
   return (
     <div className="flex w-52 flex-col">
+      <div className="break-menu-heading">Paste Options:</div>
       <MenuButton onClick={() => paste("source")}>Keep Source Formatting</MenuButton>
       <MenuButton onClick={() => paste("merge")}>Merge Formatting</MenuButton>
+      <MenuButton onClick={() => paste("picture")}>Picture</MenuButton>
       <MenuButton onClick={() => paste("text")}>
         <span className="mr-2 inline-flex size-4 items-center justify-center text-[12px] font-normal text-[var(--app-ribbon-text)]">
           A
         </span>
         Keep Text Only
+      </MenuButton>
+      <div className="my-1 border-t border-[var(--app-popover-border)]" />
+      <MenuButton
+        disabled={!editor}
+        onClick={() => {
+          close()
+          void openPasteSpecial(editor)
+        }}
+      >
+        Paste Special…
+      </MenuButton>
+      <MenuButton
+        onClick={() => {
+          close()
+          openDefaultPaste()
+        }}
+      >
+        Set Default Paste…
       </MenuButton>
     </div>
   )

@@ -118,6 +118,8 @@ export type Projection = {
   notes: { footnote: number; endnote: number }
   /** The number or mark each note reference drew, by note id: what its note's own w:footnoteRef shows. */
   noteLabels: { footnote: Map<number, string>; endnote: Map<number, string> }
+  /** Notes whose reference is a custom mark (w:customMarkFollows), by kind. */
+  noteCustom: { footnote: Set<number>; endnote: Set<number> }
   /** While a note's text is shown: the mark its w:footnoteRef / w:endnoteRef draws. */
   noteMark?: string
   theme: ThemeFonts
@@ -143,6 +145,7 @@ export function projectionFor(doc: WordDocument): Projection {
     open: new Set(),
     notes: { footnote: 0, endnote: 0 },
     noteLabels: { footnote: new Map(), endnote: new Map() },
+    noteCustom: { footnote: new Set(), endnote: new Set() },
     theme: themeFontsOf(doc),
     listNext: new Map(),
     listSeen: new Set(),
@@ -291,13 +294,21 @@ function revisionHtml(revision: Revision, ctx: Projection) {
 function runHtml(run: Run, ctx: Projection) {
   if (run.content.some((item) => item.kind === "footnoteReference" || item.kind === "endnoteReference")) {
     const footnote = run.content.some((item) => item.kind === "footnoteReference")
-    const number = footnote ? ++ctx.notes.footnote : ++ctx.notes.endnote
-    const label = footnote ? String(number) : romanNumeral(number)
+    // A custom mark (w:customMarkFollows) is the run's text and takes no number; the editor numbers the rest
+    // from the document's footnote and endnote options (`editor/note-labels.ts`).
+    const custom = run.content.some(
+      (item) => (item.kind === "footnoteReference" || item.kind === "endnoteReference") && item.customMarkFollows,
+    )
+    const text = run.content.map((item) => (item.kind === "text" ? item.text : "")).join("")
+    const number = custom ? 0 : footnote ? ++ctx.notes.footnote : ++ctx.notes.endnote
+    const label = custom ? text : footnote ? String(number) : romanNumeral(number)
     for (const item of run.content) {
-      if (item.kind === "footnoteReference") {
-        ctx.noteLabels.footnote.set(item.id, label)
-      } else if (item.kind === "endnoteReference") {
-        ctx.noteLabels.endnote.set(item.id, label)
+      if (item.kind === "footnoteReference" || item.kind === "endnoteReference") {
+        const kind = item.kind === "footnoteReference" ? "footnote" : "endnote"
+        ctx.noteLabels[kind].set(item.id, label)
+        if (custom) {
+          ctx.noteCustom[kind].add(item.id)
+        }
       }
     }
     return wrapComments(atomHtml("note", [run], label), ctx)
@@ -1567,7 +1578,14 @@ export type InlineBuild = {
   preserved?: PreservedPackage
   /** The editor's bookmarks written so far: the next free id and the names used (each written once). */
   bookmarks?: { next: number; names: Set<string> }
+  /** Footnotes and endnotes made in the editor, in order, with the ids their references were given. */
+  notes?: EditorNote[]
+  /** The next free note id of each kind (after the opened document's own). */
+  nextNote?: { footnote: number; endnote: number }
 }
+
+/** A note made in the editor: its reference's id in the body and its text, written to footnotes or endnotes.xml. */
+export type EditorNote = { kind: "footnote" | "endnote"; id: number; text: string; mark?: string }
 
 /** Word's date pictures for the automatic date and time the editor offers. */
 
@@ -1656,6 +1674,24 @@ export function inlinesFromEditor(nodes: JsonNode[], build: InlineBuild): Inline
           ...annotations,
         })
       }
+      continue
+    }
+    if (node.type === "note") {
+      // A note made in the editor: Word's reference mark in the body, its text in the notes part.
+      const kind = node.attrs?.kind === "endnote" ? "endnote" : "footnote"
+      const next = (build.nextNote ??= { footnote: 1, endnote: 1 })
+      const id = next[kind]
+      next[kind] += 1
+      const mark = String(node.attrs?.mark ?? "")
+      ;(build.notes ??= []).push({ kind, id, text: String(node.attrs?.text ?? ""), ...(mark ? { mark } : {}) })
+      const reference = kind === "endnote" ? "endnoteReference" : "footnoteReference"
+      // A custom mark follows the reference in the same run (w:customMarkFollows), as Word writes it.
+      const run = contentRun({ kind: reference, id, ...(mark ? { customMarkFollows: true } : {}) }, marks, build)
+      if (mark) {
+        run.content.push({ kind: "text", text: mark })
+      }
+      run.rPr.rStyle = kind === "endnote" ? "EndnoteReference" : "FootnoteReference"
+      pieces.push({ inline: run, ...annotations })
       continue
     }
     if (node.type === "equation") {

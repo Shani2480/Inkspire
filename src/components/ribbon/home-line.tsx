@@ -176,7 +176,7 @@ export function HomeLine() {
       icon: <PasteIcon size={16} />,
       priority: 3,
       disabled: off,
-      onClick: () => editor && void pasteFromClipboard(editor, "source"),
+      onClick: () => editor && void pasteFromClipboard(editor, "default"),
       menu: (close) => <PasteMenu editor={editor} close={close} />,
     },
     {

@@ -1,3 +1,4 @@
+import type { NoteProps } from "@/document/note-numbering"
 import { elementChildren, snapshot, type ElementSource } from "@/document/docx/element-source"
 import { isStrictMarkup, transitionalMarkup, transitionalUriOf } from "@/document/docx/strict"
 import { filterMarkup, REL_NS, WORD_NS, XML_NS, type MarkupAttribute } from "@/document/docx/mce"
@@ -597,6 +598,14 @@ function readSettings(xml: string | undefined, notes: WordNote[]): Settings {
   }
   const footnotePr = readNotePr(wordChild(root, "footnotePr"), "footnote")
   const endnotePr = readNotePr(wordChild(root, "endnotePr"), "endnote")
+  const footnoteProps = readNoteProps(wordChild(root, "footnotePr"))
+  const endnoteProps = readNoteProps(wordChild(root, "endnotePr"))
+  if (footnoteProps) {
+    settings.footnoteProps = footnoteProps
+  }
+  if (endnoteProps) {
+    settings.endnoteProps = endnoteProps
+  }
   if (footnotePr) {
     settings.footnotePr = footnotePr
   }
@@ -825,7 +834,17 @@ function readRunContent(child: MarkupNode, raw: RawCursor = NO_RAW): RunContent 
     const text = applySpace(child.text, preservesSpace(child))
     return text ? { kind: child.local === "delText" ? "delText" : "text", text } : undefined
   }
-  if (child.local === "footnoteReference" || child.local === "endnoteReference" || child.local === "commentReference") {
+  if (child.local === "footnoteReference" || child.local === "endnoteReference") {
+    const id = readInt(attr(child, "id"))
+    if (id === undefined) {
+      return undefined
+    }
+    const custom = attr(child, "customMarkFollows")
+    return custom === "1" || custom === "true" || custom === "on"
+      ? { kind: child.local, id, customMarkFollows: true }
+      : { kind: child.local, id }
+  }
+  if (child.local === "commentReference") {
     const id = readInt(attr(child, "id"))
     return id === undefined ? undefined : { kind: child.local, id }
   }
@@ -1675,6 +1694,14 @@ function readSectionModel(node: MarkupNode): SectionProps {
   if (references.length > 0) {
     section.references = references
   }
+  const footnoteProps = readNoteProps(wordChild(node, "footnotePr"))
+  const endnoteProps = readNoteProps(wordChild(node, "endnotePr"))
+  if (footnoteProps) {
+    section.footnoteProps = footnoteProps
+  }
+  if (endnoteProps) {
+    section.endnoteProps = endnoteProps
+  }
   const type = oneOf(childVal(node, "type"), SECTION_TYPES)
   if (type) {
     section.type = type
@@ -2028,6 +2055,31 @@ function readPropertyChange(node: MarkupNode | undefined) {
     ...(author ? { author } : {}),
     ...(date ? { date } : {}),
   }
+}
+
+/** w:footnotePr / w:endnotePr's position and numbering (CT_FtnProps / CT_EdnProps). */
+function readNoteProps(node: MarkupNode | undefined): NoteProps | undefined {
+  if (!node) {
+    return undefined
+  }
+  const props: NoteProps = {}
+  const pos = childVal(node, "pos")
+  if (pos === "pageBottom" || pos === "beneathText" || pos === "sectEnd" || pos === "docEnd") {
+    props.pos = pos
+  }
+  const numFmt = childVal(node, "numFmt")
+  if (numFmt) {
+    props.numFmt = numFmt
+  }
+  const numStart = readInt(childVal(node, "numStart"))
+  if (numStart !== undefined) {
+    props.numStart = numStart
+  }
+  const numRestart = childVal(node, "numRestart")
+  if (numRestart === "continuous" || numRestart === "eachSect" || numRestart === "eachPage") {
+    props.numRestart = numRestart
+  }
+  return Object.keys(props).length > 0 ? props : undefined
 }
 
 function readNotePr(node: MarkupNode | undefined, local: "footnote" | "endnote") {
