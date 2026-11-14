@@ -7,6 +7,110 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-14
 
+### Navigation pane: search with Results, page thumbnails, collapsible headings you can drag
+
+- **What was wrong or missing:** the pane was a flat list of headings; Ctrl+F opened the Find dialog; there was no
+  way to see every match at once, see the pages, fold the outline or move a section.
+- **What changed:** `components/navigation-pane.tsx` is rebuilt as Word's pane: a "Search document" box (Enter /
+  Shift+Enter and the arrows step through the matches, "Result N of M"), Headings, Pages and Results tabs. Every
+  match is highlighted in the document by `editor/search-highlight.ts` (a decoration that follows edits and goes
+  when the pane closes). Results lists each match in its sentence with the match in bold. Headings is a tree with
+  collapse arrows; the heading the caret is in is marked, and headings whose sections hold a match are yellow, as
+  in Word. Dragging a heading moves its whole section (subheadings included) before another heading or to the end,
+  as one undo step (`editor/heading-sections.ts`). Pages shows thumbnails drawn from the print copy of each page,
+  only while in view, refreshed after a pause in typing. Ctrl+F and Home > Find now open the pane and put the
+  selected text in the search box (`document/nav-search.ts`); Advanced Find… and Ctrl+H keep the dialog, and
+  Read Mode keeps its own Find.
+- **Checked:** `heading-sections.test.ts` (sections, move, refusing a move into itself, highlight following
+  edits); in Chrome in light and dark: Ctrl+F on a selected word, stepping results, collapsing, dragging a
+  section, page thumbnails.
+- **Still open:** Word's pane also filters Pages to pages with matches and offers search for graphics, tables and
+  equations from its menu; not done.
+
+### Find and Replace: Word's More >> options, special characters and matches across formatting
+
+- **What was wrong or missing:** Find searched each run of text on its own, so a word half in bold was not found;
+  only Match case existed; Find Next went through the matches from the first, not from the caret.
+- **What changed:** `editor/find.ts` searches each paragraph's whole text (paragraph marks, tabs and line breaks as
+  characters, mapped back to document positions) with Word's options: Match case, Find whole words only, Use
+  wildcards (? * [] [!] {n,m} @ < > ( ) and \ escapes, \1–\9 in Replace with), Sounds like (Soundex), Find all
+  word forms (plurals, -ed, -ing, common irregular verbs), Match prefix and suffix, Ignore punctuation and white
+  space. Special characters in Find what (^p ^t ^l ^? ^# ^$ ^w ^s ^~ ^- ^= ^+ ^g ^^) and Replace with (^p splits the
+  paragraph, ^t ^l ^& ^^ and the dashes and spaces); a replacement keeps the formatting where the match starts.
+  The dialog (`find-dialog.tsx`) has More >> / << Less with Search All/Down/Up, the options (disabled as Word
+  disables them together) and the Special menu; Find Next starts at the caret (All goes round, Down/Up stop with
+  "finished searching"), and the count shows "2 of 5". Tests: `find.test.ts`.
+- **How it was checked:** headless Chrome: wildcards "(<[A-Z]_>), (<[A-Z]_>)" replaced with "\2 \1" turned
+  "Doe, Jane and Smith, John" into "Jane Doe and John Smith" ("Replaced 2 occurrences").
+- **Open:** Format… (find by font, paragraph, style), Reading Highlight, Find In, ^c and ^m.
+
+### Insert Hyperlink dialog and link commands on the context menu
+
+- **What was missing:** Ctrl+K, Insert > Link and the context menu asked only for an address; there was no text to
+  display, ScreenTip, place in the document or e-mail address, and no way to edit, open, copy or remove a link. The
+  Insert menu built the link's HTML from the typed address without escaping it.
+- **What changed:** `link-dialog.tsx` (Insert Hyperlink / Edit Hyperlink) and `editor/links.ts`: Text to display
+  (or "<<Selection in Document>>" over paragraphs), ScreenTip…, Link to Existing File or Web Page (a bare
+  "www.…" gets http://, an e-mail address mailto:, a file name stays as typed), Place in This Document (Top of the
+  Document, the headings by level, the shown bookmarks; a heading gets a hidden `_Ref` bookmark, or keeps its own),
+  E-mail Address with Subject, and Remove Link when editing. The context menu has Edit Link…, Open Link, Copy Link,
+  Remove Link on a link and Link… elsewhere. The ScreenTip is saved as `w:hyperlink w:tooltip` and read back.
+  Tests: `links.test.ts`.
+- **How it was checked:** headless Chrome, light and dark: Ctrl+K over a word, Place in This Document, a heading,
+  OK gave a link to a new `_Ref` bookmark on that heading.
+- **Open:** Browse for a file, Recent Files, Create New Document, Target Frame.
+- Also: the corpus write test (`preservation.test.ts`) gets a 60 s timeout; it passed 5 s with every file running.
+
+### AutoCorrect and AutoFormat As You Type, as Word's; Markdown typing rules gone
+
+- **What was missing:** nothing was corrected as you type, while TipTap's Markdown rules turned "# " into a heading,
+  "> " into a quote and `**text**` into bold, which Word never does.
+- **What changed:** `editor/autocorrect.ts` (plugin and settings), `editor/autocorrect-rules.ts` (the rules): smart
+  quotes; the Replace list (symbols such as (c) © and --> →, replaced as their last character is typed, and common
+  slips such as teh, dont, i, in the case they were typed); TWo INitial CApitals; capitals at a sentence's and a table
+  cell's start (not after Word's abbreviation exceptions or in addresses); names of days; ordinals in superscript;
+  "--" to an em dash and " - " to an en dash; bulleted lists from "* ", "- ", "> " and numbered ones from "1. ", "1)",
+  "a.", "i." (starting at the typed value). Each correction is its own undo step, so Ctrl+Z brings back what was
+  typed. AutoCorrect Options… (File > Options > Proofing, `autocorrect-dialog.tsx`) has the AutoCorrect tab
+  (options, Replace/With, Add/Replace/Delete over the list) and AutoFormat As You Type; the autolink option drives the
+  link extension's autolink. The body editor allows only the "---" line rule and the link paste rule.
+  Test: `autocorrect.test.ts` (rules, and typing through a real editor including Undo).
+- **How it was checked:** headless Chrome with real key events: "teh meeting is on monday. its the 21st -- not
+  "the 22nd" (c) 2026" then Enter and "* first point" gave "The meeting is on Monday. Its the 21st – not “the 22nd” ©
+  2026" and a bulleted "First point"; the dialog in light and dark.
+- **Open:** the lightning AutoCorrect Options button under a correction; Math AutoCorrect; AutoFormat (the
+  on-demand pass). The header and footer editors drop the Markdown rules too.
+
+### Inspect Document inspects instead of wiping formatting: Word's Document Inspector
+
+- **What was wrong:** File > Info > Inspect Document ran `unsetAllMarks()` on the selection, or on the whole
+  document when nothing was selected: one click removed every bold, font, colour, link and comment mark. Its card
+  always claimed "Document properties and author's name, Custom XML data".
+- **What changed:** the card opens a Document Inspector (`inspect-dialog.tsx`, `document/inspect.ts`), as Word's:
+  tick what to look for, Inspect, then per kind what was found with Remove All, and Reinspect. Kinds: comments and
+  tracked changes (Remove All accepts the changes and deletes the comments, as Word does), document properties
+  (title, subject, tags, comments, author, company, category), headers, footers (every section's) and the watermark,
+  and hidden text (deleted). The card lists what the inspector would find now.
+  Test: `inspect.test.ts`.
+- **How it was checked:** headless Chrome, light and dark: a document with hidden text shows it on the card and in
+  the results, the rest "No items were found".
+- **Open:** Word also inspects custom XML, invisible objects, collapsed headings, embedded documents and macros;
+  the app keeps none of those it could remove yet.
+
+### A new splash screen: Word's card, drawn art, a progress bar, the system's light or dark
+
+- **What was wrong:** the splash was a 1024×682 marketing picture ("Write better. With AI.", feature list) with an
+  endless sliding bar; it stayed light in dark mode and its card waited for the picture to load.
+- **What changed:** a Word-style card (`splash-screen.tsx`, `splash-art.tsx`): the app mark redrawn as SVG from the
+  app icon, the name, a picture of two pages with the orbit and spark on the right, and the status over a thin bar.
+  Colours are tokens on `.splash-screen`, switched by `prefers-color-scheme` (the splash shows before the app's own
+  choice is read). The bar is determinate: `setSplashLoadingStatus(text, progress)` sets the stage (start, modules
+  0.25, workspace loaded 0.7, ready 1); it is drawn from script a frame at a time, creeps while a stage takes long,
+  never goes back, and runs to the end before the splash goes at once (no fade). `splash.png` is removed.
+  Test: `splash-screen.test.tsx`.
+- **How it was checked:** headless Chrome at 1100×820 in light and dark, workspace held back so the splash stays.
+- **Open:** not yet looked at in the desktop app (WebKitGTK); see `verify-list.md`.
+
 ### Word comparison fixes: lists in cells, notes, border sides, line numbers, styles, fields, Word's defaults
 
 - **What was wrong:** comparing every fixture with Word's own render found 13 differences on opening (listed in

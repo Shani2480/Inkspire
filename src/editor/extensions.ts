@@ -58,6 +58,8 @@ import { TripleClickSelectAll } from "@/editor/triple-click-select"
 import { TellMeFlash } from "@/tell-me/flash"
 import { ThreeDModel } from "@/editor/three-d-model"
 import { Deletion, Insertion, TrackChanges } from "@/editor/track-changes"
+import { AutoCorrect, useAutoCorrect } from "@/editor/autocorrect"
+import { SearchHighlight } from "@/editor/search-highlight"
 
 export function createExtensions() {
   return [
@@ -71,12 +73,16 @@ export function createExtensions() {
       link: {
         openOnClick: false,
         autolink: true,
+        // AutoFormat As You Type > Internet and network paths with hyperlinks.
+        shouldAutoLink: () => useAutoCorrect.getState().options.autoLinks,
       },
     }),
     IndentedParagraph.configure(),
     IndentedHeading.configure(),
     IndentedListItem.configure(),
     IndentKeymap.configure(),
+    AutoCorrect,
+    SearchHighlight,
     ShortcutKeymap.configure(),
     EditingBehavior.configure(),
     DocxSource.configure(),

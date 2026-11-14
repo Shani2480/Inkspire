@@ -55,6 +55,9 @@ import { PageNumberFormatDialog } from "@/components/page-number-format-dialog"
 import { BordersShadingHost } from "@/components/borders-shading-dialog"
 import { CustomizeDialogHost } from "@/components/customize-dialog"
 import { OptimizeDialogHost } from "@/components/optimize-dialog"
+import { InspectDialogHost } from "@/components/inspect-dialog"
+import { AutoCorrectDialogHost } from "@/components/autocorrect-dialog"
+import { LinkDialogHost } from "@/components/link-dialog"
 import { SmartArtTextPane } from "@/components/smartart-text-pane"
 import { ColumnsDialogHost } from "@/components/columns-dialog"
 import { TablePropertiesHost } from "@/components/table-properties-dialog"
@@ -318,6 +321,9 @@ function DocumentShell({ onReady }: WorkspaceProps) {
       <SmartArtTextPane />
       <CustomizeDialogHost />
       <OptimizeDialogHost />
+      <InspectDialogHost />
+      <AutoCorrectDialogHost />
+      <LinkDialogHost />
       <CompressDialog editor={editor} />
       <RemoveBackgroundDialog editor={editor} />
       <TableStylesDialog editor={editor} />

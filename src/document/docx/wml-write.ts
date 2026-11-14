@@ -780,6 +780,9 @@ function writeInline(inline: Paragraph["inlines"][number]): string {
     if (inline.anchor) {
       attributes.push(`w:anchor="${escapeXml(inline.anchor)}"`)
     }
+    if (inline.tooltip) {
+      attributes.push(`w:tooltip="${escapeXml(inline.tooltip)}"`)
+    }
     if (inline.history !== undefined) {
       attributes.push(`w:history="${inline.history ? "1" : "0"}"`)
     }

@@ -286,6 +286,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **New splash screen (2026-11-14)** — start the desktop app with the system in light, then dark: the card matches, the bar fills smoothly with no jump or stale frame, and the start screen shows at once after it, with no blend.
 - [ ] **Google Docs form (2026-11-12)** — open a .docx exported from Google Docs whose tables are wider than the
       text and pulled into the left margin: the page has the file's margins (not 1 in) and every table ends inside
       the paper, as in Word.

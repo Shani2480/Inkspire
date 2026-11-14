@@ -5254,52 +5254,116 @@ body,
   background: transparent !important;
 }
 
+/* The splash follows the system's light or dark theme: it shows before the app's own choice is read. */
 .splash-screen {
+  --splash-backdrop: #e9ebf0;
+  --splash-card: #ffffff;
+  --splash-card-border: rgba(15, 23, 42, 0.06);
+  --splash-name: #1c1f3a;
+  --splash-status: #5f6472;
+  --splash-track: rgba(15, 23, 42, 0.08);
+  --splash-wash-a: #dfe8ff;
+  --splash-wash-b: #c9c2ff;
+  --splash-page: #ffffff;
+  --splash-page-back: #eef2fd;
+  --splash-line: #c4d0f0;
+  --splash-line-back: #d9e1f6;
+  --splash-shadow: rgba(49, 66, 140, 0.08);
+  --splash-page-edge: #dbe3f6;
   position: absolute;
   inset: 0;
   z-index: 9999;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #e8eaee;
+  background: var(--splash-backdrop);
 }
 
-/* The card waits for its picture, so it never shows as an empty grey box with "Starting..." on it. */
-.splash-card:not(.is-ready) {
-  visibility: hidden;
+@media (prefers-color-scheme: dark) {
+  .splash-screen {
+    --splash-backdrop: #16171b;
+    --splash-card: #24252b;
+    --splash-card-border: rgba(255, 255, 255, 0.07);
+    --splash-name: #f1f2f6;
+    --splash-status: #a3a7b3;
+    --splash-track: rgba(255, 255, 255, 0.1);
+    --splash-wash-a: #23305e;
+    --splash-wash-b: #3a2a78;
+    --splash-page: #3a3d4a;
+    --splash-page-back: #2f323d;
+    --splash-line: #5a6183;
+    --splash-line-back: #474d66;
+    --splash-shadow: rgba(0, 0, 0, 0.35);
+    --splash-page-edge: rgba(255, 255, 255, 0.06);
+  }
 }
 
 .splash-card {
   position: relative;
-  width: 600px;
-  height: 400px;
+  width: 560px;
+  height: 340px;
   max-width: calc(100vw - 32px);
   max-height: calc(100vh - 32px);
   overflow: hidden;
-  background: #e8eaee;
-  border-radius: 20px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.22);
+  background: var(--splash-card);
+  border: 1px solid var(--splash-card-border);
+  border-radius: 12px;
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.06),
+    0 18px 48px rgba(0, 0, 0, 0.18);
   isolation: isolate;
-}
-
-.splash-art {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: inherit;
+  font-family: "Segoe UI Variable", "Segoe UI", "Geist Variable", system-ui, sans-serif;
   user-select: none;
-  pointer-events: none;
-  clip-path: inset(0 round 20px);
 }
 
-.splash-overlay {
+.splash-picture {
   position: absolute;
-  inset-inline: 28px;
-  bottom: 72px;
+  inset-block: 0;
+  right: 0;
+  width: 56%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.splash-brand {
+  position: absolute;
+  left: 40px;
+  top: 112px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.splash-mark {
+  flex: none;
+  filter: drop-shadow(0 4px 10px rgba(61, 80, 210, 0.28));
+}
+
+.splash-name {
+  color: var(--splash-name);
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1;
+}
+
+.splash-foot {
+  position: absolute;
+  left: 40px;
+  bottom: 34px;
+  width: 210px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+}
+
+.splash-status {
+  color: var(--splash-status);
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .splash-progress {
@@ -5307,42 +5371,17 @@ body,
   height: 3px;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(148, 163, 184, 0.28);
+  background: var(--splash-track);
 }
 
 .splash-progress span {
   display: block;
-  width: 38%;
+  width: 100%;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #007cf0, #9827ff);
-  box-shadow:
-    0 0 10px rgba(0, 124, 240, 0.55),
-    0 0 16px rgba(152, 39, 255, 0.4);
-  animation: splash-progress 1.15s ease-in-out infinite;
-}
-
-.splash-status {
-  color: #6b7280;
-  font-family: "Segoe UI", "Geist Variable", sans-serif;
-  font-size: 12px;
-  line-height: 1.2;
-}
-
-@keyframes splash-progress {
-  0% {
-    transform: translateX(-120%);
-  }
-  100% {
-    transform: translateX(320%);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .splash-progress span {
-    width: 45%;
-    animation: none;
-  }
+  background: linear-gradient(90deg, #3d74f7, #7a4dff);
+  transform: scaleX(0);
+  transform-origin: left center;
 }
 
 [data-slot="popover-content"][data-closed] {
@@ -6037,16 +6076,160 @@ html[data-theme="dark"] .drawing-canvas::after {
 }
 
 .nav-pane {
+  display: flex;
+  width: 272px;
   min-height: 0;
+  flex-shrink: 0;
+  flex-direction: column;
+  border-right: 1px solid var(--app-divider);
+  background: var(--app-ribbon-bg);
+  color: var(--app-ribbon-text);
+  font-size: 12px;
+}
+
+.nav-pane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 8px 4px 12px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.nav-pane-icon {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: var(--app-ribbon-text);
+}
+
+.nav-pane-icon:hover:not(:disabled) {
+  background: var(--app-hover);
+}
+
+.nav-pane-icon:disabled {
+  opacity: 0.4;
+}
+
+.nav-pane-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 12px 0;
+  padding: 0 4px 0 8px;
+  height: 28px;
+  border: 1px solid var(--dlg-button-border);
+  border-radius: 4px;
+  background: var(--dlg-surface);
+}
+
+.nav-pane-search:focus-within {
+  border-color: var(--dlg-accent);
+  box-shadow: inset 0 -1px 0 var(--dlg-accent);
+}
+
+.nav-pane-search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--dlg-text);
+  font-size: 12px;
+}
+
+.nav-pane-status {
+  display: flex;
+  min-height: 26px;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 8px 0 12px;
+  color: var(--app-ribbon-muted);
+}
+
+.nav-pane-status span {
+  flex: 1;
+}
+
+.nav-pane-tabs {
+  display: flex;
+  gap: 14px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--app-divider);
+}
+
+.nav-pane-tabs button {
+  padding: 6px 0 5px;
+  border-bottom: 2px solid transparent;
+  color: var(--app-ribbon-text);
+}
+
+.nav-pane-tabs button.is-active {
+  border-bottom-color: var(--dlg-accent);
+  color: var(--dlg-accent);
+  font-weight: 600;
+}
+
+.nav-pane-body {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 6px 4px;
+}
+
+.nav-pane-empty {
+  padding: 8px;
+  color: var(--app-ribbon-muted);
+  line-height: 1.45;
+}
+
+.nav-pane-heading {
+  display: flex;
+  align-items: center;
+  border-radius: 3px;
+}
+
+.nav-pane-heading.has-hit .nav-pane-item {
+  background: color-mix(in srgb, #ffd400 38%, transparent);
+}
+
+.nav-pane-heading.is-current .nav-pane-item {
+  box-shadow: inset 3px 0 0 var(--dlg-accent);
+  background: color-mix(in srgb, var(--dlg-accent) 16%, transparent);
+  font-weight: 600;
+}
+
+.nav-pane-heading.is-current.has-hit .nav-pane-item {
+  background: color-mix(in srgb, #ffd400 50%, transparent);
+}
+
+.nav-pane-heading.is-drop-target {
+  box-shadow: inset 0 2px 0 var(--dlg-accent);
+}
+
+.nav-pane-twisty {
+  display: inline-flex;
+  width: 16px;
+  height: 22px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  color: var(--app-ribbon-muted);
 }
 
 .nav-pane-item {
   display: block;
-  width: 100%;
-  border-radius: 4px;
-  padding: 4px 8px;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 3px;
+  padding: 3px 6px;
   text-align: left;
-  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--app-ribbon-text);
 }
 
@@ -6054,13 +6237,106 @@ html[data-theme="dark"] .drawing-canvas::after {
   background: var(--app-hover);
 }
 
-.nav-pane-item[data-level="2"] {
-  padding-left: 16px;
+.nav-pane-heading[draggable="true"] .nav-pane-item {
+  cursor: grab;
 }
 
-.nav-pane-item[data-level="3"] {
-  padding-left: 24px;
+.nav-pane-end {
+  margin-top: 4px;
+  padding: 6px 8px;
+  border: 1px dashed var(--app-divider);
+  border-radius: 3px;
   color: var(--app-ribbon-muted);
+}
+
+.nav-pane-end.is-drop-target {
+  border-color: var(--dlg-accent);
+  color: var(--dlg-accent);
+}
+
+.nav-pane-results li + li {
+  border-top: 1px solid var(--app-divider);
+}
+
+.nav-pane-results button {
+  display: block;
+  width: 100%;
+  padding: 7px 8px;
+  text-align: left;
+  line-height: 1.4;
+  color: var(--app-ribbon-text);
+}
+
+.nav-pane-results button:hover {
+  background: var(--app-hover);
+}
+
+.nav-pane-results button.is-active {
+  background: color-mix(in srgb, var(--dlg-accent) 16%, transparent);
+}
+
+.nav-pane-results mark {
+  background: transparent;
+  color: inherit;
+  font-weight: 700;
+}
+
+.nav-pane-pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0 12px;
+}
+
+.nav-pane-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border-radius: 3px;
+  padding: 4px;
+}
+
+.nav-pane-page:hover .nav-pane-page-frame {
+  outline: 2px solid var(--dlg-accent);
+}
+
+.nav-pane-page-frame {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  background: #fff;
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.18),
+    0 1px 3px rgb(0 0 0 / 0.16);
+  pointer-events: none;
+}
+
+.nav-pane-page:hover .nav-pane-page-frame,
+.nav-pane-page:focus-visible .nav-pane-page-frame {
+  pointer-events: none;
+}
+
+.nav-pane-page-paper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  overflow: hidden;
+  transform-origin: 0 0;
+  text-align: left;
+}
+
+.nav-pane-page-number {
+  color: var(--app-ribbon-muted);
+  font-size: 11px;
+}
+
+/* The Navigation pane's search: every match in the document, as Word marks them. */
+.search-hit {
+  background: #ffef00;
+  color: #000;
 }
 
 .immersive-reader {
@@ -13841,4 +14117,300 @@ textarea.tp-input {
 .smartart .smartart-cell[data-picked] {
   outline: 2px solid var(--app-theme-primary);
   outline-offset: 2px;
+}
+
+/* Document Inspector: one row per kind, its mark, what it checks or found, and Remove All. */
+.inspect-results {
+  margin: 8px 0;
+  max-height: 340px;
+  overflow: auto;
+  border: 1px solid var(--dlg-button-border);
+  border-radius: 4px;
+  background: var(--dlg-surface);
+}
+
+.inspect-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 10px;
+  font-size: 12px;
+}
+
+.inspect-row + .inspect-row {
+  border-top: 1px solid var(--dlg-button-border);
+}
+
+.inspect-row > input {
+  margin-top: 2px;
+}
+
+.inspect-text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.inspect-text > span,
+.inspect-text li {
+  opacity: 0.8;
+}
+
+.inspect-text ul {
+  margin: 0;
+  padding-left: 16px;
+  list-style: disc;
+}
+
+.inspect-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #2e7d32;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.inspect-row.is-found .inspect-mark {
+  background: #d83b01;
+}
+
+.inspect-note {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+/* AutoCorrect: the Replace/With fields over the list of entries, as Word's tab. */
+.autocorrect-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.autocorrect-heading {
+  margin: 8px 0 2px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.autocorrect-fields {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 8px;
+  margin-top: 8px;
+  font-variant-ligatures: none;
+}
+
+.autocorrect-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.autocorrect-list {
+  /* The entries as typed: a font's ligatures would draw "-->" as one arrow. */
+  font-variant-ligatures: none;
+  height: 180px;
+  overflow: auto;
+  border: 1px solid var(--dlg-button-border);
+  border-radius: 3px;
+  background: var(--dlg-surface);
+}
+
+.autocorrect-list li {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 8px;
+  padding: 1px 6px;
+  cursor: default;
+}
+
+.autocorrect-list li:hover {
+  background: var(--app-hover);
+}
+
+.autocorrect-list li.is-selected {
+  background: color-mix(in srgb, var(--dlg-accent) 22%, transparent);
+}
+
+.autocorrect-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* Insert Hyperlink: Text to display across the top, Link to on the left, the chosen target's fields on the right. */
+.link-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.link-dialog-top {
+  display: grid;
+  grid-template-columns: max-content 1fr max-content;
+  align-items: center;
+  gap: 8px;
+}
+
+.link-dialog-body {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 10px;
+  min-height: 250px;
+}
+
+.link-dialog-caption {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.link-dialog-targets {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.link-dialog-targets button {
+  padding: 10px 8px;
+  border: 1px solid var(--dlg-button-border);
+  background: var(--dlg-surface);
+  color: var(--dlg-text);
+  text-align: left;
+  line-height: 1.3;
+}
+
+.link-dialog-targets button.is-selected,
+.link-dialog-places button.is-selected {
+  border-color: var(--dlg-accent);
+  background: color-mix(in srgb, var(--dlg-accent) 18%, transparent);
+}
+
+.link-dialog-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.link-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+}
+
+.link-dialog-places {
+  height: 230px;
+  overflow: auto;
+  border: 1px solid var(--dlg-button-border);
+  background: var(--dlg-surface);
+}
+
+.link-dialog-places button {
+  display: block;
+  width: 100%;
+  padding-block: 3px;
+  border: 1px solid transparent;
+  color: var(--dlg-text);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.link-dialog-places button:hover {
+  background: var(--app-hover);
+}
+
+.link-dialog-group {
+  display: block;
+  padding: 4px 8px 2px;
+  font-weight: 600;
+}
+
+.link-dialog-tip {
+  height: 72px;
+  padding: 4px 6px;
+  resize: none;
+}
+
+/* Find and Replace, More >>: Word's Search Options under the fields. */
+.find-more {
+  position: relative;
+  margin-top: 8px;
+  padding: 6px 10px 8px;
+  border: 1px solid var(--dlg-button-border);
+  font-size: 12px;
+}
+
+.find-more legend {
+  padding: 0 4px;
+}
+
+.find-more-direction {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.find-more-direction select {
+  width: 110px;
+}
+
+.find-more-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.find-more-column {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.find-more-special {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.find-special-menu {
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 40px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  max-height: 240px;
+  overflow: auto;
+  padding: 4px 0;
+  border: 1px solid var(--dlg-button-border);
+  background: var(--dlg-surface);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.18);
+}
+
+.find-special-menu button {
+  padding: 3px 12px;
+  color: var(--dlg-text);
+  text-align: left;
+}
+
+.find-special-menu button:hover {
+  background: var(--app-hover);
 }

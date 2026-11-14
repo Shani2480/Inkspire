@@ -21,6 +21,10 @@ export function DocumentEditorProvider({ children }: { children: ReactNode }) {
     extensions,
     content: "<p></p>",
     autofocus: "start",
+    // Typing follows Word's AutoFormat As You Type (`autocorrect.ts`), not Markdown: "# " stays text, "**" stays
+    // asterisks. "---" then Enter still draws a line, as Word's border lines do.
+    enableInputRules: ["horizontalRule"],
+    enablePasteRules: ["link"],
     editorProps: {
       attributes: {
         class: "page-editor break-words",

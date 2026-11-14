@@ -19,6 +19,7 @@ import { notePointer, zoomGesture } from "@/document/zoom-gesture"
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow"
 import { isMacPlatform, isTauriRuntime } from "@/lib/platform"
 import { useEffect } from "react"
+import { openNavigationSearch, selectedSearchText } from "@/document/nav-search"
 
 export function useDocumentCommands() {
   const recentFiles = useDocumentStore((state) => state.recentFiles)
@@ -105,7 +106,8 @@ export function useDocumentCommands() {
         if (view.layoutMode === "read" && view.readLayout === "columns") {
           useReadFind.getState().show()
         } else {
-          view.openFind(false)
+          // Word's Ctrl+F goes to the Navigation pane's search box, with the selected text in it.
+          openNavigationSearch(selectedSearchText())
         }
         return
       }

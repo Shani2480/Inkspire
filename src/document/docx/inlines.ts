@@ -250,7 +250,8 @@ function inlineHtml(inline: Inline, ctx: Projection): string {
       return runHtml(inline, ctx)
     case "hyperlink": {
       const href = inline.target ?? (inline.anchor ? `#${inline.anchor}` : "")
-      const attrs = href ? ` href="${escapeHtml(href)}"` : ""
+      const title = inline.tooltip ? ` title="${escapeHtml(inline.tooltip)}"` : ""
+      const attrs = href ? ` href="${escapeHtml(href)}"${title}` : ""
       return `<a${attrs}>${inlinesHtml(inline.inlines, ctx)}</a>`
     }
     case "ins":
@@ -1461,7 +1462,7 @@ export function runPropertiesFromEdit(
 type RevisionKey = { kind: "ins" | "del"; id: string; author: string; date: string }
 
 /** One inline from the editor, with the annotations that decide how it is grouped. */
-type Piece = { inline: Inline; link?: string; revision?: RevisionKey; comments: string[] }
+type Piece = { inline: Inline; link?: string; linkTitle?: string; revision?: RevisionKey; comments: string[] }
 
 /** Comments found while saving, by editor id, in document order. */
 export type EditorComment = CommentView
@@ -1532,7 +1533,12 @@ export function inlinesFromEditor(nodes: JsonNode[], build: InlineBuild): Inline
     if (node.type === "wordInline") {
       for (const inline of payloadInlines(node.attrs?.payload)) {
         // A field inside a link (a table of contents' page number) stays inside it.
-        pieces.push({ inline, link: annotations.link, comments: annotations.comments })
+        pieces.push({
+          inline,
+          link: annotations.link,
+          linkTitle: annotations.linkTitle,
+          comments: annotations.comments,
+        })
       }
       continue
     }
@@ -1546,6 +1552,7 @@ export function inlinesFromEditor(nodes: JsonNode[], build: InlineBuild): Inline
 function annotationsOf(marks: JsonMark[], build: InlineBuild) {
   const link = marks.find((mark) => mark.type === "link")
   const href = typeof link?.attrs?.href === "string" ? link.attrs.href : undefined
+  const title = typeof link?.attrs?.title === "string" && link.attrs.title ? link.attrs.title : undefined
   const tracked = marks.find((mark) => mark.type === "insertion" || mark.type === "deletion")
   const revision: RevisionKey | undefined = tracked
     ? {
@@ -1575,7 +1582,7 @@ function annotationsOf(marks: JsonMark[], build: InlineBuild) {
       })
     }
   }
-  return { link: href || undefined, revision, comments }
+  return { link: href || undefined, linkTitle: href ? title : undefined, revision, comments }
 }
 
 function parseReplies(value: unknown): CommentReply[] {
@@ -1672,8 +1679,9 @@ function groupLinks(all: Piece[], build: InlineBuild): Inline[] {
   let index = 0
   while (index < pieces.length) {
     const link = pieces[index]!.link
+    const title = pieces[index]!.linkTitle
     let end = index
-    while (end < pieces.length && pieces[end]!.link === link) {
+    while (end < pieces.length && pieces[end]!.link === link && pieces[end]!.linkTitle === title) {
       end += 1
     }
     const grouped = groupRevisions(pieces.slice(index, end), build)
@@ -1681,9 +1689,15 @@ function groupLinks(all: Piece[], build: InlineBuild): Inline[] {
       const fresh: Hyperlink = link.startsWith("#")
         ? { kind: "hyperlink", anchor: link.slice(1), inlines: grouped }
         : { kind: "hyperlink", target: link, inlines: grouped }
+      if (title) {
+        fresh.tooltip = title
+      }
       const source = sourceLink(pieces.slice(index, end), build)
       const hyperlink: Hyperlink =
-        source && source.target === fresh.target && source.anchor === fresh.anchor
+        source &&
+        source.target === fresh.target &&
+        source.anchor === fresh.anchor &&
+        (source.tooltip ?? "") === (fresh.tooltip ?? "")
           ? { ...source, inlines: grouped }
           : fresh
       const tags = pieces.slice(index, end).flatMap((piece) => piece.comments)

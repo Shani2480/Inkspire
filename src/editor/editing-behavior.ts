@@ -29,7 +29,7 @@ export function mergedSlice(slice: Slice) {
 const FOLLOWED = /^(https?:|mailto:|tel:)/i
 
 /** Opens a link: a web or mail address in the system, a `#name` link by scrolling to its bookmark. */
-function followLink(href: string) {
+export function followLink(href: string) {
   if (FOLLOWED.test(href)) {
     void openExternal(href)
   } else if (href.startsWith("#")) {

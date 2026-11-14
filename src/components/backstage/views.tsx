@@ -31,6 +31,9 @@ import { placeCopy, printCopy } from "@/document/print-copy"
 import { defaultPictureWrap, setDefaultPictureWrap } from "@/document/object-layout"
 import { WRAP_CHOICES } from "@/editor/objects"
 import { useBodyEditor } from "@/editor/document-editor"
+import { useInspectDialog } from "@/components/inspect-dialog"
+import { useAutoCorrectDialog } from "@/components/autocorrect-dialog"
+import { INSPECT_KINDS, inspectDocument } from "@/document/inspect"
 import { useEditorState } from "@tiptap/react"
 import { MARGIN_PRESETS, marginPresetId, pageMetrics } from "@/document/page-setup"
 import {
@@ -359,6 +362,11 @@ export function InfoView() {
     },
   })
 
+  // What the Document Inspector would find, read each time Info is shown (it reads the document as it is now).
+  const inspectSummary = inspectDocument(editor)
+    .filter((finding) => finding.found.length)
+    .map((finding) => INSPECT_KINDS.find((item) => item.kind === finding.kind)!.title)
+
   const sizeLabel = path ? `${Math.max(1, Math.round(new Blob([html]).size / 1024))} KB` : "Not saved yet"
   const editTime = formatDuration(props.totalEditingMs)
 
@@ -379,31 +387,22 @@ export function InfoView() {
               <em>Control what types of changes people can make to this document.</em>
               <span>{readOnly ? "Allow Editing" : "Mark as Final"}</span>
             </button>
-            <button
-              type="button"
-              className="backstage-action-card"
-              onClick={() => {
-                if (!editor) {
-                  return
-                }
-                const { from, to, empty } = editor.state.selection
-                const chain = editor.chain().focus()
-                if (empty) {
-                  chain.selectAll()
-                } else {
-                  chain.setTextSelection({ from, to })
-                }
-                chain.unsetAllMarks().run()
-              }}
-            >
+            <button type="button" className="backstage-action-card" onClick={() => useInspectDialog.getState().show()}>
               <strong>Inspect Document</strong>
               <em>Check for Issues</em>
               <span>
-                Before publishing this file, be aware that it contains:
-                <br />
-                Document properties and author’s name
-                <br />
-                Custom XML data
+                {inspectSummary.length ? (
+                  <>
+                    Before publishing this file, be aware that it contains:
+                    {inspectSummary.map((title) => (
+                      <span key={title} className="block">
+                        {title}
+                      </span>
+                    ))}
+                  </>
+                ) : (
+                  "Nothing was found that you may want to remove before sharing this file."
+                )}
               </span>
             </button>
             <button type="button" className="backstage-action-card" disabled>
@@ -1558,6 +1557,10 @@ export function OptionsPages({ initialPage = "general" }: { initialPage?: Option
         {page === "proofing" && (
           <section className="backstage-card">
             <h2 className="backstage-card-title">Proofing</h2>
+            <p className="backstage-muted">Change how Inkspire corrects and formats text as you type.</p>
+            <button type="button" className="dialog-btn mb-3" onClick={() => useAutoCorrectDialog.getState().show()}>
+              AutoCorrect Options…
+            </button>
             <label className="backstage-check">
               <input type="checkbox" checked={spellCheck} onChange={toggleSpellCheck} /> Check spelling as you type
             </label>

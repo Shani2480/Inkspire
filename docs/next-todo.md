@@ -43,6 +43,85 @@ Every fix or feature also gets a dated entry in `changes.md` (newest first) the 
 
 Phases 1–14 are done.
 
+## Word UI gaps (2026-11-14)
+
+What Word 365's desktop UI offers that Inkspire lacks, from a surface-by-surface comparison with the code. H =
+everyday writing and opening/saving, M = common, L = rare. "(listed)" = already elsewhere in this file. Built in
+the order of the waves below; tick an item (`[x]`, date) when it lands.
+
+### Wave 1 — everyday (H)
+
+- [x] U1. (2026-11-14) File > Info > Inspect Document removed every character mark of the selection or document instead of
+      inspecting. Make it Word's Document Inspector: Inspect, then Remove All per kind found.
+- [x] U2. (2026-11-14) AutoCorrect / AutoFormat as you type: smart quotes, `--` → dash, (c) (tm) (r) → © ™ ®, ordinals, capital at
+      a sentence's start, the replace list, auto bullets and numbering from "* " and "1. ", auto hyperlinks; Undo
+      takes a correction back; options in File > Options > Proofing > AutoCorrect Options. TipTap's Markdown rules
+      ("# " → heading) are not Word's and go.
+- [x] U3. (2026-11-14) Link dialog: Text to display, ScreenTip, Existing File or Web Page, Place in This Document (headings and
+      bookmarks), E-mail Address; Edit / Open / Copy / Remove Link on a link's context menu.
+- [x] U4. (2026-11-14; the Navigation pane search is U5) Find: More >> (Match whole word, Use wildcards, Sounds like, All word forms, prefix/suffix, ignore
+      punctuation and spaces, Format…, Special ^p ^t ^?…); Ctrl+F searches in the Navigation pane with a Results tab.
+- [x] U5. (2026-11-14; Pages not filtered to matches, no search for graphics/tables) Navigation pane: search, Results, Pages (thumbnails), collapse headings, drag a heading to move its section.
+- [ ] U6. Open .doc, .dotx, .docm (macros dropped); Save As .dotx template.
+- [ ] U7. Shortcuts: F12 Save As, Ctrl+F2 Print Preview, F4 / Ctrl+Y Repeat, Shift+F5 Go Back, Alt+Shift+Up/Down move
+      paragraph, Alt+Shift+Left/Right promote/demote, Alt+Ctrl+F footnote, Alt+Ctrl+D endnote, F9 / Shift+F9 /
+      Ctrl+Shift+F9 fields, Ctrl+Shift+F5 bookmark, Shift+F7 thesaurus, Ctrl+Alt+V Paste Special, Ctrl+Shift+S Apply
+      Styles (Save As moves to F12).
+- [ ] U8. Insert > Table: Insert Table… dialog (columns, rows, AutoFit), Convert Text to Table, Draw Table.
+
+### Wave 2 — common (M)
+
+- [ ] U9. Styles pane (live list, Show Preview, Disable Linked Styles, New / Inspect / Manage); Apply Styles box;
+      Style Inspector; Reveal Formatting (Shift+F1). Home's Styles launcher opens the pane.
+- [ ] U10. Captions as SEQ fields (Insert Caption dialog: label, position, numbering, New Label, Exclude label) and
+      Cross-reference as REF/PAGEREF fields (to headings, bookmarks, figures, notes; text, page, above/below; insert
+      as hyperlink); Table of Figures and Index dialogs with their options; Mark Index Entry dialog.
+- [ ] U11. Track Changes: formatting changes tracked, For Everyone / Just Mine, Lock Tracking, Track Changes
+      Options; Show Markup menu (Comments, Insertions and Deletions, Formatting, Balloons, Specific People) and No
+      Markup; Restrict Editing pane saved as `w:documentProtection`.
+- [ ] U12. Paste Special… (formats list, paste link) and Set Default Paste; Paste as Picture.
+- [ ] U13. Footnote and Endnote dialog (location, number format, start at, numbering restart, convert).
+- [ ] U14. Source Manager and Create Source with every source type and field, master list, Edit Citation,
+      placeholders.
+- [ ] U15. Outline view with the Outlining tab (Promote/Demote, Show Level, Expand/Collapse, Move Up/Down, Show
+      Text Formatting, Show First Line Only).
+- [ ] U16. Design: Style Sets gallery, Paragraph Spacing presets, Customize Colors / Fonts, Save Current Theme.
+- [ ] U17. Status bar: click the word count (Word Count), the page (Go To), the zoom % (Zoom dialog); "12 of 340
+      words" for a selection; Track Changes indicator; right-click Customize Status Bar; the language applies to the
+      selection, with "Do not check spelling".
+- [ ] U18. KeyTips (Alt shows letter badges on tabs and commands).
+- [ ] U19. List context menu: Restart at 1, Continue Numbering, Set Numbering Value, Adjust List Indents.
+- [ ] U20. Spelling context menu: Ignore All, AutoCorrect submenu, Language; grammar marks (listed: Editor pane).
+- [ ] U21. Symbol dialog: font and subset, character code (Unicode/ASCII), Special Characters tab, Shortcut Key…
+- [ ] U22. Quick Parts: Field… dialog (every field with its switches), Document Property, AutoText, Building Blocks
+      Organizer.
+- [ ] U23. Info > Protect Document (Encrypt with Password, Restrict Editing, Always Open Read-Only, Digital
+      Signature); Manage Document (Recover Unsaved Documents); History (versions).
+- [ ] U24. Options: Language, grammar as you type, Custom Dictionaries, Advanced editing items now greyed (listed 22.9).
+- [ ] U25. Mail merge tab (listed: Future features).
+
+### Wave 3 — rare (L)
+
+- [ ] U26. Underline menu: Thick, Words only, More Underlines…, Underline Color; Ctrl+Shift+W.
+- [ ] U27. Home Borders menu: Outside, Inside, Inside Horizontal/Vertical, Diagonals, Horizontal Line, Draw Table,
+      View Gridlines.
+- [ ] U28. Select > Select Objects, Selection Pane; Selection pane Show All / Hide All, rename, reorder.
+- [ ] U29. Insert: Excel Spreadsheet, Quick Tables, Stock Images; Drop Cap Options… (font, lines, distance).
+- [ ] U30. Draw: Eraser, Lasso Select, pen gallery and Add Pen, Ink to Shape, Ink Replay, Ruler, ink anywhere on the
+      page.
+- [ ] U31. Custom Watermark dialog (picture, font, size, colour, layout, semitransparent); Hyphenation Manual and
+      Options.
+- [ ] U32. Equation: Professional / Linear / Normal Text; Header & Footer: Document Info, Header/Footer Position,
+      Insert Alignment Tab, Show Document Text.
+- [ ] U33. Title bar: Editing / Reviewing / Viewing mode switch, Comments button.
+- [ ] U34. Ruler: table column and cell markers.
+- [ ] U35. Mini toolbar: Styles, Format Painter, New Comment, Line Spacing.
+- [ ] U36. Format Picture pane (Corrections, Crop, Transparency); Thesaurus as a pane (listed).
+- [ ] U37. Researcher / Smart Lookup; Share by link and Account (listed: Future features); Transform (listed 21.28);
+      Macros (listed).
+- [ ] U38. Rare shortcuts: Alt+Ctrl+C/T/R/. symbols, Ctrl+- optional hyphen, Alt+Shift+D/T/P fields,
+      Alt+Shift+X/O/I mark entries, Ctrl+Alt+P/O/N views, F6 panes, Ctrl+F6 windows, F8 Extend Selection, Alt+F8.
+
 ## Rich header and footer (H1-H4 done; left over below)
 
 Fixed 2026-10-26: a table in an open header or footer could not be clicked into or resized (the margin's zone lay

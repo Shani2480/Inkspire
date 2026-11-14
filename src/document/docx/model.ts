@@ -401,6 +401,8 @@ export type Hyperlink = {
   /** External target. Present when the relationship resolved. */
   target?: string
   anchor?: string
+  /** The ScreenTip Word shows over the link (`w:tooltip`). */
+  tooltip?: string
   history?: boolean
   inlines: Inline[]
 }

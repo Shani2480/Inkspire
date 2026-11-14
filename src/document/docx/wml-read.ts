@@ -144,7 +144,7 @@ type Piece =
   | { type: "bookmarkStart"; id: number; name: string }
   | { type: "bookmarkEnd"; id: number }
   | { type: "simpleField"; instr: string; inlines: Inline[] }
-  | { type: "hyperlink"; relId?: string; anchor?: string; history?: boolean; inlines: Inline[] }
+  | { type: "hyperlink"; relId?: string; anchor?: string; tooltip?: string; history?: boolean; inlines: Inline[] }
   | { type: "commentRangeStart"; id: number }
   | { type: "commentRangeEnd"; id: number }
   | { type: "ins"; id: number; author?: string; date?: string; inlines: Inline[] }
@@ -734,6 +734,7 @@ function readPieces(node: MarkupNode, notes: WordNote[], raw: RawCursor = NO_RAW
         type: "hyperlink",
         relId: attr(child, "id", REL_NS),
         anchor: attr(child, "anchor"),
+        tooltip: attr(child, "tooltip"),
         history,
         inlines: piecesToInlines(readPieces(child, notes, raw)),
       })
@@ -1064,6 +1065,7 @@ function piecesToInlines(pieces: Piece[]): Inline[] {
         kind: "hyperlink",
         relId: piece.relId,
         anchor: piece.anchor,
+        ...(piece.tooltip ? { tooltip: piece.tooltip } : {}),
         history: piece.history,
         inlines: piece.inlines,
       }

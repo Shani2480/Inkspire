@@ -67,6 +67,7 @@ import type { Editor } from "@tiptap/core"
 import { useEditorState } from "@tiptap/react"
 import { loadKatex } from "@/lib/katex-lazy"
 import { useEffect, useRef, useState, type ReactNode } from "react"
+import { openLinkDialog } from "@/components/link-dialog"
 import { DialogButtons, DialogFrame } from "@/components/word-dialog"
 
 const SHAPE_GROUPS: { title: string; items: { id: string; label: string }[] }[] = [
@@ -659,7 +660,7 @@ export function InsertTab() {
       </MenuButton>
     </div>
   )
-  const linkMenu = (close: () => void) => <LinkMenu editor={editor} close={close} />
+  const openLink = () => openLinkDialog(editor)
   const crossReferenceMenu = (close: () => void) => (
     <div className="flex max-h-64 w-56 flex-col overflow-auto">
       {(targets?.headings ?? []).map((heading) => (
@@ -860,7 +861,7 @@ export function InsertTab() {
       { id: "table", label: "Table", icon: <LineTableIcon />, priority: 3, menu: tableMenu },
       { id: "picture", label: "Picture", icon: <LinePictureIcon />, priority: 3, menu: picturesMenu },
       { id: "drawing", label: "Drawing", icon: <LineDrawingIcon />, priority: 1, onClick: insertCanvas },
-      { id: "link", label: "Link", icon: <LineLinkIcon />, priority: 2, menu: linkMenu },
+      { id: "link", label: "Link", icon: <LineLinkIcon />, priority: 2, onClick: openLink },
       {
         id: "table-of-contents",
         label: "Table of Contents",
@@ -1036,7 +1037,7 @@ export function InsertTab() {
         </RibbonCommand>
       </RibbonGroup>
       <RibbonGroup label="Links">
-        <RibbonCommand label="Link" disabled={off} menu={linkMenu}>
+        <RibbonCommand label="Link" shortcut="Ctrl+K" disabled={off} onClick={openLink}>
           <LinkIcon />
         </RibbonCommand>
         <RibbonCommand label="Bookmark" disabled={off} onClick={() => setBookmarkOpen(true)}>
@@ -1727,45 +1728,6 @@ function DropCapIcon() {
       </text>
       <path d="M12 6h6M12 10h6M12 14h6" stroke="currentColor" />
     </svg>
-  )
-}
-
-function LinkMenu({ editor, close }: { editor: Editor | null; close: () => void }) {
-  const [url, setUrl] = useState("https://")
-  return (
-    <form
-      className="flex w-64 flex-col gap-2 p-1"
-      onSubmit={(event) => {
-        event.preventDefault()
-        if (!editor) {
-          return
-        }
-        const href = url.trim()
-        if (!href) {
-          return
-        }
-        const chain = chainWithSelection(editor)
-        if (editor.state.selection.empty) {
-          chain.insertContent(`<a href="${href}">${href}</a>`).run()
-        } else {
-          chain.extendMarkRange("link").setLink({ href }).run()
-        }
-        close()
-      }}
-    >
-      <label className="text-[11px] text-neutral-500">
-        Address
-        <input
-          aria-label="Link address"
-          value={url}
-          className="mt-1 h-8 w-full rounded border border-black/15 px-2 text-sm text-neutral-900"
-          onChange={(event) => setUrl(event.target.value)}
-        />
-      </label>
-      <button type="submit" className="h-8 rounded bg-[#0f6cbd] text-sm text-white">
-        Insert
-      </button>
-    </form>
   )
 }
 

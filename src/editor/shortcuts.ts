@@ -1,5 +1,6 @@
 import { applyAlign, selectedShapeText, toggleBold, toggleItalic, toggleUnderline } from "@/editor/shape-text"
 import { askText } from "@/components/text-prompt"
+import { openLinkDialog } from "@/components/link-dialog"
 import { requestFormatDialog } from "@/components/format-dialogs"
 import { useEditorPane } from "@/editor/grammar"
 import { useEditingOptions } from "@/document/editing-options"
@@ -147,11 +148,7 @@ function cycleCase(editor: Editor) {
 }
 
 function insertLink(editor: Editor) {
-  void askText({ title: "Insert Hyperlink", label: "Address:", value: "https://" }).then((href) => {
-    if (href) {
-      editor.chain().focus().setLink({ href }).run()
-    }
-  })
+  openLinkDialog(editor)
   return true
 }
 

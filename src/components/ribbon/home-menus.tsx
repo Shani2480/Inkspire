@@ -6,6 +6,7 @@ import { requestFormatDialog } from "@/components/format-dialogs"
 import { FONT_FAMILIES, FONT_SIZES, LINE_SPACINGS } from "@/components/ribbon/options"
 import { MenuButton } from "@/components/ribbon/ribbon-button"
 import { useViewStore } from "@/document/view"
+import { openNavigationSearch, selectedSearchText } from "@/document/nav-search"
 import { changeCase, setLineSpacing, type CaseKind } from "@/editor/actions"
 import { useStyleDialogs } from "@/components/style-dialogs"
 import { useStyleStore, type StyleDef } from "@/document/styles"
@@ -581,8 +582,8 @@ export function FindMenu({ close }: { close: () => void }) {
     <div className="flex w-48 flex-col">
       <MenuButton
         onClick={() => {
-          openFind(false)
           close()
+          openNavigationSearch(selectedSearchText())
         }}
       >
         Find

@@ -1,3 +1,6 @@
+import { openLinkDialog } from "@/components/link-dialog"
+import { linkAtSelection, removeLink } from "@/editor/links"
+import { followLink } from "@/editor/editing-behavior"
 import { insideSelection } from "@/components/object-context-menu"
 import { openTableProperties } from "@/components/table-properties-dialog"
 import { CellSelection } from "@tiptap/pm/tables"
@@ -12,7 +15,7 @@ import { addComment } from "@/editor/comments"
 import { copySelection, cutSelection, pasteFromClipboard, pasteStored } from "@/editor/home-actions"
 import { requestFormatDialog } from "@/components/format-dialogs"
 import { findSelection } from "@/components/find-dialog"
-import { chainWithSelection, rememberSelection } from "@/editor/selection-memory"
+import { rememberSelection } from "@/editor/selection-memory"
 import { inTable } from "@/editor/table-tools"
 import type { Editor } from "@tiptap/core"
 import { useEffect, useState } from "react"
@@ -91,6 +94,7 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
   }
 
   const word = selectedWord(editor)
+  const link = linkAtSelection(editor)
   const entries: Item[] = [
     { id: "cut", label: "Cut", run: () => cutSelection(editor) },
     { id: "copy", label: "Copy", run: () => copySelection(editor) },
@@ -121,17 +125,19 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
     { id: "synonyms", label: "Synonyms", run: () => useProofing.getState().openPanel("thesaurus") },
     { id: "aloud", label: "Read Aloud", run: () => speak(editor) },
     { id: "translate", label: "Translate", run: () => useProofing.getState().openPanel("translation") },
-    {
-      id: "link",
-      label: "Link",
-      run: () => {
-        void askText({ title: "Insert Hyperlink", label: "Address:", value: "https://" }).then((href) => {
-          if (href) {
-            chainWithSelection(editor).setLink({ href }).run()
-          }
-        })
-      },
-    },
+    // Word's link commands: Edit, Open, Copy and Remove Link on a link; Link… elsewhere.
+    ...(link
+      ? [
+          { id: "edit-link", label: "Edit Link…", run: () => openLinkDialog(editor) },
+          { id: "open-link", label: "Open Link", run: () => followLink(link.href) },
+          {
+            id: "copy-link",
+            label: "Copy Link",
+            run: () => void navigator.clipboard?.writeText(link.href).catch(() => undefined),
+          },
+          { id: "remove-link", label: "Remove Link", run: () => removeLink(editor) },
+        ]
+      : [{ id: "link", label: "Link…", run: () => openLinkDialog(editor) }]),
     {
       id: "comment",
       label: "New Comment",
