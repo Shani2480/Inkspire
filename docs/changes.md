@@ -7,6 +7,19 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-14
 
+### Dialogs and popups fit without scrolling
+
+- **What was wrong or missing:** the font size list, the styles gallery's More menu and Borders and Shading's style
+  list scrolled though the window had room; the Table of Figures and Index dialogs cut off their last rows and the
+  Mark Index Entry cross-reference box ran past the dialog (fixed with U10).
+- **What changed:** those lists take the window's height before scrolling; `tools/dialog-overflow.mjs` opens every
+  ribbon button and every "…" item of its menu in headless Chrome and reports any dialog or popup that scrolls
+  sideways, clips its content, sits off screen, or scrolls vertically outside a list or gallery.
+- **Checked:** the crawl, light and dark, at 1300 × 900: nothing scrolls sideways or sits off screen; only the long
+  galleries Word also scrolls remain (fonts, SmartArt, equations, theme colours and fonts).
+- **Still open:** the crawl does not reach dialogs opened from other dialogs, the File view or the single-line
+  ribbon; it runs at one window size.
+
 ### Table of Figures, Index and Mark Index Entry (U10, part 2)
 
 - **What was wrong or missing:** Insert Table of Figures and Insert Index dropped placeholder blocks that listed

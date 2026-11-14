@@ -236,7 +236,7 @@ export function FontNameMenu({
 
 export function FontSizeMenu({ editor, marks, close }: { editor: Editor | null; marks: Marks; close: () => void }) {
   return (
-    <div className="flex max-h-64 w-20 flex-col overflow-auto">
+    <div className="flex max-h-[calc(100vh-10rem)] w-20 flex-col overflow-auto">
       {FONT_SIZES.map((size) => (
         <MenuButton
           key={size}
@@ -530,7 +530,7 @@ export function StylesMenu({
   const styles = useGalleryStyles()
   return (
     <div className="flex w-60 flex-col">
-      <div className="flex max-h-72 flex-col overflow-auto">
+      <div className="flex max-h-[calc(100vh-12rem)] flex-col overflow-auto">
         {styles.map((style) => (
           <MenuButton
             key={style.id}
