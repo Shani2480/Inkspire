@@ -7,6 +7,29 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-14
 
+### Word's missing shortcuts: F12, Ctrl+F2, F4 / Ctrl+Y, Shift+F5, Alt+Shift+arrows, notes, fields, bookmark, thesaurus
+
+- **What was wrong or missing:** many of Word's keys did nothing: no Repeat, no Go Back, no moving paragraphs or
+  promoting headings from the keyboard, no keys for notes, fields, bookmarks or the thesaurus, and F12 / Ctrl+F2
+  were not bound.
+- **What changed:** new commands in `editor/word-keys.ts`, bound in the shortcut registry (`editor/shortcuts.ts`,
+  so File > Options > Customize Keyboard lists and rebinds them): Alt+Shift+Up/Down moves the paragraphs (or list
+  items) with the selection past their neighbour, one undo step; Alt+Shift+Left/Right promotes and demotes a
+  heading, a list item (list level) or body text (to the heading level above it); F4 repeats the last keyboard
+  command or the last typed text, and Ctrl+Y redoes while there is something to redo and repeats otherwise;
+  Shift+F5 cycles the caret through the last four places edited; Alt+Ctrl+F / Alt+Ctrl+D insert a footnote /
+  endnote; F9 updates the fields in the selection (dates, formulas, IF, tables of contents), Ctrl+Shift+F9 turns
+  them into plain text, Shift+F9 shows field codes; Ctrl+Shift+F5 opens the Bookmark dialog (now drawn once by the
+  workspace, `document/bookmark-dialog.ts`, so it opens from any tab); Shift+F7 opens the Thesaurus. F12 is Save As
+  and Ctrl+F2 opens File > Print (`document/app-menu.ts`); both are reserved in Customize Keyboard, and arrow keys
+  show there as Up/Down/Left/Right.
+- **Checked:** `editor/word-keys.test.ts` (moves and their undo, list items, promote/demote of headings, body text
+  and list levels, Repeat and Ctrl+Y, Go Back, every key bound); in Chrome with real key presses: Alt+Shift+Up,
+  Alt+Shift+Right, Ctrl+B then F4, Shift+F5, Ctrl+Alt+F, Ctrl+Shift+F5, Ctrl+F2, light and dark.
+- **Still open:** Shift+F9 shows the codes of every field rather than the selected one; Ctrl+Alt+V (Paste
+  Special, U12) and Ctrl+Shift+S as Apply Styles (U9; it stays Save As until then) come with their dialogs; Repeat
+  covers keyboard commands and typing, not ribbon buttons yet.
+
 ### Word templates, macro-enabled documents and Word 97–2003 files
 
 - **What was wrong or missing:** only .docx opened; a .docm, .dotx or .dotm was refused, a .doc showed "can't

@@ -63,7 +63,7 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
       punctuation and spaces, Format…, Special ^p ^t ^?…); Ctrl+F searches in the Navigation pane with a Results tab.
 - [x] U5. (2026-11-14; Pages not filtered to matches, no search for graphics/tables) Navigation pane: search, Results, Pages (thumbnails), collapse headings, drag a heading to move its section.
 - [x] U6. (2026-11-14; macros kept in .docm/.dotm, .doc through LibreOffice; double-clicking a template does not start a new document yet) Open .doc, .dotx, .docm (macros dropped); Save As .dotx template.
-- [ ] U7. Shortcuts: F12 Save As, Ctrl+F2 Print Preview, F4 / Ctrl+Y Repeat, Shift+F5 Go Back, Alt+Shift+Up/Down move
+- [x] U7. (2026-11-14; Ctrl+Alt+V moves to U12 and Ctrl+Shift+S to U9; Shift+F9 toggles all field codes; Repeat covers keys and typing, not ribbon buttons) Shortcuts: F12 Save As, Ctrl+F2 Print Preview, F4 / Ctrl+Y Repeat, Shift+F5 Go Back, Alt+Shift+Up/Down move
       paragraph, Alt+Shift+Left/Right promote/demote, Alt+Ctrl+F footnote, Alt+Ctrl+D endnote, F9 / Shift+F9 /
       Ctrl+Shift+F9 fields, Ctrl+Shift+F5 bookmark, Shift+F7 thesaurus, Ctrl+Alt+V Paste Special, Ctrl+Shift+S Apply
       Styles (Save As moves to F12).
@@ -71,7 +71,7 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
 
 ### Wave 2 — common (M)
 
-- [ ] U9. Styles pane (live list, Show Preview, Disable Linked Styles, New / Inspect / Manage); Apply Styles box;
+- [ ] U9. (with Ctrl+Shift+S for the Apply Styles box, Save As staying on F12) Styles pane (live list, Show Preview, Disable Linked Styles, New / Inspect / Manage); Apply Styles box;
       Style Inspector; Reveal Formatting (Shift+F1). Home's Styles launcher opens the pane.
 - [ ] U10. Captions as SEQ fields (Insert Caption dialog: label, position, numbering, New Label, Exclude label) and
       Cross-reference as REF/PAGEREF fields (to headings, bookmarks, figures, notes; text, page, above/below; insert
@@ -79,7 +79,7 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
 - [ ] U11. Track Changes: formatting changes tracked, For Everyone / Just Mine, Lock Tracking, Track Changes
       Options; Show Markup menu (Comments, Insertions and Deletions, Formatting, Balloons, Specific People) and No
       Markup; Restrict Editing pane saved as `w:documentProtection`.
-- [ ] U12. Paste Special… (formats list, paste link) and Set Default Paste; Paste as Picture.
+- [ ] U12. Paste Special… (Ctrl+Alt+V; formats list, paste link) and Set Default Paste; Paste as Picture.
 - [ ] U13. Footnote and Endnote dialog (location, number format, start at, numbering restart, convert).
 - [ ] U14. Source Manager and Create Source with every source type and field, master list, Edit Citation,
       placeholders.

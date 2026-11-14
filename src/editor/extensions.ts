@@ -60,6 +60,7 @@ import { ThreeDModel } from "@/editor/three-d-model"
 import { Deletion, Insertion, TrackChanges } from "@/editor/track-changes"
 import { AutoCorrect, useAutoCorrect } from "@/editor/autocorrect"
 import { SearchHighlight } from "@/editor/search-highlight"
+import { WordKeys } from "@/editor/word-keys"
 
 export function createExtensions() {
   return [
@@ -83,6 +84,7 @@ export function createExtensions() {
     IndentKeymap.configure(),
     AutoCorrect,
     SearchHighlight,
+    WordKeys,
     ShortcutKeymap.configure(),
     EditingBehavior.configure(),
     DocxSource.configure(),

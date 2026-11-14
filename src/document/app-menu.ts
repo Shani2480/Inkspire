@@ -42,6 +42,22 @@ export function useDocumentCommands() {
         return
       }
 
+      // Word's F12 is Save As, and Ctrl+F2 the print preview (File > Print).
+      if (event.key === "F12" && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
+        event.preventDefault()
+        if (!useBackstage.getState().closed) {
+          saveDocumentAs()
+        }
+        return
+      }
+      if (event.key === "F2" && (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey) {
+        event.preventDefault()
+        if (!useBackstage.getState().closed) {
+          useBackstage.getState().openBackstage("print")
+        }
+        return
+      }
+
       if (!(event.metaKey || event.ctrlKey) || event.altKey) {
         return
       }

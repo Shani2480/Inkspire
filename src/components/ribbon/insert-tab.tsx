@@ -1,3 +1,4 @@
+import { useBookmarkDialog } from "@/document/bookmark-dialog"
 import { openCoverGenerator } from "@/components/cover-page-dialog"
 import { IconLibrary } from "@/components/icon-library"
 import { ModelLibrary } from "@/components/model-library"
@@ -431,7 +432,7 @@ export function InsertTab() {
   const editor = useDocumentEditor()
   const fileInput = useRef<HTMLInputElement>(null)
   const insertAt = useRef<number | null>(null)
-  const [bookmarkOpen, setBookmarkOpen] = useState(false)
+  const openBookmarks = useBookmarkDialog((state) => state.show)
   const [iconLibraryOpen, setIconLibraryOpen] = useState(false)
   const [modelLibraryOpen, setModelLibraryOpen] = useState(false)
   const [smartArtOpen, setSmartArtOpen] = useState(false)
@@ -838,9 +839,6 @@ export function InsertTab() {
   )
   const dialogs = (
     <>
-      {bookmarkOpen && editor ? (
-        <BookmarkDialog editor={editor} names={targets?.bookmarks ?? []} onClose={() => setBookmarkOpen(false)} />
-      ) : null}
       {iconLibraryOpen && editor ? <IconLibrary editor={editor} onClose={() => setIconLibraryOpen(false)} /> : null}
       {modelLibraryOpen && editor ? <ModelLibrary editor={editor} onClose={() => setModelLibraryOpen(false)} /> : null}
       {smartArtOpen && editor ? <SmartArtDialog editor={editor} onClose={() => setSmartArtOpen(false)} /> : null}
@@ -887,7 +885,7 @@ export function InsertTab() {
           <div className="flex max-h-64 w-56 flex-col overflow-auto">
             <MenuButton
               onClick={() => {
-                setBookmarkOpen(true)
+                openBookmarks()
                 close()
               }}
             >
@@ -1040,7 +1038,7 @@ export function InsertTab() {
         <RibbonCommand label="Link" shortcut="Ctrl+K" disabled={off} onClick={openLink}>
           <LinkIcon />
         </RibbonCommand>
-        <RibbonCommand label="Bookmark" disabled={off} onClick={() => setBookmarkOpen(true)}>
+        <RibbonCommand label="Bookmark" disabled={off} onClick={() => openBookmarks()}>
           <BookmarkIcon />
         </RibbonCommand>
         <RibbonCommand label="Cross-reference" disabled={off} menu={crossReferenceMenu}>
@@ -1283,6 +1281,17 @@ function goToBookmark(editor: Editor, target: string) {
   if (found >= 0) {
     editor.chain().focus().setTextSelection(found).scrollIntoView().run()
   }
+}
+
+/** The Bookmark dialog, opened from Insert > Bookmark… or Ctrl+Shift+F5 and drawn once by the workspace. */
+export function BookmarkDialogHost() {
+  const open = useBookmarkDialog((state) => state.open)
+  const hide = useBookmarkDialog((state) => state.hide)
+  const editor = useDocumentEditor()
+  if (!open || !editor) {
+    return null
+  }
+  return <BookmarkDialog editor={editor} names={listBookmarks(editor.state.doc)} onClose={hide} />
 }
 
 function BookmarkDialog({ editor, names, onClose }: { editor: Editor; names: string[]; onClose: () => void }) {

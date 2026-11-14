@@ -66,6 +66,7 @@ import { StyleDialogs } from "@/components/style-dialogs"
 import { showEditedStyles, useStyleStore } from "@/document/styles"
 import { SaveChangesDialog } from "@/components/save-changes-dialog"
 import { MacroPromptDialog } from "@/components/macro-prompt-dialog"
+import { BookmarkDialogHost } from "@/components/ribbon/insert-tab"
 import { useDocumentCommands } from "@/document/app-menu"
 import { getDocumentEditor } from "@/document/editor-ref"
 import { DocumentEditorProvider, useBodyEditor } from "@/editor/document-editor"
@@ -307,6 +308,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
       <FormatDialogHost />
       <SaveChangesDialog />
       <MacroPromptDialog />
+      <BookmarkDialogHost />
       <FileErrorDialog />
       <PageNumberFormatDialog />
       <StyleDialogs />

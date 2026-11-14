@@ -18,6 +18,17 @@ import {
 } from "@/editor/home-actions"
 import { updateBlocks } from "@/editor/block-format"
 import type { Editor } from "@tiptap/core"
+import {
+  goBack,
+  moveParagraph,
+  promoteDemote,
+  redoOrRepeat,
+  repeatLast,
+  unlinkFields,
+  updateFields,
+} from "@/editor/word-keys"
+import { useProofing } from "@/ai/proofing"
+import { useBookmarkDialog } from "@/document/bookmark-dialog"
 import { create } from "zustand"
 
 export type ShortcutDef = {
@@ -151,6 +162,39 @@ function insertLink(editor: Editor) {
   openLinkDialog(editor)
   return true
 }
+
+/** Alt+Ctrl+F and Alt+Ctrl+D: a note at the caret, its text asked for as the References tab does. */
+function insertNote(kind: "footnote" | "endnote") {
+  return (editor: Editor) => {
+    const label = kind === "footnote" ? "Footnote" : "Endnote"
+    void askText({ title: `Insert ${label}`, label, multiline: true, ok: "Insert" }).then((text) => {
+      if (text?.trim()) {
+        editor.chain().focus().insertNote(kind, text).run()
+      }
+    })
+    return true
+  }
+}
+
+/** Commands F4 does not repeat: dialogs, panes, switches and Repeat itself. */
+export const NOT_REPEATED = new Set([
+  "link",
+  "comment",
+  "track-changes",
+  "spelling",
+  "field-codes",
+  "field-code",
+  "font-dialog",
+  "footnote",
+  "endnote",
+  "bookmark",
+  "repeat",
+  "redo-repeat",
+  "go-back",
+  "thesaurus",
+  "update-fields",
+  "format-painter",
+])
 
 function newComment(editor: Editor) {
   void askText({ title: "New Comment", label: "Comment", multiline: true, ok: "Post" }).then((text) => {
@@ -338,6 +382,63 @@ export const SHORTCUTS: ShortcutDef[] = [
     keys: ["F7"],
     run: () => (useEditorPane.getState().openPane(), true),
   },
+  {
+    id: "move-up",
+    label: "Move Paragraph Up",
+    group: "Paragraph",
+    keys: ["Alt+Shift+ArrowUp"],
+    run: (e) => moveParagraph(e, -1),
+  },
+  {
+    id: "move-down",
+    label: "Move Paragraph Down",
+    group: "Paragraph",
+    keys: ["Alt+Shift+ArrowDown"],
+    run: (e) => moveParagraph(e, 1),
+  },
+  {
+    id: "promote",
+    label: "Promote",
+    group: "Paragraph",
+    keys: ["Alt+Shift+ArrowLeft"],
+    run: (e) => promoteDemote(e, -1),
+  },
+  {
+    id: "demote",
+    label: "Demote",
+    group: "Paragraph",
+    keys: ["Alt+Shift+ArrowRight"],
+    run: (e) => promoteDemote(e, 1),
+  },
+  { id: "footnote", label: "Insert Footnote", group: "Insert", keys: ["Mod+Alt+F"], run: insertNote("footnote") },
+  { id: "endnote", label: "Insert Endnote", group: "Insert", keys: ["Mod+Alt+D"], run: insertNote("endnote") },
+  {
+    id: "bookmark",
+    label: "Bookmark…",
+    group: "Insert",
+    keys: ["Mod+Shift+F5"],
+    run: () => (useBookmarkDialog.getState().show(), true),
+  },
+  { id: "repeat", label: "Repeat", group: "Tools", keys: ["F4"], run: repeatLast },
+  { id: "redo-repeat", label: "Redo or Repeat", group: "Tools", keys: ["Mod+Y"], native: ["Mod+Y"], run: redoOrRepeat },
+  { id: "go-back", label: "Go Back", group: "Tools", keys: ["Shift+F5"], run: goBack },
+  {
+    id: "thesaurus",
+    label: "Thesaurus",
+    group: "Tools",
+    keys: ["Shift+F7"],
+    run: () => (useProofing.getState().openPanel("thesaurus"), true),
+  },
+  { id: "update-fields", label: "Update Fields", group: "Tools", keys: ["F9"], run: updateFields },
+  {
+    id: "field-code",
+    label: "Toggle Field Code",
+    group: "Tools",
+    // Word toggles the selected field; Inkspire shows codes for every field at once (as Alt+F9).
+    keys: ["Shift+F9"],
+    run: () => (useEditingOptions.getState().set({ fieldCodes: !useEditingOptions.getState().fieldCodes }), true),
+  },
+  { id: "unlink-fields", label: "Unlink Fields", group: "Tools", keys: ["Mod+Shift+F9"], run: unlinkFields },
   {
     id: "field-codes",
     label: "Toggle Field Codes",
