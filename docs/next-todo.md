@@ -62,7 +62,7 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
 - [x] U4. (2026-11-14; the Navigation pane search is U5) Find: More >> (Match whole word, Use wildcards, Sounds like, All word forms, prefix/suffix, ignore
       punctuation and spaces, Format…, Special ^p ^t ^?…); Ctrl+F searches in the Navigation pane with a Results tab.
 - [x] U5. (2026-11-14; Pages not filtered to matches, no search for graphics/tables) Navigation pane: search, Results, Pages (thumbnails), collapse headings, drag a heading to move its section.
-- [ ] U6. Open .doc, .dotx, .docm (macros dropped); Save As .dotx template.
+- [x] U6. (2026-11-14; macros kept in .docm/.dotm, .doc through LibreOffice; double-clicking a template does not start a new document yet) Open .doc, .dotx, .docm (macros dropped); Save As .dotx template.
 - [ ] U7. Shortcuts: F12 Save As, Ctrl+F2 Print Preview, F4 / Ctrl+Y Repeat, Shift+F5 Go Back, Alt+Shift+Up/Down move
       paragraph, Alt+Shift+Left/Right promote/demote, Alt+Ctrl+F footnote, Alt+Ctrl+D endnote, F9 / Shift+F9 /
       Ctrl+Shift+F9 fields, Ctrl+Shift+F5 bookmark, Shift+F7 thesaurus, Ctrl+Alt+V Paste Special, Ctrl+Shift+S Apply

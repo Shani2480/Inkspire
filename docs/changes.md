@@ -7,6 +7,27 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-14
 
+### Word templates, macro-enabled documents and Word 97–2003 files
+
+- **What was wrong or missing:** only .docx opened; a .docm, .dotx or .dotm was refused, a .doc showed "can't
+  open", and Save As had no template or macro-enabled types. A .docm's VBA project was not kept at all.
+- **What changed:** .docx, .docm, .dotx and .dotm all open with the Word reader and save as themselves: the main
+  part's content type follows the file's extension (`mainContentTypeFor` in `docx/opc.ts`). The VBA project and its
+  data are kept as written while the file stays .docm/.dotm and left out of a .docx/.dotx (`dropMacros` in
+  `wml-write.ts`); before that, Save As asks as Word does ("cannot be saved in a macro-free document", No goes back
+  to Save As with .docm offered; `macro-prompt-dialog.tsx`). Save As (dialog filters and the File > Save As list)
+  offers Word Macro-Enabled Document, Word Template and Word Macro-Enabled Template, starts on the open file's own
+  type, and keeps an extension the person typed instead of forcing the filter's. A .doc or .dot opens on the
+  desktop through LibreOffice when it is installed (`convert_legacy_document` in `src-tauri/src/lib.rs`, run with a
+  private profile in a temporary folder); like Word's Convert, it opens as an unsaved .docx, so Save asks where.
+  Without LibreOffice, or in the browser, the older-Word-file message now says so.
+- **Checked:** `docx/word-types.test.ts` (macros kept in .docm, dropped from .docx, .dotx gets the template type and
+  reopens); Rust tests for the extensions and the profile URL; Open XML SDK validator: 0 errors on a saved .docm,
+  .docx-from-.docm and .dotx; a mock .doc made by LibreOffice converted with the app's arguments (name with a
+  space) and opened by the reader; Save As list and the macro prompt in Chrome, light and dark.
+- **Still open:** opening a template from the system (double-click) should start a new document from it, as Word
+  does; a .doc cannot be saved back as .doc. Not checked in Word itself yet (verify list).
+
 ### Navigation pane: search with Results, page thumbnails, collapsible headings you can drag
 
 - **What was wrong or missing:** the pane was a flat list of headings; Ctrl+F opened the Find dialog; there was no

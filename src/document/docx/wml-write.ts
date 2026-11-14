@@ -50,7 +50,7 @@ import {
   type TableRow,
   type WordDocument,
 } from "@/document/docx/model"
-import { CONTENT_TYPE_DOCUMENT, type OpcPackage, type OpcRelationship } from "@/document/docx/opc"
+import { allowsMacros, mainContentTypeFor, type OpcPackage, type OpcRelationship } from "@/document/docx/opc"
 import { escapeXml, escapeXmlText, xmlBytes } from "@/document/docx/xml"
 
 const CONTENT_TYPE_STYLES = "application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"
@@ -97,7 +97,7 @@ export function writeDocument(doc: WordDocument, fileName = "document.docx"): Op
   const parts = [
     {
       name: "/word/document.xml",
-      contentType: CONTENT_TYPE_DOCUMENT,
+      contentType: mainContentTypeFor(fileName),
       data: xmlBytes(writeDocumentElement(doc)),
     },
     {
@@ -148,6 +148,9 @@ export function writeDocument(doc: WordDocument, fileName = "document.docx"): Op
   const mediaGroups = addMedia(parts, relationships, doc.media)
   const glossaryGroups = addGlossary(parts, relationships, doc.glossary)
   const preservedGroups = addPreserved(parts, relationships, doc)
+  if (!allowsMacros(fileName)) {
+    dropMacros(parts, relationships, preservedGroups)
+  }
   relationships.push(...hyperlinkRelationships(doc))
   const storyGroups = storyPackages(doc, stories, parts)
   return {
@@ -173,6 +176,29 @@ export function writeDocument(doc: WordDocument, fileName = "document.docx"): Op
     warnings: [],
     zipEntries: [],
   }
+}
+
+/**
+ * A .docx or .dotx may not hold macros: Word refuses a macro-free file with a VBA project in it. The project (and
+ * the data parts behind it) is kept while the file stays .docm/.dotm, and left out when it is saved as one without.
+ */
+function dropMacros(
+  parts: PackPart[],
+  relationships: OpcRelationship[],
+  groups: { source: string; items: OpcRelationship[] }[],
+) {
+  const macro = (part: PackPart) => /vbaProject|vbaData|wordVbaData/i.test(`${part.contentType ?? ""} ${part.name}`)
+  const dropped = new Set(parts.filter(macro).map((part) => part.name.toLowerCase()))
+  if (dropped.size === 0) {
+    return
+  }
+  const keep = (item: OpcRelationship) => !(item.partName && dropped.has(item.partName.toLowerCase()))
+  parts.splice(0, parts.length, ...parts.filter((part) => !dropped.has(part.name.toLowerCase())))
+  relationships.splice(0, relationships.length, ...relationships.filter(keep))
+  const kept = groups
+    .filter((group) => !dropped.has(group.source.toLowerCase()))
+    .map((group) => ({ ...group, items: group.items.filter(keep) }))
+  groups.splice(0, groups.length, ...kept)
 }
 
 function relationship(id: string, name: string, target: string, partName: string): OpcRelationship {

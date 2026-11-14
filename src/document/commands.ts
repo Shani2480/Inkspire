@@ -30,6 +30,7 @@ import {
 import { describeFileProblem, useFileError, type FileOperation } from "@/document/file-errors"
 import { playDocumentEntrance } from "@/document/motion"
 import { useSavePrompt } from "@/document/save-prompt"
+import { useMacroPrompt } from "@/document/macro-prompt"
 import { defaultStyles, packStyles, stylesFromWord, unpackStyles, useStyleStore } from "@/document/styles"
 import { useEditingOptions } from "@/document/editing-options"
 import { documentName, useDocumentStore, type DocumentProps } from "@/document/store"
@@ -61,8 +62,12 @@ const docxOptimizer = () => import("@/document/docx/optimize")
 export const BLANK_DOCUMENT_HTML = '<p style="text-align: left;"></p>'
 
 const OPEN_FILTERS: FileFilter[] = [
-  { name: "Documents", extensions: ["docx", "html", "htm", "md", "txt", "rtf", "odt"] },
-  { name: "Word Document", extensions: ["docx"] },
+  {
+    name: "Documents",
+    extensions: ["docx", "docm", "dotx", "dotm", "doc", "dot", "html", "htm", "md", "txt", "rtf", "odt"],
+  },
+  { name: "Word Documents", extensions: ["docx", "docm", "doc"] },
+  { name: "Word Templates", extensions: ["dotx", "dotm", "dot"] },
   { name: "HTML", extensions: ["html", "htm"] },
   { name: "Markdown", extensions: ["md"] },
   { name: "Plain Text", extensions: ["txt"] },
@@ -72,6 +77,9 @@ const OPEN_FILTERS: FileFilter[] = [
 
 const SAVE_FILTERS: FileFilter[] = [
   { name: "Word Document", extensions: ["docx"] },
+  { name: "Word Macro-Enabled Document", extensions: ["docm"] },
+  { name: "Word Template", extensions: ["dotx"] },
+  { name: "Word Macro-Enabled Template", extensions: ["dotm"] },
   { name: "OpenDocument Text", extensions: ["odt"] },
   { name: "HTML", extensions: ["html", "htm"] },
   { name: "PDF", extensions: ["pdf"] },
@@ -79,6 +87,11 @@ const SAVE_FILTERS: FileFilter[] = [
   { name: "Plain Text", extensions: ["txt"] },
   { name: "Rich Text", extensions: ["rtf"] },
 ]
+
+/** The Word package types Inkspire reads and writes natively (.doc is read through a conversion). */
+export function isWordPackage(ext: string) {
+  return ext === "docx" || ext === "docm" || ext === "dotx" || ext === "dotm"
+}
 
 export type ExportFormat = "docx" | "pdf" | "md" | "html" | "txt" | "odt" | "rtf"
 
@@ -115,7 +128,7 @@ function fileStem(path: string | null | undefined) {
 function ensureExtension(path: string, ext: string) {
   const clean = ext.replace(/^\./, "").toLowerCase() || DEFAULT_SAVE_EXT
   const normalized = path.replace(/[/\\]+$/, "")
-  const stripped = normalized.replace(/\.(html|htm|docx|odt|pdf|md|txt|rtf)$/i, "")
+  const stripped = normalized.replace(/\.(html|htm|docx|docm|dotx|dotm|odt|pdf|md|txt|rtf)$/i, "")
   return `${stripped}.${clean}`
 }
 
@@ -289,7 +302,7 @@ export function openFilters() {
  */
 export async function readFileHtml(file: OpenedFile) {
   const ext = fileExtension(file.name || file.path || "")
-  if (ext === "docx") {
+  if (isWordPackage(ext)) {
     const opened = await (await docxIo()).openDocxBytes(file.bytes, file.name || file.path || "document.docx")
     return opened.view.html
   }
@@ -331,7 +344,22 @@ async function loadOpenedFile(file: OpenedFile) {
   // Each document has its own styles: a Word or Inkspire file brings them, anything else starts from the defaults.
   useStyleStore.getState().load(defaultStyles())
   const ext = fileExtension(file.name || file.path || "")
-  if (ext === "docx") {
+  if (ext === "doc" || ext === "dot") {
+    // Word 97–2003: converted to .docx by LibreOffice on the desktop. Like Word's Convert, the result is a new
+    // .docx beside nothing yet, so Save asks where to put it rather than writing over the old file.
+    if (!isTauriRuntime() || !file.path) {
+      throw new Error("Opening a Word 97–2003 file requires the desktop app.")
+    }
+    const converted = new Uint8Array(await invoke<ArrayBuffer>("convert_legacy_document", { path: file.path }))
+    const name = `${fileStem(file.name || file.path)}.docx`
+    const opened = await (await docxIo()).openDocxBytes(converted, name)
+    rememberWordDocument(opened.word)
+    useStyleStore.getState().load(stylesFromWord(opened.word))
+    setWordNoteTexts(opened.view.notes)
+    applyEditorHtml(opened.view.html, opened.view.chrome, null, name, opened.view.props, true)
+    return
+  }
+  if (isWordPackage(ext)) {
     const opened = await (await docxIo()).openDocxBytes(file.bytes, file.name || file.path || "document.docx")
     rememberWordDocument(opened.word)
     useStyleStore.getState().load(stylesFromWord(opened.word))
@@ -371,7 +399,9 @@ async function loadOpenedFile(file: OpenedFile) {
   }
   if (ext !== "txt") {
     // An old .doc or any other binary would show as garbage; the error dialog explains it instead.
-    throw new Error("Inkspire can only open and save .docx, .odt, .rtf, .html, .md, .txt, and .pdf files.")
+    throw new Error(
+      "Inkspire can only open and save .docx, .docm, .dotx, .odt, .rtf, .html, .md, .txt, and .pdf files.",
+    )
   }
   const escaped = raw.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br/>")
   applyEditorHtml(`<p>${escaped}</p>`, emptyChrome(), file.path, file.name)
@@ -912,14 +942,32 @@ export async function restoreRecoveryDocument(offer: RecoveryOffer) {
   enterDocument()
 }
 
-async function saveAs(preferredExt = DEFAULT_SAVE_EXT) {
-  const ext = preferredExt.replace(/^\./, "").toLowerCase() || DEFAULT_SAVE_EXT
+/** The extensions Save As writes; a name the person typed with one of them keeps it. */
+const SAVE_EXTENSIONS = new Set(SAVE_FILTERS.flatMap((filter) => filter.extensions))
+
+/** Whether the open Word document carries a VBA project (a .docm or .dotm with macros). */
+function hasMacros() {
+  return Boolean(
+    currentWordDocument()?.preserved?.parts.some((part) => /vbaProject/i.test(`${part.contentType} ${part.name}`)),
+  )
+}
+
+async function saveAs(preferredExt?: string): Promise<boolean> {
   const current = useDocumentStore.getState().currentFilePath
+  // Save As from a template or macro-enabled document offers its own type first, as Word does.
+  const currentExt = fileExtension(current ?? "")
+  const ext =
+    preferredExt?.replace(/^\./, "").toLowerCase() || (isWordPackage(currentExt) ? currentExt : DEFAULT_SAVE_EXT)
   const selected = await pickSavePath(saveFiltersFor(ext), `${fileStem(current)}.${ext}`, "Save As")
   if (!selected) {
     return false
   }
-  return writeDocument(ensureExtension(selected, ext), ext)
+  const typed = fileExtension(selected)
+  const target = SAVE_EXTENSIONS.has(typed) ? typed : ext
+  if ((target === "docx" || target === "dotx") && hasMacros() && !(await useMacroPrompt.getState().ask())) {
+    return saveAs(target === "dotx" ? "dotm" : "docm")
+  }
+  return writeDocument(ensureExtension(selected, target), target)
 }
 
 /**
@@ -938,7 +986,7 @@ async function writeDocument(path: string, forceExt?: string, operation: FileOpe
     const chrome = currentChrome()
     const props = useDocumentStore.getState().documentProps
 
-    if (ext === "docx") {
+    if (isWordPackage(ext)) {
       const json = editor ? await documentWithObjectPictures(editor) : { type: "doc", content: [] }
       const word = currentWordDocument()
       const saved = await (

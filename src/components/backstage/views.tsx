@@ -539,7 +539,11 @@ export function SaveAsView() {
   const path = useDocumentStore((state) => state.currentFilePath)
   const props = useDocumentStore((state) => state.documentProps)
   const [name, setName] = useState(props.title || documentName(path).replace(/\.[^.]+$/, "") || "Document")
-  const [format, setFormat] = useState("docx")
+  // A template or macro-enabled document is offered as its own type first, as in Word.
+  const [format, setFormat] = useState(() => {
+    const ext = /\.(docx|docm|dotx|dotm)$/i.exec(path ?? "")?.[1]?.toLowerCase()
+    return ext ?? "docx"
+  })
   const [place, setPlace] = useState("recent")
 
   const save = () => {
@@ -586,6 +590,9 @@ export function SaveAsView() {
               <span>File format</span>
               <select value={format} onChange={(event) => setFormat(event.target.value)}>
                 <option value="docx">Word Document (.docx)</option>
+                <option value="docm">Word Macro-Enabled Document (.docm)</option>
+                <option value="dotx">Word Template (.dotx)</option>
+                <option value="dotm">Word Macro-Enabled Template (.dotm)</option>
                 <option value="odt">OpenDocument Text (.odt)</option>
                 <option value="rtf">Rich Text (.rtf)</option>
                 <option value="pdf">PDF (.pdf)</option>

@@ -197,7 +197,8 @@ function rememberFolder(path: string, current: string[]) {
   return recentFolders
 }
 
-export type FileFormat = "docx" | "odt" | "html" | "htm" | "md" | "txt" | "rtf" | "pdf" | "unknown"
+export type FileFormat =
+  "docx" | "docm" | "dotx" | "dotm" | "odt" | "html" | "htm" | "md" | "txt" | "rtf" | "pdf" | "unknown"
 
 function formatFromPath(path: string | null): FileFormat {
   if (!path) {
@@ -208,6 +209,9 @@ function formatFromPath(path: string | null): FileFormat {
   const ext = dot === -1 ? "" : base.slice(dot + 1).toLowerCase()
   if (
     ext === "docx" ||
+    ext === "docm" ||
+    ext === "dotx" ||
+    ext === "dotm" ||
     ext === "odt" ||
     ext === "html" ||
     ext === "htm" ||

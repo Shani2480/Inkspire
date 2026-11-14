@@ -7,6 +7,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Templates and macro-enabled files (2026-11-14)** — open a real .docm with a macro, save it as .docm and run
+      the macro in Word; save it as .docx (answer Yes) and check Word opens it without a repair prompt; save any
+      document as .dotx and check Word's File > New > Personal lists it as a template.
 - [ ] **Footnotes and endnotes drawn (2026-11-14)** — a long Word document with footnotes on several pages: each
       page's footnotes sit at its foot below Word's separator, and the page breaks where Word's do. Also a footnote
       referenced inside a table that breaks across pages (not placed yet, see `next-todo.md`).
@@ -286,6 +289,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **Word 97–2003 files (2026-11-14)** — in the desktop app, File > Open a real .doc with LibreOffice installed
+      (opens as an unsaved .docx; Save asks where), and once without it (the older-Word-file message).
 - [ ] **New splash screen (2026-11-14)** — start the desktop app with the system in light, then dark: the card matches, the bar fills smoothly with no jump or stale frame, and the start screen shows at once after it, with no blend.
 - [ ] **Google Docs form (2026-11-12)** — open a .docx exported from Google Docs whose tables are wider than the
       text and pulled into the left margin: the page has the file's margins (not 1 in) and every table ends inside

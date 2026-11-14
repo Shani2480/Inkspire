@@ -167,7 +167,7 @@ export function describeFileProblem(error: unknown, context: Context): FileProbl
     case "legacy-word":
       return problem(
         "This is an older Word file",
-        `"${fileName}" uses the Word 97–2003 format, which Inkspire can't open. Save it as a .docx file in Word, then open it here.`,
+        `"${fileName}" uses the Word 97–2003 format. The desktop app opens it when LibreOffice is installed; otherwise save it as a .docx file in Word, then open it here.`,
         ["open-other", "close"],
       )
     case "protected":

@@ -40,7 +40,7 @@ export async function saveDocxBytes(input: {
     input.unchanged && input.word
       ? input.word
       : editorToWord(input.json, input.chrome, input.props ?? {}, input.word, input.styles)
-  const pkg = writeDocument(word, input.fileName.endsWith(".docx") ? input.fileName : "document.docx")
+  const pkg = writeDocument(word, /\.(docx|docm|dotx|dotm)$/i.test(input.fileName) ? input.fileName : "document.docx")
   attachCoreProperties(pkg, input.props ?? {})
   return { bytes: await writePackage(pkg), word }
 }
