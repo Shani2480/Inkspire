@@ -1,3 +1,4 @@
+import { protectionXml } from "@/document/protection"
 import { ORDER, writeChildren } from "@/document/docx/element-source"
 import { MC_NS, REL_NS, WORD_NS } from "@/document/docx/mce"
 import {
@@ -1594,6 +1595,13 @@ function writeSettings(settings: Settings) {
     ["w:compat", writeCompat(settings.raw?.children.find((child) => child.name === "w:compat")?.xml)],
     ["w:rsids", writeRsids(settings)],
   ])
+  // Only when the editor said so: a document saved without review settings keeps the ones it had.
+  if (settings.trackRevisions !== undefined) {
+    modelled.set("w:trackRevisions", settings.trackRevisions ? "<w:trackRevisions/>" : "")
+  }
+  if (settings.protection !== undefined) {
+    modelled.set("w:documentProtection", protectionXml(settings.protection))
+  }
   if (!settings.raw) {
     return `<w:settings xmlns:w="${WORD_NS}">${[...modelled.values()].join("")}</w:settings>`
   }

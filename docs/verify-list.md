@@ -7,6 +7,12 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Restrict Editing, Lock Tracking and formatting changes (2026-11-14)** — a document protected in the app for
+      Comments with the password "secret" opens in Word as protected for comments, and Word's Stop Protection accepts
+      "secret" (the SHA-512 hash the app writes) and refuses anything else; Lock Tracking with a password keeps Word's
+      Track Changes button locked; text made bold in the app with Track Changes on shows in Word as "Formatted: Font:
+      Bold" and Reject takes the bold off. A document Word protected opens in the app protected the same way.
+
 - [ ] **Table of Figures and Index (2026-11-14)** — a document with a table of figures, a table of contents and an
       index (bold page, subentry, "See" cross-reference) made in the app opens in Word with the same entries; F9 in Word
       changes neither table's entries; Ctrl+click on a figure entry goes to its caption. A Word document with a table of

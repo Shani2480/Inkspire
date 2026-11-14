@@ -119,14 +119,22 @@ describe("Word features survive the editor", () => {
   it("shows f10 tracked changes as marks and writes them back as w:ins and w:del", async () => {
     const { opened, editor } = await openInEditor("f10_tracked_changes.docx")
     const changes = listChanges(editor.state.doc)
-    expect(changes.map((change) => [change.kind, change.text.trim()])).toEqual([
+    expect(
+      changes.filter((change) => change.kind !== "format").map((change) => [change.kind, change.text.trim()]),
+    ).toEqual([
       ["deletion", "delete-me"],
       ["insertion", "INSERTED"],
     ])
+    // The paragraph was also made bold with Track Changes on (w:rPrChange): Word's "Formatted: Bold".
+    expect(new Set(changes.filter((change) => change.kind === "format").map((change) => change.description))).toEqual(
+      new Set(["Formatted: Bold"]),
+    )
     insertMarker(editor)
     const kinds = inlinesOf(await save(opened, editor)).map((inline) => inline.kind)
     expect(kinds).toContain("ins")
     expect(kinds).toContain("del")
+    const written = await openPackage(await saveBytes(opened, editor), "edited.docx")
+    expect(partXml(written, "word/document.xml")).toContain('<w:rPrChange w:id="0" w:author="Author Name"')
   })
 
   it("accepting or rejecting f10 changes in the editor settles them in the saved file", async () => {

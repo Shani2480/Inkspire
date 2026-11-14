@@ -1,3 +1,4 @@
+import type { DocumentProtection } from "@/document/review"
 import type { DocumentChrome } from "@/document/header"
 import { findPart, openPackage, writePackage, type OpcPackage } from "@/document/docx/opc"
 import { editorToWord, wordToEditor, type EditorView } from "@/document/docx/project"
@@ -35,11 +36,25 @@ export async function saveDocxBytes(input: {
   fileName: string
   /** The document's styles; the built-ins when left out. */
   styles?: StyleDef[]
+  /** Track Changes and Restrict Editing as set in the app; the document's own settings when left out. */
+  review?: { trackRevisions: boolean; protection: DocumentProtection | null }
 }) {
+  const settings = input.word?.settings
+  const reviewChanged =
+    input.review !== undefined &&
+    (Boolean(settings?.trackRevisions) !== input.review.trackRevisions ||
+      JSON.stringify(settings?.protection ?? null) !== JSON.stringify(input.review.protection))
   const word =
-    input.unchanged && input.word
+    input.unchanged && input.word && !reviewChanged
       ? input.word
       : editorToWord(input.json, input.chrome, input.props ?? {}, input.word, input.styles)
+  if (input.review && reviewChanged) {
+    word.settings = {
+      ...word.settings,
+      trackRevisions: input.review.trackRevisions,
+      protection: input.review.protection,
+    }
+  }
   const pkg = writeDocument(word, /\.(docx|docm|dotx|dotm)$/i.test(input.fileName) ? input.fileName : "document.docx")
   attachCoreProperties(pkg, input.props ?? {})
   return { bytes: await writePackage(pkg), word }

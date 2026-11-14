@@ -75,6 +75,7 @@ import {
   type Run,
   type RunContent,
   type RunProperties,
+  type RunPropertyChange,
   type PreservedPackage,
   type SectionProps,
   type WordDocument,
@@ -371,7 +372,63 @@ function runHtml(run: Run, ctx: Projection) {
     run.key || spaced || rstyle || off
       ? `<span data-docx-run="${run.key ?? ""}"${rstyle}${off}${style}>${inner}</span>`
       : inner
-  return wrapComments(anchored, ctx)
+  return wrapComments(formatChangeHtml(anchored, run.rPr.rPrChange), ctx)
+}
+
+/** A tracked formatting change (w:rPrChange) as the editor's formatChange mark, keeping Word's markup for saving. */
+function formatChangeHtml(inner: string, change: RunPropertyChange | undefined) {
+  if (!change) {
+    return inner
+  }
+  const attrs = [
+    "data-format-change",
+    `data-id="${change.id}"`,
+    `data-author="${escapeHtml(change.author ?? "")}"`,
+    `data-time="${escapeHtml(change.date ?? "")}"`,
+    `data-before="${escapeHtml(JSON.stringify(savedMarksOf(change.rPr)))}"`,
+    `data-source="${escapeHtml(JSON.stringify(change))}"`,
+  ]
+  return `<span ${attrs.join(" ")}>${inner}</span>`
+}
+
+/** Run properties as the editor's formatting marks (what a formatChange mark records), sorted by type. */
+export function savedMarksOf(props: RunProperties): JsonMark[] {
+  const marks: JsonMark[] = []
+  const add = (type: string, attrs?: Record<string, unknown>) =>
+    marks.push(attrs && Object.keys(attrs).length > 0 ? { type, attrs } : { type })
+  if (props.b) {
+    add("bold")
+  }
+  if (props.i) {
+    add("italic")
+  }
+  if (props.u && props.u.value !== "none") {
+    add("underline")
+  }
+  if (props.strike || props.dstrike) {
+    add("strike")
+  }
+  if (props.vertAlign === "subscript" || props.vertAlign === "superscript") {
+    add(props.vertAlign)
+  }
+  const highlight = highlightHex(props)
+  if (highlight) {
+    add("highlight", { color: highlight })
+  }
+  const style: Record<string, unknown> = {}
+  if (props.color && props.color !== "auto") {
+    style.color = `#${props.color.toLowerCase()}`
+  }
+  if (props.rFonts?.ascii) {
+    style.fontFamily = props.rFonts.ascii
+  }
+  if (props.sz) {
+    style.fontSize = `${props.sz / 2}pt`
+  }
+  if (Object.keys(style).length > 0) {
+    add("textStyle", style)
+  }
+  return marks.sort((left, right) => String(left.type).localeCompare(String(right.type)))
 }
 
 function runContentHtml(content: RunContent, run: Run, ctx: Projection) {
@@ -1481,7 +1538,7 @@ export function runPropertiesFromEdit(
   return Object.fromEntries(Object.entries(base).filter(([, value]) => value !== undefined)) as RunProperties
 }
 
-type RevisionKey = { kind: "ins" | "del"; id: string; author: string; date: string }
+type RevisionKey = { kind: "ins" | "del" | "rPr"; id: string; author: string; date: string }
 
 /** One inline from the editor, with the annotations that decide how it is grouped. */
 type Piece = { inline: Inline; link?: string; linkTitle?: string; revision?: RevisionKey; comments: string[] }
@@ -1741,7 +1798,40 @@ function contentRun(content: RunContent | null, marks: JsonMark[], build: Inline
   if (key) {
     run.key = key
   }
+  // A tracked formatting change goes as w:rPrChange; one the editor accepted or rejected goes away.
+  const format = marks.find((mark) => mark.type === "formatChange")
+  if (format) {
+    run.rPr.rPrChange = formatChangeOf(format, build)
+  } else if (content?.kind === "text" || content?.kind === "delText") {
+    delete run.rPr.rPrChange
+  }
   return run
+}
+
+function formatChangeOf(mark: JsonMark, build: InlineBuild): RunPropertyChange {
+  const before = readJsonArray(mark.attrs?.before) as JsonMark[]
+  const author = String(mark.attrs?.author ?? "")
+  const date = String(mark.attrs?.time ?? "")
+  const id = revisionId({ kind: "rPr", id: String(mark.attrs?.id ?? ""), author, date }, build)
+  try {
+    // Read from Word and not changed since: Word's own properties, which may hold more than the editor shows.
+    const source = JSON.parse(String(mark.attrs?.source || "null")) as RunPropertyChange | null
+    if (source && JSON.stringify(savedMarksOf(source.rPr)) === JSON.stringify(before)) {
+      return { ...source, id }
+    }
+  } catch {
+    // Not from Word.
+  }
+  return { id, ...(author ? { author } : {}), ...(date ? { date } : {}), rPr: propsFromMarks(before) }
+}
+
+function readJsonArray(value: unknown): unknown[] {
+  try {
+    const parsed = JSON.parse(String(value || "[]")) as unknown
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
 }
 
 /** Hyperlinks wrap revisions, the way Word nests a tracked change inside a link. */
@@ -1850,7 +1940,7 @@ function groupRevisions(pieces: Piece[], build: InlineBuild): Inline[] {
     }
     const inlines = pieces.slice(index, end).map((piece) => piece.inline)
     const tracked: Revision = {
-      kind: revision.kind,
+      kind: revision.kind === "del" ? "del" : "ins",
       id: revisionId(revision, build),
       ...(revision.author ? { author: revision.author } : {}),
       ...(revision.date ? { date: revision.date } : {}),

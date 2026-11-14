@@ -5815,6 +5815,23 @@ body,
   text-decoration: none;
 }
 
+/* No Markup, or All Markup with Show Markup > Insertions and Deletions off: the document as if every change were accepted. */
+.page-editor:is([data-markup="none"], [data-markup="all"][data-show-insertions="false"]) .track-insertion {
+  color: inherit;
+  text-decoration: none;
+}
+
+.page-editor:is([data-markup="none"], [data-markup="all"][data-show-insertions="false"]) .track-deletion {
+  display: none;
+}
+
+/* A tracked formatting change: a dotted line under the text in All Markup, as the Reviewing Pane lists what changed. */
+.page-editor[data-markup="all"]:not([data-show-formatting="false"]) .track-format {
+  text-decoration: underline dotted #7c3aed;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
 /* Note references, bookmarks and content controls kept from an opened .docx; a field is shaded by Field shading below. */
 .page-editor .word-inline:not([data-role="field"]) {
   background: color-mix(in oklch, var(--muted-foreground) 14%, transparent);
@@ -15038,4 +15055,95 @@ textarea.tp-input {
   .apply-styles {
     transition: opacity 120ms;
   }
+}
+
+/* Review > Restrict Editing pane, its password dialogs and Track Changes Options. */
+.restrict-pane-body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  padding: 4px 12px 12px;
+}
+
+.restrict-pane-body section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.restrict-pane-body h3 {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.restrict-pane-body .word-dialog-check {
+  align-items: flex-start;
+  white-space: normal;
+}
+
+.restrict-pane-body .word-dialog-check input {
+  margin-top: 2px;
+}
+
+.restrict-pane-body select {
+  box-sizing: border-box;
+  width: calc(100% - 22px);
+  margin-left: 22px;
+  min-width: 0;
+}
+
+.restrict-pane-note {
+  margin: 0;
+  color: var(--app-ribbon-muted);
+  line-height: 1.4;
+}
+
+.restrict-pane-permissions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 8px;
+  border-radius: 4px;
+  background: color-mix(in oklch, var(--app-theme-primary) 10%, transparent);
+  line-height: 1.4;
+}
+
+.password-dialog,
+.track-options-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.password-dialog p {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.password-dialog-grid,
+.track-options-grid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.password-dialog-grid input,
+.track-options-grid select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.track-options-checks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px 12px;
+  margin-bottom: 8px;
 }

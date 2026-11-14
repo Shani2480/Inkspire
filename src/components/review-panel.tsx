@@ -276,9 +276,14 @@ function ChangeRow({ change }: { change: TrackedChange }) {
   return (
     <li className="comment-sidebar-card">
       <p className="text-[11px] text-[var(--app-ribbon-muted)]">
-        {change.kind === "insertion" ? "Inserted" : "Deleted"}
+        {change.author ? `${change.author} · ` : ""}
+        {change.kind === "insertion" ? "Inserted" : change.kind === "deletion" ? "Deleted" : change.description}
       </p>
-      <p className={`mt-1 text-xs ${change.kind === "deletion" ? "text-red-700 line-through" : "text-green-800"}`}>
+      <p
+        className={`mt-1 text-xs ${
+          change.kind === "deletion" ? "text-red-700 line-through" : change.kind === "format" ? "" : "text-green-800"
+        }`}
+      >
         {change.text || " "}
       </p>
       <div className="mt-2 flex gap-2">

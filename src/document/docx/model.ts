@@ -1,5 +1,6 @@
 import type { ElementSource } from "@/document/docx/element-source"
 import type { OpcRelationship } from "@/document/docx/opc"
+import type { DocumentProtection } from "@/document/review"
 
 /** The namespace of the app's own objects kept in a drawing's docPr extension list. */
 export const INKSPIRE_OBJECT_NS = "https://inkspire.app/2026/object"
@@ -829,6 +830,10 @@ export type Settings = {
   /** Page border Options: Surround header and Surround footer off. */
   bordersDoNotSurroundHeader?: boolean
   bordersDoNotSurroundFooter?: boolean
+  /** Track Changes is on (w:trackRevisions). Absent means the element was not in settings. */
+  trackRevisions?: boolean
+  /** Restrict Editing / Lock Tracking (w:documentProtection); null when it was taken off. */
+  protection?: DocumentProtection | null
   /** Separator note ids listed in w:footnotePr, including -1 and 0. */
   footnotePr?: number[]
   /** Separator note ids listed in w:endnotePr. */

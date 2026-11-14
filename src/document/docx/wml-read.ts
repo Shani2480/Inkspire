@@ -103,6 +103,7 @@ import {
   type OpcPart,
 } from "@/document/docx/opc"
 import { decodeXml } from "@/document/docx/xml"
+import type { DocumentProtection } from "@/document/review"
 
 const REL_TYPES = [
   "http://schemas.openxmlformats.org/officeDocument/2006/relationships/",
@@ -585,6 +586,14 @@ function readSettings(xml: string | undefined, notes: WordNote[]): Settings {
     if (flag) {
       settings[name] = readOnOff(flag) ?? true
     }
+  }
+  const track = wordChild(root, "trackRevisions")
+  if (track) {
+    settings.trackRevisions = readOnOff(track) ?? true
+  }
+  const protection = readProtection(wordChild(root, "documentProtection"))
+  if (protection) {
+    settings.protection = protection
   }
   const footnotePr = readNotePr(wordChild(root, "footnotePr"), "footnote")
   const endnotePr = readNotePr(wordChild(root, "endnotePr"), "endnote")
@@ -3047,6 +3056,38 @@ function assignBool<T extends object>(target: T, key: keyof T, value: string | u
   if (bit !== undefined) {
     target[key] = bit as T[keyof T]
   }
+}
+
+const PROTECTION_EDITS = ["none", "readOnly", "comments", "trackedChanges", "forms"] as const
+
+/** w:documentProtection: what may be edited, whether enforced, and the password's hash (either of Word's forms). */
+function readProtection(node: MarkupNode | undefined): DocumentProtection | null {
+  if (!node) {
+    return null
+  }
+  const edit = attr(node, "edit")
+  if (!PROTECTION_EDITS.includes(edit as (typeof PROTECTION_EDITS)[number])) {
+    return null
+  }
+  const on = (value: string | undefined) => value === "1" || value === "true" || value === "on"
+  const protection: DocumentProtection = {
+    edit: edit as DocumentProtection["edit"],
+    enforced: on(attr(node, "enforcement")),
+    formatting: on(attr(node, "formatting")),
+    source: JSON.stringify(Object.fromEntries((node.attributes ?? []).map((item) => [item.local, item.value]))),
+  }
+  const hash = attr(node, "hashValue") ?? attr(node, "hash")
+  const salt = attr(node, "saltValue") ?? attr(node, "salt")
+  if (hash && salt) {
+    protection.password = {
+      // Word 2007–2019 write the legacy cryptAlgorithmSid form, which hashes a key derived from the password.
+      algorithm: attr(node, "algorithmName") ?? `legacy-sid-${attr(node, "cryptAlgorithmSid") ?? "4"}`,
+      hash,
+      salt,
+      spinCount: Number(attr(node, "spinCount") ?? attr(node, "cryptSpinCount") ?? 0),
+    }
+  }
+  return protection
 }
 
 function readOnOff(node: MarkupNode | undefined) {

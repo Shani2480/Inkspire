@@ -7,6 +7,37 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-14
 
+### Track Changes options, Show Markup and Restrict Editing (U11)
+
+- **What was wrong or missing:** formatting made with Track Changes on was not tracked, and Word's formatting changes
+  (`w:rPrChange`) were lost; Track Changes was not saved with the document; there was no No Markup, Show Markup menu,
+  Lock Tracking or Track Changes Options; Restrict Editing and Block Authors only turned editing off for the session.
+- **What changed:** bold, italic, fonts, sizes, colours and the like made while tracking become a formatting change
+  ("Formatted: Bold", "Not Italic", "Font size: 18 pt") that the Reviewing Pane lists and Accept / Reject settle
+  (Reject puts the old formatting back); they are read from and saved as `w:rPrChange`, and Word's own are written
+  back as read. Track Changes is a split button: For Everyone, Just Mine, Lock Tracking (with an optional password).
+  The markup list gains No Markup, and the dropdown shows the current mode. Show Markup has Comments, Ink,
+  Insertions and Deletions, Formatting, Specific People (hide one reviewer's changes) and Track Changes Options…,
+  which is also the Tracking group's launcher (Comments, Ink, Insertions and Deletions, Formatting, Reviewing Pane,
+  Change User Name…). Restrict Editing opens Word's pane: limit formatting to styles, allow only Tracked changes /
+  Comments / Filling in forms / No changes, Yes, Start Enforcing Protection with an optional password (stored as
+  Word's salted SHA-512 hash, 100 000 spins) and Stop Protection asking for it. Enforced, Read only and forms make the
+  editor read-only, Comments lets only comments through, Tracked changes locks Track Changes on, and limited
+  formatting refuses direct formatting. Protection and Track Changes are read from and saved to settings.xml
+  (`w:documentProtection`, `w:trackRevisions`); an opened file's settings apply after its content has loaded, and a
+  new document starts with neither (`document/review.ts`, `document/protection.ts`, `editor/protection.ts`,
+  `editor/track-changes.ts`, `components/protect-pane.tsx`, `components/ribbon/review-tab.tsx`).
+- **Checked:** unit tests (`editor/track-format.test.ts`, `editor/protection.test.ts`, `document/protection.test.ts`,
+  the f10 fixture now also expects its bold formatting changes and keeps them on save); typecheck, lint, the full
+  suite; Chrome light and dark: tracked bold, insertion and deletion drawn in All Markup, No Markup shows the result,
+  Show Markup > Formatting hides the format line, Comments-only protection with a password blocks typing, a wrong
+  password is refused and the right one stops protection (hashing takes about half a second); every new menu, pane
+  and dialog fits without scrolling, and the overflow crawl finds nothing new. A saved file with formatting changes
+  and SHA-512 protection passes the Open XML SDK validator with 0 errors.
+- **Still open:** not yet opened in Word (see `verify-list.md`). Balloons are left out (no revision balloons here);
+  Filling in forms leaves nothing editable; Word 2007–2019 passwords can't be checked (Stop Protection offers to stop
+  anyway); no exceptions, styles list or per-reviewer colours.
+
 ### Dialogs and popups fit without scrolling
 
 - **What was wrong or missing:** the font size list, the styles gallery's More menu and Borders and Shading's style

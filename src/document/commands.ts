@@ -1,3 +1,4 @@
+import { applyOpenedReview, reviewForSave } from "@/document/review"
 import { withWordMarkers } from "@/editor/word-markers"
 import { useBackstage } from "@/document/backstage"
 import { invokeWithTools } from "@/document/helper-tools"
@@ -340,6 +341,7 @@ async function loadOpenedFile(file: OpenedFile) {
   // Prior dirty draft stays in IndexedDB for the Unsaved Documents rail.
   resetRecoverySession()
   clearWordDocument()
+  applyOpenedReview({})
   setWordNoteTexts(undefined)
   // Each document has its own styles: a Word or Inkspire file brings them, anything else starts from the defaults.
   useStyleStore.getState().load(defaultStyles())
@@ -357,6 +359,7 @@ async function loadOpenedFile(file: OpenedFile) {
     useStyleStore.getState().load(stylesFromWord(opened.word))
     setWordNoteTexts(opened.view.notes)
     applyEditorHtml(opened.view.html, opened.view.chrome, null, name, opened.view.props, true)
+    applyOpenedReview(opened.word.settings)
     return
   }
   if (isWordPackage(ext)) {
@@ -365,6 +368,7 @@ async function loadOpenedFile(file: OpenedFile) {
     useStyleStore.getState().load(stylesFromWord(opened.word))
     setWordNoteTexts(opened.view.notes)
     applyEditorHtml(opened.view.html, opened.view.chrome, file.path, file.name, opened.view.props, true)
+    applyOpenedReview(opened.word.settings)
     return
   }
   if (ext === "odt") {
@@ -626,6 +630,7 @@ export async function emailDocument() {
         word,
         unchanged: Boolean(word) && !useDocumentStore.getState().isDirty,
         styles: useStyleStore.getState().styles,
+        review: reviewForSave(),
         fileName,
       })
       await invoke("email_document", { fileName, bytes: Array.from(saved.bytes), subject })
@@ -651,6 +656,7 @@ async function currentDocxBytes(fileName: string) {
     word,
     unchanged: Boolean(word) && !useDocumentStore.getState().isDirty,
     styles: useStyleStore.getState().styles,
+    review: reviewForSave(),
     fileName,
   })
   return saved.bytes
@@ -781,6 +787,7 @@ export function newBlankDocument(html = BLANK_DOCUMENT_HTML) {
   }
   // Leave any dirty snapshot in IndexedDB so it appears under Unsaved Documents.
   resetRecoverySession()
+  applyOpenedReview({})
   useStyleStore.getState().load(defaultStyles())
   useDocumentStore.getState().startUntitled(html)
   editor.commands.setContent(html, { emitUpdate: false })
@@ -872,6 +879,7 @@ export function insertHtmlAsNewDocument(html: string) {
     return "dirty" as const
   }
   resetRecoverySession()
+  applyOpenedReview({})
   useStyleStore.getState().load(defaultStyles())
   useDocumentStore.getState().startUntitled(BLANK_DOCUMENT_HTML)
   editor.commands.setContent(html, { emitUpdate: false })
@@ -998,6 +1006,7 @@ async function writeDocument(path: string, forceExt?: string, operation: FileOpe
         word,
         unchanged: Boolean(word) && !useDocumentStore.getState().isDirty,
         styles: useStyleStore.getState().styles,
+        review: reviewForSave(),
         fileName: path.split(/[/\\]/).pop() || "document.docx",
       })
       rememberWordDocument(saved.word)

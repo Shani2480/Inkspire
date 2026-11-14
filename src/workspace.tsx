@@ -31,6 +31,7 @@ import { Ribbon } from "@/components/ribbon/ribbon"
 import { FieldEditor } from "@/components/field-editor"
 import { TocDialogHost } from "@/components/toc-dialogs"
 import { IndexDialogsHost } from "@/components/index-dialogs"
+import { ProtectDialogsHost, RestrictEditingPane } from "@/components/protect-pane"
 import { ProofingPanel } from "@/components/proofing-panel"
 import { AccessibilityPane } from "@/components/accessibility-pane"
 import { ApplyStylesBox, RevealFormattingPane, StyleInspector, StylesPane } from "@/components/styles-pane"
@@ -47,7 +48,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { openDroppedDocuments } from "@/document/commands"
 import { useAutosave, useCloseGuard, useDocumentWindow } from "@/document/autosave"
 import { useBackstage } from "@/document/backstage"
-import { useReviewStore } from "@/document/review"
+import { editingAllowed, useReviewStore } from "@/document/review"
 import { useDocumentStore } from "@/document/store"
 import { themeAccentVars } from "@/document/theme"
 import { useViewStore } from "@/document/view"
@@ -117,7 +118,13 @@ function DocumentShell({ onReady }: WorkspaceProps) {
   const split = useViewStore((state) => state.split)
   const sideBySide = useViewStore((state) => state.sideBySide)
   const syncScroll = useViewStore((state) => state.syncScroll)
-  const restricted = useViewStore((state) => state.restricted)
+  // Block Authors, or Restrict Editing enforced with nothing (or only form fields, which the editor has none of) to change.
+  const blocked = useViewStore((state) => state.restricted)
+  const locked = useReviewStore((state) => ["none", "forms"].includes(editingAllowed(state)))
+  const restricted = blocked || locked
+  const showInsertions = useReviewStore((state) => state.showInsertions)
+  const showFormatting = useReviewStore((state) => state.showFormatting)
+  const hiddenAuthors = useReviewStore((state) => state.hiddenAuthors)
   const readOnly = useDocumentStore((state) => state.readOnly)
   const addEditingTime = useDocumentStore((state) => state.addEditingTime)
   const backstageOpen = useBackstage((state) => state.open)
@@ -157,9 +164,24 @@ function DocumentShell({ onReady }: WorkspaceProps) {
     if (!editor) {
       return
     }
-    editor.view.dom.dataset.markup = markup
+    const dataset = editor.view.dom.dataset
+    dataset.markup = markup
+    dataset.showInsertions = String(showInsertions)
+    dataset.showFormatting = String(showFormatting)
     editor.setEditable(!restricted && !readOnly && layoutMode !== "read")
-  }, [editor, markup, restricted, readOnly, layoutMode])
+  }, [editor, markup, showInsertions, showFormatting, restricted, readOnly, layoutMode])
+
+  // Show Markup > Specific People: a hidden reviewer's changes show as if accepted, the way Word draws them.
+  useEffect(() => {
+    if (hiddenAuthors.length === 0) {
+      return
+    }
+    const style = document.createElement("style")
+    style.dataset.hiddenAuthors = ""
+    style.textContent = hiddenAuthorsCss(hiddenAuthors)
+    document.head.append(style)
+    return () => style.remove()
+  }, [hiddenAuthors])
 
   useEffect(() => {
     if (backstageOpen || restricted || readOnly) {
@@ -289,6 +311,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
             <AccessibilityPane />
             <StylesPane />
             <RevealFormattingPane />
+            <RestrictEditingPane />
             <EditorPane />
           </DocumentRulers>
         </div>
@@ -331,6 +354,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
       <InsertTableDialogHost />
       <CaptionDialogsHost />
       <IndexDialogsHost />
+      <ProtectDialogsHost editor={editor} />
       <StyleInspector />
       <ApplyStylesBox />
       <SmartArtTextPane />
@@ -362,4 +386,14 @@ function SplitPreview() {
       dangerouslySetInnerHTML={{ __html: preview ?? "" }}
     />
   )
+}
+
+/** Rules that draw the named reviewers' changes as if accepted: insertions plain, deletions gone, no format marks. */
+function hiddenAuthorsCss(authors: string[]) {
+  const by = (name: string) => `[data-author="${CSS.escape(name)}"]`
+  const list = (kind: string) => authors.map((name) => `.page-editor ${kind}${by(name)}`).join(",\n")
+  return [
+    `${list(".track-insertion")}, ${list(".track-format")} { color: inherit !important; text-decoration: none !important; background: none !important; }`,
+    `${list(".track-deletion")} { display: none !important; }`,
+  ].join("\n")
 }

@@ -72,7 +72,7 @@ function dragWindow(event: ReactPointerEvent<HTMLElement>) {
   event.preventDefault()
 }
 
-function PaneHeader({ title, onClose }: { title: string; onClose: () => void }) {
+export function PaneHeader({ title, onClose }: { title: string; onClose: () => void }) {
   return (
     <div className="styles-pane-head" onPointerDown={dragWindow}>
       <h2>{title}</h2>

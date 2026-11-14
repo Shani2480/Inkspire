@@ -85,9 +85,16 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
       field; Mark Index Entry and Insert Index as XE / INDEX fields (`components/index-dialogs.tsx`,
       `editor/index-entry.ts`). Left: references to notes and numbered items; chapter numbers; the index in its own
       section (and reading Word's sectioned index); AutoMark; Modify… and Options… in both dialogs.
-- [ ] U11. Track Changes: formatting changes tracked, For Everyone / Just Mine, Lock Tracking, Track Changes
+- [x] U11. Track Changes: formatting changes tracked, For Everyone / Just Mine, Lock Tracking, Track Changes
       Options; Show Markup menu (Comments, Insertions and Deletions, Formatting, Balloons, Specific People) and No
-      Markup; Restrict Editing pane saved as `w:documentProtection`.
+      Markup; Restrict Editing pane saved as `w:documentProtection`. Done 2026-11-14: formatting changes as
+      `w:rPrChange` (`editor/track-changes.ts`), Track Changes as a split button, Lock Tracking and Restrict Editing
+      with Word's SHA-512 password hash (`document/protection.ts`, `editor/protection.ts`,
+      `components/protect-pane.tsx`), `w:trackRevisions` read and saved. Left: Balloons (the app draws no revision
+      balloons, so the choice is left out); "Filling in forms" leaves nothing editable (the editor has no form fields:
+      content controls are kept as read); Just Mine behaves as For Everyone (no co-authoring); passwords from Word
+      2007–2019 (legacy hash) cannot be checked, so Stop Protection offers to stop anyway; Restrict Editing's
+      exceptions (parts anyone may edit) and the styles list of "Limit formatting"; per-reviewer colours.
 - [ ] U12. Paste Special… (Ctrl+Alt+V; formats list, paste link) and Set Default Paste; Paste as Picture.
 - [ ] U13. Footnote and Endnote dialog (location, number format, start at, numbering restart, convert).
 - [ ] U14. Source Manager and Create Source with every source type and field, master list, Edit Citation,
