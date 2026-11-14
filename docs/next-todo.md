@@ -110,8 +110,10 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
       in Word. Left: IEEE as Word's table, the Language list, Browse… for another master list, Search Libraries, the
       styles beyond 6 (GB7714, GOST, ISO 690, SIST02), the Bibliographies gallery wrapper control, Save Selection to
       Bibliography Gallery.
-- [ ] U15. Outline view with the Outlining tab (Promote/Demote, Show Level, Expand/Collapse, Move Up/Down, Show
-      Text Formatting, Show First Line Only).
+- [x] U15. Outline view with the Outlining tab (Promote/Demote, Show Level, Expand/Collapse, Move Up/Down, Show
+      Text Formatting, Show First Line Only). Done 2026-11-14 (`editor/outline-view.ts`,
+      `components/ribbon/outlining-tab.tsx`). Left: dragging a symbol to move a heading; the Master Document group (no
+      subdocuments in the app); Heading 7-9's own look.
 - [ ] U16. Design: Style Sets gallery, Paragraph Spacing presets, Customize Colors / Fonts, Save Current Theme.
 - [ ] U17. Status bar: click the word count (Word Count), the page (Go To), the zoom % (Zoom dialog); "12 of 340
       words" for a selection; Track Changes indicator; right-click Customize Status Bar; the language applies to the

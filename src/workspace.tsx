@@ -81,6 +81,7 @@ import { DocumentEditorProvider, useBodyEditor } from "@/editor/document-editor"
 import { installPaginationProfileCommand } from "@/editor/pagination-profile"
 import { ensureSystemFonts } from "@/editor/system-fonts"
 import { useEditorState } from "@tiptap/react"
+import { setOutlineActive } from "@/editor/outline-view"
 
 type WorkspaceProps = {
   onReady: () => void
@@ -114,9 +115,10 @@ function DocumentShell({ onReady }: WorkspaceProps) {
     })
   }, [])
   const markup = useReviewStore((state) => state.markup)
-  // Web Layout and Read Mode have no page to measure, so no rulers.
+  // Web Layout and Read Mode have no page to measure, so no rulers; Outline view has none in Word.
   const showRuler = useViewStore(
-    (state) => state.showRuler && state.layoutMode !== "web" && state.layoutMode !== "read",
+    (state) =>
+      state.showRuler && state.layoutMode !== "web" && state.layoutMode !== "read" && state.layoutMode !== "outline",
   )
   const split = useViewStore((state) => state.split)
   const sideBySide = useViewStore((state) => state.sideBySide)
@@ -173,6 +175,13 @@ function DocumentShell({ onReady }: WorkspaceProps) {
     dataset.showFormatting = String(showFormatting)
     editor.setEditable(!restricted && !readOnly && layoutMode !== "read")
   }, [editor, markup, showInsertions, showFormatting, restricted, readOnly, layoutMode])
+
+  // Outline view: the body's paragraphs as an outline (`editor/outline-view.ts`).
+  useEffect(() => {
+    if (editor && !editor.isDestroyed) {
+      setOutlineActive(editor, layoutMode === "outline")
+    }
+  }, [editor, layoutMode])
 
   // Show Markup > Specific People: a hidden reviewer's changes show as if accepted, the way Word draws them.
   useEffect(() => {

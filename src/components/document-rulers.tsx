@@ -104,7 +104,9 @@ export function DocumentRulers({ children }: DocumentRulersProps) {
   const pageView = useViewStore((state) => state.pageView)
   // Web Layout and Read Mode have no page to measure, so no rulers.
   const showRuler = useViewStore(
-    (state) => state.showRuler && state.layoutMode !== "web" && state.layoutMode !== "read",
+    // Word shows no ruler in Outline view either.
+    (state) =>
+      state.showRuler && state.layoutMode !== "web" && state.layoutMode !== "read" && state.layoutMode !== "outline",
   )
   const pageSetup = useDocumentStore((state) => state.pageSetup)
   const { section: caretWordSection } = useCaretSectionSetup()

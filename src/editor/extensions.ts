@@ -65,6 +65,7 @@ import { Bibliography } from "@/editor/bibliography"
 import { AutoCorrect, useAutoCorrect } from "@/editor/autocorrect"
 import { SearchHighlight } from "@/editor/search-highlight"
 import { WordKeys } from "@/editor/word-keys"
+import { OutlineView } from "@/editor/outline-view"
 
 export function createExtensions() {
   return [
@@ -89,6 +90,7 @@ export function createExtensions() {
     AutoCorrect,
     SearchHighlight,
     WordKeys,
+    OutlineView,
     ShortcutKeymap.configure(),
     EditingBehavior.configure(),
     DocxSource.configure(),

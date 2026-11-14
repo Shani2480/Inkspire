@@ -5959,14 +5959,124 @@ html[data-theme="dark"] .drawing-canvas::after {
   margin-inline: auto;
 }
 
-.page-canvas[data-layout="outline"] .page-editor > :not(h1):not(h2):not(h3):not(h4):not(h5):not(h6) {
-  display: none;
+/*
+ * Outline view (editor/outline-view.ts): each paragraph a step in per level after a symbol, ⊕ for a heading with
+ * text under it, ⊖ for one without and a dot for body text. Paragraph indents and page breaks are not shown, as in
+ * Word; a collapsed heading is underlined with a grey wave. The symbols sit on the paper, which stays light.
+ */
+.ProseMirror[data-outline-view] > .outline-block {
+  position: relative;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 22px !important;
+  text-indent: 0 !important;
+  break-before: auto !important;
 }
 
-.page-canvas[data-layout="outline"] .page-editor h1,
-.page-canvas[data-layout="outline"] .page-editor h2,
-.page-canvas[data-layout="outline"] .page-editor h3 {
-  margin: 0.2em 0;
+.ProseMirror[data-outline-view] > .outline-block[data-ol-depth="1"] {
+  margin-left: 0.3in !important;
+}
+
+.ProseMirror[data-outline-view] > .outline-block[data-ol-depth="2"] {
+  margin-left: 0.6in !important;
+}
+
+.ProseMirror[data-outline-view] > .outline-block[data-ol-depth="3"] {
+  margin-left: 0.9in !important;
+}
+
+.ProseMirror[data-outline-view] > .outline-block[data-ol-depth="4"] {
+  margin-left: 1.2in !important;
+}
+
+.ProseMirror[data-outline-view] > .outline-block[data-ol-depth="5"] {
+  margin-left: 1.5in !important;
+}
+
+.ProseMirror[data-outline-view] > .outline-block[data-ol-depth="6"] {
+  margin-left: 1.8in !important;
+}
+
+.ProseMirror[data-outline-view] > .outline-block[data-ol-depth="7"] {
+  margin-left: 2.1in !important;
+}
+
+.ProseMirror[data-outline-view] > .outline-block[data-ol-depth="8"] {
+  margin-left: 2.4in !important;
+}
+
+.ProseMirror[data-outline-view] > .outline-block[data-ol-depth="9"] {
+  margin-left: 2.7in !important;
+}
+
+.ProseMirror[data-outline-view] > .outline-block[data-ol-hidden] {
+  display: none !important;
+}
+
+.ProseMirror[data-outline-view] > .outline-block::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: calc(0.5lh - 6px);
+  width: 12px;
+  height: 12px;
+  cursor: pointer;
+  background: center / 12px 12px no-repeat;
+}
+
+.ProseMirror[data-outline-view] > .outline-block[data-ol="parent"]::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Ccircle cx='6' cy='6' r='5.25' fill='%23fff' stroke='%23605e5c'/%3E%3Cpath d='M3.5 6h5M6 3.5v5' stroke='%23323130' stroke-width='1.2'/%3E%3C/svg%3E");
+  cursor: move;
+}
+
+.ProseMirror[data-outline-view] > .outline-block[data-ol="heading"]::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Ccircle cx='6' cy='6' r='5.25' fill='%23fff' stroke='%23605e5c'/%3E%3Cpath d='M3.5 6h5' stroke='%23323130' stroke-width='1.2'/%3E%3C/svg%3E");
+}
+
+.ProseMirror[data-outline-view] > .outline-block[data-ol="body"]::before {
+  left: 5px;
+  top: calc(0.5lh - 3px);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #605e5c;
+}
+
+/* Tables, pictures and other blocks that are not text get a dot too, but no line height to centre it on. */
+.ProseMirror[data-outline-view] > .outline-block[data-ol="body"]:not(p, li, ul, ol)::before {
+  top: 6px;
+}
+
+.ProseMirror[data-outline-view] > .outline-block[data-ol-collapsed] {
+  text-decoration: underline wavy #8a8886 !important;
+  text-decoration-thickness: 1px !important;
+  text-underline-offset: 3px;
+}
+
+/* Show Text Formatting off: every paragraph in the plain body font, headings included. */
+.ProseMirror[data-outline-plain] > .outline-block,
+.ProseMirror[data-outline-plain] > .outline-block * {
+  font-family: inherit !important;
+  font-size: 11pt !important;
+  font-weight: 400 !important;
+  font-style: normal !important;
+  color: #242424 !important;
+  text-decoration: none !important;
+  background: none !important;
+  letter-spacing: normal !important;
+}
+
+.ProseMirror[data-outline-plain] > .outline-block {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  line-height: 1.4 !important;
+}
+
+/* Show First Line Only: body text cut to its first line, ending in an ellipsis. */
+.ProseMirror[data-outline-first-line] > .outline-block[data-ol="body"]:is(p) {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .page-canvas[data-layout="draft"] .page-editor {

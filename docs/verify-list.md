@@ -7,6 +7,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [x] **Outline levels 7-9 (2026-11-14)** — checked in Word in the VM: a heading demoted past Heading 6 in the app's
+      Outline view opens in Word at outline level 7, and a paragraph Word set to level 8 opens in the app at level 8.
+
 - [x] **Citations, bibliography and sources (2026-11-14)** — checked in Word in the VM: an app-made document in each
       of APA, Chicago, Harvard, IEEE, MLA and Turabian opens with that style and its 9 sources in Source Manager;
       Update Field gives the same citations and bibliography (IEEE as a table); Word keeps the app's citations on save.
@@ -317,6 +320,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       wraps at its width; a floating picture on a landscape page stays on it.
 
 ## Needs the desktop app (Tauri build)
+
+- [ ] **Outline view in the desktop webview (2026-11-14)** — the symbols, the wave under a collapsed heading and Show
+      First Line Only's ellipsis draw in WebKitGTK; a click and a double click on a symbol select and collapse.
 
 - [ ] **Paste Special in the desktop app (2026-11-14)** — in the Tauri app on Linux, copy formatted text from Word
       (or a browser) and use Paste Special: the list shows HTML Format, Unformatted Text, Unformatted Unicode Text and

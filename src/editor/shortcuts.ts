@@ -29,6 +29,18 @@ import {
   updateFields,
 } from "@/editor/word-keys"
 import { useProofing } from "@/ai/proofing"
+import {
+  BODY_LEVEL,
+  outlineActive,
+  outlineCollapse,
+  outlineExpand,
+  outlineMove,
+  outlinePromoteDemote,
+  setOutlineOption,
+  outlineState,
+  showOutlineLevel,
+} from "@/editor/outline-view"
+import { useViewStore } from "@/document/view"
 import { useBookmarkDialog } from "@/document/bookmark-dialog"
 import { useStylePanes } from "@/document/style-panes"
 import { openMarkEntryDialog } from "@/components/index-dialogs"
@@ -402,28 +414,85 @@ export const SHORTCUTS: ShortcutDef[] = [
     label: "Move Paragraph Up",
     group: "Paragraph",
     keys: ["Alt+Shift+ArrowUp"],
-    run: (e) => moveParagraph(e, -1),
+    run: (e) => (outlineActive(e.state) ? outlineMove(e, -1) : moveParagraph(e, -1)),
   },
   {
     id: "move-down",
     label: "Move Paragraph Down",
     group: "Paragraph",
     keys: ["Alt+Shift+ArrowDown"],
-    run: (e) => moveParagraph(e, 1),
+    run: (e) => (outlineActive(e.state) ? outlineMove(e, 1) : moveParagraph(e, 1)),
   },
   {
     id: "promote",
     label: "Promote",
     group: "Paragraph",
     keys: ["Alt+Shift+ArrowLeft"],
-    run: (e) => promoteDemote(e, -1),
+    run: (e) => (outlineActive(e.state) ? outlinePromoteDemote(e, -1) : promoteDemote(e, -1)),
   },
   {
     id: "demote",
     label: "Demote",
     group: "Paragraph",
     keys: ["Alt+Shift+ArrowRight"],
-    run: (e) => promoteDemote(e, 1),
+    run: (e) => (outlineActive(e.state) ? outlinePromoteDemote(e, 1) : promoteDemote(e, 1)),
+  },
+  {
+    id: "outline-expand",
+    label: "Expand (Outline view)",
+    group: "Paragraph",
+    keys: ["Alt+Shift+="],
+    run: (e) => outlineExpand(e),
+  },
+  {
+    id: "outline-collapse",
+    label: "Collapse (Outline view)",
+    group: "Paragraph",
+    keys: ["Alt+Shift+-"],
+    run: (e) => outlineCollapse(e),
+  },
+  ...Array.from({ length: 9 }, (_, index): ShortcutDef => ({
+    id: `outline-level-${index + 1}`,
+    label: `Show Level ${index + 1} (Outline view)`,
+    group: "Paragraph",
+    keys: [`Alt+Shift+${index + 1}`],
+    run: (e) => showOutlineLevel(e, index + 1),
+  })),
+  {
+    id: "outline-all",
+    label: "Show All Levels (Outline view)",
+    group: "Paragraph",
+    keys: ["Alt+Shift+A"],
+    run: (e) => showOutlineLevel(e, BODY_LEVEL),
+  },
+  {
+    id: "outline-first-line",
+    label: "Show First Line Only (Outline view)",
+    group: "Paragraph",
+    keys: ["Alt+Shift+L"],
+    run: (e) =>
+      outlineActive(e.state) && (setOutlineOption(e, { firstLineOnly: !outlineState(e.state).firstLineOnly }), true),
+  },
+  {
+    id: "view-print",
+    label: "Print Layout",
+    group: "Tools",
+    keys: ["Mod+Alt+P"],
+    run: () => (useViewStore.getState().setLayoutMode("print"), true),
+  },
+  {
+    id: "view-outline",
+    label: "Outline",
+    group: "Tools",
+    keys: ["Mod+Alt+O"],
+    run: () => (useViewStore.getState().setLayoutMode("outline"), true),
+  },
+  {
+    id: "view-draft",
+    label: "Draft",
+    group: "Tools",
+    keys: ["Mod+Alt+N"],
+    run: () => (useViewStore.getState().setLayoutMode("draft"), true),
   },
   { id: "footnote", label: "Insert Footnote", group: "Insert", keys: ["Mod+Alt+F"], run: insertNote("footnote") },
   { id: "endnote", label: "Insert Endnote", group: "Insert", keys: ["Mod+Alt+D"], run: insertNote("endnote") },

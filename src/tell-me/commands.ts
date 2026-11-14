@@ -580,6 +580,22 @@ function buildCommands(): TellMeCommand[] {
       run: () => useViewStore.getState().setLayoutMode("print"),
     },
     {
+      id: "view.outline",
+      label: "Outline",
+      description: "Show the document as an outline, to move and promote headings with the text under them.",
+      keywords: ["outline", "outlining", "headings", "promote", "demote", "collapse", "expand", "show level"],
+      category: "View",
+      run: () => useViewStore.getState().setLayoutMode("outline"),
+    },
+    {
+      id: "view.draft",
+      label: "Draft",
+      description: "Show the document as plain text without page layout.",
+      keywords: ["draft", "normal view"],
+      category: "View",
+      run: () => useViewStore.getState().setLayoutMode("draft"),
+    },
+    {
       id: "view.web-layout",
       label: "Web Layout",
       description: tip("Web Layout"),

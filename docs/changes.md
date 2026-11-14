@@ -7,6 +7,34 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-14
 
+### Outline view and the Outlining tab (U15)
+
+- **What was wrong or missing:** View > Outline only hid every paragraph that was not a heading; there was no
+  Outlining tab, nothing could be collapsed, promoted or moved as an outline, and Heading 7 to 9 could not be reached.
+- **What changed:** Word's **Outline view**: each paragraph a step in per level after its symbol (⊕ heading with text
+  under it, ⊖ heading without, a dot for body text), a grey wave under a collapsed heading, paragraph indents and the
+  ruler not shown. The **Outlining** tab opens in front of Home with the view: Promote to Heading 1, Promote, the
+  Outline Level box (Level 1-9, Body Text), Demote, Demote to Body Text, Move Up / Move Down, Expand / Collapse (a
+  level at a time, body text first), Show Level (Level 1-9, All Levels), Show Text Formatting, Show First Line Only and
+  Close Outline View, on the classic and the single line ribbon. A click on a symbol selects the heading with what is
+  under it, a double click collapses or expands it all; a collapsed heading moves, promotes and demotes with what is
+  under it, also through Undo and Redo, and the caret never stops in collapsed text. Keys as in Word: Tab / Shift+Tab,
+  Alt+Shift+Left/Right/Up/Down, Alt+Shift+Plus/Minus, Alt+Shift+1-9, Alt+Shift+A, Alt+Shift+L, and Ctrl+Alt+P / O / N
+  for Print Layout, Outline and Draft; Tell Me finds Outline and Draft. Levels 7-9 are paragraphs with
+  `w:outlineLvl` (the editor's headings stop at 6). What is collapsed is the view's own state, as in Word: not saved,
+  forgotten on leaving (`editor/outline-view.ts`, `components/ribbon/outlining-tab.tsx`, `ribbon.tsx`,
+  `editor/shortcuts.ts`, `index.css`).
+- **Checked:** unit tests (`editor/outline-view.test.ts`: symbols and indents, collapse / expand steps, Show Level,
+  promote and demote with a collapsed subtree, Heading 6 to level 7 saved as `w:outlineLvl`, move with Undo / Redo,
+  the caret kept out of collapsed text, the state forgotten on leaving); Chrome light and dark: the tab opens with the
+  view, Collapse x3 / Expand, Show Level 1, Alt+Shift+Up, Tab, the Outline Level box, double click and click on a
+  symbol, First Line Only and plain text, the single line ribbon and its More menu, Close back to Print Layout with
+  Home in front; every menu fits; typecheck, lint, the full suite, the overflow crawl (nothing new); **in Word (VM)**
+  the app's level-7 paragraph reads as outline level 7 (validator: 0 errors), and Word's level-8 paragraph opens in
+  the app at level 8.
+- **Still open:** dragging a symbol to move a heading (Move Up / Down and the keys do it); Word's Master Document
+  group (the app has no subdocuments); Word's own look for Heading 7-9 (they are drawn as their paragraph style).
+
 ### Source Manager, Create Source, Edit Citation and placeholders (U14)
 
 - **What was wrong or missing:** sources were a flat author/title/year list kept only in the app; citations were
