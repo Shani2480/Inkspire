@@ -29,6 +29,8 @@ import {
 } from "@/editor/word-keys"
 import { useProofing } from "@/ai/proofing"
 import { useBookmarkDialog } from "@/document/bookmark-dialog"
+import { useStylePanes } from "@/document/style-panes"
+import { openMarkEntryDialog } from "@/components/index-dialogs"
 import { create } from "zustand"
 
 export type ShortcutDef = {
@@ -178,6 +180,7 @@ function insertNote(kind: "footnote" | "endnote") {
 
 /** Commands F4 does not repeat: dialogs, panes, switches and Repeat itself. */
 export const NOT_REPEATED = new Set([
+  "mark-index-entry",
   "link",
   "comment",
   "track-changes",
@@ -192,6 +195,9 @@ export const NOT_REPEATED = new Set([
   "redo-repeat",
   "go-back",
   "thesaurus",
+  "apply-styles",
+  "styles-pane",
+  "reveal-formatting",
   "update-fields",
   "format-painter",
 ])
@@ -422,6 +428,34 @@ export const SHORTCUTS: ShortcutDef[] = [
   { id: "repeat", label: "Repeat", group: "Tools", keys: ["F4"], run: repeatLast },
   { id: "redo-repeat", label: "Redo or Repeat", group: "Tools", keys: ["Mod+Y"], native: ["Mod+Y"], run: redoOrRepeat },
   { id: "go-back", label: "Go Back", group: "Tools", keys: ["Shift+F5"], run: goBack },
+  {
+    id: "mark-index-entry",
+    label: "Mark Index Entry",
+    group: "Tools",
+    keys: ["Alt+Shift+X"],
+    run: (editor) => (openMarkEntryDialog(editor), true),
+  },
+  {
+    id: "apply-styles",
+    label: "Apply Styles",
+    group: "Tools",
+    keys: ["Mod+Shift+S"],
+    run: () => (useStylePanes.getState().toggleApplyBox(true), true),
+  },
+  {
+    id: "styles-pane",
+    label: "Styles Pane",
+    group: "Tools",
+    keys: ["Mod+Alt+Shift+S"],
+    run: () => (useStylePanes.getState().togglePane(), true),
+  },
+  {
+    id: "reveal-formatting",
+    label: "Reveal Formatting",
+    group: "Tools",
+    keys: ["Shift+F1"],
+    run: () => (useStylePanes.getState().toggleReveal(), true),
+  },
   {
     id: "thesaurus",
     label: "Thesaurus",

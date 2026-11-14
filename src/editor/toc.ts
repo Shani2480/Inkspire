@@ -5,6 +5,7 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view"
 import {
   DEFAULT_TOC_INSTRUCTION,
   DEFAULT_TOC_TITLE,
+  figureTable,
   headingBookmark,
   readLeader,
   readTocEntries,
@@ -20,6 +21,7 @@ import {
 import { useStyleStore } from "@/document/styles"
 import { useDocumentStore } from "@/document/store"
 import { sectionPageLabels } from "@/document/page-numbers"
+import { captionsOf } from "@/editor/caption-items"
 
 export type { TocEntry } from "@/document/toc"
 
@@ -32,12 +34,17 @@ export type TocSettings = { title?: string; instruction?: string; leader?: TocLe
 /** Update Table of Contents: Update page numbers only, or Update entire table. */
 export type TocUpdate = "pages" | "entire"
 
+/** Which tables an update without a selected one touches: tables of contents, of figures, or both (F9). */
+export type TocKind = "contents" | "figures" | "all"
+
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     tableOfContents: {
       /** Inserts a table of contents, or replaces the one in the document, as Word's gallery does. */
       insertTableOfContents: (settings?: TocSettings) => ReturnType
-      updateTableOfContents: (update?: TocUpdate) => ReturnType
+      updateTableOfContents: (update?: TocUpdate, kind?: TocKind) => ReturnType
+      /** Inserts a Table of Figures at the cursor, or replaces the selected one. */
+      insertTableOfFigures: (settings: TocSettings & { instruction: string }) => ReturnType
       removeTableOfContents: () => ReturnType
     }
   }
@@ -101,7 +108,15 @@ export const TableOfContents = Node.create({
       mergeAttributes(HTMLAttributes, { class: layoutClass(options) }),
       ...(title ? [["div", { class: "toc-title" }, title]] : []),
       ...(entries.length === 0
-        ? [["div", { class: "toc-empty" }, "No headings in this document."]]
+        ? [
+            [
+              "div",
+              { class: "toc-empty" },
+              figureTable(String(node.attrs.instruction ?? ""))
+                ? "No table of figures entries found."
+                : "No headings in this document.",
+            ],
+          ]
         : entries.map((entry) => [
             "div",
             { class: "toc-entry", "data-level": String(entry.level) },
@@ -142,7 +157,12 @@ export const TableOfContents = Node.create({
         event.preventDefault()
         event.stopPropagation()
         const index = Number(row.dataset.index)
-        followEntry(editor, readTocEntries(current.attrs.entries), index)
+        followEntry(
+          editor,
+          readTocEntries(current.attrs.entries),
+          index,
+          String(current.attrs.instruction || DEFAULT_TOC_INSTRUCTION),
+        )
       })
       return {
         dom,
@@ -169,13 +189,13 @@ export const TableOfContents = Node.create({
         (settings = {}) =>
         ({ editor, state, tr, dispatch, commands }) => {
           const breaks = editor.storage.pagination?.breaks ?? []
-          const existing = tocPositions(state, this.name)[0]
+          const existing = tocPositions(state, this.name, "contents")[0]
           const node = existing === undefined ? null : state.doc.nodeAt(existing)
           const attrs = { ...(node?.attrs ?? {}), ...settings }
-          const entries = collectToc(
+          const entries = tocEntries(
             state.doc,
+            String(attrs.instruction || DEFAULT_TOC_INSTRUCTION),
             breaks,
-            tocLevels(String(attrs.instruction || DEFAULT_TOC_INSTRUCTION)),
             laidOutLabels(editor.storage.pagination),
           )
           if (existing === undefined) {
@@ -186,10 +206,35 @@ export const TableOfContents = Node.create({
           }
           return true
         },
+      insertTableOfFigures:
+        (settings) =>
+        ({ editor, state, tr, dispatch, commands }) => {
+          const { selection } = state
+          const selected =
+            selection instanceof NodeSelection &&
+            selection.node.type.name === this.name &&
+            figureTable(String(selection.node.attrs.instruction ?? ""))
+              ? selection.from
+              : undefined
+          const entries = tocEntries(
+            state.doc,
+            settings.instruction,
+            editor.storage.pagination?.breaks ?? [],
+            laidOutLabels(editor.storage.pagination),
+          )
+          const attrs = { title: "", ...settings, entries }
+          if (selected === undefined) {
+            return commands.insertContent({ type: this.name, attrs })
+          }
+          if (dispatch) {
+            tr.setNodeMarkup(selected, undefined, { ...state.doc.nodeAt(selected)!.attrs, ...attrs, source: "" })
+          }
+          return true
+        },
       updateTableOfContents:
-        (update = "entire") =>
+        (update = "entire", kind = "all") =>
         ({ editor, state, tr, dispatch }) => {
-          const positions = tocPositions(state, this.name)
+          const positions = tocPositions(state, this.name, kind)
           if (positions.length === 0) {
             return false
           }
@@ -198,17 +243,19 @@ export const TableOfContents = Node.create({
           }
           const breaks = editor.storage.pagination?.breaks ?? []
           const labels = laidOutLabels(editor.storage.pagination)
-          const headings = tocHeadings(state.doc, breaks, labels)
           for (const pos of positions) {
             const current = tr.doc.nodeAt(pos)
             if (current?.type.name !== this.name) {
               continue
             }
-            const levels = tocLevels(String(current.attrs.instruction || DEFAULT_TOC_INSTRUCTION))
+            const instruction = String(current.attrs.instruction || DEFAULT_TOC_INSTRUCTION)
             const entries =
               update === "pages"
-                ? refreshPages(readTocEntries(current.attrs.entries), headings)
-                : collectToc(state.doc, breaks, levels, labels)
+                ? refreshPages(
+                    readTocEntries(current.attrs.entries),
+                    tocTargets(state.doc, instruction, breaks, labels),
+                  )
+                : tocEntries(state.doc, instruction, breaks, labels)
             tr.setNodeMarkup(pos, undefined, { ...current.attrs, entries })
           }
           return true
@@ -243,17 +290,13 @@ const staleKey = new PluginKey<DecorationSet>("staleToc")
 function staleTocPlugin(name: string) {
   const mark = (doc: ProseNode) => {
     const marks: Decoration[] = []
-    let headings: TocEntry[] | null = null
     doc.descendants((node, pos) => {
       if (node.type.name !== name) {
         return node.isBlock && !node.isTextblock
       }
-      headings ??= collectToc(doc, [], 9)
-      const levels = tocLevels(String(node.attrs.instruction || DEFAULT_TOC_INSTRUCTION))
+      const instruction = String(node.attrs.instruction || DEFAULT_TOC_INSTRUCTION)
       const shown = readTocEntries(node.attrs.entries).map((entry) => `${entry.level}:${entry.text}`)
-      const current = headings
-        .filter((heading) => heading.level <= levels)
-        .map((entry) => `${entry.level}:${entry.text}`)
+      const current = tocEntries(doc, instruction, []).map((entry) => `${entry.level}:${entry.text}`)
       if (shown.join("\n") !== current.join("\n")) {
         marks.push(Decoration.node(pos, pos + node.nodeSize, { class: "is-stale" }))
       }
@@ -273,15 +316,16 @@ function staleTocPlugin(name: string) {
   })
 }
 
-/** The selected table of contents, or every one in the document. */
-function tocPositions(state: EditorState, name: string) {
+/** The selected table of contents or figures, or every one of the kind in the document. */
+function tocPositions(state: EditorState, name: string, kind: TocKind = "all") {
   const { selection } = state
   if (selection instanceof NodeSelection && selection.node.type.name === name) {
     return [selection.from]
   }
   const positions: number[] = []
   state.doc.descendants((node, pos) => {
-    if (node.type.name === name) {
+    const figures = node.type.name === name && figureTable(String(node.attrs.instruction ?? "")) !== null
+    if (node.type.name === name && (kind === "all" || (kind === "figures") === figures)) {
       positions.push(pos)
     }
     return node.isBlock && !node.isTextblock
@@ -344,6 +388,41 @@ export function collectToc(doc: ProseNode, breaks: number[], levels = 3, labels:
     .map(({ pos: _pos, ...entry }) => entry)
 }
 
+function pageOf(pos: number, breaks: number[], labels: string[]) {
+  let page = 1
+  for (const breakPos of breaks) {
+    if (breakPos <= pos) {
+      page += 1
+    }
+  }
+  return labels[page - 1] ?? String(page)
+}
+
+/** What a table lists: the headings for a table of contents, the captions of its label for a Table of Figures. */
+function tocTargets(doc: ProseNode, instruction: string, breaks: number[], labels: string[] = []): TocHeading[] {
+  const figures = figureTable(instruction)
+  if (!figures) {
+    return tocHeadings(doc, breaks, labels).filter((heading) => heading.level <= tocLevels(instruction))
+  }
+  return captionsOf(doc, figures.label).map((caption) => {
+    const node = doc.nodeAt(caption.pos)
+    const children: TocNodeLike[] = []
+    node?.forEach((child) => children.push({ type: child.type.name, attrs: child.attrs }))
+    const anchor = headingBookmark(children)
+    const target: TocHeading = {
+      level: 1,
+      text: figures.includeLabel ? caption.text : caption.body,
+      page: pageOf(caption.pos, breaks, labels),
+      pos: caption.pos,
+    }
+    return anchor ? { ...target, anchor } : target
+  })
+}
+
+export function tocEntries(doc: ProseNode, instruction: string, breaks: number[], labels: string[] = []): TocEntry[] {
+  return tocTargets(doc, instruction, breaks, labels).map(({ pos: _pos, ...entry }) => entry)
+}
+
 /** The heading each entry stands for: the one with its bookmark, else the next one with its text. */
 function matchHeadings(entries: TocEntry[], headings: TocHeading[]) {
   let cursor = 0
@@ -370,8 +449,8 @@ function refreshPages(entries: TocEntry[], headings: TocHeading[]): TocEntry[] {
 }
 
 /** Ctrl+Click on an entry: the cursor goes to the start of its heading. */
-function followEntry(editor: Editor, entries: TocEntry[], index: number) {
-  const heading = matchHeadings(entries, tocHeadings(editor.state.doc, []))[index]
+function followEntry(editor: Editor, entries: TocEntry[], index: number, instruction: string) {
+  const heading = matchHeadings(entries, tocTargets(editor.state.doc, instruction, []))[index]
   if (heading) {
     editor
       .chain()
@@ -409,7 +488,9 @@ function renderToc(dom: HTMLElement, node: ProseNode) {
   if (entries.length === 0) {
     const empty = document.createElement("div")
     empty.className = "toc-empty"
-    empty.textContent = "No headings in this document."
+    empty.textContent = figureTable(String(node.attrs.instruction ?? ""))
+      ? "No table of figures entries found."
+      : "No headings in this document."
     dom.append(empty)
     return
   }
@@ -435,4 +516,19 @@ function renderToc(dom: HTMLElement, node: ProseNode) {
     }
     dom.append(row)
   })
+}
+
+/** The page number (as the page shows it) of a document position, from the last layout; null before one. */
+export function pageLabelAt(editor: Editor, pos: number): string | null {
+  const pagination = editor.storage.pagination as
+    { breaks?: number[]; pageCount?: number; pageSections?: string[]; sectionStarts?: boolean[] } | undefined
+  const breaks = pagination?.breaks ?? []
+  let page = 1
+  for (const breakPos of breaks) {
+    if (breakPos <= pos) {
+      page += 1
+    }
+  }
+  const labels = laidOutLabels(pagination)
+  return labels[page - 1] ?? String(page)
 }

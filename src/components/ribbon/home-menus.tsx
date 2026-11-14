@@ -1,3 +1,4 @@
+import { useStylePanes } from "@/document/style-panes"
 import { applyFontColor, applyFontFamily, applyHighlight, applyUnderline, setShapeText } from "@/editor/shape-text"
 import { openBordersAndShading } from "@/components/borders-shading-dialog"
 import { ColorMenu } from "@/components/color-menu"
@@ -565,10 +566,10 @@ export function StylesMenu({
       <MenuButton
         onClick={() => {
           close()
-          useStyleDialogs.getState().openManage()
+          useStylePanes.getState().toggleApplyBox(true)
         }}
       >
-        Manage Styles…
+        Apply Styles…
       </MenuButton>
     </div>
   )

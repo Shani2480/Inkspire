@@ -1927,6 +1927,15 @@ button.line-menu-row:focus-visible {
   letter-spacing: 0.02em;
 }
 
+.page-editor p[data-style="caption"] {
+  margin-top: 0;
+  margin-bottom: 10pt;
+  color: #0e2841;
+  font-size: 9pt;
+  font-style: italic;
+  line-height: 1;
+}
+
 .page-editor p[data-style="quote"] {
   margin-left: 0;
   border-left: 3px solid #5b9bd5;
@@ -6634,13 +6643,78 @@ li[data-drop-cap="margin"]::first-letter {
   padding: 0.4em 0;
 }
 
+/* The index as Word prints it: a hanging indent per level, page numbers after a comma or a right-aligned leader. */
+.page-editor .document-index {
+  column-gap: 0.5in;
+}
+
+.page-editor .document-index-row {
+  display: flex;
+  align-items: baseline;
+  margin: 0;
+  padding-left: 0.17in;
+  text-indent: -0.17in;
+  break-inside: avoid;
+}
+
+.page-editor .document-index.is-inline .document-index-row {
+  display: block;
+}
+
+.page-editor .document-index-row[data-level="2"] {
+  padding-left: 0.34in;
+}
+
+.page-editor .document-index-leader {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-width: 1em;
+  margin: 0 0.2em;
+  background-image: radial-gradient(circle, currentColor 0.05em, transparent 0.07em);
+  background-repeat: repeat-x;
+  background-position: left bottom 0.24em;
+  background-size: 0.27em 0.27em;
+}
+
+.page-editor .document-index[data-leader="hyphen"] .document-index-leader {
+  background-image: linear-gradient(to right, currentColor 55%, transparent 55%);
+  background-size: 0.4em 0.06em;
+  background-position: left bottom 0.42em;
+}
+
+.page-editor .document-index[data-leader="underscore"] .document-index-leader {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-size: 100% 0.06em;
+  background-position: left bottom 0.12em;
+}
+
+.page-editor .document-index[data-leader="none"] .document-index-leader {
+  background-image: none;
+}
+
+.page-editor .document-index-empty {
+  margin: 0;
+  color: #737373;
+  font-style: italic;
+}
+
+/* An index entry (XE field) is hidden text: nothing on the page until formatting marks are shown. */
+.page-editor .word-field.is-index-entry > .field-value {
+  display: none;
+}
+
+.page-canvas:is(.formatting-marks, .fm-hidden) .page-editor .word-field.is-index-entry::before {
+  content: attr(data-field-code);
+  border-bottom: 1px dotted currentColor;
+  color: #5b5b5b;
+}
+
 .page-editor .document-index-title,
 .page-editor .authorities-title {
   font-weight: 650;
   margin-bottom: 0.35em;
 }
 
-.page-editor .document-index-row,
 .page-editor .authorities-row {
   margin: 0.15em 0;
   white-space: pre-wrap;
@@ -8074,6 +8148,16 @@ li[data-drop-cap="margin"]::first-letter {
   ):not(:where([data-keep-light], [data-keep-light] *)) {
   background-color: var(--dlg-surface);
   color: var(--dlg-text);
+}
+
+/* A disabled field keeps the dialog's disabled look in dark mode (the rule above is more specific than it). */
+.dark
+  :is(.word-dialog, [role="dialog"], [role="alertdialog"])
+  :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]), textarea, select):disabled:not(
+    [class*="bg-"]
+  ):not(:where([data-keep-light], [data-keep-light] *)) {
+  background-color: var(--dlg-disabled-bg);
+  color: var(--dlg-disabled-text);
 }
 
 .dark
@@ -12858,6 +12942,177 @@ textarea.text-prompt-field {
   width: 64px;
 }
 
+/* Insert Index and Mark Index Entry (References > Index). */
+.index-dialog-side {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 24px;
+  font-size: 12px;
+}
+
+.index-dialog-radio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.index-dialog-buttons {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.index-preview {
+  column-gap: 12px;
+}
+
+.index-preview .toc-preview-row {
+  break-inside: avoid;
+}
+
+.index-preview-letter {
+  margin: 2px 0;
+  font-weight: 600;
+}
+
+.mark-entry-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.mark-entry-grid {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.mark-entry-options {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.mark-entry-indent {
+  box-sizing: border-box;
+  width: calc(100% - 22px);
+  margin-left: 22px;
+}
+
+.mark-entry-note {
+  margin: 4px 0 0;
+  color: var(--dlg-disabled-text);
+}
+
+/* Insert Caption and Cross-reference (References > Captions). */
+.caption-dialog,
+.xref-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.caption-dialog-text {
+  display: flex;
+  height: 26px;
+  align-items: center;
+  border: 1px solid var(--dlg-control-border);
+  border-radius: 3px;
+  background: var(--dlg-surface);
+}
+
+.caption-dialog-text:focus-within {
+  outline: 2px solid var(--dlg-accent);
+  outline-offset: -1px;
+}
+
+.caption-dialog-text > span {
+  padding-left: 6px;
+  white-space: pre;
+}
+
+.caption-dialog-text > input {
+  min-width: 0;
+  height: 100%;
+  flex: 1;
+  padding: 0 6px 0 0;
+  background: transparent;
+  color: var(--dlg-text);
+  outline: none;
+}
+
+.caption-dialog-options {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 6px 10px 10px;
+  border: 1px solid var(--dlg-rule);
+  border-radius: 3px;
+}
+
+.caption-dialog-options legend {
+  padding: 0 4px;
+}
+
+.caption-dialog-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.caption-numbering {
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.xref-dialog-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.xref-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.xref-dialog-list {
+  height: 180px;
+  overflow: auto;
+  border: 1px solid var(--dlg-control-border);
+  background: var(--dlg-surface);
+  color: var(--dlg-text);
+}
+
+.xref-dialog-item {
+  padding: 2px 6px;
+  white-space: pre;
+  cursor: default;
+}
+
+.xref-dialog-item:hover {
+  background: var(--app-hover);
+}
+
+.xref-dialog-item.is-selected {
+  background: var(--dlg-accent);
+  color: #fff;
+}
+
+.xref-dialog-empty {
+  padding: 6px;
+  color: var(--dlg-disabled-text);
+}
+
 /* Insert Table and Convert Text to Table (Insert > Table). */
 .insert-table-dialog {
   display: flex;
@@ -13788,10 +14043,10 @@ textarea.tp-input {
 /* Field shading: when selected (Word's default), always, or never. */
 :root[data-field-shading="always"]
   .page-editor
-  :is(.date-field, .formula-field, .if-field, .word-inline[data-role="field"]),
+  :is(.date-field, .formula-field, .if-field, .word-field, .word-inline[data-role="field"]),
 :root[data-field-shading="selected"]
   .page-editor
-  :is(.date-field, .formula-field, .if-field, .word-inline[data-role="field"]).ProseMirror-selectednode {
+  :is(.date-field, .formula-field, .if-field, .word-field, .word-inline[data-role="field"]).ProseMirror-selectednode {
   background: color-mix(in oklch, var(--muted-foreground) 18%, transparent);
   border-radius: 2px;
 }
@@ -14457,4 +14712,330 @@ textarea.tp-input {
 
 .find-special-menu button:hover {
   background: var(--app-hover);
+}
+
+/* The Styles and Reveal Formatting panes (right side), Style Inspector and Apply Styles box (Home > Styles). */
+.styles-pane {
+  display: flex;
+  width: 260px;
+  min-height: 0;
+  flex-shrink: 0;
+  flex-direction: column;
+  border-left: 1px solid var(--app-divider);
+  background: var(--app-ribbon-bg);
+  color: var(--app-ribbon-text);
+  font-size: 12px;
+}
+
+.styles-pane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 8px 6px 12px;
+}
+
+.styles-pane-head h2 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.styles-pane-list {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 2px 8px 8px;
+}
+
+.styles-pane-item {
+  display: flex;
+  width: 100%;
+  min-height: 26px;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 8px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: default;
+  text-align: left;
+}
+
+.styles-pane-item:hover {
+  background: var(--app-hover);
+}
+
+.styles-pane-item.is-current {
+  border-color: var(--dlg-accent);
+}
+
+.styles-pane-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.styles-pane-kind {
+  min-width: 18px;
+  color: var(--app-ribbon-muted);
+  font-size: 11px;
+  text-align: right;
+}
+
+.styles-pane-menu {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  opacity: 0;
+}
+
+.styles-pane-item:hover .styles-pane-menu,
+.styles-pane-menu:focus-visible {
+  opacity: 1;
+}
+
+.styles-pane-menu:hover {
+  background: var(--app-pressed, var(--app-hover));
+}
+
+.styles-pane-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--app-divider);
+}
+
+.styles-pane-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.styles-pane-buttons,
+.style-inspector-foot {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.styles-pane-button {
+  display: inline-flex;
+  width: 26px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+}
+
+.styles-pane-button:hover {
+  background: var(--app-hover);
+}
+
+.styles-pane-button svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.2;
+}
+
+.styles-pane-button .sp-ink {
+  stroke: var(--icon-base-color);
+}
+
+.styles-pane-button .sp-accent {
+  stroke: var(--icon-accent-color);
+}
+
+.style-inspector,
+.apply-styles {
+  position: fixed;
+  z-index: 70;
+  top: 150px;
+  right: 290px;
+  display: flex;
+  width: 250px;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 10px;
+  border: 1px solid var(--app-popover-border);
+  border-radius: 6px;
+  background: var(--app-popover-bg);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+  color: var(--app-ribbon-text);
+  font-size: 12px;
+  will-change: opacity;
+}
+
+.apply-styles {
+  top: 190px;
+  right: auto;
+  left: 24px;
+  width: 230px;
+  padding: 0 0 10px;
+}
+
+/* Floating windows open over the left of the document, clear of the panes on the right, and move by their title. */
+.style-inspector {
+  right: auto;
+  left: 24px;
+}
+
+:is(.style-inspector, .apply-styles) .styles-pane-head {
+  cursor: move;
+  touch-action: none;
+}
+
+/* Dark previews keep each style's font, size and weight but read in the pane's colour (dark blues and greys vanish). */
+.dark .styles-pane-name[style] {
+  color: var(--app-ribbon-text) !important;
+}
+
+.style-inspector-box {
+  margin: 0 10px;
+}
+
+.style-inspector-box h3 {
+  margin-bottom: 3px;
+  color: var(--app-ribbon-muted);
+  font-weight: 600;
+}
+
+.style-inspector-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--app-divider);
+  border-bottom: 0;
+}
+
+.style-inspector-row:last-child {
+  border-bottom: 1px solid var(--app-divider);
+}
+
+.style-inspector-value {
+  min-width: 0;
+  flex: 1;
+  padding: 4px 6px;
+  overflow-wrap: anywhere;
+}
+
+.style-inspector-value.is-none {
+  color: var(--app-ribbon-muted);
+}
+
+.style-inspector-foot {
+  margin: 0 10px;
+}
+
+.style-inspector-foot .dialog-btn {
+  margin-left: auto;
+}
+
+.apply-styles-label {
+  margin: 0 12px -4px;
+}
+
+.apply-styles > input {
+  height: 26px;
+  margin: 0 12px;
+  padding: 0 6px;
+  border: 1px solid var(--dlg-control-border);
+  border-radius: 3px;
+  background: var(--dlg-surface);
+  color: var(--dlg-text);
+  outline: none;
+}
+
+.apply-styles > input:focus-visible {
+  outline: 2px solid var(--dlg-accent);
+  outline-offset: -1px;
+}
+
+.apply-styles-buttons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 12px;
+}
+
+.apply-styles-buttons .styles-pane-button {
+  margin-left: auto;
+}
+
+.reveal-pane-sample {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 12px 8px;
+  color: var(--app-ribbon-muted);
+}
+
+.reveal-pane-sample p {
+  padding: 6px 8px;
+  border: 1px solid var(--app-divider);
+  background: #fff;
+  color: #242424;
+  overflow-wrap: anywhere;
+}
+
+.reveal-pane-list {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 0 12px 12px;
+}
+
+.reveal-pane-list h3 {
+  margin-bottom: 6px;
+  color: var(--app-ribbon-muted);
+}
+
+.reveal-pane-section {
+  margin-bottom: 10px;
+}
+
+.reveal-pane-section h4 {
+  margin-bottom: 2px;
+  font-weight: 600;
+}
+
+.reveal-pane-link {
+  color: var(--dlg-accent);
+  font-weight: 600;
+}
+
+.reveal-pane-link:hover {
+  text-decoration: underline;
+}
+
+.reveal-pane-section dl > div {
+  display: flex;
+  gap: 4px;
+  padding-left: 12px;
+}
+
+.reveal-pane-section dt {
+  flex-shrink: 0;
+  color: var(--app-ribbon-muted);
+}
+
+.reveal-pane-section dt::after {
+  content: ":";
+}
+
+.reveal-pane-section dd {
+  overflow-wrap: anywhere;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .style-inspector,
+  .apply-styles {
+    transition: opacity 120ms;
+  }
 }

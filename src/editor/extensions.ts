@@ -1,4 +1,5 @@
 import Color from "@tiptap/extension-color"
+import { WordField } from "@/editor/word-field"
 import FontFamily from "@tiptap/extension-font-family"
 import Highlight from "@tiptap/extension-highlight"
 import { PositionedImage, TextBox } from "@/editor/objects"
@@ -159,6 +160,7 @@ export function createExtensions() {
     SignatureLine.configure(),
     Note.configure(),
     FigureTable.configure(),
+    WordField,
     DocumentIndex.configure(),
     AuthoritiesTable.configure(),
     SmartArt.configure(),

@@ -7,6 +7,90 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-14
 
+### Table of Figures, Index and Mark Index Entry (U10, part 2)
+
+- **What was wrong or missing:** Insert Table of Figures and Insert Index dropped placeholder blocks that listed
+  captions and marked words live (the index only counted them, with no pages), neither was saved to .docx, a Word
+  table of figures opened as a table of contents that Update refilled with headings, and Mark Entry only underlined
+  the selection.
+- **What changed:** a **Table of Figures** is the table of contents node with Word's `TOC \h \z \c "Figure"`
+  instruction (`\a` without label and number): it lists the captions of its label with their pages, links to them,
+  shows "Update Table…", and is saved as Word writes it (Table of Figures paragraphs in the field, `_Toc` bookmarks
+  on the captions, no content control). Insert Table of Contents no longer replaces it and Update Table of Contents
+  leaves it alone; the ribbon's Update Table of Figures (disabled without one) and its own tab ask "Update Table of
+  Figures". Its dialog has Word's print preview, Show / Right align page numbers, Tab leader, Use hyperlinks,
+  Caption label and Include label and number (`components/toc-dialogs.tsx`). **Mark Index Entry** (Mark Entry,
+  Alt+Shift+X, Tell Me; `components/index-dialogs.tsx`) puts an XE field after the selection: main entry, subentry,
+  Cross-reference, Current page or Page range (a bookmark), bold / italic page numbers; Mark All marks every
+  paragraph where the selected word occurs (whole word, matching case); the dialog stays open. XE fields are hidden
+  text, shown as `{ XE "…" }` with formatting marks on. **Insert Index** lists the entries sorted, with merged pages,
+  subentries indented or run-in, 1–4 columns, page numbers after a comma or right-aligned after a leader; it shows
+  what it was last updated to and Update Index recomputes it. It is saved as Word's INDEX field over index 1 / index 2
+  paragraphs, and a Word index opens as one (saved back as read while untouched). Pure parts in
+  `document/index-field.ts` and `document/docx/index-field.ts`; the editor node in `editor/index-entry.ts`.
+- **Checked:** `editor/figures-index.test.ts` (figure tables with and without labels, beside a table of contents,
+  update by kind, .docx round trip with resolved PAGEREFs; XE parsing and writing, sorting, merged pages, indented /
+  run-in / right-aligned lines, Mark and Mark All, Update Index, XE and INDEX round trip); in Chrome, light and dark:
+  two captions, Insert Table of Figures, Alt+Shift+X with Mark All, a subentry, Insert Index right-aligned in two
+  columns; a saved file with a table of figures, a table of contents, three XE fields and an index passes the Open
+  XML validator with unique bookmarks and every PAGEREF resolving.
+- **Still open:** the index is not put in its own section, so Word lays it out in two columns only after an update;
+  a Word index that sits in its own section (the usual case) still opens as plain paragraphs; no AutoMark, Modify…
+  or letter headings; Mark Index Entry is modal, so the main entry does not follow a new selection as in Word; Table
+  of Figures has no Options… (style-based tables) or Modify…. Not yet opened in Word.
+
+### Insert Caption and Cross-reference as Word fields (U10, part 1)
+
+- **What was wrong or missing:** Insert Caption only typed "Figure n" as plain text (it never renumbered) and
+  Cross-reference was a short menu of headings that inserted links. Nothing was saved as Word's SEQ / REF / PAGEREF
+  fields, and the editor's own bookmarks were not written to .docx at all.
+- **What changed:** a `wordField` inline node (`editor/word-field.ts`, pure parsing in
+  `document/field-instructions.ts`) holds a field's instruction and result and keeps the results up to date as the
+  document changes: SEQ numbers per label (`\r`, `\s`, `\c`, `\h`, `\*` ARABIC / ALPHABETIC / ROMAN…), REF to a
+  bookmark's text or above/below (`\p`), PAGEREF to its page. Ctrl+click on one inserted as a hyperlink (`\h`) goes
+  to its target; F9 / Update Field refreshes them and Ctrl+Shift+F9 unlinks them. Fields read from Word keep Word's
+  result until F9, and are saved as they were read while untouched. The **Caption dialog** (References, Insert, a
+  picture's right-click menu, Tell Me; `components/caption-dialogs.tsx`, logic in `editor/captions.ts`) shows
+  "Figure 1" before the text, has Label, Position (above/below the selected picture or table), Exclude label, New
+  Label…, Delete Label and Numbering…; the caption gets the built-in Caption style. The **Cross-reference dialog**
+  lists headings, bookmarks or the captions of a label, inserts the text, page number, above/below, label and
+  number, or caption text, as a hyperlink or not, with "Include above/below", and stays open for more (Cancel turns
+  into Close). Targets get hidden `_Ref…` bookmarks; bookmarks may now overlap, and every bookmark is saved as
+  `w:bookmarkStart` / `w:bookmarkEnd`. Also fixed: Insert > Bookmark threw "Applying a mismatched transaction";
+  in dark mode disabled fields in every dialog looked enabled.
+- **Checked:** `editor/word-field.test.ts` (parsing and number formats, numbering and renumbering, Exclude label,
+  caption above a table, references to captions / headings / bookmarks following renumbering, .docx round trip);
+  in Chrome, light and dark, two captions through the dialog (the earlier one inserted second, so the first
+  renumbers) and a cross-reference to Figure 2; a saved file with SEQ, REF `\h`, REF `\p` and PAGEREF passes the Open
+  XML validator with every reference resolving to a bookmark.
+- **Still open:** references to footnotes/endnotes and numbered items, chapter numbers in captions, AutoCaption;
+  Table of Figures, Index and Mark Index Entry come next (part 2). Not yet opened in Word.
+
+### Styles pane, Apply Styles box, Style Inspector and Reveal Formatting
+
+- **What was wrong or missing:** styles could only be applied from the gallery; there was no Styles pane, no Apply
+  Styles box, no way to see which formatting came from the style and which was added, and Ctrl+Shift+S was Save As.
+- **What changed:** `components/styles-pane.tsx` (state in `document/style-panes.ts`, logic in
+  `editor/style-inspect.ts`). The **Styles pane** (Home's Styles launcher, Alt+Ctrl+Shift+S) lists the shown styles
+  with Word's ¶ / a / ¶a marks, outlines the selection's style as the caret moves, applies on click, offers Clear All,
+  and each style's ▾ menu (Update to Match Selection, Modify…, Remove from Style Gallery, Delete); Show Preview draws
+  the names in their styles; Disable Linked Styles makes Heading 1/2, Title, Subtitle and Quote paragraph-only (with
+  it off, as in Word, they format just the selected words when applied to part of a paragraph). Its buttons are New
+  Style, Style Inspector and Manage Styles; the two options are remembered. The **Apply Styles box** (Ctrl+Shift+S,
+  and the gallery's More menu, which now ends Create a Style / Clear Formatting / Apply Styles as Word's does) takes a
+  style name with completion; Enter applies (Reapply when it is the current style), Modify… and Styles. The **Style
+  Inspector** shows the paragraph style and "Plus:" its direct formatting, the character style and its direct
+  formatting, with an eraser for each and Clear All; it floats and moves by its title. **Reveal Formatting** (Shift+F1)
+  lists the selection's Font, Paragraph and Section; Font and Paragraph open their dialogs. Save As keeps F12 (also on
+  the macOS menu); Ctrl+Shift+S is free in Customize Keyboard.
+- **Checked:** `editor/style-inspect.test.ts` (style names incl. Heading 3, direct paragraph and character formatting,
+  Clear Paragraph Formatting, Reveal sections, pane order, linked styles both ways, the keys); in Chrome, light and
+  dark, with real key presses: Alt+Ctrl+Shift+S, Shift+F1, the Inspector on a centred paragraph, Ctrl+Shift+S then
+  "Title" + Enter, and Heading 2 on two words from the pane.
+- **Still open:** no Options… (which styles to show, sort order), no "Select All n instances", Style Inspector's
+  character-style eraser also clears direct character formatting; Reveal Formatting has no Compare to another
+  selection and no Distinguish style source.
+
 ### Insert > Table: Insert Table…, Convert Text to Table…, Draw Table and Word's 10 × 8 grid
 
 - **What was wrong or missing:** the Table menu was only an 8 × 8 grid: no Insert Table dialog, no way to turn

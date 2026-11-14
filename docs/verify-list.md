@@ -7,6 +7,15 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Table of Figures and Index (2026-11-14)** — a document with a table of figures, a table of contents and an
+      index (bold page, subentry, "See" cross-reference) made in the app opens in Word with the same entries; F9 in Word
+      changes neither table's entries; Ctrl+click on a figure entry goes to its caption. A Word document with a table of
+      figures opens as one (Update fills it with captions, not headings) and is saved back unchanged.
+- [ ] **Captions and cross-references (2026-11-14)** — a document with two figure captions, a Roman-numbered table
+      caption and cross-references (label and number as a hyperlink, above/below, page number, a heading's text) opens
+      in Word with the same numbers; F9 in Word changes nothing; Ctrl+click on a reference goes to the caption; Word's
+      Cross-reference dialog lists the app's captions. A Word document with captions opens in the app and new captions
+      continue Word's numbering.
 - [ ] **Insert Table and Convert Text to Table (2026-11-14)** — a table made with a fixed column width of 3 cm, one
       made with AutoFit to window and one converted from tab-separated text open in Word with the same column widths
       (Table Properties shows the fixed width / 100% preferred width, and the fixed one does not grow as you type).

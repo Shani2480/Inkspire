@@ -1,3 +1,4 @@
+import { openCaptionDialog, openCrossReferenceDialog } from "@/components/caption-dialogs"
 import { MenuButton, RibbonCommand, RibbonGroup } from "@/components/ribbon/ribbon-button"
 import { LineCitationIcon, LineContentsIcon, LineEndnoteIcon, LineFootnoteIcon } from "@/components/ribbon/line-icons"
 import { SingleLineBar, type LineCommand, type LineGroup } from "@/components/ribbon/single-line"
@@ -17,12 +18,13 @@ import { useViewStore } from "@/document/view"
 import { updateBlocks } from "@/editor/block-format"
 import { AUTHORITY_CATEGORIES, type AuthorityCategory } from "@/editor/authorities"
 import { useDocumentEditor } from "@/editor/document-editor"
-import { listHeadings, listNotes, nextCaption } from "@/editor/insert-blocks"
+import { listNotes } from "@/editor/insert-blocks"
 import { chainWithSelection, insertAtSelectionEnd, restoreSelection } from "@/editor/selection-memory"
 import { useEditorState } from "@tiptap/react"
 import { useState } from "react"
 import { DialogFrame } from "@/components/word-dialog"
-import { useTocDialog } from "@/components/toc-dialogs"
+import { hasTableOfFigures, useTocDialog } from "@/components/toc-dialogs"
+import { openIndexDialog, openMarkEntryDialog } from "@/components/index-dialogs"
 import { DEFAULT_TOC_INSTRUCTION, tocLevels } from "@/document/toc"
 
 /** Word's two built-in tables, which differ only in their heading. */
@@ -43,10 +45,6 @@ export function ReferencesTab() {
     editor,
     selector: ({ editor: current }) => (current ? listNotes(current.state.doc) : []),
   })
-  const headings = useEditorState({
-    editor,
-    selector: ({ editor: current }) => (current ? listHeadings(current.state.doc) : []),
-  })
   /** The levels the document's table of contents shows, or 0 when it has none. */
   const tocDepth = useEditorState({
     editor,
@@ -65,6 +63,10 @@ export function ReferencesTab() {
   const hasIndex = useEditorState({
     editor,
     selector: ({ editor: current }) => hasNode(current, "documentIndex"),
+  })
+  const hasFigures = useEditorState({
+    editor,
+    selector: ({ editor: current }) => (current ? hasTableOfFigures(current) : false),
   })
   const hasAuthorities = useEditorState({
     editor,
@@ -245,41 +247,6 @@ export function ReferencesTab() {
       </MenuButton>
     </div>
   )
-  const captionMenu = (close: () => void) => (
-    <div className="flex w-36 flex-col">
-      {(["Figure", "Table"] as const).map((label) => (
-        <MenuButton
-          key={label}
-          onClick={() => {
-            if (editor) {
-              chainWithSelection(editor)
-                .insertContent(`<p>${label} ${nextCaption(editor.state.doc, label)}. </p>`)
-                .run()
-            }
-            close()
-          }}
-        >
-          {label}
-        </MenuButton>
-      ))}
-    </div>
-  )
-  const crossReferenceMenu = (close: () => void) => (
-    <div className="flex max-h-56 w-56 flex-col overflow-auto">
-      {(headings ?? []).map((heading) => (
-        <MenuButton
-          key={heading.pos}
-          onClick={() => {
-            editor && chainWithSelection(editor).insertContent(heading.text).run()
-            close()
-          }}
-        >
-          {heading.text}
-        </MenuButton>
-      ))}
-      {(headings?.length ?? 0) === 0 ? <p className="px-2 py-1 text-xs text-neutral-500">No headings yet.</p> : null}
-    </div>
-  )
   const authorityMenu = (close: () => void) => (
     <div className="flex max-h-64 w-52 flex-col overflow-auto">
       {AUTHORITY_CATEGORIES.map((category) => (
@@ -396,27 +363,33 @@ export function ReferencesTab() {
       {
         id: "captions",
         commands: [
-          { id: "insert-caption", label: "Insert Caption", icon: <CaptionIcon />, disabled: off, menu: captionMenu },
+          {
+            id: "insert-caption",
+            label: "Insert Caption",
+            icon: <CaptionIcon />,
+            disabled: off,
+            onClick: () => openCaptionDialog(editor),
+          },
           {
             id: "table-of-figures",
             label: "Insert Table of Figures",
             icon: <ListIcon />,
             disabled: off,
-            onClick: () => editor?.chain().focus().insertFigureTable().run(),
+            onClick: () => openTocDialog("figures"),
           },
           {
             id: "update-figures",
             label: "Update Table of Figures",
             icon: <RefreshIcon />,
-            disabled: off,
-            onClick: () => editor?.chain().focus().refreshFigureTable().run(),
+            disabled: off || !hasFigures,
+            onClick: () => openTocDialog("updateFigures"),
           },
           {
             id: "cross-reference",
             label: "Cross-reference",
             icon: <NextIcon />,
             disabled: off,
-            menu: crossReferenceMenu,
+            onClick: () => openCrossReferenceDialog(editor),
           },
         ],
       },
@@ -428,14 +401,14 @@ export function ReferencesTab() {
             label: "Mark Entry",
             icon: <MarkIcon />,
             disabled: off,
-            onClick: () => editor?.chain().focus().markIndexEntry().run(),
+            onClick: () => openMarkEntryDialog(editor),
           },
           {
             id: "insert-index",
             label: "Insert Index",
             icon: <ListIcon />,
             disabled: off,
-            onClick: () => editor?.chain().focus().insertDocumentIndex().run(),
+            onClick: () => openIndexDialog(editor),
           },
           {
             id: "update-index",
@@ -546,7 +519,7 @@ export function ReferencesTab() {
       </RibbonGroup>
 
       <RibbonGroup label="Captions" className="shrink-0">
-        <RibbonCommand label="Insert Caption" disabled={off} menu={captionMenu}>
+        <RibbonCommand label="Insert Caption" disabled={off} onClick={() => openCaptionDialog(editor)}>
           <CaptionIcon />
         </RibbonCommand>
         <div className="ribbon-side-stack">
@@ -554,25 +527,25 @@ export function ReferencesTab() {
             size="small"
             label="Insert Table of Figures"
             disabled={off}
-            onClick={() => editor?.chain().focus().insertFigureTable().run()}
+            onClick={() => openTocDialog("figures")}
           >
             <ListIcon />
           </RibbonCommand>
           <RibbonCommand
             size="small"
             label="Update Table"
-            description="Refresh the table of figures so it matches the captions."
-            disabled={off}
-            onClick={() => editor?.chain().focus().refreshFigureTable().run()}
+            description="Update the table of figures to include all of the entries in the document."
+            disabled={off || !hasFigures}
+            onClick={() => openTocDialog("updateFigures")}
           >
             <RefreshIcon />
           </RibbonCommand>
           <RibbonCommand
             size="small"
             label="Cross-reference"
-            description="Insert the text of a heading from this document."
+            description="Refer to a heading, bookmark, figure or table, as text, its page or above/below."
             disabled={off}
-            menu={crossReferenceMenu}
+            onClick={() => openCrossReferenceDialog(editor)}
           >
             <NextIcon />
           </RibbonCommand>
@@ -580,16 +553,16 @@ export function ReferencesTab() {
       </RibbonGroup>
 
       <RibbonGroup label="Index" className="shrink-0">
-        <RibbonCommand label="Mark Entry" disabled={off} onClick={() => editor?.chain().focus().markIndexEntry().run()}>
+        <RibbonCommand
+          label="Mark Entry"
+          description="Include the selected text in the index of your document (Alt+Shift+X)."
+          disabled={off}
+          onClick={() => openMarkEntryDialog(editor)}
+        >
           <MarkIcon />
         </RibbonCommand>
         <div className="ribbon-side-stack">
-          <RibbonCommand
-            size="small"
-            label="Insert Index"
-            disabled={off}
-            onClick={() => editor?.chain().focus().insertDocumentIndex().run()}
-          >
+          <RibbonCommand size="small" label="Insert Index" disabled={off} onClick={() => openIndexDialog(editor)}>
             <ListIcon />
           </RibbonCommand>
           <RibbonCommand

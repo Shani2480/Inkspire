@@ -54,8 +54,10 @@ import {
   type Projection,
   visibleText,
 } from "@/document/docx/inlines"
-import { readLooseTocAt, readTocAt, tocBlocks } from "@/document/docx/toc"
-import { headingBookmark, readTocEntries, tocLevelOf, tocOptions, type TocStyleLike } from "@/document/toc"
+import { parseInstruction } from "@/document/field-instructions"
+import { FIGURES_STYLE, readLooseTocAt, readTocAt, tocBlocks } from "@/document/docx/toc"
+import { indexBlocks, readIndexAt } from "@/document/docx/index-field"
+import { figureTable, headingBookmark, readTocEntries, tocLevelOf, tocOptions, type TocStyleLike } from "@/document/toc"
 import {
   DEFAULT_SECTION,
   emptyNumbering,
@@ -547,6 +549,16 @@ function blocksToHtml(blocks: Block[], ctx: Projection) {
   let index = 0
   while (index < blocks.length) {
     const block = blocks[index]
+    const wordIndex = readIndexAt(blocks, index, ctx.doc)
+    if (wordIndex) {
+      html += `<div data-document-index data-index-instruction="${escapeAttribute(
+        wordIndex.instruction,
+      )}" data-index-entries="${escapeAttribute(JSON.stringify(wordIndex.entries))}" data-index-leader="${
+        wordIndex.leader
+      }" data-index-source="${escapeAttribute(wordIndex.source)}"></div>`
+      index = wordIndex.end
+      continue
+    }
     const toc = readTocAt(blocks, index, ctx.doc) ?? readLooseTocAt(blocks, index, ctx.doc)
     if (toc) {
       html += `<nav data-toc="${escapeAttribute(JSON.stringify(toc.entries))}" data-toc-instruction="${escapeAttribute(
@@ -2207,6 +2219,10 @@ function blocksFromNodes(nodes: JsonNode[], build: Build, level: number, top = f
       blocks.push(...tocBlocks(node.attrs, build.toc.anchors.get(node) ?? [], build.toc.textWidth))
       continue
     }
+    if (node.type === "documentIndex") {
+      blocks.push(...indexBlocks(node.attrs, build.toc.textWidth))
+      continue
+    }
     if (node.type === "image" && typeof node.attrs?.wrap === "string" && node.attrs.wrap !== "inline") {
       // A floating picture goes into the paragraph it is anchored to, the next one, as Word keeps it.
       const drawing = imageRun(node, build)
@@ -2844,6 +2860,33 @@ function ensureEditorStyles(styles: StyleCatalog, blocks: Block[], fresh: boolea
       })
     }
   }
+  for (let level = 1; level <= 2; level += 1) {
+    const id = `Index${level}`
+    if (!ids.has(id) && paragraphStyles.has(id)) {
+      // Word's built-in index n: a hanging indent of 0.17", one more a level.
+      extra.push({
+        id,
+        type: "paragraph",
+        name: `index ${level}`,
+        basedOn: "Normal",
+        next: "Normal",
+        pPr: { spacing: { after: 0 }, ind: { left: 240 * level, hanging: 240 } },
+        rPr: {},
+      })
+    }
+  }
+  if (!ids.has(FIGURES_STYLE) && paragraphStyles.has(FIGURES_STYLE)) {
+    // Word's built-in table of figures: Normal with no space after.
+    extra.push({
+      id: FIGURES_STYLE,
+      type: "paragraph",
+      name: "table of figures",
+      basedOn: "Normal",
+      next: "Normal",
+      pPr: { spacing: { after: 0 } },
+      rPr: {},
+    })
+  }
   if (!ids.has("Hyperlink") && runStyles.has("Hyperlink")) {
     extra.push({
       id: "Hyperlink",
@@ -2864,7 +2907,10 @@ function linkTocEntries(json: JsonNode, section: SectionProps, styles: readonly 
   const textWidth =
     (section.pageWidth ?? 12240) - (section.marginLeft ?? 1440) - (section.marginRight ?? 1440) - (section.gutter ?? 0)
   const links: TocLinks = { bookmarks: new Map(), anchors: new Map(), textWidth }
-  const headings: { node: JsonNode; text: string; anchor?: string }[] = []
+  type Target = { node: JsonNode; text: string; anchor?: string }
+  const headings: Target[] = []
+  // Caption paragraphs by SEQ identifier, with the text after "Figure 1" for tables without labels (\a).
+  const captions = new Map<string, (Target & { body: string })[]>()
   const tables: JsonNode[] = []
   const names = new Set<string>()
   let nextId = 0
@@ -2884,9 +2930,22 @@ function linkTocEntries(json: JsonNode, section: SectionProps, styles: readonly 
       }
     }
     const level = node.type ? tocLevelOf({ type: node.type, attrs: node.attrs }, styles) : null
+    const children = (node.content ?? []).map((child) => ({ type: child.type ?? "", attrs: child.attrs }))
     if (level !== null) {
-      const children = (node.content ?? []).map((child) => ({ type: child.type ?? "", attrs: child.attrs }))
       headings.push({ node, text: normalizedText(jsonText(node)), anchor: headingBookmark(children) })
+    }
+    const sequence = (node.content ?? []).findIndex((child) => sequenceOfJson(child) !== null)
+    if (sequence >= 0) {
+      const identifier = sequenceOfJson(node.content![sequence]!)!
+      const body = normalizedText(
+        (node.content ?? [])
+          .slice(sequence + 1)
+          .map(jsonText)
+          .join(""),
+      ).replace(/^[\s:.\-–—]+/, "")
+      const list = captions.get(identifier) ?? []
+      list.push({ node, text: normalizedText(jsonText(node)), body, anchor: headingBookmark(children) })
+      captions.set(identifier, list)
     }
     for (const child of node.content ?? []) {
       visit(child)
@@ -2912,22 +2971,32 @@ function linkTocEntries(json: JsonNode, section: SectionProps, styles: readonly 
       continue
     }
     let cursor = 0
+    const figures = figureTable(String(table.attrs?.instruction ?? ""))
+    const targets: Target[] = figures
+      ? (captions.get(figures.label.trim().replace(/\s+/g, "_").toLowerCase()) ?? []).map((caption) => ({
+          ...caption,
+          text: figures.includeLabel ? caption.text : caption.body,
+        }))
+      : headings
     const anchors = readTocEntries(table.attrs?.entries).map((entry) => {
-      let at = entry.anchor ? headings.findIndex((heading) => heading.anchor === entry.anchor) : -1
+      let at = entry.anchor ? targets.findIndex((heading) => heading.anchor === entry.anchor) : -1
       if (at < 0) {
         const text = normalizedText(entry.text)
-        const after = headings.slice(cursor).findIndex((heading) => heading.text === text)
-        at = after < 0 ? headings.findIndex((heading) => heading.text === text) : cursor + after
+        const after = targets.slice(cursor).findIndex((heading) => heading.text === text)
+        at = after < 0 ? targets.findIndex((heading) => heading.text === text) : cursor + after
       }
-      const heading = headings[at]
+      const heading = targets[at]
       if (!heading) {
         return undefined
       }
       cursor = at + 1
       if (!heading.anchor) {
-        heading.anchor = newName()
-        links.bookmarks.set(heading.node, { id: nextId, name: heading.anchor })
-        nextId += 1
+        // The same paragraph may be listed by two tables: give it one bookmark.
+        heading.anchor = links.bookmarks.get(heading.node)?.name ?? newName()
+        if (!links.bookmarks.has(heading.node)) {
+          links.bookmarks.set(heading.node, { id: nextId, name: heading.anchor })
+          nextId += 1
+        }
       }
       return heading.anchor
     })
@@ -2937,7 +3006,30 @@ function linkTocEntries(json: JsonNode, section: SectionProps, styles: readonly 
 }
 
 function jsonText(node: JsonNode): string {
+  if (node.type === "wordField") {
+    return String(node.attrs?.result ?? "")
+  }
   return node.text ?? (node.content ?? []).map((child) => jsonText(child)).join("")
+}
+
+/** The SEQ identifier (lower case) an inline field counts, for the captions a Table of Figures lists. */
+function sequenceOfJson(node: JsonNode): string | null {
+  let instr = ""
+  if (node.type === "wordField") {
+    instr = String(node.attrs?.instr ?? "")
+  } else if (node.type === "wordInline" && node.attrs?.role === "field") {
+    for (const item of payloadInlines(node.attrs.payload)) {
+      if (item.kind === "simpleField") {
+        instr += item.instr
+      } else if (item.kind === "run") {
+        for (const content of item.content) {
+          instr += content.kind === "instrText" ? content.text : ""
+        }
+      }
+    }
+  }
+  const parsed = instr ? parseInstruction(instr) : null
+  return parsed?.kind === "SEQ" && parsed.argument ? parsed.argument.toLowerCase() : null
 }
 
 function normalizedText(text: string) {

@@ -73,11 +73,18 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
 
 ### Wave 2 — common (M)
 
-- [ ] U9. (with Ctrl+Shift+S for the Apply Styles box, Save As staying on F12) Styles pane (live list, Show Preview, Disable Linked Styles, New / Inspect / Manage); Apply Styles box;
-      Style Inspector; Reveal Formatting (Shift+F1). Home's Styles launcher opens the pane.
-- [ ] U10. Captions as SEQ fields (Insert Caption dialog: label, position, numbering, New Label, Exclude label) and
+- [x] U9. Styles pane (live list, Show Preview, Disable Linked Styles, New / Inspect / Manage); Apply Styles box
+      (Ctrl+Shift+S, Save As staying on F12); Style Inspector; Reveal Formatting (Shift+F1). Home's Styles launcher
+      opens the pane. Done (`components/styles-pane.tsx`, `editor/style-inspect.ts`). Left: the pane's Options…, Select
+      All n instances, Reveal Formatting's Compare and Distinguish style source.
+- [x] U10. Captions as SEQ fields (Insert Caption dialog: label, position, numbering, New Label, Exclude label) and
       Cross-reference as REF/PAGEREF fields (to headings, bookmarks, figures, notes; text, page, above/below; insert
       as hyperlink); Table of Figures and Index dialogs with their options; Mark Index Entry dialog.
+      Done: Caption and Cross-reference dialogs, `wordField` (SEQ/REF/PAGEREF/XE) and bookmarks saved
+      (`editor/word-field.ts`, `editor/captions.ts`, `components/caption-dialogs.tsx`); Table of Figures as a TOC `\c`
+      field; Mark Index Entry and Insert Index as XE / INDEX fields (`components/index-dialogs.tsx`,
+      `editor/index-entry.ts`). Left: references to notes and numbered items; chapter numbers; the index in its own
+      section (and reading Word's sectioned index); AutoMark; Modify… and Options… in both dialogs.
 - [ ] U11. Track Changes: formatting changes tracked, For Everyone / Just Mine, Lock Tracking, Track Changes
       Options; Show Markup menu (Comments, Insertions and Deletions, Formatting, Balloons, Specific People) and No
       Markup; Restrict Editing pane saved as `w:documentProtection`.

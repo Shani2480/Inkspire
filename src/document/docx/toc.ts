@@ -1,5 +1,6 @@
 import {
   DEFAULT_TOC_INSTRUCTION,
+  figureTable,
   readTocEntries,
   tocOptions,
   tocSignature,
@@ -36,6 +37,10 @@ export type TocRead = {
 type TocSource = { signature: string; blocks: Block[] }
 
 const NO_ENTRIES = "No table of contents entries found."
+const NO_FIGURES = "No table of figures entries found."
+
+/** Word's built-in "table of figures" paragraph style. */
+export const FIGURES_STYLE = "TableofFigures"
 
 /**
  * The table of contents that starts at blocks[index]: a Table of Contents content control, or paragraphs from the
@@ -278,8 +283,20 @@ export function tocBlocks(
       : [textRun(entry.page)]
     return entryParagraph(entry.level, tabs, link([...label, ...page]))
   })
+  const figures = figureTable(instruction) !== null
+  if (figures) {
+    // A Table of Figures: "Table of Figures" paragraphs in the field, with no content control or heading.
+    for (const paragraph of paragraphs) {
+      paragraph.styleId = FIGURES_STYLE
+    }
+  }
   if (paragraphs.length === 0) {
-    paragraphs.push({ kind: "paragraph", pPr: {}, markRPr: {}, inlines: [textRun(NO_ENTRIES)] })
+    paragraphs.push({
+      kind: "paragraph",
+      pPr: {},
+      markRPr: {},
+      inlines: [textRun(figures ? NO_FIGURES : NO_ENTRIES)],
+    })
   }
   paragraphs[0]!.inlines.unshift(
     fieldRun({ kind: "fldChar", fieldType: "begin" }),
@@ -287,6 +304,9 @@ export function tocBlocks(
     fieldRun({ kind: "fldChar", fieldType: "separate" }),
   )
   paragraphs[paragraphs.length - 1]!.inlines.push(fieldRun({ kind: "fldChar", fieldType: "end" }))
+  if (figures) {
+    return paragraphs
+  }
   const heading: Paragraph[] = title
     ? [{ kind: "paragraph", styleId: "TOCHeading", pPr: {}, markRPr: {}, inlines: [textRun(title)] }]
     : []
@@ -350,10 +370,10 @@ function entryLayout(paragraphs: Paragraph[], doc: WordDocument): { leader: TocL
   return { leader, rightAlign: true }
 }
 
-/** The paragraphs of the TOC field that opens in blocks[start], through the paragraph that closes it. */
-function fieldParagraphs(blocks: Block[], start: number) {
+/** The paragraphs of the TOC (or `kind`) field that opens in blocks[start], through the paragraph that closes it. */
+export function fieldParagraphs(blocks: Block[], start: number, kind = "TOC") {
   const first = blocks[start]
-  const instruction = first?.kind === "paragraph" ? fieldInstruction(first) : null
+  const instruction = first?.kind === "paragraph" ? fieldInstruction(first, kind) : null
   if (instruction === null) {
     return null
   }
@@ -380,8 +400,8 @@ function fieldParagraphs(blocks: Block[], start: number) {
   return null
 }
 
-/** The TOC instruction of a field the paragraph opens with, or null when it does not open with one. */
-function fieldInstruction(paragraph: Paragraph): string | null {
+/** The TOC (or `kind`) instruction of a field the paragraph opens with, or null when it does not open with one. */
+function fieldInstruction(paragraph: Paragraph, kind = "TOC"): string | null {
   let instruction = ""
   let opened = false
   for (const inline of paragraph.inlines) {
@@ -401,7 +421,7 @@ function fieldInstruction(paragraph: Paragraph): string | null {
         instruction += content.text
       } else if (content.kind === "fldChar") {
         const trimmed = instruction.trim()
-        return /^TOC\b/i.test(trimmed) ? trimmed : null
+        return new RegExp(`^${kind}\\b`, "i").test(trimmed) ? trimmed : null
       }
     }
   }
@@ -416,7 +436,7 @@ function readEntry(paragraph: Paragraph, doc: WordDocument): TocEntry | null {
     return null
   }
   const label = (tab < 0 ? text : text.slice(0, tab)).replace(/\t/g, " ").replace(/\s+/g, " ").trim()
-  if (!label || label === NO_ENTRIES) {
+  if (!label || label === NO_ENTRIES || label === NO_FIGURES) {
     return null
   }
   const entry: TocEntry = { level: level ?? 1, text: label, page: tab < 0 ? "" : text.slice(tab + 1).trim() }
@@ -432,11 +452,14 @@ function entryLevel(paragraph: Paragraph, doc: WordDocument): TocLevel | null {
   const id = paragraph.styleId ?? ""
   const name = doc.styles.styles.find((style) => style.id === id)?.name ?? ""
   const match = /^toc\s?([1-9])$/i.exec(id) ?? /^toc ([1-9])$/i.exec(name)
+  if (!match && (id === FIGURES_STYLE || /^table of figures$/i.test(name))) {
+    return 1
+  }
   return match ? (Number(match[1]) as TocLevel) : null
 }
 
 /** What the entry shows: its text and tabs, with field instructions left out. */
-function entryText(paragraph: Paragraph) {
+export function entryText(paragraph: Paragraph) {
   let text = ""
   for (const content of runContents(paragraph.inlines, false)) {
     if (content.kind === "text") {
@@ -478,11 +501,11 @@ function runContents(inlines: Inline[], deleted = true): RunContent[] {
   return out
 }
 
-function textRun(text: string): Run {
+export function textRun(text: string): Run {
   return { kind: "run", rPr: {}, content: text ? [{ kind: "text", text }] : [] }
 }
 
-function fieldRun(content: RunContent): Run {
+export function fieldRun(content: RunContent): Run {
   return { kind: "run", rPr: {}, content: [content] }
 }
 

@@ -1,3 +1,4 @@
+import { useStylePanes } from "@/document/style-panes"
 import { AddInsMenu } from "@/components/addins"
 import {
   applyAlign,
@@ -651,8 +652,8 @@ function ClassicHome() {
         name="styles"
         label="Styles"
         className="min-w-[96px] flex-1"
-        launchLabel="Manage Styles"
-        onLaunch={() => useStyleDialogs.getState().openManage()}
+        launchLabel="Styles"
+        onLaunch={() => useStylePanes.getState().togglePane()}
       >
         <StyleStrip
           styles={gallery}

@@ -1,6 +1,7 @@
 import { openTableProperties } from "@/components/table-properties-dialog"
 import { openBordersAndShading } from "@/components/borders-shading-dialog"
 import { useCropMode } from "@/editor/picture-crop"
+import { openCaptionDialog } from "@/components/caption-dialogs"
 import { startEditPoints } from "@/editor/edit-points"
 import { breakTextBoxLink, hasNextBox, startLinking } from "@/editor/text-box-link"
 import { useLayoutDialog } from "@/document/object-layout"
@@ -239,6 +240,11 @@ function itemsFor(
           selectTarget(editor, target)
           close()
           useLayoutDialog.getState().show("size")
+        })}
+        {leaf("Insert Caption...", () => {
+          selectTarget(editor, target)
+          close()
+          openCaptionDialog(editor)
         })}
         {submenu("Wrap Text", openSub, setOpenSub, wrapItems(editor, target, close, attrs))}
         {leaf("Rotate Right", () => run(() => editor.chain().focus().setObjectRotate(90).run()))}

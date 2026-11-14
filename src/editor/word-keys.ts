@@ -2,6 +2,7 @@ import { Extension, type Editor } from "@tiptap/core"
 import type { Node as ProseNode, ResolvedPos } from "@tiptap/pm/model"
 import { NodeSelection, Plugin, PluginKey, TextSelection, type EditorState } from "@tiptap/pm/state"
 import { applyParagraphStyle } from "@/editor/home-actions"
+import { refreshFields } from "@/editor/word-field"
 
 /**
  * Commands behind Word's keys that have no button of their own: Alt+Shift+Up/Down (move the paragraph), Alt+Shift+
@@ -226,7 +227,7 @@ function fieldsInSelection(editor: Editor) {
   const found: { pos: number; node: ProseNode }[] = []
   const at = editor.state.doc.nodeAt(from)
   editor.state.doc.nodesBetween(from, Math.max(to, from + (at?.nodeSize ?? 0)), (node, pos) => {
-    if (FIELD_NODES.has(node.type.name) || node.type.name === "tableOfContents") {
+    if (FIELD_NODES.has(node.type.name) || node.type.name === "tableOfContents" || node.type.name === "wordField") {
       found.push({ pos, node })
       return false
     }
@@ -243,9 +244,12 @@ export function updateFields(editor: Editor) {
   }
   const tr = editor.state.tr
   let toc = false
+  let own = false
   for (const { pos, node } of fields) {
     if (node.type.name === "tableOfContents") {
       toc = true
+    } else if (node.type.name === "wordField") {
+      own = true
     } else {
       tr.setNodeMarkup(pos, undefined, { ...node.attrs, tick: Date.now() })
     }
@@ -256,12 +260,17 @@ export function updateFields(editor: Editor) {
   if (toc) {
     editor.commands.updateTableOfContents()
   }
+  if (own) {
+    refreshFields(editor)
+  }
   return true
 }
 
 /** Ctrl+Shift+F9: replaces the fields in the selection by their current result, as plain text. */
 export function unlinkFields(editor: Editor) {
-  const fields = fieldsInSelection(editor).filter(({ node }) => FIELD_NODES.has(node.type.name))
+  const fields = fieldsInSelection(editor).filter(
+    ({ node }) => FIELD_NODES.has(node.type.name) || node.type.name === "wordField",
+  )
   if (fields.length === 0) {
     return false
   }

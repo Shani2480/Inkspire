@@ -3,6 +3,9 @@ import { useEditorPane } from "@/editor/grammar"
 import { openCompare } from "@/components/compare-dialog"
 import { openCoverGenerator } from "@/components/cover-page-dialog"
 import { openInsertTableDialog } from "@/components/insert-table-dialog"
+import { openCaptionDialog, openCrossReferenceDialog } from "@/components/caption-dialogs"
+import { openIndexDialog, openMarkEntryDialog } from "@/components/index-dialogs"
+import { useTocDialog } from "@/components/toc-dialogs"
 import { useTableDraw } from "@/editor/table-draw"
 import { askText } from "@/components/text-prompt"
 import { useAiSettings } from "@/ai/settings"
@@ -336,6 +339,46 @@ function buildCommands(): TellMeCommand[] {
       keywords: ["convert", "text", "table"],
       category: "Insert",
       run: () => withEditor((current) => openInsertTableDialog(current, "convert")),
+    },
+    {
+      id: "references.table-of-figures",
+      label: "Insert Table of Figures…",
+      description: "List the figures, tables or equations with their captions and pages.",
+      keywords: ["table of figures", "figures", "list of tables", "captions"],
+      category: "References",
+      run: () => withEditor(() => useTocDialog.getState().open("figures")),
+    },
+    {
+      id: "references.mark-entry",
+      label: "Mark Entry…",
+      description: "Include the selected text in the index (Alt+Shift+X).",
+      keywords: ["index", "mark", "entry", "xe"],
+      category: "References",
+      run: () => withEditor((current) => openMarkEntryDialog(current)),
+    },
+    {
+      id: "references.insert-index",
+      label: "Insert Index…",
+      description: "List the marked entries with their page numbers.",
+      keywords: ["index", "insert index", "back of the book"],
+      category: "References",
+      run: () => withEditor((current) => openIndexDialog(current)),
+    },
+    {
+      id: "references.insert-caption",
+      label: "Insert Caption…",
+      description: "Add a numbered caption to a picture, table or equation.",
+      keywords: ["caption", "figure", "label", "number"],
+      category: "References",
+      run: () => withEditor((current) => openCaptionDialog(current)),
+    },
+    {
+      id: "references.cross-reference",
+      label: "Cross-reference…",
+      description: "Refer to a heading, bookmark, figure or table: its text, page number or above/below.",
+      keywords: ["cross", "reference", "ref", "page", "see"],
+      category: "References",
+      run: () => withEditor((current) => openCrossReferenceDialog(current)),
     },
     {
       id: "insert.draw-table",

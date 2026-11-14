@@ -74,6 +74,17 @@ export const BUILT_IN_STYLES: StyleDef[] = [
     { size: 12, italic: true, color: "#404040" },
     { before: 0, after: 9, line: 1.65 },
   ),
+  // Word's Caption (Insert Caption): small italic text in the theme's dark blue; not in the gallery, as in Word.
+  {
+    ...paragraph(
+      "caption",
+      "Caption",
+      "Caption",
+      { size: 9, italic: true, color: "#0e2841" },
+      { before: 0, after: 10, line: 1 },
+    ),
+    hidden: true,
+  },
 ]
 
 function paragraph(id: string, name: string, wordId: string, font: StyleFont, para: StyleParagraph): StyleDef {

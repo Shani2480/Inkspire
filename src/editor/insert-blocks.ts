@@ -4,7 +4,6 @@ import { chartSpecOf, defaultChartSpec, renderChart, serializeChartSpec, type Ch
 import { applyFrame, bindDrag, floatingAttributes, inlineMaxWidth, isFloating, resizeAttrs } from "@/editor/objects"
 import { bindObjectResize } from "@/editor/object-resize"
 import { bindRotate, ensureRotateHandle } from "@/editor/object-rotate"
-import { chainWithSelection } from "@/editor/selection-memory"
 import { paintShapeSvg, shapeStyleAttributes, stringAttr, textStyle } from "@/editor/shape-style"
 import { WORD_ART_PRESETS } from "@/editor/text-effects"
 import { POINTS_BOX } from "@/editor/shape-points"
@@ -414,6 +413,8 @@ function paintFigure(dom: HTMLElement, node: ProseNode) {
 
 export const Bookmark = Mark.create({
   name: "bookmark",
+  // Bookmarks overlap in Word (a caption's whole text and its label and number, each referred to on its own).
+  excludes: "",
   inclusive: false,
   keepOnSplit: false,
   addAttributes() {
@@ -1051,9 +1052,10 @@ function captionRows(doc: ProseNode) {
 export function listBookmarks(doc: ProseNode) {
   const names = new Set<string>()
   doc.descendants((node) => {
-    const mark = node.marks.find((item) => item.type.name === "bookmark")
-    if (mark?.attrs.id) {
-      names.add(String(mark.attrs.id))
+    for (const mark of node.marks) {
+      if (mark.type.name === "bookmark" && mark.attrs.id) {
+        names.add(String(mark.attrs.id))
+      }
     }
   })
   return [...names]
@@ -1086,16 +1088,6 @@ export function listNotes(doc: ProseNode, kind?: "footnote" | "endnote") {
     })
   })
   return notes
-}
-
-export function nextCaption(doc: ProseNode, label: "Figure" | "Table") {
-  let count = 0
-  doc.descendants((node) => {
-    if (node.isTextblock && node.textContent.trim().startsWith(`${label} `)) {
-      count += 1
-    }
-  })
-  return count + 1
 }
 
 function insertSelectableBlock(state: EditorState, tr: Transaction, node: ProseNode) {
@@ -1156,13 +1148,10 @@ export const insertBlockCommands = Node.create({
         },
       insertBookmark:
         (name) =>
-        ({ editor, state }) => {
+        ({ state, tr, dispatch }) => {
           const id = name.trim().replace(/\s+/g, " ").slice(0, 40)
-          if (!id) {
-            return false
-          }
           const mark = state.schema.marks.bookmark
-          if (!mark) {
+          if (!id || !mark) {
             return false
           }
           let duplicate = false
@@ -1177,13 +1166,18 @@ export const insertBlockCommands = Node.create({
           if (duplicate) {
             return false
           }
-          const chain = chainWithSelection(editor)
-          if (state.selection.empty) {
-            return chain
-              .insertContent({ type: "text", text: "\u200b", marks: [{ type: "bookmark", attrs: { id } }] })
-              .run()
+          if (!dispatch) {
+            return true
           }
-          return chain.setMark("bookmark", { id }).run()
+          // Not a chain of its own: a command that dispatched inside the caller's chain broke it (mismatched
+          // transaction). The selection the dialog took focus from is restored by the caller.
+          const { from, to, empty } = tr.selection
+          if (empty) {
+            tr.insert(from, state.schema.text("\u200b", [mark.create({ id })]))
+          } else {
+            tr.addMark(from, to, mark.create({ id }))
+          }
+          return true
         },
       insertNote:
         (kind, text) =>

@@ -98,13 +98,10 @@ export function useDocumentCommands() {
         return
       }
 
-      if (key === "s") {
+      // Ctrl+Shift+S is Word's Apply Styles box (the editor's shortcut list); Save As is F12.
+      if (key === "s" && !event.shiftKey) {
         event.preventDefault()
-        if (event.shiftKey) {
-          saveDocumentAs()
-        } else {
-          saveDocument()
-        }
+        saveDocument()
         return
       }
 
@@ -303,7 +300,7 @@ async function installApplicationMenu() {
       {
         id: "save-as",
         text: "Save As…",
-        accelerator: "CmdOrCtrl+Shift+S",
+        accelerator: "F12",
         action: () => saveDocumentAs(),
       },
       {

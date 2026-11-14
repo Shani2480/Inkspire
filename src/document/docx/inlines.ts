@@ -1,5 +1,6 @@
 import { frameOfPreset, presetOfFrame } from "@/editor/picture-shape"
 import { dateFieldResult } from "@/document/field-date"
+import { isAppField, wordBookmarkName } from "@/document/field-instructions"
 import { equationOmml, isOmml, ommlToTex } from "@/document/docx/omml"
 import { equationToText } from "@/editor/equation-gallery"
 import {
@@ -210,7 +211,7 @@ export function inlinesHtml(inlines: Inline[], ctx: Projection): string {
     const end = fieldEnd(inlines, index)
     if (end >= 0) {
       const field = inlines.slice(index, end + 1)
-      html += wrapComments(atomHtml("field", field, fieldText(field)), ctx)
+      html += wrapComments(fieldHtml(field), ctx)
       index = end
       continue
     }
@@ -258,7 +259,7 @@ function inlineHtml(inline: Inline, ctx: Projection): string {
     case "del":
       return revisionHtml(inline, ctx)
     case "simpleField":
-      return wrapComments(atomHtml("field", [inline], fieldText([inline])), ctx)
+      return wrapComments(fieldHtml([inline]), ctx)
     case "raw":
       return wrapComments(equationHtml(inline.xml) ?? atomHtml("raw", [inline], inline.text), ctx)
     case "bookmarkStart":
@@ -937,6 +938,27 @@ function equationHtml(xml: string) {
   return `<span data-equation="" data-tex="${tex}"${display} data-omml="${escapeHtml(xml)}" data-omml-tex="${tex}"></span>`
 }
 
+/**
+ * A field: SEQ, REF and PAGEREF become the editor's own field (captions and cross-references it can renumber),
+ * keeping the markup they were read from; any other field is kept whole as an atom.
+ */
+function fieldHtml(field: Inline[]) {
+  const instr = fieldInstruction(field).replace(/\s+/g, " ").trim()
+  if (!isAppField(instr)) {
+    return atomHtml("field", field, fieldText(field))
+  }
+  const text = visibleText(field)
+  const attrs = [
+    "data-word-field",
+    `data-instr="${escapeHtml(instr)}"`,
+    `data-result="${escapeHtml(text)}"`,
+    `data-source="${escapeHtml(JSON.stringify(field))}"`,
+    `data-read="${escapeHtml(text)}"`,
+    `data-read-instr="${escapeHtml(instr)}"`,
+  ]
+  return `<span ${attrs.join(" ")}>${escapeHtml(text)}</span>`
+}
+
 function atomHtml(role: string, payload: unknown, text: string) {
   const tag = role === "note" ? "sup" : "span"
   const attrs = [
@@ -1486,15 +1508,43 @@ export type InlineBuild = {
   usedParts?: Set<string>
   /** The parts the reader keeps whole (a 3-D model's `.glb`), to carry a model into the app's own picture. */
   preserved?: PreservedPackage
+  /** The editor's bookmarks written so far: the next free id and the names used (each written once). */
+  bookmarks?: { next: number; names: Set<string> }
 }
 
 /** Word's date pictures for the automatic date and time the editor offers. */
 
 export function inlinesFromEditor(nodes: JsonNode[], build: InlineBuild): Inline[] {
   const pieces: Piece[] = []
+  // The editor's bookmarks (a mark over the text) as Word's start and end markers, ids unique in the document.
+  const bookmarks = (build.bookmarks ??= { next: 900000, names: new Set<string>() })
+  const open = new Map<string, number>()
+  const closeBookmarks = (keep: Set<string>, link?: string) => {
+    for (const [name, id] of [...open]) {
+      if (!keep.has(name)) {
+        pieces.push({ inline: { kind: "bookmarkEnd", id }, link, comments: [] })
+        open.delete(name)
+      }
+    }
+  }
   for (const node of nodes) {
     const marks = node.marks ?? []
     const annotations = annotationsOf(marks, build)
+    const names = new Set(
+      marks
+        .filter((mark) => mark.type === "bookmark" && mark.attrs?.id)
+        .map((mark) => wordBookmarkName(String(mark.attrs?.id))),
+    )
+    closeBookmarks(names, annotations.link)
+    for (const name of names) {
+      if (!open.has(name) && !bookmarks.names.has(name)) {
+        const id = bookmarks.next
+        bookmarks.next += 1
+        bookmarks.names.add(name)
+        open.set(name, id)
+        pieces.push({ inline: { kind: "bookmarkStart", id, name }, link: annotations.link, comments: [] })
+      }
+    }
     if (node.type === "text") {
       pieces.push({ inline: textRun(node.text ?? "", marks, annotations.revision, build), ...annotations })
       continue
@@ -1525,6 +1575,32 @@ export function inlinesFromEditor(nodes: JsonNode[], build: InlineBuild): Inline
       })
       continue
     }
+    if (node.type === "wordField") {
+      const instr = String(node.attrs?.instr ?? "").trim()
+      const result = String(node.attrs?.result ?? "")
+      const source = String(node.attrs?.source ?? "")
+      if (source && instr === node.attrs?.readInstr && result === node.attrs?.readResult) {
+        // Unchanged since it was read: Word's own markup, simple or complex, goes back as it was.
+        for (const inline of payloadInlines(source)) {
+          pieces.push({
+            inline,
+            link: annotations.link,
+            linkTitle: annotations.linkTitle,
+            comments: annotations.comments,
+          })
+        }
+      } else {
+        pieces.push({
+          inline: {
+            kind: "simpleField",
+            instr: ` ${instr} `,
+            inlines: [textRun(result, marks, annotations.revision, build)],
+          },
+          ...annotations,
+        })
+      }
+      continue
+    }
     if (node.type === "equation") {
       const text = equationToText(String(node.attrs?.tex ?? ""), "unicode")
       pieces.push({ inline: { kind: "raw", xml: equationOmml(node.attrs), text }, ...annotations })
@@ -1546,6 +1622,7 @@ export function inlinesFromEditor(nodes: JsonNode[], build: InlineBuild): Inline
       pieces.push({ inline, comments: [] })
     }
   }
+  closeBookmarks(new Set())
   return groupLinks(pieces, build)
 }
 

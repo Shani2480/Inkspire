@@ -5,7 +5,6 @@ import { useEffect, useState } from "react"
 /** Keys the application itself uses, so a command cannot be moved onto them. */
 const RESERVED = new Set([
   "Mod+S",
-  "Mod+Shift+S",
   "Mod+O",
   "Mod+N",
   "Mod+P",

@@ -5,6 +5,7 @@ import { ModelLibrary } from "@/components/model-library"
 import { SmartArtDialog, SmartArtMenu } from "@/components/smartart-gallery"
 import { MenuButton, RibbonCommand, RibbonGroup } from "@/components/ribbon/ribbon-button"
 import { openInsertTableDialog } from "@/components/insert-table-dialog"
+import { openCrossReferenceDialog } from "@/components/caption-dialogs"
 import { useTableDraw } from "@/editor/table-draw"
 import { textForTable } from "@/editor/table-insert"
 import {
@@ -65,7 +66,7 @@ import { EquationEditor } from "@/components/equation-editor"
 import { EQUATION_PRESETS } from "@/editor/equation"
 import { openLocalFile } from "@/lib/file-io"
 import { deleteQuickPart, loadQuickParts, saveQuickPart, type QuickPart } from "@/editor/quick-parts"
-import { chainWithSelection, insertAtSelectionEnd } from "@/editor/selection-memory"
+import { chainWithSelection, insertAtSelectionEnd, restoreSelection } from "@/editor/selection-memory"
 import { DOMSerializer } from "@tiptap/pm/model"
 import type { Editor } from "@tiptap/core"
 import { useEditorState } from "@tiptap/react"
@@ -696,41 +697,6 @@ export function InsertTab() {
     </div>
   )
   const openLink = () => openLinkDialog(editor)
-  const crossReferenceMenu = (close: () => void) => (
-    <div className="flex max-h-64 w-56 flex-col overflow-auto">
-      {(targets?.headings ?? []).map((heading) => (
-        <MenuButton
-          key={`h-${heading.pos}`}
-          onClick={() => {
-            if (editor) {
-              chainWithSelection(editor).insertContent(`${heading.text}`).run()
-            }
-            close()
-          }}
-        >
-          {heading.text}
-        </MenuButton>
-      ))}
-      {(targets?.bookmarks ?? []).map((name) => (
-        <MenuButton
-          key={name}
-          onClick={() => {
-            if (editor) {
-              chainWithSelection(editor)
-                .insertContent(`<a href="#bm-${encodeURIComponent(name.replace(/[^a-zA-Z0-9_-]/g, "-"))}">${name}</a>`)
-                .run()
-            }
-            close()
-          }}
-        >
-          {name}
-        </MenuButton>
-      ))}
-      {(targets?.headings.length ?? 0) + (targets?.bookmarks.length ?? 0) === 0 ? (
-        <p className="px-2 py-1 text-xs text-neutral-500">Add a heading or bookmark first.</p>
-      ) : null}
-    </div>
-  )
   const commentMenu = (close: () => void) => <CommentMenu editor={editor} close={close} />
   const textBoxMenu = (close: () => void) => (
     <div className="grid w-[280px] grid-cols-2 gap-1 p-1">
@@ -989,7 +955,12 @@ export function InsertTab() {
       {
         id: "links",
         commands: [
-          { id: "cross-reference", label: "Cross-reference", icon: <CrossRefIcon />, menu: crossReferenceMenu },
+          {
+            id: "cross-reference",
+            label: "Cross-reference",
+            icon: <CrossRefIcon />,
+            onClick: () => openCrossReferenceDialog(editor),
+          },
         ],
       },
       {
@@ -1075,7 +1046,7 @@ export function InsertTab() {
         <RibbonCommand label="Bookmark" disabled={off} onClick={() => openBookmarks()}>
           <BookmarkIcon />
         </RibbonCommand>
-        <RibbonCommand label="Cross-reference" disabled={off} menu={crossReferenceMenu}>
+        <RibbonCommand label="Cross-reference" disabled={off} onClick={() => openCrossReferenceDialog(editor)}>
           <CrossRefIcon />
         </RibbonCommand>
       </RibbonGroup>
@@ -1397,6 +1368,7 @@ function BookmarkDialog({ editor, names, onClose }: { editor: Editor; names: str
               setError("That bookmark name already exists.")
               return
             }
+            restoreSelection(editor)
             if (!editor.chain().focus().insertBookmark(id).run()) {
               setError("Could not add bookmark.")
               return

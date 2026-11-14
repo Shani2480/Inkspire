@@ -30,8 +30,10 @@ import { RewritePopover } from "@/components/rewrite-popover"
 import { Ribbon } from "@/components/ribbon/ribbon"
 import { FieldEditor } from "@/components/field-editor"
 import { TocDialogHost } from "@/components/toc-dialogs"
+import { IndexDialogsHost } from "@/components/index-dialogs"
 import { ProofingPanel } from "@/components/proofing-panel"
 import { AccessibilityPane } from "@/components/accessibility-pane"
+import { ApplyStylesBox, RevealFormattingPane, StyleInspector, StylesPane } from "@/components/styles-pane"
 import { EditorPane } from "@/components/editor-pane"
 import { ReviewPanel } from "@/components/review-panel"
 import { SpellMenu } from "@/components/spell-menu"
@@ -61,6 +63,7 @@ import { LinkDialogHost } from "@/components/link-dialog"
 import { SmartArtTextPane } from "@/components/smartart-text-pane"
 import { ColumnsDialogHost } from "@/components/columns-dialog"
 import { InsertTableDialogHost } from "@/components/insert-table-dialog"
+import { CaptionDialogsHost } from "@/components/caption-dialogs"
 import { TablePropertiesHost } from "@/components/table-properties-dialog"
 import { FirstRunSetup } from "@/components/first-run-setup"
 import { StyleDialogs } from "@/components/style-dialogs"
@@ -284,6 +287,8 @@ function DocumentShell({ onReady }: WorkspaceProps) {
             </div>
             <ReviewPanel />
             <AccessibilityPane />
+            <StylesPane />
+            <RevealFormattingPane />
             <EditorPane />
           </DocumentRulers>
         </div>
@@ -324,6 +329,10 @@ function DocumentShell({ onReady }: WorkspaceProps) {
       <TablePropertiesHost />
       <ColumnsDialogHost />
       <InsertTableDialogHost />
+      <CaptionDialogsHost />
+      <IndexDialogsHost />
+      <StyleInspector />
+      <ApplyStylesBox />
       <SmartArtTextPane />
       <CustomizeDialogHost />
       <OptimizeDialogHost />
