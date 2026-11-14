@@ -1,4 +1,5 @@
 import { applyOpenedNotes, notesForSave } from "@/document/note-settings"
+import { applyOpenedSources, sourcesForSave } from "@/document/bibliography-store"
 import { applyOpenedReview, reviewForSave } from "@/document/review"
 import { withWordMarkers } from "@/editor/word-markers"
 import { useBackstage } from "@/document/backstage"
@@ -344,6 +345,7 @@ async function loadOpenedFile(file: OpenedFile) {
   clearWordDocument()
   applyOpenedReview({})
   applyOpenedNotes(null)
+  applyOpenedSources(null)
   setWordNoteTexts(undefined)
   // Each document has its own styles: a Word or Inkspire file brings them, anything else starts from the defaults.
   useStyleStore.getState().load(defaultStyles())
@@ -363,6 +365,7 @@ async function loadOpenedFile(file: OpenedFile) {
     applyEditorHtml(opened.view.html, opened.view.chrome, null, name, opened.view.props, true)
     applyOpenedReview(opened.word.settings)
     applyOpenedNotes(opened.word)
+    applyOpenedSources(opened.word)
     return
   }
   if (isWordPackage(ext)) {
@@ -373,6 +376,7 @@ async function loadOpenedFile(file: OpenedFile) {
     applyEditorHtml(opened.view.html, opened.view.chrome, file.path, file.name, opened.view.props, true)
     applyOpenedReview(opened.word.settings)
     applyOpenedNotes(opened.word)
+    applyOpenedSources(opened.word)
     return
   }
   if (ext === "odt") {
@@ -636,6 +640,7 @@ export async function emailDocument() {
         styles: useStyleStore.getState().styles,
         review: reviewForSave(),
         notes: notesForSave(),
+        bibliography: sourcesForSave(),
         fileName,
       })
       await invoke("email_document", { fileName, bytes: Array.from(saved.bytes), subject })
@@ -663,6 +668,7 @@ async function currentDocxBytes(fileName: string) {
     styles: useStyleStore.getState().styles,
     review: reviewForSave(),
     notes: notesForSave(),
+    bibliography: sourcesForSave(),
     fileName,
   })
   return saved.bytes
@@ -795,6 +801,7 @@ export function newBlankDocument(html = BLANK_DOCUMENT_HTML) {
   resetRecoverySession()
   applyOpenedReview({})
   applyOpenedNotes(null)
+  applyOpenedSources(null)
   useStyleStore.getState().load(defaultStyles())
   useDocumentStore.getState().startUntitled(html)
   editor.commands.setContent(html, { emitUpdate: false })
@@ -888,6 +895,7 @@ export function insertHtmlAsNewDocument(html: string) {
   resetRecoverySession()
   applyOpenedReview({})
   applyOpenedNotes(null)
+  applyOpenedSources(null)
   useStyleStore.getState().load(defaultStyles())
   useDocumentStore.getState().startUntitled(BLANK_DOCUMENT_HTML)
   editor.commands.setContent(html, { emitUpdate: false })
@@ -1016,6 +1024,7 @@ async function writeDocument(path: string, forceExt?: string, operation: FileOpe
         styles: useStyleStore.getState().styles,
         review: reviewForSave(),
         notes: notesForSave(),
+        bibliography: sourcesForSave(),
         fileName: path.split(/[/\\]/).pop() || "document.docx",
       })
       rememberWordDocument(saved.word)

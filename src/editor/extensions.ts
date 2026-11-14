@@ -61,6 +61,7 @@ import { ThreeDModel } from "@/editor/three-d-model"
 import { Deletion, FormatChange, Insertion, TrackChanges } from "@/editor/track-changes"
 import { Protection } from "@/editor/protection"
 import { NoteLabels } from "@/editor/note-labels"
+import { Bibliography } from "@/editor/bibliography"
 import { AutoCorrect, useAutoCorrect } from "@/editor/autocorrect"
 import { SearchHighlight } from "@/editor/search-highlight"
 import { WordKeys } from "@/editor/word-keys"
@@ -164,6 +165,7 @@ export function createExtensions() {
     FigureTable.configure(),
     WordField,
     DocumentIndex.configure(),
+    Bibliography,
     AuthoritiesTable.configure(),
     SmartArt.configure(),
     ThreeDModel.configure(),

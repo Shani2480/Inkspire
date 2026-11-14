@@ -749,6 +749,11 @@ function writeBlock(block: Block, styles: StyleCatalog, section: SectionProps | 
   return writeTable(block, styles, section, ids)
 }
 
+/** Inlines as WordprocessingML, for markup built around them (a citation's content control). */
+export function inlinesXml(inlines: Inline[]) {
+  return inlines.map((inline) => writeInline(inline)).join("")
+}
+
 /** Paragraphs that go inside a drawing (a text box's `w:txbxContent`): no styles of their own, no paragraph ids. */
 export function looseParagraphsXml(paragraphs: Paragraph[]) {
   const styles: StyleCatalog = { docDefaults: { pPr: {}, rPr: {} }, styles: [] }

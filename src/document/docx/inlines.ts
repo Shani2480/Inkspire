@@ -30,7 +30,7 @@ import { decodeXml } from "@/document/docx/xml"
 import { WORD_HIGHLIGHTS, readWordShape, schemeColors, shapeLook, wordShapeMark } from "@/document/docx/shape-import"
 import { wordShapeGraphic } from "@/document/docx/shape-write"
 import { boxLink, readWordTextBox, textBoxMark, wordTextBoxGraphic } from "@/document/docx/word-text-box"
-import { looseParagraphsXml } from "@/document/docx/wml-write"
+import { inlinesXml, looseParagraphsXml } from "@/document/docx/wml-write"
 import { diagramDataRelId, diagramDrawingRelId, renderDiagramDrawing } from "@/document/docx/smartart-import"
 import {
   DIAGRAM_NS,
@@ -265,7 +265,10 @@ function inlineHtml(inline: Inline, ctx: Projection): string {
     case "simpleField":
       return wrapComments(fieldHtml([inline]), ctx)
     case "raw":
-      return wrapComments(equationHtml(inline.xml) ?? atomHtml("raw", [inline], inline.text), ctx)
+      return wrapComments(
+        equationHtml(inline.xml) ?? citationHtml(inline) ?? atomHtml("raw", [inline], inline.text),
+        ctx,
+      )
     case "bookmarkStart":
     case "bookmarkEnd":
       return atomHtml("bookmark", [inline], "")
@@ -1027,6 +1030,43 @@ function fieldHtml(field: Inline[]) {
   return `<span ${attrs.join(" ")}>${escapeHtml(text)}</span>`
 }
 
+/**
+ * Word's citation: a CITATION field in a citation content control. It becomes the editor's field (its result follows
+ * the document's sources and style) and keeps the control as written, saved as read while unchanged.
+ */
+function citationHtml(inline: Extract<Inline, { kind: "raw" }>) {
+  const xml = inline.xml
+  const properties = /<(?:\w+:)?sdtPr\b[\s\S]*?<\/(?:\w+:)?sdtPr>/.exec(xml)?.[0] ?? ""
+  if (!/^<(?:\w+:)?sdt\b/.test(xml) || !/<(?:\w+:)?citation\s*\/>/.test(properties)) {
+    return null
+  }
+  const instr = [...xml.matchAll(/<(?:\w+:)?instrText\b[^>]*>([^<]*)<\/(?:\w+:)?instrText>/g)]
+    .map((match) =>
+      (match[1] ?? "")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&amp;/g, "&"),
+    )
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim()
+  if (!/^CITATION\b/i.test(instr)) {
+    return null
+  }
+  const text = inline.text
+  const attrs = [
+    "data-word-field",
+    `data-instr="${escapeHtml(instr)}"`,
+    `data-result="${escapeHtml(text)}"`,
+    `data-source="${escapeHtml(JSON.stringify([inline]))}"`,
+    `data-read="${escapeHtml(text)}"`,
+    `data-read-instr="${escapeHtml(instr)}"`,
+  ]
+  return `<span ${attrs.join(" ")}>${escapeHtml(text)}</span>`
+}
+
 function atomHtml(role: string, payload: unknown, text: string) {
   const tag = role === "note" ? "sup" : "span"
   const attrs = [
@@ -1582,6 +1622,8 @@ export type InlineBuild = {
   notes?: EditorNote[]
   /** The next free note id of each kind (after the opened document's own). */
   nextNote?: { footnote: number; endnote: number }
+  /** Content controls made while saving (citations, the bibliography): their w:id is unique in the document. */
+  controlIds?: number
 }
 
 /** A note made in the editor: its reference's id in the body and its text, written to footnotes or endnotes.xml. */
@@ -1664,6 +1706,20 @@ export function inlinesFromEditor(nodes: JsonNode[], build: InlineBuild): Inline
             comments: annotations.comments,
           })
         }
+      } else if (/^CITATION\b/i.test(instr)) {
+        // A citation goes in Word's citation content control, as Word inserts it, so Word offers Edit Citation.
+        build.controlIds = (build.controlIds ?? 0) + 1
+        const runs: Inline[] = [
+          { kind: "run", rPr: {}, content: [{ kind: "fldChar", fieldType: "begin" }] },
+          { kind: "run", rPr: {}, content: [{ kind: "instrText", text: ` ${instr} ` }] },
+          { kind: "run", rPr: {}, content: [{ kind: "fldChar", fieldType: "separate" }] },
+          textRun(result, marks, undefined, build),
+          { kind: "run", rPr: {}, content: [{ kind: "fldChar", fieldType: "end" }] },
+        ]
+        const xml =
+          `<w:sdt><w:sdtPr><w:id w:val="${0x51a0000 + build.controlIds}"/><w:citation/></w:sdtPr>` +
+          `<w:sdtContent>${inlinesXml(runs)}</w:sdtContent></w:sdt>`
+        pieces.push({ inline: { kind: "raw", xml, text: result }, ...annotations })
       } else {
         pieces.push({
           inline: {

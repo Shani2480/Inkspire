@@ -104,8 +104,12 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
       now saved to .docx. Left: Below text and End of section are saved but notes are still drawn at the page bottom /
       document end; options per section ("This section"); footnote layout columns; Symbol… for the custom mark; the
       note text is asked for in the dialog rather than typed in the note area.
-- [ ] U14. Source Manager and Create Source with every source type and field, master list, Edit Citation,
-      placeholders.
+- [x] U14. Source Manager and Create Source with every source type and field, master list, Edit Citation,
+      placeholders. Done 2026-11-14 (`components/source-dialogs.tsx`, `document/bibliography.ts`,
+      `editor/bibliography.ts`); citations, bibliography and sources are Word's own fields and custom XML part, checked
+      in Word. Left: IEEE as Word's table, the Language list, Browse… for another master list, Search Libraries, the
+      styles beyond 6 (GB7714, GOST, ISO 690, SIST02), the Bibliographies gallery wrapper control, Save Selection to
+      Bibliography Gallery.
 - [ ] U15. Outline view with the Outlining tab (Promote/Demote, Show Level, Expand/Collapse, Move Up/Down, Show
       Text Formatting, Show First Line Only).
 - [ ] U16. Design: Style Sets gallery, Paragraph Spacing presets, Customize Colors / Fonts, Save Current Theme.

@@ -1,4 +1,7 @@
 import { openLinkDialog } from "@/components/link-dialog"
+import { openEditCitation, openEditSource } from "@/components/source-dialogs"
+import { citationAt, citationToText, updateCitationsAndBibliography } from "@/editor/bibliography"
+import { NodeSelection } from "@tiptap/pm/state"
 import { linkAtSelection, removeLink } from "@/editor/links"
 import { followLink } from "@/editor/editing-behavior"
 import { insideSelection } from "@/components/object-context-menu"
@@ -48,9 +51,23 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
       }
       event.preventDefault()
       event.stopPropagation()
-      // Selected cells stay selected only for a right-click on them; elsewhere the caret goes to the click, as in Word.
+      // Selected cells or an object stay selected only for a right-click on them; elsewhere the caret goes to the click,
+      // as in Word.
       const hit = editor.view.posAtCoords({ left: event.clientX, top: event.clientY })
-      if (editor.state.selection instanceof CellSelection && hit && !insideSelection(editor, hit.pos)) {
+      const field = target.closest(".word-field")
+      const citation = field instanceof HTMLElement && /^\s*CITATION\b/i.test(field.dataset.instr ?? "") ? field : null
+      if (citation) {
+        // A citation is selected whole, as Word selects its content control.
+        const at = editor.view.posAtDOM(citation, 0)
+        const pos = [at, at - 1].find((p) => p >= 0 && editor.state.doc.nodeAt(p)?.type.name === "wordField")
+        if (pos !== undefined) {
+          editor.commands.setNodeSelection(pos)
+        }
+      } else if (
+        (editor.state.selection instanceof CellSelection || editor.state.selection instanceof NodeSelection) &&
+        hit &&
+        !insideSelection(editor, hit.pos)
+      ) {
         editor.commands.setTextSelection(hit.pos)
       }
       rememberSelection(editor)
@@ -95,6 +112,9 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
 
   const word = selectedWord(editor)
   const link = linkAtSelection(editor)
+  const citation = citationAt(editor)
+  const selection = editor.state.selection
+  const onBibliography = selection instanceof NodeSelection && selection.node.type.name === "bibliography"
   const entries: Item[] = [
     { id: "cut", label: "Cut", run: () => cutSelection(editor) },
     { id: "copy", label: "Copy", run: () => copySelection(editor) },
@@ -111,6 +131,21 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
     },
     { id: "font", label: "Font…", run: () => requestFormatDialog("font") },
     { id: "paragraph", label: "Paragraph…", run: () => requestFormatDialog("paragraph") },
+    // Word's citation menu (the control's drop-down): Edit Citation, Edit Source, static text, Update.
+    ...(citation
+      ? [
+          { id: "edit-citation", label: "Edit Citation…", run: () => openEditCitation(editor) },
+          { id: "edit-source", label: "Edit Source…", run: () => openEditSource(editor) },
+          {
+            id: "citation-text",
+            label: "Convert Citation to Static Text",
+            run: () => citationToText(editor, citation),
+          },
+        ]
+      : []),
+    ...(citation || onBibliography
+      ? [{ id: "update-citations", label: "Update Citations and Bibliography", run: updateCitationsAndBibliography }]
+      : []),
     ...(inTable(editor)
       ? [
           { id: "borders", label: "Borders and Shading…", run: () => openBordersAndShading(editor) },

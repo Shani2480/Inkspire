@@ -7,6 +7,36 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-14
 
+### Source Manager, Create Source, Edit Citation and placeholders (U14)
+
+- **What was wrong or missing:** sources were a flat author/title/year list kept only in the app; citations were
+  plain text, not Word's CITATION fields; a Word document's sources (customXml `b:Sources`) and its bibliography were
+  not understood, so neither could be updated; there was no Source Manager, no Edit Citation and no placeholders.
+- **What changed:** Word's **Create Source** with all 17 source types and their fields (Show All Bibliography Fields
+  in two columns, Corporate Author, Edit Name, a tag with a duplicate warning), **Source Manager** (Master List kept
+  across documents and Current List, search, sort, Copy / Delete / Edit / New, ✓ cited and ? placeholder marks,
+  preview), **Insert Citation** menu (sources, Add New Source…, Add New Placeholder…), **Style** (APA, Chicago,
+  Harvard - Anglia, IEEE, MLA, Turabian), the **Bibliography** gallery (Bibliography / References / Works Cited, Insert
+  Bibliography), and on a citation's right-click menu Edit Citation… (pages, suppress author / year / title), Edit
+  Source…, Convert Citation to Static Text and Update Citations and Bibliography. Citations are saved as Word's
+  citation content controls around a CITATION field; the bibliography as a BIBLIOGRAPHY field over "Bibliography"
+  paragraphs; the sources and style as Word's custom XML part. An untouched Word citation or bibliography is written
+  back as read. CSL-JSON and BibTeX imports (add-in) now make full sources (`document/bibliography.ts`,
+  `document/bibliography-store.ts`, `document/docx/bibliography-field.ts`, `document/docx/sources-part.ts`,
+  `editor/bibliography.ts`, `editor/word-field.ts`, `components/source-dialogs.tsx`, `ribbon/references-tab.tsx`,
+  `text-context-menu.tsx`). The editor's empty paragraph after a final bibliography is no longer saved.
+- **Checked:** unit tests against Word's own output for every source type in all 6 styles
+  (`document/bibliography.test.ts`, fixtures `tests/bibliography/` and `f25_citations_word.docx` made by Word), the
+  editor round trip, style switch, Edit Citation and placeholders (`editor/citations.test.ts`), edit-fidelity on the
+  new fixture; the Open XML SDK validator passes the app's file in each style; **in Word (VM)** each app-made file
+  opens with the right style and sources, all 71 field results match Word's after updating fields (IEEE: same text,
+  Word draws it as a table), and Word keeps the app's citations when it saves; Chrome light and dark: menus, Create
+  Source (short and Show All), Edit Name, Source Manager, Placeholder and Edit Citation fit without scrolling;
+  typecheck, lint, the full suite, the overflow crawl (nothing new).
+- **Still open:** IEEE is written as paragraphs (Word uses a table); the Language list; Browse… for another master
+  list; Search Libraries; the other styles (GB7714, GOST, ISO 690, SIST02); the Bibliographies gallery wrapper control
+  on insert; Save Selection to Bibliography Gallery.
+
 ### Footnote and Endnote dialog, note numbering and Convert (U13)
 
 - **What was wrong or missing:** the References > Footnotes launcher did nothing; notes were always numbered 1, 2, 3

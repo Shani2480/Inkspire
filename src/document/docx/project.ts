@@ -59,6 +59,7 @@ import {
 import { parseInstruction } from "@/document/field-instructions"
 import { FIGURES_STYLE, readLooseTocAt, readTocAt, tocBlocks } from "@/document/docx/toc"
 import { indexBlocks, readIndexAt } from "@/document/docx/index-field"
+import { bibliographyBlocks, readBibliographyAt } from "@/document/docx/bibliography-field"
 import { figureTable, headingBookmark, readTocEntries, tocLevelOf, tocOptions, type TocStyleLike } from "@/document/toc"
 import {
   DEFAULT_SECTION,
@@ -699,6 +700,14 @@ function blocksToHtml(blocks: Block[], ctx: Projection) {
   let index = 0
   while (index < blocks.length) {
     const block = blocks[index]
+    const bibliography = readBibliographyAt(blocks, index)
+    if (bibliography) {
+      html += `<div data-bibliography data-bib-entries="${escapeAttribute(
+        JSON.stringify(bibliography.entries),
+      )}" data-bib-source="${escapeAttribute(bibliography.source)}"></div>`
+      index = bibliography.end
+      continue
+    }
     const wordIndex = readIndexAt(blocks, index, ctx.doc)
     if (wordIndex) {
       html += `<div data-document-index data-index-instruction="${escapeAttribute(
@@ -2224,13 +2233,24 @@ function storyParagraph(line: string, page: boolean): Paragraph {
   return { kind: "paragraph", pPr: {}, markRPr: {}, inlines }
 }
 
-/** The editor keeps an empty paragraph after a final list or table; Word does not need it. */
+/** The paragraph Word ends a multi-paragraph field in (a bibliography's): nothing but the field's end. */
+const fieldEndParagraph = (block: Block) =>
+  block.kind === "paragraph" &&
+  block.inlines.length > 0 &&
+  block.inlines.every(
+    (inline) =>
+      inline.kind === "run" &&
+      inline.content.length > 0 &&
+      inline.content.every((content) => content.kind === "fldChar" && content.fieldType === "end"),
+  )
+
+/** The editor keeps an empty paragraph after a final list, table or bibliography; Word does not need it. */
 function dropEditorTrailingParagraph(blocks: Block[]) {
   const last = blocks[blocks.length - 1]
   const before = blocks[blocks.length - 2]
   if (last?.kind === "paragraph" && !last.key && last.inlines.length === 0 && before) {
     const listEnd = before.kind === "paragraph" && before.pPr.numPr !== undefined
-    if (before.kind === "table" || listEnd) {
+    if (before.kind === "table" || listEnd || fieldEndParagraph(before)) {
       blocks.pop()
     }
   }
@@ -2371,6 +2391,11 @@ function blocksFromNodes(nodes: JsonNode[], build: Build, level: number, top = f
     }
     if (node.type === "documentIndex") {
       blocks.push(...indexBlocks(node.attrs, build.toc.textWidth))
+      continue
+    }
+    if (node.type === "bibliography") {
+      build.controlIds = (build.controlIds ?? 0) + 1
+      blocks.push(...bibliographyBlocks(node.attrs, 0x51b0000 + build.controlIds))
       continue
     }
     if (node.type === "image" && typeof node.attrs?.wrap === "string" && node.attrs.wrap !== "inline") {
@@ -3058,6 +3083,18 @@ function ensureEditorStyles(styles: StyleCatalog, blocks: Block[], fresh: boolea
         rPr: { vertAlign: "superscript" },
       })
     }
+  }
+  if (!ids.has("Bibliography") && paragraphStyles.has("Bibliography")) {
+    // Word's built-in Bibliography: Normal, which the entries give a hanging indent of their own.
+    extra.push({
+      id: "Bibliography",
+      type: "paragraph",
+      name: "Bibliography",
+      basedOn: "Normal",
+      next: "Normal",
+      pPr: {},
+      rPr: {},
+    })
   }
   if (!ids.has("Hyperlink") && runStyles.has("Hyperlink")) {
     extra.push({

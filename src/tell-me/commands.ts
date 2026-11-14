@@ -1,4 +1,6 @@
 import { openFootnoteDialog } from "@/components/footnote-dialog"
+import { openNewSource, openPlaceholder, openSourceManager } from "@/components/source-dialogs"
+import { updateCitationsAndBibliography } from "@/editor/bibliography"
 import { openDefaultPaste, openPasteSpecial } from "@/components/paste-special-dialog"
 import { useProofing } from "@/ai/proofing"
 import { useEditorPane } from "@/editor/grammar"
@@ -389,6 +391,38 @@ function buildCommands(): TellMeCommand[] {
       keywords: ["footnote", "endnote", "note number", "convert notes", "custom mark", "numbering"],
       category: "References",
       run: () => withEditor((current) => openFootnoteDialog(current)),
+    },
+    {
+      id: "references.manage-sources",
+      label: "Manage Sources…",
+      description: "Copy, edit, add and delete sources in the document's list and your master list.",
+      keywords: ["source manager", "sources", "bibliography", "citation", "master list", "references"],
+      category: "References",
+      run: () => withEditor((current) => openSourceManager(current)),
+    },
+    {
+      id: "references.add-source",
+      label: "Add New Source…",
+      description: "Create a source (book, journal article, web site…) and cite it at the cursor.",
+      keywords: ["citation", "cite", "create source", "insert citation", "reference"],
+      category: "References",
+      run: () => withEditor((current) => openNewSource(current)),
+    },
+    {
+      id: "references.add-placeholder",
+      label: "Add New Placeholder…",
+      description: "Cite a source you will fill in later.",
+      keywords: ["citation", "placeholder", "cite later"],
+      category: "References",
+      run: () => withEditor((current) => openPlaceholder(current)),
+    },
+    {
+      id: "references.update-citations",
+      label: "Update Citations and Bibliography",
+      description: "Bring every citation and bibliography up to date with the sources and the style.",
+      keywords: ["update bibliography", "refresh citations", "works cited", "references"],
+      category: "References",
+      run: () => updateCitationsAndBibliography(),
     },
     {
       id: "references.insert-caption",

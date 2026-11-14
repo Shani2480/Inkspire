@@ -4,6 +4,8 @@ import { Plugin, PluginKey, TextSelection, type Transaction } from "@tiptap/pm/s
 import { paintField, preservedFieldCode } from "@/editor/field-codes"
 import { pageLabelAt } from "@/editor/toc"
 import { formatSequence, parseInstruction, wordBookmarkName } from "@/document/field-instructions"
+import { citationContext, formatCitation, parseCitation } from "@/document/bibliography"
+import { useBibliography } from "@/document/bibliography-store"
 
 export { formatSequence, isAppField, parseInstruction, wordBookmarkName } from "@/document/field-instructions"
 
@@ -117,7 +119,32 @@ export function collectBookmarks(doc: ProseNode) {
 
 // --- results -----------------------------------------------------------------------------------------------------
 
-type Context = { bookmarks: Map<string, BookmarkPlace>; pageAt: (pos: number) => string | null }
+type Context = {
+  bookmarks: Map<string, BookmarkPlace>
+  pageAt: (pos: number) => string | null
+  /** A CITATION field's result in the document's style, from its sources. */
+  citation?: (instr: string) => string
+}
+
+/** The sources cited in a document, in the order first cited (IEEE numbers them so). */
+export function citedTags(doc: ProseNode) {
+  const order: string[] = []
+  doc.descendants((node) => {
+    if (node.type.name === "wordField") {
+      order.push(...(parseCitation(String(node.attrs.instr ?? ""))?.tags ?? []))
+      return false
+    }
+    return true
+  })
+  return order
+}
+
+/** Formats citations from the document's sources and style, as they are now. */
+export function citationFormatter(doc: ProseNode) {
+  const { sources, style } = useBibliography.getState()
+  const context = citationContext(sources, style, citedTags(doc))
+  return (instr: string) => formatCitation(instr, context)
+}
 
 /**
  * The result every field should show, in document order: SEQ numbers counted per identifier (reset by \r n, by a
@@ -160,6 +187,8 @@ export function fieldResults(doc: ProseNode, context: Context) {
         reset !== undefined && reset !== "" ? Number(reset) : parsed.switches.has("c") ? current : current + 1
       counters.set(identifier, Number.isFinite(next) ? next : current + 1)
       result = parsed.switches.has("h") ? "" : formatSequence(counters.get(identifier)!, parsed.switches.get("*"))
+    } else if (parsed.kind === "CITATION" && context.citation) {
+      result = context.citation(instr)
     } else if (parsed.kind === "REF" || parsed.kind === "PAGEREF") {
       const target = context.bookmarks.get(parsed.argument)
       if (target) {
@@ -186,17 +215,24 @@ export function fieldResults(doc: ProseNode, context: Context) {
 
 const fieldKey = new PluginKey("wordFields")
 const REFRESH = "refreshFields"
+/** Citations only: the sources or the style changed, which Word shows in every citation at once. */
+export const REFRESH_CITATIONS = "refreshCitations"
 
 /** Brings every field's result up to date in `tr` (nothing when they already are). */
-function refresh(tr: Transaction, pageAt: Context["pageAt"], forced: boolean) {
+function refresh(tr: Transaction, pageAt: Context["pageAt"], forced: boolean, citations = forced) {
   // Twice: a reference to "Figure 1" reads the caption's number, which the first pass may have just changed.
   for (let pass = 0; pass < 2; pass += 1) {
-    const results = fieldResults(tr.doc, { bookmarks: collectBookmarks(tr.doc), pageAt })
+    const results = fieldResults(tr.doc, {
+      bookmarks: collectBookmarks(tr.doc),
+      pageAt,
+      citation: citationFormatter(tr.doc),
+    })
     let changed = false
     for (const [pos, result] of results) {
       const node = tr.doc.nodeAt(pos)
+      const isCitation = /^\s*CITATION\b/i.test(String(node?.attrs.instr ?? ""))
       // A field read from Word keeps the result Word gave it until F9, as in Word; the app's own follow every edit.
-      if (node && node.attrs.result !== result && (forced || !node.attrs.source)) {
+      if (node && node.attrs.result !== result && (forced || (citations && isCitation) || !node.attrs.source)) {
         tr.setNodeMarkup(pos, undefined, { ...node.attrs, result })
         changed = true
       }
@@ -304,7 +340,8 @@ export const WordField = Node.create({
         key: fieldKey,
         appendTransaction(transactions, _old, state) {
           const forced = transactions.some((tr) => tr.getMeta(REFRESH))
-          if (!forced && !transactions.some((tr) => tr.docChanged)) {
+          const citations = forced || transactions.some((tr) => tr.getMeta(REFRESH_CITATIONS))
+          if (!citations && !transactions.some((tr) => tr.docChanged)) {
             return null
           }
           let has = false
@@ -315,8 +352,25 @@ export const WordField = Node.create({
           if (!has) {
             return null
           }
-          const tr = refresh(state.tr, pageAt, forced)
+          const tr = refresh(state.tr, pageAt, forced, citations)
           return tr.docChanged ? tr : null
+        },
+        view(view) {
+          // Editing a source or choosing another style changes every citation, as in Word.
+          const unsubscribe = useBibliography.subscribe((next, previous) => {
+            if (
+              next.sources !== previous.sources ||
+              next.style !== previous.style ||
+              next.refresh !== previous.refresh
+            ) {
+              queueMicrotask(() => {
+                if (!view.isDestroyed) {
+                  view.dispatch(view.state.tr.setMeta(REFRESH_CITATIONS, true).setMeta("addToHistory", false))
+                }
+              })
+            }
+          })
+          return { destroy: unsubscribe }
         },
         props: {
           // Ctrl+click on a cross-reference inserted as a hyperlink (\h) goes to what it refers to.

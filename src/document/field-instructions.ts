@@ -3,7 +3,7 @@
  * fields the editor keeps as its own (captions and cross-references), number formats and bookmark names.
  */
 
-export const FIELD_KINDS = ["SEQ", "REF", "PAGEREF", "XE"] as const
+export const FIELD_KINDS = ["SEQ", "REF", "PAGEREF", "XE", "CITATION"] as const
 
 /**
  * Switches that take a value, by field: \* format, \@ date picture and \# number picture everywhere; SEQ's \r reset

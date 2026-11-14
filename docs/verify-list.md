@@ -7,6 +7,12 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [x] **Citations, bibliography and sources (2026-11-14)** — checked in Word in the VM: an app-made document in each
+      of APA, Chicago, Harvard, IEEE, MLA and Turabian opens with that style and its 9 sources in Source Manager;
+      Update Field gives the same citations and bibliography (IEEE as a table); Word keeps the app's citations on save.
+- [ ] **Edit Citation and placeholders in Word (2026-11-14)** — a citation edited in the app (pages 12, author
+      suppressed) shows the same in Word's Edit Citation; a placeholder shows with a ? in Word's Source Manager.
+
 - [ ] **Footnotes and endnotes (2026-11-14)** — a document with a footnote and an endnote inserted in the app, one
       with a custom mark (†), and options set to a, b, c starting at 3 with Restart each page, opens in Word with the
       same marks; Word's Footnote and Endnote dialog shows those options; a Word document whose footnote was converted

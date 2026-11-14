@@ -88,6 +88,7 @@
   --dlg-surface: #ffffff;
   --dlg-text: #1b1b1b;
   --dlg-muted: #616161;
+  --dlg-error: #c42b1c;
   --dlg-border: #a0a0a0;
   --dlg-panel-border: #c7c7c7;
   --dlg-rule: #d9d9d9;
@@ -182,6 +183,7 @@
   --dlg-surface: #1f1f1f;
   --dlg-text: #f3f2f1;
   --dlg-muted: #b3b0ad;
+  --dlg-error: #ff99a4;
   --dlg-border: #575757;
   --dlg-panel-border: #484848;
   --dlg-rule: #484848;
@@ -15312,4 +15314,300 @@ textarea.tp-input {
 
 .footnote-dialog-options label.is-disabled {
   color: var(--dlg-disabled-text);
+}
+
+/* References > Bibliography: Word's "Bibliography" paragraphs, a 0.5" hanging indent (IEEE: number, then a tab). */
+.page-editor .document-bibliography {
+  margin: 0 0 0.6em;
+}
+
+.page-editor .document-bibliography-entry {
+  margin: 0 0 0.5em;
+  padding-left: 0.5in;
+  text-indent: -0.5in;
+  overflow-wrap: anywhere;
+}
+
+.page-editor .document-bibliography-label {
+  display: inline-block;
+  min-width: 0.5in;
+  text-indent: 0;
+}
+
+.page-editor .ProseMirror-selectednode.document-bibliography,
+.page-editor .document-bibliography.ProseMirror-selectednode {
+  outline: 1px solid var(--app-accent, #2b579a);
+  outline-offset: 2px;
+}
+
+/* Source Manager. */
+.source-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.source-manager-search {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 140px;
+  align-items: center;
+  gap: 8px;
+}
+
+.source-manager-lists {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px minmax(0, 1fr);
+  gap: 10px;
+  align-items: stretch;
+}
+
+.source-manager-list {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.source-manager-heading {
+  color: var(--dlg-text);
+  font-weight: 600;
+}
+
+.source-manager-list ul,
+.edit-name-body ul {
+  height: 168px;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 1px solid var(--dlg-control-border);
+  background: var(--dlg-surface);
+  list-style: none;
+}
+
+.source-manager-list li,
+.edit-name-body li {
+  display: flex;
+  min-width: 0;
+  gap: 4px;
+  padding: 1px 4px;
+  line-height: 18px;
+  cursor: default;
+}
+
+.source-manager-list li:hover,
+.edit-name-body li:hover {
+  background: var(--dlg-item-hover);
+}
+
+.source-manager-list li[aria-selected="true"],
+.edit-name-body li[aria-selected="true"] {
+  background: var(--dlg-accent);
+  color: var(--dlg-accent-text);
+}
+
+.source-manager-mark {
+  flex: 0 0 12px;
+  text-align: center;
+}
+
+.source-manager-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-manager-actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+
+.source-manager-actions .dialog-btn {
+  min-width: 0;
+  width: 100%;
+}
+
+.source-manager-legend {
+  margin: 0;
+  color: var(--dlg-muted);
+  text-align: right;
+}
+
+.source-manager-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.source-manager-preview-box {
+  height: 84px;
+  overflow: hidden;
+  border: 1px solid var(--dlg-control-border);
+  background: var(--dlg-surface);
+  padding: 4px 6px;
+}
+
+.source-manager-preview-box p {
+  margin: 0 0 2px;
+  overflow-wrap: anywhere;
+}
+
+.source-manager-preview-label {
+  font-weight: 600;
+}
+
+.source-manager-preview-entry {
+  padding-left: 24px;
+  text-indent: -12px;
+}
+
+/* Create Source / Edit Source. */
+.source-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.source-editor-type,
+.source-editor-tag {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 220px) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.source-editor-caption {
+  margin: 0;
+  border-bottom: 1px solid var(--dlg-control-border);
+  padding-bottom: 3px;
+  font-weight: 600;
+}
+
+.source-editor-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px;
+}
+
+.source-editor-fields.is-two-columns {
+  grid-auto-flow: column;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+}
+
+.source-editor-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.source-editor-fields.is-two-columns .source-editor-row {
+  grid-template-columns: 112px minmax(0, 1fr);
+}
+
+.source-editor-row > label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-editor-name {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px;
+}
+
+.source-editor-name .dialog-btn {
+  min-width: 48px;
+}
+
+.source-editor-corporate {
+  grid-column: 2;
+}
+
+.source-editor-foot {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.source-editor-example {
+  overflow: hidden;
+  color: var(--dlg-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-editor-warning {
+  color: var(--dlg-error);
+}
+
+/* Edit Name. */
+.edit-name {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.edit-name p {
+  margin: 0;
+}
+
+.edit-name-grid {
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.edit-name-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.edit-name-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 80px;
+  gap: 8px;
+}
+
+.edit-name-body ul {
+  height: 112px;
+}
+
+.edit-name-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.edit-name-actions .dialog-btn {
+  min-width: 0;
+}
+
+/* Edit Citation. */
+.edit-citation {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.edit-citation p {
+  margin: 0;
+}
+
+.edit-citation-checks {
+  display: flex;
+  gap: 16px;
+  padding-left: 12px;
 }

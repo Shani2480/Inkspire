@@ -1,4 +1,6 @@
+import type { BibSource, BibStyleId } from "@/document/bibliography"
 import type { NoteSettings } from "@/document/note-numbering"
+import { citationOrder, writeSourcesPart } from "@/document/docx/sources-part"
 import type { DocumentProtection } from "@/document/review"
 import type { DocumentChrome } from "@/document/header"
 import { findPart, openPackage, writePackage, type OpcPackage } from "@/document/docx/opc"
@@ -41,6 +43,8 @@ export async function saveDocxBytes(input: {
   review?: { trackRevisions: boolean; protection: DocumentProtection | null }
   /** Footnote and endnote options set in the app for the whole document; the document's own when left out. */
   notes?: NoteSettings
+  /** The document's sources and bibliography style, when they changed (or were made) in the app. */
+  bibliography?: { sources: BibSource[]; style: BibStyleId }
 }) {
   const settings = input.word?.settings
   const reviewChanged =
@@ -48,7 +52,7 @@ export async function saveDocxBytes(input: {
     (Boolean(settings?.trackRevisions) !== input.review.trackRevisions ||
       JSON.stringify(settings?.protection ?? null) !== JSON.stringify(input.review.protection))
   const word =
-    input.unchanged && input.word && !reviewChanged && !input.notes
+    input.unchanged && input.word && !reviewChanged && !input.notes && !input.bibliography
       ? input.word
       : editorToWord(input.json, input.chrome, input.props ?? {}, input.word, input.styles)
   if (input.review && reviewChanged) {
@@ -63,6 +67,9 @@ export async function saveDocxBytes(input: {
   }
   const pkg = writeDocument(word, /\.(docx|docm|dotx|dotm)$/i.test(input.fileName) ? input.fileName : "document.docx")
   attachCoreProperties(pkg, input.props ?? {})
+  if (input.bibliography) {
+    writeSourcesPart(pkg, input.bibliography.sources, input.bibliography.style, citationOrder(input.json))
+  }
   return { bytes: await writePackage(pkg), word }
 }
 
