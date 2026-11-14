@@ -4,6 +4,9 @@ import { IconLibrary } from "@/components/icon-library"
 import { ModelLibrary } from "@/components/model-library"
 import { SmartArtDialog, SmartArtMenu } from "@/components/smartart-gallery"
 import { MenuButton, RibbonCommand, RibbonGroup } from "@/components/ribbon/ribbon-button"
+import { openInsertTableDialog } from "@/components/insert-table-dialog"
+import { useTableDraw } from "@/editor/table-draw"
+import { textForTable } from "@/editor/table-insert"
 import {
   LineBookmarkIcon,
   LineBreakIcon,
@@ -533,15 +536,46 @@ export function InsertTab() {
   }
   const insertBlankPage = () => editor && insertAtSelectionEnd(editor).setBlankPage().run()
   const insertPageBreak = () => editor && insertAtSelectionEnd(editor).setPageBreak().run()
+  // Word's Table menu: the grid, then Insert Table…, Draw Table and Convert Text to Table… (with a selection only).
+  // Excel Spreadsheet and Quick Tables are left out: the app has no embedded workbook or building-block gallery.
   const tableMenu = (close: () => void) => (
-    <TableGrid
-      onInsert={(rows, cols) => {
-        if (editor) {
-          insertAtSelectionEnd(editor).insertTable({ rows, cols, withHeaderRow: true }).run()
-        }
-        close()
-      }}
-    />
+    <div className="flex flex-col">
+      <TableGrid
+        onInsert={(rows, cols) => {
+          if (editor) {
+            insertAtSelectionEnd(editor).insertTable({ rows, cols, withHeaderRow: true }).run()
+          }
+          close()
+        }}
+      />
+      <div className="my-1 border-t border-[var(--app-popover-border)]" />
+      <MenuButton
+        onClick={() => {
+          close()
+          openInsertTableDialog(editor, "insert")
+        }}
+      >
+        Insert Table…
+      </MenuButton>
+      <MenuButton
+        onClick={() => {
+          useTableDraw.getState().toggle("draw")
+          editor?.view.focus()
+          close()
+        }}
+      >
+        Draw Table
+      </MenuButton>
+      <MenuButton
+        disabled={!editor || !textForTable(editor)}
+        onClick={() => {
+          close()
+          openInsertTableDialog(editor, "convert")
+        }}
+      >
+        Convert Text to Table…
+      </MenuButton>
+    </div>
   )
   const picturesMenu = (close: () => void) => (
     <MenuButton
@@ -1875,15 +1909,18 @@ function insertAutomatic(editor: Editor, format: DateFormat, close: () => void) 
   close()
 }
 
+/** Word's grid: 10 columns by 8 rows, with the size picked named above it ("3x2 Table"). */
 function TableGrid({ onInsert }: { onInsert: (rows: number, cols: number) => void }) {
   const [hover, setHover] = useState({ rows: 0, cols: 0 })
-  const size = 8
+  const columns = 10
+  const rowCount = 8
   return (
     <div className="flex flex-col gap-2" onMouseLeave={() => setHover({ rows: 0, cols: 0 })}>
-      <div className="grid grid-cols-8 gap-1">
-        {Array.from({ length: size * size }, (_, index) => {
-          const row = Math.floor(index / size) + 1
-          const col = (index % size) + 1
+      <p className="text-xs font-semibold">{hover.rows > 0 ? `${hover.cols}x${hover.rows} Table` : "Insert Table"}</p>
+      <div className="grid grid-cols-10 gap-1">
+        {Array.from({ length: columns * rowCount }, (_, index) => {
+          const row = Math.floor(index / columns) + 1
+          const col = (index % columns) + 1
           const selected = row <= hover.rows && col <= hover.cols
           return (
             <button
@@ -1898,9 +1935,6 @@ function TableGrid({ onInsert }: { onInsert: (rows: number, cols: number) => voi
           )
         })}
       </div>
-      <p className="text-center text-xs text-neutral-500">
-        {hover.rows > 0 ? `${hover.cols} × ${hover.rows} table` : "Insert table"}
-      </p>
     </div>
   )
 }

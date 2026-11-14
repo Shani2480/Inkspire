@@ -7,6 +7,27 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-14
 
+### Insert > Table: Insert Table…, Convert Text to Table…, Draw Table and Word's 10 × 8 grid
+
+- **What was wrong or missing:** the Table menu was only an 8 × 8 grid: no Insert Table dialog, no way to turn
+  text into a table, and Draw Table only on the Table Design tab.
+- **What changed:** the menu is Word's: a 10 × 8 grid named "3x2 Table" as you point, then Insert Table…, Draw
+  Table and Convert Text to Table… (with a selection only). `editor/table-insert.ts` builds the tables with Word's
+  AutoFit behaviours: Fixed column width Auto (equal columns over the text width), a fixed width (every column that
+  wide, automatic resizing off, saved as `w:tblLayout fixed`), AutoFit to contents (columns measured after the
+  table is drawn) and AutoFit to window (100% of the text width, `w:tblW pct 5000`). Convert Text to Table splits
+  at paragraphs, tabs (typed or the editor's own tab nodes), commas or any character, guesses tabs when the text
+  has them, counts columns and rows as Word does, keeps the text's formatting and is one undo step. Insert Table
+  opens on 5 × 2 or the size kept with "Remember dimensions for new tables". The dialogs are
+  `components/insert-table-dialog.tsx`; the dialog spin box gained an "Auto" value and a greyed value that stays
+  shown. Tell Me lists Insert Table…, Convert Text to Table… and Draw Table.
+- **Checked:** `editor/table-insert.test.ts` (sizes and limits, caret in the first cell, fixed and window widths in
+  the saved XML, remembered size, tabs/commas/other/paragraphs, tab nodes, marks kept, undo); in Chrome, light and
+  dark: the menu, both dialogs, a 3 × 4 AutoFit-to-window table, and a tab-separated selection turned into a 3 × 3
+  table; the saved .docx passes the Open XML validator.
+- **Still open:** Excel Spreadsheet and Quick Tables are left out of the menu (no embedded workbook or building
+  block gallery); an AutoFit-to-contents table is fitted once, when made, and does not grow as you type.
+
 ### Word's missing shortcuts: F12, Ctrl+F2, F4 / Ctrl+Y, Shift+F5, Alt+Shift+arrows, notes, fields, bookmark, thesaurus
 
 - **What was wrong or missing:** many of Word's keys did nothing: no Repeat, no Go Back, no moving paragraphs or

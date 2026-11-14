@@ -60,6 +60,7 @@ import { AutoCorrectDialogHost } from "@/components/autocorrect-dialog"
 import { LinkDialogHost } from "@/components/link-dialog"
 import { SmartArtTextPane } from "@/components/smartart-text-pane"
 import { ColumnsDialogHost } from "@/components/columns-dialog"
+import { InsertTableDialogHost } from "@/components/insert-table-dialog"
 import { TablePropertiesHost } from "@/components/table-properties-dialog"
 import { FirstRunSetup } from "@/components/first-run-setup"
 import { StyleDialogs } from "@/components/style-dialogs"
@@ -322,6 +323,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
       <CoverPageDialogHost />
       <TablePropertiesHost />
       <ColumnsDialogHost />
+      <InsertTableDialogHost />
       <SmartArtTextPane />
       <CustomizeDialogHost />
       <OptimizeDialogHost />

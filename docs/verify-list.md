@@ -7,6 +7,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [ ] **Insert Table and Convert Text to Table (2026-11-14)** — a table made with a fixed column width of 3 cm, one
+      made with AutoFit to window and one converted from tab-separated text open in Word with the same column widths
+      (Table Properties shows the fixed width / 100% preferred width, and the fixed one does not grow as you type).
 - [ ] **Templates and macro-enabled files (2026-11-14)** — open a real .docm with a macro, save it as .docm and run
       the macro in Word; save it as .docx (answer Yes) and check Word opens it without a repair prompt; save any
       document as .dotx and check Word's File > New > Personal lists it as a template.

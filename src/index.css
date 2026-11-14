@@ -12858,6 +12858,50 @@ textarea.text-prompt-field {
   width: 64px;
 }
 
+/* Insert Table and Convert Text to Table (Insert > Table). */
+.insert-table-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 12px;
+}
+
+.insert-table-size,
+.insert-table-fit {
+  display: grid;
+  grid-template-columns: 1fr 92px;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.insert-table-separators {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+}
+
+.insert-table-other {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.insert-table-other > input {
+  width: 32px;
+  height: 24px;
+  padding: 0 4px;
+  border: 1px solid var(--dlg-control-border);
+  border-radius: 3px;
+  background: var(--dlg-surface);
+  font-size: 12px;
+  outline: none;
+}
+
+.insert-table-other > input:focus-visible {
+  outline: 2px solid var(--dlg-accent);
+  outline-offset: -1px;
+}
+
 .columns-count-row .word-dialog-check,
 .columns-apply-row .word-dialog-check {
   margin-left: auto;

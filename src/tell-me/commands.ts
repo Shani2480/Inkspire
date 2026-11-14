@@ -2,6 +2,8 @@ import { useProofing } from "@/ai/proofing"
 import { useEditorPane } from "@/editor/grammar"
 import { openCompare } from "@/components/compare-dialog"
 import { openCoverGenerator } from "@/components/cover-page-dialog"
+import { openInsertTableDialog } from "@/components/insert-table-dialog"
+import { useTableDraw } from "@/editor/table-draw"
 import { askText } from "@/components/text-prompt"
 import { useAiSettings } from "@/ai/settings"
 import { captureTemplatePlace } from "@/ai/template-place"
@@ -321,14 +323,27 @@ function buildCommands(): TellMeCommand[] {
     },
     {
       id: "insert.table",
-      label: "Insert Table",
+      label: "Insert Table…",
       description: tip("Table"),
-      keywords: ["insert", "table"],
+      keywords: ["insert", "table", "rows", "columns"],
       category: "Insert",
-      run: () =>
-        withEditor((current) =>
-          insertAtSelectionEnd(current).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
-        ),
+      run: () => withEditor((current) => openInsertTableDialog(current, "insert")),
+    },
+    {
+      id: "insert.convert-text-to-table",
+      label: "Convert Text to Table…",
+      description: "Turn the selected paragraphs into a table, split at tabs, commas or paragraphs.",
+      keywords: ["convert", "text", "table"],
+      category: "Insert",
+      run: () => withEditor((current) => openInsertTableDialog(current, "convert")),
+    },
+    {
+      id: "insert.draw-table",
+      label: "Draw Table",
+      description: "Draw a table, its rows and columns with the pencil.",
+      keywords: ["draw", "table", "pencil"],
+      category: "Insert",
+      run: () => useTableDraw.getState().toggle("draw"),
     },
     {
       id: "insert.page-break",

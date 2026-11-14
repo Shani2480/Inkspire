@@ -67,7 +67,9 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
       paragraph, Alt+Shift+Left/Right promote/demote, Alt+Ctrl+F footnote, Alt+Ctrl+D endnote, F9 / Shift+F9 /
       Ctrl+Shift+F9 fields, Ctrl+Shift+F5 bookmark, Shift+F7 thesaurus, Ctrl+Alt+V Paste Special, Ctrl+Shift+S Apply
       Styles (Save As moves to F12).
-- [ ] U8. Insert > Table: Insert Table… dialog (columns, rows, AutoFit), Convert Text to Table, Draw Table.
+- [x] U8. Insert > Table: Insert Table… dialog (columns, rows, AutoFit), Convert Text to Table, Draw Table.
+      Done: Word's 10 × 8 grid and menu, both dialogs (`editor/table-insert.ts`, `components/insert-table-dialog.tsx`).
+      Left out: Excel Spreadsheet and Quick Tables; AutoFit to contents fits once, it does not grow while typing.
 
 ### Wave 2 — common (M)
 
