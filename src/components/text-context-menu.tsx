@@ -10,6 +10,12 @@ import { CellSelection } from "@tiptap/pm/tables"
 import { openBordersAndShading } from "@/components/borders-shading-dialog"
 import { askText } from "@/components/text-prompt"
 import { MenuLabel } from "@/components/menu-icons"
+import { LanguageDialog } from "@/components/status-dialogs"
+import { useAutoCorrectDialog } from "@/components/autocorrect-dialog"
+import { useAutoCorrect } from "@/editor/autocorrect"
+import { replaceSpelling } from "@/editor/actions"
+import { refreshDisplayedMarks } from "@/editor/display-refresh"
+import { addToDictionary, ignoreSpelling, markedLanguageAt, spellingSuggestions } from "@/editor/spellcheck"
 import { useClipboard } from "@/document/clipboard"
 import { useViewStore } from "@/document/view"
 import { useProofing } from "@/ai/proofing"
@@ -37,13 +43,23 @@ type Item = {
   label: string
   run?: () => void
   disabled?: boolean
+  /** A spelling suggestion, drawn bold as Word does. */
+  strong?: boolean
+  /** A line above the item, between Word's menu sections. */
+  divided?: boolean
   children?: { label: string; run: () => void }[]
 }
+
+/** The misspelled word a right-click landed on (an underlined `.spell-error`), with its suggestions. */
+type Misspelling = { from: number; to: number; word: string; suggestions: string[] }
 
 export function TextContextMenu({ editor }: { editor: Editor | null }) {
   const [point, setPoint] = useState<{ x: number; y: number } | null>(null)
   const [query, setQuery] = useState("")
-  const [pasteOpen, setPasteOpen] = useState(false)
+  // The submenu shown beside its row (Paste Options, AutoCorrect, Language).
+  const [openSub, setOpenSub] = useState<string | null>(null)
+  const [misspelling, setMisspelling] = useState<Misspelling | null>(null)
+  const [languageOpen, setLanguageOpen] = useState(false)
   // Where the menu is drawn once measured: below the click when it fits, else above it, as Word does.
   const [placed, setPlaced] = useState<{ left: number; top: number } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -84,7 +100,8 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
       }
       rememberSelection(editor)
       setQuery("")
-      setPasteOpen(false)
+      setOpenSub(null)
+      setMisspelling(misspellingAt(editor, target))
       setPlaced(null)
       setPoint({ x: event.clientX, y: event.clientY })
     }
@@ -124,8 +141,10 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
     setPlaced(placeMenu(point, menu.offsetWidth, menu.offsetHeight))
   }, [point, query])
 
+  const languageDialog =
+    languageOpen && editor ? <LanguageDialog editor={editor} onClose={() => setLanguageOpen(false)} /> : null
   if (!editor || !point) {
-    return null
+    return languageDialog
   }
 
   const word = selectedWord(editor)
@@ -136,7 +155,8 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
   const inList = listAt(editor.state) !== null
   const numbered = numberedListAt(editor.state) !== null
   const entries: Item[] = [
-    { id: "cut", label: "Cut", run: () => cutSelection(editor) },
+    ...(misspelling ? spellingItems(editor, misspelling, () => setLanguageOpen(true)) : []),
+    { id: "cut", label: "Cut", divided: misspelling !== null, run: () => cutSelection(editor) },
     { id: "copy", label: "Copy", run: () => copySelection(editor) },
     {
       id: "paste",
@@ -224,82 +244,171 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
       },
     },
   ]
+  // A submenu opens on the left when the window has no room for it on the right.
+  const subOnLeft = (placed?.left ?? point.x) + 256 + 216 > window.innerWidth
   const needle = query.trim().toLowerCase()
   const visible = needle ? entries.filter((item) => item.label.toLowerCase().includes(needle)) : entries
 
   return createPortal(
-    <div
-      role="menu"
-      aria-label="Text"
-      data-text-menu=""
-      className="app-popup fixed z-[70] w-64 rounded-md border border-[#d0d0d0] bg-white py-1 text-[13px] text-[#242424] shadow-lg"
-      ref={menuRef}
-      style={placed ?? { left: point.x, top: point.y, visibility: "hidden" }}
-      onPointerDown={(event) => event.stopPropagation()}
-      onMouseDown={(event) => {
-        if (event.target instanceof HTMLInputElement) {
-          return
-        }
-        event.preventDefault()
-      }}
-    >
-      <label className="block px-2 py-1">
-        <span className="sr-only">Search the menus</span>
-        <input
-          aria-label="Search the menus"
-          placeholder="Search the menus"
-          value={query}
-          className="h-7 w-full rounded border border-[#d0d0d0] px-2 text-[12px]"
-          onChange={(event) => setQuery(event.target.value)}
-        />
-      </label>
-      {visible.map((item) =>
-        item.children ? (
-          <div key={item.id} className="relative">
-            <button type="button" role="menuitem" className="menu-row" onClick={() => setPasteOpen((open) => !open)}>
+    <>
+      {languageDialog}
+      <div
+        role="menu"
+        aria-label="Text"
+        data-text-menu=""
+        className="app-popup fixed z-[70] w-64 rounded-md border border-[#d0d0d0] bg-white py-1 text-[13px] text-[#242424] shadow-lg"
+        ref={menuRef}
+        style={placed ?? { left: point.x, top: point.y, visibility: "hidden" }}
+        onPointerDown={(event) => event.stopPropagation()}
+        onMouseDown={(event) => {
+          if (event.target instanceof HTMLInputElement) {
+            return
+          }
+          event.preventDefault()
+        }}
+      >
+        <label className="block px-2 py-1">
+          <span className="sr-only">Search the menus</span>
+          <input
+            aria-label="Search the menus"
+            placeholder="Search the menus"
+            value={query}
+            className="h-7 w-full rounded border border-[#d0d0d0] px-2 text-[12px]"
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+        {visible.map((item) =>
+          item.children ? (
+            <div key={item.id} className="relative">
+              <button
+                type="button"
+                role="menuitem"
+                className="menu-row"
+                data-divided={item.divided || undefined}
+                aria-expanded={openSub === item.id}
+                onClick={() => setOpenSub((open) => (open === item.id ? null : item.id))}
+              >
+                <MenuLabel label={item.label} />
+                <span aria-hidden>›</span>
+              </button>
+              {openSub === item.id ? (
+                <div
+                  className={`absolute top-0 z-10 w-52 ${subOnLeft ? "right-full" : "left-full"} rounded-md border border-[#d0d0d0] bg-white py-1 shadow-lg`}
+                >
+                  {item.children.map((child) => (
+                    <button
+                      key={child.label}
+                      type="button"
+                      role="menuitem"
+                      className="menu-row"
+                      onClick={() => {
+                        child.run()
+                        setPoint(null)
+                      }}
+                    >
+                      <MenuLabel label={child.label} />
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <button
+              key={item.id}
+              type="button"
+              role="menuitem"
+              className="menu-row"
+              data-divided={item.divided || undefined}
+              data-strong={item.strong || undefined}
+              disabled={item.disabled}
+              aria-disabled={item.disabled || undefined}
+              onClick={() => {
+                rememberSelection(editor)
+                item.run?.()
+                setPoint(null)
+              }}
+            >
               <MenuLabel label={item.label} />
-              <span aria-hidden>›</span>
             </button>
-            {pasteOpen ? (
-              <div className="absolute top-0 left-full z-10 w-52 rounded-md border border-[#d0d0d0] bg-white py-1 shadow-lg">
-                {item.children.map((child) => (
-                  <button
-                    key={child.label}
-                    type="button"
-                    role="menuitem"
-                    className="menu-row"
-                    onClick={() => {
-                      child.run()
-                      setPoint(null)
-                    }}
-                  >
-                    <MenuLabel label={child.label} />
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        ) : (
-          <button
-            key={item.id}
-            type="button"
-            role="menuitem"
-            className="menu-row"
-            disabled={item.disabled}
-            aria-disabled={item.disabled || undefined}
-            onClick={() => {
-              rememberSelection(editor)
-              item.run?.()
-              setPoint(null)
-            }}
-          >
-            <MenuLabel label={item.label} />
-          </button>
-        ),
-      )}
-    </div>,
+          ),
+        )}
+      </div>
+    </>,
     document.body,
   )
+}
+
+/** The misspelling under a right-click, if the click was on a red underline. */
+function misspellingAt(editor: Editor, target: Element): Misspelling | null {
+  const error = target.closest(".spell-error")
+  if (!(error instanceof HTMLElement)) {
+    return null
+  }
+  const from = Number(error.dataset.spellFrom)
+  const to = Number(error.dataset.spellTo)
+  if (!Number.isInteger(from) || !Number.isInteger(to) || to <= from || to > editor.state.doc.content.size) {
+    return null
+  }
+  const word = editor.state.doc.textBetween(from, to)
+  if (!word) {
+    return null
+  }
+  const suggestions = spellingSuggestions(word, markedLanguageAt(editor.state.doc, from)).slice(0, 5)
+  return { from, to, word, suggestions }
+}
+
+/**
+ * Word's spelling section at the top of the right-click menu: the suggestions (bold), Ignore All, Add to
+ * Dictionary, AutoCorrect (always replace the word with a suggestion from now on) and Language.
+ */
+export function spellingItems(editor: Editor, miss: Misspelling, openLanguage: () => void): Item[] {
+  const fix = (suggestion: string) => replaceSpelling(editor, miss.from, miss.to, suggestion)
+  return [
+    ...(miss.suggestions.length > 0
+      ? miss.suggestions.map((suggestion, index) => ({
+          id: `suggestion-${index}`,
+          label: suggestion,
+          strong: true,
+          run: () => fix(suggestion),
+        }))
+      : [{ id: "no-suggestions", label: "(no spelling suggestions)", disabled: true }]),
+    {
+      id: "ignore-all",
+      label: "Ignore All",
+      divided: true,
+      run: () => {
+        ignoreSpelling(miss.word)
+        refreshDisplayedMarks(editor)
+      },
+    },
+    {
+      id: "add-dictionary",
+      label: "Add to Dictionary",
+      run: () => {
+        addToDictionary(miss.word)
+        refreshDisplayedMarks(editor)
+      },
+    },
+    {
+      id: "autocorrect",
+      label: "AutoCorrect",
+      children: [
+        ...miss.suggestions.map((suggestion) => ({
+          label: suggestion,
+          run: () => {
+            useAutoCorrect.getState().addEntry(miss.word, suggestion)
+            fix(suggestion)
+          },
+        })),
+        { label: "AutoCorrect Options…", run: () => useAutoCorrectDialog.getState().show() },
+      ],
+    },
+    {
+      id: "language",
+      label: "Language",
+      children: [{ label: "Set Proofing Language…", run: openLanguage }],
+    },
+  ]
 }
 
 /** The selection's first word, or with no selection the word the caret is in (Word's "Search “word”"). */
@@ -318,10 +427,21 @@ export function selectedWord(editor: Editor) {
 
 /** Places a menu of the given size at a click: below and to the right when it fits, else flipped above / to the left,
  * and kept 8 px inside the window. */
-export function placeMenu(point: { x: number; y: number }, width: number, height: number, view = { width: innerWidth, height: innerHeight }) {
+export function placeMenu(
+  point: { x: number; y: number },
+  width: number,
+  height: number,
+  view = { width: innerWidth, height: innerHeight },
+) {
   const margin = 8
-  const left = point.x + width <= view.width - margin ? point.x : Math.max(margin, Math.min(point.x - width, view.width - margin - width))
-  const top = point.y + height <= view.height - margin ? point.y : Math.max(margin, Math.min(point.y - height, view.height - margin - height))
+  const left =
+    point.x + width <= view.width - margin
+      ? point.x
+      : Math.max(margin, Math.min(point.x - width, view.width - margin - width))
+  const top =
+    point.y + height <= view.height - margin
+      ? point.y
+      : Math.max(margin, Math.min(point.y - height, view.height - margin - height))
   return { left, top }
 }
 

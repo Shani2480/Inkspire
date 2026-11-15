@@ -3111,50 +3111,6 @@ button.line-menu-row:focus-visible {
   text-decoration-style: double;
 }
 
-.spell-menu {
-  position: fixed;
-  z-index: 50;
-  width: 12rem;
-  padding: 0.25rem;
-  border-radius: 0.5rem;
-  border: 1px solid var(--app-popover-border);
-  background: var(--app-popover-bg);
-  color: var(--app-ribbon-text);
-  box-shadow:
-    0 0 0 1px var(--app-popover-border, #e1dfdd),
-    0 8px 18px rgb(0 0 0 / 14%);
-}
-
-.dark .spell-menu {
-  box-shadow:
-    0 0 0 1px var(--app-popover-border, #484644),
-    0 8px 18px rgb(0 0 0 / 0.45);
-}
-
-.spell-menu-muted {
-  margin: 0;
-  padding: 0.375rem 0.5rem;
-  font-size: 0.75rem;
-  line-height: 1.25;
-  color: var(--app-ribbon-muted);
-}
-
-.spell-menu-actions {
-  margin-top: 0.25rem;
-  padding-top: 0.25rem;
-  border-top: 1px solid var(--app-divider, var(--app-popover-border));
-}
-
-.spell-menu .spell-menu-item {
-  color: inherit;
-}
-
-.spell-menu .spell-menu-item:hover,
-.spell-menu .spell-menu-item[aria-pressed="true"] {
-  background: var(--app-hover);
-  color: inherit;
-}
-
 .page-editor .tell-me-flash {
   border-radius: 2px;
   background: color-mix(in srgb, var(--app-theme-primary, #0f6cbd) 35%, transparent);
@@ -5055,7 +5011,6 @@ button.line-menu-row:focus-visible {
   .mini-toolbar,
   .object-editor,
   .field-editor,
-  .spell-menu,
   .comment-markers,
   .table-handles {
     display: none !important;
@@ -7371,6 +7326,16 @@ li[data-drop-cap="margin"]::first-letter {
 .menu-row:disabled {
   color: var(--app-ribbon-disabled);
   cursor: default;
+}
+
+/* Word's right-click menu: spelling suggestions in bold, a line between its sections. */
+.menu-row[data-strong] {
+  font-weight: 600;
+}
+
+.menu-row[data-divided] {
+  margin-top: 4px;
+  box-shadow: 0 -1px 0 var(--app-popover-border);
 }
 
 .object-menu-item:hover:not(:disabled) {
@@ -11087,7 +11052,6 @@ html.dark .asset-library .asset-library-icon {
 .backstage .backstage-content,
 [data-slot="popover-content"],
 [data-slot="tooltip-content"],
-.spell-menu,
 .object-menu,
 .mini-menu,
 .line-menu-sub {

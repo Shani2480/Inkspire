@@ -689,6 +689,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the Android tablet (the APK on a touch screen)
 
+- [ ] **Spelling suggestions by long press (2026-11-15)**: a long press on a red-underlined word opens the menu
+      with its suggestions at the top (a tap no longer does); choosing one replaces the word.
+
 - [ ] **Stock 3D models (2026-10-28)** — the 3D Models library's Electronics, Anatomy, Furniture and Symbols tiles
       show their pictures on the tablet; an inserted model turns smoothly with a finger.
 - [ ] **Resize and crop with a finger (2026-10-28)** — dragging a picture's or shape's resize handle, a crop handle,

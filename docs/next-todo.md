@@ -132,7 +132,9 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
   - [x] (2026-11-15) Lists made in the app save as one level of "1." / "•". Write their own number formats (a., i.,
         1), ✓…) and nested levels to `numbering.xml`, with Word's indents per level. Done (`appListDefinition`),
         checked in Word. Left: the marker's place before the text; the space below an app list (see `changes.md`).
-- [ ] U20. Spelling context menu: Ignore All, AutoCorrect submenu, Language; grammar marks (listed: Editor pane).
+- [x] U20. (2026-11-15; grammar marks stay listed with the Editor pane) Spelling context menu: Ignore All,
+      AutoCorrect submenu, Language; grammar marks (listed: Editor pane). Done in `components/text-context-menu.tsx`.
+      Left: Language Preferences… (U24); Ignore All kept with the document.
 - [ ] U21. Symbol dialog: font and subset, character code (Unicode/ASCII), Special Characters tab, Shortcut Key…
 - [ ] U22. Quick Parts: Field… dialog (every field with its switches), Document Property, AutoText, Building Blocks
       Organizer.

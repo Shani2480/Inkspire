@@ -41,7 +41,6 @@ import { AccessibilityPane } from "@/components/accessibility-pane"
 import { ApplyStylesBox, RevealFormattingPane, StyleInspector, StylesPane } from "@/components/styles-pane"
 import { EditorPane } from "@/components/editor-pane"
 import { ReviewPanel } from "@/components/review-panel"
-import { SpellMenu } from "@/components/spell-menu"
 import { SelectionPane } from "@/components/selection-pane"
 import { FormatShapePane } from "@/components/format-shape-pane"
 import { StatusBar } from "@/components/status-bar"
@@ -341,7 +340,6 @@ function DocumentShell({ onReady }: WorkspaceProps) {
       <FindDialog />
       <HelpDialogs />
       <OptionsDialog />
-      <SpellMenu />
       <ProofingPanel />
       <FieldEditor />
       <TocDialogHost />

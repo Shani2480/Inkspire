@@ -7,6 +7,33 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-15
 
+### Spelling in the right-click menu: Ignore All, AutoCorrect, Language (U20)
+
+- **What was wrong or missing:** a left click on a red underline opened a small menu of its own (suggestions, Add
+  to dictionary, Ignore), which Word does not have, and the right-click menu knew nothing about spelling. There was
+  no AutoCorrect or Language choice for a misspelling. The checker's suggestions came in its own order, so "wrods"
+  offered prods, woods, rods, then words.
+- **What changed:**
+  - `components/text-context-menu.tsx`: a right-click on a misspelling starts the menu with Word's spelling section:
+    up to five suggestions in bold (or "(no spelling suggestions)"), Ignore All, Add to Dictionary, AutoCorrect ›
+    (each suggestion adds an AutoCorrect entry and fixes the word; AutoCorrect Options…) and Language › Set
+    Proofing Language… (the Language dialog). A line separates it from Cut, Copy…. Menu rows can open any submenu
+    (Paste Options was the only one), on the left when the window has no room on the right.
+  - The left-click spelling popup (`components/spell-menu.tsx`) and its styles are gone.
+  - `editor/spellcheck.ts`: `rankSuggestions` puts suggestions made of the typo's own letters first (a swap), the
+    rest in the checker's order; the Editor pane gets the same order.
+- **Checked:** `components/text-context-menu.test.ts` (3 new tests); the full suite, 1539 tests pass; typecheck and
+  ESLint clean. Headless Chrome with the real checker, light and dark: right-click "wrods" shows words, prods,
+  woods, rods, then Ignore All… ; the AutoCorrect submenu lists them and AutoCorrect Options…; Ignore All clears
+  both "wrods" underlines; Set Proofing Language… opens the Language dialog; a suggestion replaces the word; a left
+  click opens no menu; nothing in the menu scrolls or sits off screen.
+- **Still open:**
+  - Word 365 shows the spelling part as a card with "See More" (the Editor pane); this follows the classic list,
+    from memory (no screenshot of Word's spelling menu in the repo).
+  - Ignore All lasts for the session in this app; Word keeps it with the document.
+  - Language › Language Preferences… (needs Options > Language, U24). Grammar marks stay with the Editor pane item.
+  - On the tablet, suggestions now need a long press (the right-click menu) instead of a tap.
+
 ### KeyTips: Alt or F10 shows letters on the ribbon (U18)
 
 - **What was missing:** Word's KeyTips. Alt did nothing, so the ribbon could not be used from the keyboard.

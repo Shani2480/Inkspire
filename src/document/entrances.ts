@@ -15,7 +15,7 @@ const ENTRANCES: { selector: string; from: (element: HTMLElement) => FrameMotion
   { selector: '[data-slot="tooltip-content"]', from: () => ({ opacity: 0 }), duration: 150 },
   { selector: ".backstage:not(.is-instant) .backstage-nav", from: () => ({ opacity: 0, x: -24 }), duration: 260 },
   { selector: ".backstage:not(.is-instant) .backstage-content", from: () => ({ opacity: 0, x: 16 }), duration: 260 },
-  { selector: ".spell-menu, .object-menu, .mini-menu", from: () => ({ opacity: 0 }), duration: 160 },
+  { selector: ".object-menu, .mini-menu", from: () => ({ opacity: 0 }), duration: 160 },
   { selector: ".line-menu-sub", from: () => ({ opacity: 0, x: 12 }), duration: 160 },
 ]
 

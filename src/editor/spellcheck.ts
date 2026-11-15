@@ -220,14 +220,28 @@ export function spellingSuggestions(word: string, tag?: string | null) {
   }
   try {
     const own = useEditingOptions.getState().mainDictionaryOnly ? customWordSet(language) : null
-    return spell
-      .suggest(target)
-      .filter((suggestion) => !own?.has(normalizeToken(suggestion)))
+    return rankSuggestions(
+      target,
+      spell.suggest(target).filter((suggestion) => !own?.has(normalizeToken(suggestion))),
+    )
       .slice(0, SUGGESTION_LIMIT)
       .map((suggestion) => matchCase(word, suggestion))
   } catch {
     return []
   }
+}
+
+/**
+ * Puts suggestions made of the typo's own letters first (two letters swapped, "wrods" → "words"), as Word does; the
+ * others keep the checker's order.
+ */
+export function rankSuggestions(word: string, suggestions: string[]) {
+  const letters = (text: string) => [...normalizeToken(text)].sort().join("")
+  const own = letters(word)
+  return [
+    ...suggestions.filter((suggestion) => letters(suggestion) === own),
+    ...suggestions.filter((suggestion) => letters(suggestion) !== own),
+  ]
 }
 
 function normalizeToken(word: string) {
