@@ -9,7 +9,7 @@ import {
   type ChromeSlot,
   type SectionChrome,
 } from "@/document/sections"
-import type { WordLevel } from "@/editor/word-markers"
+import { appLevel, type WordLevel } from "@/editor/word-markers"
 import { parseListIndent } from "@/editor/lists"
 import { chromeHasContent, chromeHasPageField } from "@/document/chrome-html"
 import { chromeJson } from "@/document/chrome-json"
@@ -94,6 +94,8 @@ import {
   type TableCell,
   type TableRow,
   type WordDocument,
+  type NumberFormat,
+  type NumberingLevel,
 } from "@/document/docx/model"
 
 const TWIP_PER_MM = 1440 / 25.4
@@ -124,8 +126,8 @@ type Build = InlineBuild & {
   styles: StyleDef[]
   /** The source document's Word styles, for what a paragraph took from its style when it was opened. */
   wordStyles: Style[]
-  bulletId: number
-  orderedId: number
+  /** The numbering instance of each app-made list definition already written, by its levels. */
+  appLists?: Map<string, number>
   /** The numbering instance each family of numbered lists is counting with, as the body is written in order. */
   listChains?: Map<string, number>
   origins: Origins
@@ -567,8 +569,6 @@ function newBuild(
         .concat([...reserved].map((name) => name.toLowerCase())),
     ),
     preserved: source?.preserved,
-    bulletId: 0,
-    orderedId: 0,
     origins,
     numbering: source?.numbering ?? emptyNumbering(),
     runs: origins.runs,
@@ -2459,7 +2459,7 @@ function blocksFromNodes(nodes: JsonNode[], build: Build, level: number, top = f
   return blocks
 }
 
-function blocksFromList(node: JsonNode, build: Build, level: number): Block[] {
+function blocksFromList(node: JsonNode, build: Build, level: number, parentNumId?: number): Block[] {
   const kind = node.type === "orderedList" ? "ordered" : "bullet"
   // An opened list keeps its numbering instance, so restarts, start values and level formats survive.
   const sourceNumId = (child: JsonNode | undefined) => {
@@ -2473,7 +2473,8 @@ function blocksFromList(node: JsonNode, build: Build, level: number): Block[] {
   }
   const items = (node.content ?? []).filter((item) => item.type === "listItem")
   const openedNumId = items.map((item) => sourceNumId(item.content?.[0])).find((numId) => numId !== undefined)
-  let listNumId = openedNumId ?? appListNumId(build, kind)
+  // A nested list counts in its parent's numbering at its own level, as Word's lists do.
+  let listNumId = openedNumId ?? parentNumId ?? appListNumId(build, node)
   let keepItems = true
   if (kind === "ordered" && level === 0) {
     const chosen = orderedNumbering(node, listNumId, openedNumId, build)
@@ -2500,7 +2501,7 @@ function blocksFromList(node: JsonNode, build: Build, level: number): Block[] {
         continue
       }
       if (child.type === "bulletList" || child.type === "orderedList") {
-        blocks.push(...blocksFromList(child, build, level + 1))
+        blocks.push(...blocksFromList(child, build, level + 1, numId))
         continue
       }
       const block = blockFromNode(child, build)
@@ -3019,8 +3020,7 @@ function gridColumn(cells: { gridSpan?: number }[], index: number) {
 }
 
 function ensureListNumbering(numbering: NumberingDefinitions, json: JsonNode, build: Build) {
-  build.bulletId = 0
-  build.orderedId = 0
+  build.appLists = new Map()
   if (!treeHas(json, "bulletList") && !treeHas(json, "orderedList")) {
     return numbering
   }
@@ -3030,46 +3030,71 @@ function ensureListNumbering(numbering: NumberingDefinitions, json: JsonNode, bu
 
 /**
  * The app's own numbering for a list made in the editor, added the first time one needs it: a document whose lists
- * all came from Word gains nothing. Only the app's one-level numbering is reused; a Word list (nine levels) counts
- * with its own paragraphs, and an app list sharing it would carry on its numbers in Word.
+ * all came from Word gains nothing. Its nine levels are what the editor draws at each depth (`appListLevels`): the
+ * list at that depth's own kind and marker, else the app's usual 1. a. i. / • ○ ■, or 1. 1.1. 1.1.1. for Legal,
+ * indented as Word's own lists (the text 0.5" a level in, the marker hanging 0.25" before it). An identical definition already in the file is reused;
+ * a Word list counts with its own paragraphs, so it is never shared.
  */
-function appListNumId(build: Build, kind: "bullet" | "ordered") {
-  const known = kind === "bullet" ? build.bulletId : build.orderedId
-  if (known) {
+function appListNumId(build: Build, node: JsonNode) {
+  const levels = appListDefinition(node)
+  const key = JSON.stringify(levels)
+  const cache = (build.appLists ??= new Map())
+  const known = cache.get(key)
+  if (known !== undefined) {
     return known
   }
-  const format = kind === "bullet" ? "bullet" : "decimal"
   const { abstracts, instances } = build.numbering
   const found = instances.find((instance) => {
-    const levels = abstracts.find((item) => item.id === instance.abstractNumId)?.levels ?? []
-    return levels.length === 1 && levels[0].format === format && Object.keys(levels[0].pPr).length === 0
+    const abstract = abstracts.find((item) => item.id === instance.abstractNumId)
+    return !instance.overrides?.length && abstract && JSON.stringify(abstract.levels) === key
   })
   let numId = found?.id
   if (numId === undefined) {
     const abstractId = Math.max(0, ...abstracts.map((item) => item.id)) + 1
     numId = Math.max(0, ...instances.map((item) => item.id)) + 1
-    abstracts.push({
-      id: abstractId,
-      levels: [
-        {
-          ilvl: 0,
-          start: 1,
-          format,
-          text: format === "bullet" ? "•" : "%1.",
-          justify: "left",
-          pPr: {},
-          rPr: {},
-        },
-      ],
-    })
+    abstracts.push({ id: abstractId, multiLevelType: "hybridMultilevel", levels })
     instances.push({ id: numId, abstractNumId: abstractId })
   }
-  if (kind === "bullet") {
-    build.bulletId = numId
-  } else {
-    build.orderedId = numId
-  }
+  cache.set(key, numId)
   return numId
+}
+
+/** Word levels for an app-made list and the lists nested in it, as the list marker decorations draw them. */
+export function appListDefinition(node: JsonNode): NumberingLevel[] {
+  const legal = node.type === "orderedList" && node.attrs?.scheme === "legal"
+  const drawn: { kind: "bullet" | "ordered"; marker: string | null }[] = []
+  const walk = (list: JsonNode, depth: number) => {
+    if (depth > 8) {
+      return
+    }
+    const marker = typeof list.attrs?.marker === "string" && list.attrs.marker ? list.attrs.marker : null
+    drawn[depth] ??= { kind: list.type === "orderedList" ? "ordered" : "bullet", marker }
+    for (const item of list.content ?? []) {
+      for (const child of item.content ?? []) {
+        if (child.type === "bulletList" || child.type === "orderedList") {
+          walk(child, depth + 1)
+        }
+      }
+    }
+  }
+  walk(node, 0)
+  return Array.from({ length: 9 }, (_, ilvl) => {
+    const own = drawn[ilvl] ?? { kind: drawn[0].kind, marker: null }
+    const level = legal
+      ? { format: "decimal", text: Array.from({ length: ilvl + 1 }, (_, i) => `%${i + 1}`).join(".") + ".", start: 1 }
+      : appLevel(own.kind, own.marker, ilvl)
+    return {
+      ilvl,
+      start: level.start,
+      format: level.format as NumberFormat,
+      text: level.text,
+      ...(legal ? { legal: true } : {}),
+      justify: "left" as const,
+      // Legal numbers grow a part a level, so their hanging grows with them (the text stays 0.5" a level).
+      pPr: { ind: { left: 720 * (ilvl + 1), hanging: legal ? 360 + 216 * ilvl : 360 } },
+      rPr: {},
+    }
+  })
 }
 
 /**

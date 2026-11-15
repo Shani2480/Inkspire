@@ -1987,10 +1987,11 @@ button.line-menu-row:focus-visible {
   text-decoration: underline dotted #888;
 }
 
+/* The app's own lists: text 0.5" in a level, as Word's lists and as they are saved (`appListDefinition`). */
 .page-editor ul,
 .page-editor ol {
   margin: 0 0 0.75em;
-  padding-left: 1.75em;
+  padding-left: 36pt;
   list-style-position: outside;
 }
 

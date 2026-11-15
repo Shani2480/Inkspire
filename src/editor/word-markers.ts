@@ -160,19 +160,23 @@ const APP_FORMATS: Record<string, { format: string; text: string }> = {
  * (Adjust List Indents): its marker on the first level, and the app's usual sequence below it.
  */
 export function appListLevels(kind: "bullet" | "ordered", marker: string | null): WordLevel[] {
+  return Array.from({ length: 9 }, (_, index) => ({ ...appLevel(kind, index === 0 ? marker : null, index), hang: 18 }))
+}
+
+/**
+ * The Word format and marker text the editor draws for one level of the app's own list: its own marker (a CSS list
+ * style, or a quoted bullet character), else the app's usual sequence for the level (1. a. i. / • ○ ■).
+ */
+export function appLevel(kind: "bullet" | "ordered", marker: string | null, index: number) {
   const sequence = kind === "bullet" ? ["disc", "circle", "square"] : ["decimal", "lower-alpha", "lower-roman"]
-  return Array.from({ length: 9 }, (_, index) => {
-    const own = index === 0 ? marker : null
-    const quoted = own?.match(/^'(.+?)\s*'$/)?.[1]
-    const found = APP_FORMATS[own ?? ""] ?? APP_FORMATS[sequence[index % sequence.length]]
-    const level = quoted ? { format: "bullet", text: quoted } : found
-    return {
-      format: level.format,
-      text: level.format === "bullet" ? level.text : level.text.replace("%", `%${index + 1}`),
-      start: 1,
-      hang: 18,
-    }
-  })
+  const quoted = marker?.match(/^'(.+?)\s*'$/)?.[1]
+  const found = APP_FORMATS[marker ?? ""] ?? APP_FORMATS[sequence[index % sequence.length]]
+  const level = quoted ? { format: "bullet", text: quoted } : found
+  return {
+    format: level.format,
+    text: level.format === "bullet" ? level.text : level.text.replace("%", `%${index + 1}`),
+    start: 1,
+  }
 }
 
 /** A level's number in its Word format. */

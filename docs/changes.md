@@ -7,6 +7,37 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-15
 
+### Lists made in the app save their own formats and nested levels to Word
+
+- **What was wrong or missing:** every list made in the app was saved against one Word numbering with a single
+  level, "1." or "•", and no indents. A nested item was written at `ilvl` 1, 2… that the numbering did not define, so
+  Word drew nested lists its own way. A list's own marker (a., I., 1), ✓…), Legal 1.1. numbering and bullets inside
+  a numbered list were all lost, and the text sat at the margin with no hanging indent.
+- **What changed:**
+  - **Save** (`document/docx/project.ts`, `appListDefinition` / `appListNumId`): each app-made list gets a
+    nine-level Word numbering built from what the editor draws at each depth: that depth's list's own kind and
+    marker, else 1. a. i. / • ○ ■, or 1. 1.1. 1.1.1. (with `w:isLgl`) for Legal. Indents are Word's: the text 0.5" in
+    a level, the marker hanging 0.25" (Legal's hang grows a part a level so its numbers fit). Nested lists share
+    their parent's `w:num` at their own level. A definition already in the file is reused when identical; numbered
+    lists still each get their own `w:num` and restart as before (U19).
+  - **Drawing** (`index.css`, `editor/indent.ts`): the app's own lists step 36 pt (0.5") a level instead of 1.75em,
+    so the screen and Word put the text in the same place, before and after a save. Adjust List Indents now reads
+    Word's defaults for them.
+  - `editor/word-markers.ts`: `appLevel`, one level of an app list as a Word format and text.
+- **Checked:**
+  - `document/docx/app-lists.test.ts` (7 tests): nested 1. a. i. as one list with Word's indents, nested bullets,
+    own markers also on a nested list, Legal, bullets in a numbered list, reuse with separate restarts, reopening.
+  - The full suite: 1532 tests pass. Typecheck and ESLint are clean.
+  - The validator: 0 errors on all seven saves.
+  - **Real Word (office-runner VM)** rendered all seven: 1. a. i., • ○ ■, I. / 1) / ✓, 1. 1.1. 1.1.1., ○ under a
+    number, two lists each from 1. Word's text positions (from the PDF) are 36 / 72 / 108 pt from the margin; the
+    editor's, measured in headless Chrome, are the same.
+- **Still open:**
+  - The editor draws an app list's marker right before the text (CSS markers); Word left-aligns it 0.25" before.
+  - Spacing: the editor still puts 0.75em below an app list; Word's list paragraphs keep only their own spacing.
+  - An item indented with Tab inside a list with its own marker draws that marker; the save uses the level's
+    default format there.
+
 ### Text right-click menu: fits the window; Search names the caret's word (U19 follow-up)
 
 - **What was wrong or missing:** the text right-click menu was clamped to a fixed 360 px from the window's bottom,
@@ -72,8 +103,7 @@ in Word, Chrome or the desktop app.
 - **Still open:**
   - Adjust List Indents for deeper levels (it changes the first level only), and drawing the added tab stop in the
     editor (it is saved).
-  - Lists made in the app still save as one level of "1." / "•": their own formats (a., i., ✓) and nested levels
-    are not written to Word (logged in `next-todo.md`).
+  - Lists made in the app saving as one level of "1." / "•": fixed the same day (entry above).
   - Word's list menu items come from memory; there is no screenshot of Word's list right-click menu in the repo.
 
 ## 2026-11-14

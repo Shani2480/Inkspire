@@ -45,7 +45,7 @@ describe("a list item's own indent", () => {
     const editor = new Editor({ extensions, content: html })
     editors.push(editor)
     expect(editor.getHTML()).toContain("--list-indent-step: 54pt")
-    expect(editor.getHTML()).toContain("margin-left: calc(1 * var(--list-indent-step, 1.75em))")
+    expect(editor.getHTML()).toContain("margin-left: calc(1 * var(--list-indent-step, 36pt))")
 
     const saved = await saveDocxBytes({
       json: editor.getJSON(),

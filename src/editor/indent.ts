@@ -14,7 +14,8 @@ import { holdObserver } from "@/editor/page-grid"
 
 export const INDENT_MAX = 8
 export const INDENT_STEP_PX = 24
-const LIST_INDENT_STEP = "1.75em"
+/** The app's own lists step 0.5" a level, as Word's lists do (and as they are saved, `appListDefinition`). */
+const LIST_INDENT_STEP = "36pt"
 
 const BULLET_MARKERS = ["disc", "circle", "square"]
 const ORDERED_MARKERS = ["decimal", "lower-alpha", "lower-roman"]
