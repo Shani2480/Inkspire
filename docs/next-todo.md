@@ -122,7 +122,9 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
       selection, with "Do not check spelling". Done 2026-11-14 (`components/status-bar.tsx`,
       `components/status-dialogs.tsx`, `editor/proofing.ts`, `editor/word-count.ts`). Left: Formatted Page Number,
       Vertical Page Position, Line Number and Column; Zoom's Text width; Detect language automatically.
-- [ ] U18. KeyTips (Alt shows letter badges on tabs and commands).
+- [x] U18. (2026-11-15) KeyTips (Alt shows letter badges on tabs and commands). Done
+      (`components/ribbon/keytips.ts`, `keytips-layer.tsx`). Left: KeyTips inside opened menus and galleries; Word's
+      own letters for the tabs not yet in the table (generated ones meanwhile).
 - [x] U19. (2026-11-15) List context menu: Restart at 1, Continue Numbering, Set Numbering Value, Adjust List Indents.
       Done (`editor/list-numbering.ts`, `components/list-numbering-dialogs.tsx`, `components/text-context-menu.tsx`,
       save in `docx/project.ts`); Word numbers the saves like the app. Left: Adjust List Indents for deeper levels;

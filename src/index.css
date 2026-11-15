@@ -83,6 +83,9 @@
   --app-ruler-label: #605e5c;
   --app-page-shadow: 0 0 0 1px rgb(0 0 0 / 0.06), 0 2px 8px rgb(0 0 0 / 0.12), 0 8px 24px rgb(0 0 0 / 0.08);
   --app-popover-bg: #ffffff;
+  --app-keytip-bg: #f3f2f1;
+  --app-keytip-border: #8a8886;
+  --app-keytip-text: #201f1e;
   --app-popover-border: #e1dfdd;
   --dlg-bg: #f9f9f9;
   --dlg-surface: #ffffff;
@@ -177,6 +180,9 @@
   --app-ruler-label: #a19f9d;
   --app-page-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
   --app-popover-bg: #2d2d2d;
+  --app-keytip-bg: #3b3a39;
+  --app-keytip-border: #a19f9d;
+  --app-keytip-text: #ffffff;
   --app-popover-border: #484644;
   color-scheme: dark;
   --dlg-bg: #2b2b2b;
@@ -16240,4 +16246,33 @@ textarea.tp-input {
   color: var(--dlg-muted);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Word's KeyTips (Alt / F10): a small box under the middle of each tab or command, over everything. */
+.keytips-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  pointer-events: none;
+}
+
+.keytip {
+  position: fixed;
+  translate: -50% 0;
+  min-width: 16px;
+  height: 17px;
+  padding: 0 3px;
+  box-sizing: border-box;
+  border: 1px solid var(--app-keytip-border);
+  border-radius: 2px;
+  background: var(--app-keytip-bg);
+  color: var(--app-keytip-text);
+  font: 600 11px/15px "Segoe UI", system-ui, sans-serif;
+  text-align: center;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+}
+
+.keytip[data-disabled] {
+  opacity: 0.45;
 }

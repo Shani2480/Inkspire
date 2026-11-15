@@ -7,6 +7,35 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-15
 
+### KeyTips: Alt or F10 shows letters on the ribbon (U18)
+
+- **What was missing:** Word's KeyTips. Alt did nothing, so the ribbon could not be used from the keyboard.
+- **What changed:**
+  - `components/ribbon/keytips-layer.tsx` (new, mounted in `workspace.tsx`): Alt pressed and released on its own,
+    or F10, badges File, the tabs and the Quick Access Toolbar (1–9, then 09, 08…). A tab's letters open it and
+    badge its commands; a command's letters press it (a split button's arrow when Word's key opens its menu: Paste
+    V, Font Color FC, Bullets U…; text boxes are focused, check boxes ticked). Alt+letter goes straight to a tab
+    (Alt+H). Backspace takes a letter back, Esc goes back a level, and Alt, F10, a click, the wheel, resizing or
+    leaving the window hides them. Not shown while a modal dialog is open. Alt with Shift, Ctrl or a symbol
+    (Alt+Shift+X, Alt+=) stays a shortcut.
+  - The layer reads the ribbon from the page (the tab panel in front, each control's name), so every tab, contextual
+    tab and the user's own tabs get KeyTips without each button being tagged. Style thumbnails get none; the
+    gallery's More button gets L, launchers their own letters (FO, FN, PG, FY).
+  - `components/ribbon/keytips.ts` (new): Word's letters for the tabs and for Home, Insert, Design, Layout,
+    References, Review and View; every other control gets two letters of its name. Keys on one level never start
+    another key, so typing stops at the first full match.
+  - Badges use theme tokens (`--app-keytip-*`) in light and dark.
+- **Checked:** `components/ribbon/keytips.test.ts` (4 tests); the full suite, 1536 tests pass; typecheck and ESLint
+  clean. Headless Chrome with real key events, light and dark: Alt badges File, the tabs and the toolbar; H then 1
+  bolds the selection with the text unchanged; Alt, N opens Insert; Esc goes back to the tabs and then hides them;
+  Alt+W opens View with Ruler R, Gridlines G, Navigation Pane K; F10 shows and hides; Alt+Shift shows nothing.
+- **Still open:**
+  - Word's letters come from memory (Word 365); there is no screenshot of Word's KeyTips in the repo, and the Word
+    in the VM runs hidden (PDF export only), so it cannot show them.
+  - No KeyTips inside the menus and galleries a key opens (Word goes on badging their items); arrows work there.
+  - Tabs with no Word letters known (Draw, Mailings commands, contextual tabs' commands) use generated letters.
+  - Controls scrolled out of a narrow ribbon get no badge until it is scrolled.
+
 ### Lists made in the app save their own formats and nested levels to Word
 
 - **What was wrong or missing:** every list made in the app was saved against one Word numbering with a single

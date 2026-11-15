@@ -1,3 +1,4 @@
+import { KeyTipsLayer } from "@/components/ribbon/keytips-layer"
 import { QuickAccessToolbar } from "@/components/quick-access"
 import { ChartFormatPane } from "@/components/chart-format-pane"
 import { HelperToolsDialog } from "@/components/helper-tools-dialog"
@@ -286,6 +287,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
         {/* Kept mounted, only hidden, so its tab and state are as they were when the reading is over. */}
         <div className={reading ? "hidden" : "contents"}>
           <Ribbon />
+          <KeyTipsLayer />
           <QuickAccessToolbar placement="below" />
         </div>
         <div className="flex min-h-0 min-w-0 flex-1 flex-row">
