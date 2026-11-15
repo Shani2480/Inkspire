@@ -1,15 +1,8 @@
-import {
-  applyBullet,
-  applyMultilevel,
-  applyNumbering,
-  clearList,
-  continueNumbering,
-  readNumberStart,
-  setNumberStart,
-} from "@/editor/home-actions"
+import { applyBullet, applyMultilevel, applyNumbering, clearList } from "@/editor/home-actions"
+import { SetNumberingValueDialog } from "@/components/list-numbering-dialogs"
 import { setListLevel } from "@/editor/indent"
 import type { Editor } from "@tiptap/core"
-import { useEffect, useState, type ReactNode } from "react"
+import { useState, type ReactNode } from "react"
 import { DialogFrame } from "@/components/word-dialog"
 
 const NUMBER_FORMATS = [
@@ -208,7 +201,7 @@ export function ListDialogs({
     return <DefineNumberFormat editor={editor} onClose={onClose} />
   }
   if (dialog === "number-value") {
-    return <SetNumberingValue editor={editor} onClose={onClose} />
+    return <SetNumberingValueDialog editor={editor} onClose={onClose} />
   }
   if (dialog === "bullet") {
     return <DefineBullet editor={editor} onClose={onClose} />
@@ -432,54 +425,6 @@ function DefineNumberFormat({ editor, onClose }: { editor: Editor; onClose: () =
         onOk={() => {
           applyNumbering(editor, marker)
           editor.chain().focus().setTextAlign(align).run()
-          onClose()
-        }}
-      />
-    </DialogShell>
-  )
-}
-
-function SetNumberingValue({ editor, onClose }: { editor: Editor; onClose: () => void }) {
-  const [mode, setMode] = useState<"start" | "continue">("start")
-  const [value, setValue] = useState("1")
-
-  useEffect(() => {
-    setValue(String(readNumberStart(editor)))
-  }, [editor])
-
-  return (
-    <DialogShell title="Set Numbering Value" onClose={onClose}>
-      <label className="flex items-center gap-2 text-sm text-neutral-800">
-        <input type="radio" name="number-value" checked={mode === "start"} onChange={() => setMode("start")} />
-        Start new list
-      </label>
-      <label className="mt-2 flex items-center gap-2 pl-6 text-xs text-neutral-600">
-        Set value to
-        <input
-          aria-label="Set value to"
-          type="number"
-          min={1}
-          value={value}
-          disabled={mode !== "start"}
-          className="h-8 w-20 rounded-md border border-black/15 px-2 text-sm text-neutral-900"
-          onChange={(event) => setValue(event.target.value)}
-        />
-      </label>
-      <label className="mt-3 flex items-center gap-2 text-sm text-neutral-800">
-        <input type="radio" name="number-value" checked={mode === "continue"} onChange={() => setMode("continue")} />
-        Continue from previous list
-      </label>
-      <DialogButtons
-        onClose={onClose}
-        onOk={() => {
-          if (mode === "continue") {
-            continueNumbering(editor)
-          } else {
-            if (!editor.isActive("orderedList")) {
-              applyNumbering(editor, "decimal")
-            }
-            setNumberStart(editor, Number(value) || 1)
-          }
           onClose()
         }}
       />

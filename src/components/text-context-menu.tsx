@@ -20,6 +20,14 @@ import { requestFormatDialog } from "@/components/format-dialogs"
 import { findSelection } from "@/components/find-dialog"
 import { rememberSelection } from "@/editor/selection-memory"
 import { inTable } from "@/editor/table-tools"
+import { openAdjustListIndents, openSetNumberingValue } from "@/components/list-numbering-dialogs"
+import {
+  canContinueNumbering,
+  continueNumbering,
+  listAt,
+  numberedListAt,
+  restartNumbering,
+} from "@/editor/list-numbering"
 import type { Editor } from "@tiptap/core"
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
@@ -28,6 +36,7 @@ type Item = {
   id: string
   label: string
   run?: () => void
+  disabled?: boolean
   children?: { label: string; run: () => void }[]
 }
 
@@ -115,6 +124,8 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
   const citation = citationAt(editor)
   const selection = editor.state.selection
   const onBibliography = selection instanceof NodeSelection && selection.node.type.name === "bibliography"
+  const inList = listAt(editor.state) !== null
+  const numbered = numberedListAt(editor.state) !== null
   const entries: Item[] = [
     { id: "cut", label: "Cut", run: () => cutSelection(editor) },
     { id: "copy", label: "Copy", run: () => copySelection(editor) },
@@ -131,6 +142,22 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
     },
     { id: "font", label: "Font…", run: () => requestFormatDialog("font") },
     { id: "paragraph", label: "Paragraph…", run: () => requestFormatDialog("paragraph") },
+    // Word's list commands: Adjust List Indents on any list; restarting and continuing on a numbered one.
+    ...(inList
+      ? [{ id: "list-indents", label: "Adjust List Indents…", run: () => openAdjustListIndents(editor) }]
+      : []),
+    ...(numbered
+      ? [
+          { id: "restart-numbering", label: "Restart at 1", run: () => restartNumbering(editor) },
+          {
+            id: "continue-numbering",
+            label: "Continue Numbering",
+            disabled: !canContinueNumbering(editor.state),
+            run: () => continueNumbering(editor),
+          },
+          { id: "numbering-value", label: "Set Numbering Value…", run: () => openSetNumberingValue(editor) },
+        ]
+      : []),
     // Word's citation menu (the control's drop-down): Edit Citation, Edit Source, static text, Update.
     ...(citation
       ? [
@@ -246,6 +273,8 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
             type="button"
             role="menuitem"
             className="menu-row"
+            disabled={item.disabled}
+            aria-disabled={item.disabled || undefined}
             onClick={() => {
               rememberSelection(editor)
               item.run?.()

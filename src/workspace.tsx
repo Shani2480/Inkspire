@@ -69,6 +69,7 @@ import { ColumnsDialogHost } from "@/components/columns-dialog"
 import { InsertTableDialogHost } from "@/components/insert-table-dialog"
 import { CaptionDialogsHost } from "@/components/caption-dialogs"
 import { TablePropertiesHost } from "@/components/table-properties-dialog"
+import { ListNumberingHost } from "@/components/list-numbering-dialogs"
 import { FirstRunSetup } from "@/components/first-run-setup"
 import { StyleDialogs } from "@/components/style-dialogs"
 import { showEditedStyles, useStyleStore } from "@/document/styles"
@@ -362,6 +363,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
       <CompareDialogHost />
       <CoverPageDialogHost />
       <TablePropertiesHost />
+      <ListNumberingHost />
       <ColumnsDialogHost />
       <InsertTableDialogHost />
       <CaptionDialogsHost />

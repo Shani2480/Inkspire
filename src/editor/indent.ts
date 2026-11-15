@@ -1,7 +1,8 @@
 import { blockFormatAttributes } from "@/editor/block-format"
 import { restoreSelection } from "@/editor/selection-memory"
 import { insertAlignedTab, tabStopsAttribute } from "@/editor/tab-stops"
-import { cssString, parseWordLevels, WordNumbering } from "@/editor/word-markers"
+import { appListLevels, cssString, parseWordLevels, WordNumbering } from "@/editor/word-markers"
+import { parseListIndent } from "@/editor/lists"
 import { Extension, type Editor } from "@tiptap/core"
 import Heading from "@tiptap/extension-heading"
 import { ListItem } from "@tiptap/extension-list"
@@ -494,7 +495,22 @@ function listMarkers(doc: ProseNode) {
       const ownScheme = typeof node.attrs.scheme === "string" && node.attrs.scheme ? node.attrs.scheme : scheme
       const ownMarker = typeof node.attrs.marker === "string" && node.attrs.marker ? node.attrs.marker : null
       // A list from Word numbers its items by Word's levels, unless a marker has been picked for it since.
-      const levels = ownMarker ? [] : parseWordLevels(node.attrs.wordLevels)
+      const adjusted = parseListIndent(node.attrs.listIndent)
+      let levels = ownMarker ? [] : parseWordLevels(node.attrs.wordLevels)
+      if (adjusted) {
+        // Adjust List Indents: the first level's marker sits where it was put, with the text at its own indent.
+        if (levels.length === 0) {
+          levels = appListLevels(nextKind, ownMarker)
+        }
+        levels = [
+          {
+            ...levels[0],
+            hang: Math.max(0, adjusted.text - adjusted.number),
+            suffix: adjusted.follow === "tab" ? undefined : adjusted.follow,
+          },
+          ...levels.slice(1),
+        ]
+      }
       const start = Number(node.attrs.start)
       const ownWord =
         levels.length > 0

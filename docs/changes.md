@@ -5,6 +5,64 @@ wrong or missing, what changed, where (files, tests), how it was checked, and wh
 story of each feature stays in `next-todo.md` under its section; `verify-list.md` holds what still needs a check
 in Word, Chrome or the desktop app.
 
+## 2026-11-15
+
+### List right-click menu: Restart at 1, Continue Numbering, Set Numbering Value, Adjust List Indents (U19)
+
+- **What was wrong or missing:** right-clicking a list gave no list commands. Set Numbering Value (from the
+  Numbering gallery) only changed the list's start, and Continue Numbering counted every list before it, whatever
+  list it belonged to. The save was also wrong: lists the app made all shared one Word numbering, so Word counted
+  them as one list. Two separate lists showed 1, 2 and 3, 4 in Word, while the app showed 1, 2 and 1, 2.
+- **What changed:**
+  - **Menu** (`components/text-context-menu.tsx`): Adjust List Indents… on any list. On a numbered list also Restart
+    at 1, Continue Numbering (greyed out when no numbered list comes before) and Set Numbering Value…. Menu rows can
+    now be disabled.
+  - **Commands** (`editor/list-numbering.ts`, new):
+    - Restart at 1 splits the list at the caret's item, so the items above it keep their numbers.
+    - Continue Numbering makes the whole list count on from the numbered list before it, and takes that list's
+      format.
+    - A list that continues another keeps its numbers right as items above it are added or removed. The fix is part
+      of the same undo step.
+  - **List attributes** (`editor/lists.ts`):
+    - `continueList`, plus `listFamily` (the Word list it counts with).
+    - `openedAs` (how it was opened), so an opened list whose numbering was not touched is saved as Word wrote it.
+    - `listIndent` for Adjust List Indents.
+  - **Dialogs** (`components/list-numbering-dialogs.tsx`, new):
+    - Set Numbering Value, as Word's: Start new list / Continue from previous list, Advance value (skip numbers), Set
+      value to, Preview. The Numbering gallery now opens this one too; the old dialog and the old start-number helpers
+      in `editor/home-actions.ts` are gone.
+    - Adjust List Indents: Number position, Text indent, Follow number with (Tab character / Space / Nothing) and Add
+      tab stop at, in cm. It applies to the list's first level. An app list adjusted this way is drawn with
+      Word-style markers (`appListLevels` in `editor/word-markers.ts`, `editor/indent.ts`).
+  - **Save** (`document/docx/project.ts`):
+    - Each numbered list that starts again (Restart at 1, Set Numbering Value, or just a new list) gets its own
+      `w:num` with a `w:startOverride`.
+    - A list that continues shares the numbering of the list it continues.
+    - Lists opened from Word with unchanged numbering keep their own `w:num`.
+    - The app's own numbering definition is only added when a list made in the app needs it, so untouched Word
+      documents gain nothing.
+    - On open, lists carry where they start and whether they continue (`listStart` / `listAttributes`).
+    - Adjust List Indents is saved as the first-level items' own `w:ind` (and a `num` tab stop). Follow number with
+      Space / Nothing gives the list its own copy of its numbering with `w:suff`.
+- **Checked:**
+  - `editor/list-numbering.test.ts` (7 tests): restart splits and saves a `w:startOverride`; two lists save
+    separately; continue shares the numbering; numbers follow edits above, undone in one step; Advance value; an
+    opened unchanged list keeps its numbering; Adjust List Indents drawn and saved (`w:ind`, `num` tab, `w:suff`).
+  - The full suite: 1521 tests pass. Typecheck and ESLint are clean.
+  - **Real Word (office-runner VM)** on five saves: separate lists; restart at item 3, continue, advance to 10; the
+    same file opened and saved again; then restart at 5; and indents with tab, space and nothing after the number.
+    Word showed the same numbers as the app in each, and the app shows those numbers again when it opens the files.
+  - The validator: 0 errors on all five.
+  - Chrome: the menu items run with no console errors (light and dark).
+- **Still open:**
+  - Screenshots of the menu and both dialogs in light and dark, and the dialog overflow crawl. Not done yet: the
+    disk filled up during the browser run.
+  - Adjust List Indents for deeper levels (it changes the first level only), and drawing the added tab stop in the
+    editor (it is saved).
+  - Lists made in the app still save as one level of "1." / "•": their own formats (a., i., ✓) and nested levels
+    are not written to Word (logged in `next-todo.md`).
+  - Word's list menu items come from memory; there is no screenshot of Word's list right-click menu in the repo.
+
 ## 2026-11-14
 
 ### Status bar: Go To, Word Count, Zoom, Language and Customize Status Bar (U17)
@@ -75,12 +133,13 @@ in Word, Chrome or the desktop app.
     Colors (twelve colours with a light and dark sample); Customize Fonts… opens Create New Theme Fonts
     (`components/theme-dialogs.tsx`).
   - **Paragraph Spacing**: Default plus Word's six built-in presets, each with a sample.
-  
+
   The page is drawn from the chosen Style Set and theme (`docx/session.ts` `showDocumentDesign` /
   `designStyleSheet`). Saving writes the Style Set and spacing into `styles.xml` and the theme into the theme part,
   changing an opened document's theme in place (`docx/io.ts`). Theme colour references on runs, borders and
   shading are read and written (`wml-read.ts`, `wml-write.ts`, `model.ts`). The choices survive the app's own HTML
   (`header.ts`, `page-setup.ts`), and the desktop app can open `.thmx` (`src-tauri/src/lib.rs`).
+
 - **Checked:**
   - `document/design.test.ts` (10 tests).
   - Typecheck, ESLint and the full suite: 1506 tests pass.

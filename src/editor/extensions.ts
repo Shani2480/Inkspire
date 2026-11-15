@@ -10,6 +10,7 @@ import { WordLineHeight } from "@/editor/line-height"
 import StarterKit from "@tiptap/starter-kit"
 import { CharacterStyle, StyledUnderline, SubscriptMark, SuperscriptMark, TextBoxMark } from "@/editor/character-format"
 import { ProofingMark } from "@/editor/proofing"
+import { ListNumbering } from "@/editor/list-numbering"
 import { FormatPainter } from "@/editor/home-actions"
 import { StyledBulletList, StyledOrderedList } from "@/editor/lists"
 import { BlankPage } from "@/editor/blank-page"
@@ -102,6 +103,7 @@ export function createExtensions() {
     TabStops.configure(),
     StyledBulletList.configure(),
     StyledOrderedList.configure(),
+    ListNumbering.configure(),
     StyledUnderline.configure(),
     SubscriptMark.configure(),
     SuperscriptMark.configure(),

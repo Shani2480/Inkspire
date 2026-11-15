@@ -7357,8 +7357,13 @@ li[data-drop-cap="margin"]::first-letter {
   text-align: left;
 }
 
-.menu-row:hover {
+.menu-row:hover:not(:disabled) {
   background: var(--app-hover);
+}
+
+.menu-row:disabled {
+  color: var(--app-ribbon-disabled);
+  cursor: default;
 }
 
 .object-menu-item:hover:not(:disabled) {
@@ -16034,6 +16039,36 @@ textarea.tp-input {
   flex-direction: column;
   gap: 8px;
   font-size: 12px;
+}
+
+/* Set Numbering Value and Adjust List Indents: Word's narrow single column. */
+.list-value-dialog,
+.list-indents-dialog {
+  gap: 6px;
+}
+
+.list-value-advance {
+  padding-left: 20px;
+}
+
+.list-indents-dialog select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.list-value-preview {
+  margin: 4px 0 0;
+}
+
+.list-value-preview span {
+  display: inline-block;
+  min-width: 48px;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--dlg-control-border);
+  background: #fff;
+  color: #000;
 }
 
 .status-dialog-heading {

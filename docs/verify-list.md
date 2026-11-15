@@ -14,11 +14,15 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       of APA, Chicago, Harvard, IEEE, MLA and Turabian opens with that style and its 9 sources in Source Manager;
       Update Field gives the same citations and bibliography (IEEE as a table); Word keeps the app's citations on save.
 - [ ] **Language on text (2026-11-14)**: a phrase marked Dutch in the app shows "Dutch (Netherlands)" in
-  Word's status bar with the caret in it, and a word marked "Do not check spelling or grammar" gets no red
-  underline in Word; a Word document with a German paragraph opens in the app with "German" in the status bar.
+      Word's status bar with the caret in it, and a word marked "Do not check spelling or grammar" gets no red
+      underline in Word; a Word document with a German paragraph opens in the app with "German" in the status bar.
+- [ ] **List numbering in Word (2026-11-15)**: in a document saved from the app, right-click a numbered item in
+      Word: Restart at 1 / Continue Numbering behave there as they did in the app. Open a Word document with restarted
+      and continued lists in the app, change nothing, save: Word still numbers it the same. Adjust List Indents values
+      set in the app show in Word's own Adjust List Indents dialog.
 - [ ] **Design tab in the desktop app (2026-11-14)**: Save Current Theme… writes a `.thmx` that Word's Themes >
-  Browse for Themes… loads; Browse for Themes… in the app loads a `.thmx` saved by Word; a custom colour scheme made
-  in the app shows its colours in Word's Design > Colors after the document is saved.
+      Browse for Themes… loads; Browse for Themes… in the app loads a `.thmx` saved by Word; a custom colour scheme made
+      in the app shows its colours in Word's Design > Colors after the document is saved.
 - [ ] **Edit Citation and placeholders in Word (2026-11-14)** — a citation edited in the app (pages 12, author
       suppressed) shows the same in Word's Edit Citation; a placeholder shows with a ? in Word's Source Manager.
 
@@ -210,6 +214,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       places.
 
 ## Needs Chrome (the web build in a browser)
+
+- [ ] **List right-click menu (2026-11-15)**: right-click a numbered list item: Adjust List Indents…, Restart at 1,
+      Continue Numbering (greyed out on the first list), Set Numbering Value…; on a bullet only Adjust List Indents….
+      Both dialogs fit without scrolling and read well in light and dark; the Preview number matches the list's format.
 
 - [ ] **Multiple Pages with columns (2026-11-11)** — a two-column document long enough to reach the second column on
       its last page, in View > Multiple Pages: each column's text is in its own column, and typing there keeps it so.

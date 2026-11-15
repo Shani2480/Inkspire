@@ -10,6 +10,7 @@ import {
   type SectionChrome,
 } from "@/document/sections"
 import type { WordLevel } from "@/editor/word-markers"
+import { parseListIndent } from "@/editor/lists"
 import { chromeHasContent, chromeHasPageField } from "@/document/chrome-html"
 import { chromeJson } from "@/document/chrome-json"
 import { bordersOf, editedShading, sidePensOf, wordShadingValue } from "@/document/docx/cell-edits"
@@ -125,6 +126,8 @@ type Build = InlineBuild & {
   wordStyles: Style[]
   bulletId: number
   orderedId: number
+  /** The numbering instance each family of numbered lists is counting with, as the body is written in order. */
+  listChains?: Map<string, number>
   origins: Origins
   numbering: NumberingDefinitions
   toc: TocLinks
@@ -772,12 +775,15 @@ function listStart(numId: number, ctx: Projection) {
   const first = !ctx.listSeen.has(numId)
   ctx.listSeen.add(numId)
   const instance = ctx.doc.numbering.instances.find((item) => item.id === numId)
-  const restarts = instance?.overrides?.some((item) => item.ilvl === 0 && item.startOverride !== undefined) ?? false
+  const override = instance?.overrides?.find((item) => item.ilvl === 0 && item.startOverride !== undefined)
   const next = ctx.listNext.get(key)
-  if (next === undefined || (first && restarts)) {
-    return numberingLevel(ctx.doc.numbering, numId, 0)?.start ?? 1
+  if (first && override) {
+    return { start: override.startOverride!, continues: false }
   }
-  return next
+  if (next === undefined) {
+    return { start: numberingLevel(ctx.doc.numbering, numId, 0)?.start ?? 1, continues: false }
+  }
+  return { start: next, continues: true }
 }
 
 /**
@@ -785,14 +791,19 @@ function listStart(numId: number, ctx: Projection) {
  * level's, for the first level and as the step to each deeper one.
  */
 function listAttributes(tag: string, numId: number, items: Paragraph[], ctx: Projection) {
-  const start = listStart(numId, ctx)
+  const { start, continues } = listStart(numId, ctx)
   ctx.listNext.set(listKey(numId, ctx), start + items.filter((item) => (item.pPr.numPr?.ilvl ?? 0) === 0).length)
+  // How the list counts, for Restart at 1 / Continue Numbering in the editor and for saving it as Word wrote it.
+  const numbering =
+    tag === "ol"
+      ? ` data-list-family="${listKey(numId, ctx)}" data-opened="${start}|${continues ? 1 : 0}"${continues ? ` data-continue="1"` : ""}`
+      : ""
   const { left, step } = listGeometry(numId, items, ctx)
   const indent =
     left !== undefined
       ? `padding-left: ${left / 20}pt${step !== undefined && step > 0 ? `; --list-indent-step: ${step / 20}pt` : ""}`
       : ""
-  return `${tag === "ol" && start !== 1 ? ` start="${start}"` : ""} data-word-list="1"${
+  return `${tag === "ol" && start !== 1 ? ` start="${start}"` : ""}${numbering} data-word-list="1"${
     indent ? ` data-word-indent="${indent}"` : ""
   }${wordLevelsAttribute(ctx.doc.numbering, numId, ctx.doc.settings.defaultTabStop)}`
 }
@@ -2461,16 +2472,26 @@ function blocksFromList(node: JsonNode, build: Build, level: number): Block[] {
     return bullet === (kind === "bullet") ? numId : undefined
   }
   const items = (node.content ?? []).filter((item) => item.type === "listItem")
-  const listNumId =
-    items.map((item) => sourceNumId(item.content?.[0])).find((numId) => numId !== undefined) ??
-    (kind === "bullet" ? build.bulletId : build.orderedId)
+  const openedNumId = items.map((item) => sourceNumId(item.content?.[0])).find((numId) => numId !== undefined)
+  let listNumId = openedNumId ?? appListNumId(build, kind)
+  let keepItems = true
+  if (kind === "ordered" && level === 0) {
+    const chosen = orderedNumbering(node, listNumId, openedNumId, build)
+    listNumId = chosen.numId
+    keepItems = chosen.keep
+  }
+  const adjusted = level === 0 ? parseListIndent(node.attrs?.listIndent) : null
+  if (adjusted && adjusted.follow !== "tab") {
+    listNumId = withSuffix(build, listNumId, adjusted.follow, Number(node.attrs?.start) || 1)
+    keepItems = false
+  }
   const blocks: Block[] = []
   for (const item of node.content ?? []) {
     if (item.type !== "listItem") {
       continue
     }
     const indent = numberAttr(item.attrs?.indent) ?? 0
-    const numId = sourceNumId(item.content?.[0]) ?? listNumId
+    const numId = (keepItems ? sourceNumId(item.content?.[0]) : undefined) ?? listNumId
     let first = true
     const children = item.content ?? []
     for (const [index, child] of children.entries()) {
@@ -2485,6 +2506,16 @@ function blocksFromList(node: JsonNode, build: Build, level: number): Block[] {
       const block = blockFromNode(child, build)
       if (block?.kind === "paragraph" && first) {
         block.pPr = { ...block.pPr, numPr: { ilvl: level + indent, numId } }
+        if (adjusted && indent === 0) {
+          // Adjust List Indents: the item's own indent, which Word puts before its numbering level's.
+          const left = Math.round(adjusted.text * 20)
+          const hanging = Math.round(Math.max(0, adjusted.text - adjusted.number) * 20)
+          block.pPr.ind = { ...block.pPr.ind, left, hanging, firstLine: undefined }
+          if (adjusted.tab !== null) {
+            const pos = Math.round(adjusted.tab * 20)
+            block.pPr.tabs = [...(block.pPr.tabs ?? []).filter((tab) => tab.pos !== pos), { val: "num", pos }]
+          }
+        }
         first = false
       }
       if (block) {
@@ -2493,6 +2524,58 @@ function blocksFromList(node: JsonNode, build: Build, level: number): Block[] {
     }
   }
   return blocks
+}
+
+/**
+ * The numbering instance a first-level numbered list is written with. Word counts every paragraph of one abstract
+ * numbering as one list, so a list that starts again (Restart at 1, Set Numbering Value, or any new list made in the
+ * app) gets its own w:num with a w:startOverride, and a list that continues the one before it shares that one's.
+ * A list opened from Word whose numbering was not changed keeps its own instance.
+ */
+function orderedNumbering(node: JsonNode, fallback: number, opened: number | undefined, build: Build) {
+  const start = Number(node.attrs?.start) || 1
+  const continues = node.attrs?.continueList === true
+  const family = typeof node.attrs?.listFamily === "string" ? node.attrs.listFamily : ""
+  const chains = (build.listChains ??= new Map<string, number>())
+  if (opened !== undefined && node.attrs?.openedAs === `${start}|${continues ? 1 : 0}`) {
+    chains.set(family, opened)
+    return { numId: opened, keep: true }
+  }
+  const chained = chains.get(family)
+  if (continues && chained !== undefined) {
+    return { numId: chained, keep: false }
+  }
+  const instances = build.numbering.instances
+  const abstractNumId = instances.find((item) => item.id === (opened ?? fallback))?.abstractNumId
+  if (abstractNumId === undefined) {
+    return { numId: fallback, keep: false }
+  }
+  const numId = Math.max(0, ...instances.map((item) => item.id)) + 1
+  instances.push({ id: numId, abstractNumId, overrides: [{ ilvl: 0, startOverride: start }] })
+  chains.set(family, numId)
+  return { numId, keep: false }
+}
+
+/**
+ * A numbering instance whose first level is followed by a space or nothing instead of a tab (Adjust List Indents'
+ * Follow number with). A paragraph cannot say that, so the list gets its own copy of its numbering.
+ */
+function withSuffix(build: Build, numId: number, suffix: "space" | "nothing", start: number) {
+  const { abstracts, instances } = build.numbering
+  const abstract = abstracts.find((item) => item.id === instances.find((num) => num.id === numId)?.abstractNumId)
+  if (!abstract) {
+    return numId
+  }
+  const id = Math.max(0, ...abstracts.map((item) => item.id)) + 1
+  abstracts.push({
+    ...abstract,
+    id,
+    nsid: undefined,
+    levels: abstract.levels.map((item) => (item.ilvl === 0 ? { ...item, suffix } : item)),
+  })
+  const own = Math.max(0, ...instances.map((item) => item.id)) + 1
+  instances.push({ id: own, abstractNumId: id, overrides: [{ ilvl: 0, startOverride: start }] })
+  return own
 }
 
 function isBlankParagraph(node: JsonNode) {
@@ -2936,25 +3019,35 @@ function gridColumn(cells: { gridSpan?: number }[], index: number) {
 }
 
 function ensureListNumbering(numbering: NumberingDefinitions, json: JsonNode, build: Build) {
-  const wantsBullet = treeHas(json, "bulletList")
-  const wantsOrdered = treeHas(json, "orderedList")
-  if (!wantsBullet && !wantsOrdered) {
-    build.bulletId = numbering.instances[0]?.id ?? 1
-    build.orderedId = numbering.instances[0]?.id ?? 1
+  build.bulletId = 0
+  build.orderedId = 0
+  if (!treeHas(json, "bulletList") && !treeHas(json, "orderedList")) {
     return numbering
   }
-  const abstracts = [...numbering.abstracts]
-  const instances = [...numbering.instances]
-  const add = (format: "bullet" | "decimal") => {
-    const found = instances.find((instance) => {
-      const level = abstracts.find((item) => item.id === instance.abstractNumId)?.levels[0]
-      return level?.format === format
-    })
-    if (found) {
-      return found.id
-    }
+  // Copies, so app lists can add their numbering to them while the body is written.
+  return { ...numbering, abstracts: [...numbering.abstracts], instances: [...numbering.instances] }
+}
+
+/**
+ * The app's own numbering for a list made in the editor, added the first time one needs it: a document whose lists
+ * all came from Word gains nothing. Only the app's one-level numbering is reused; a Word list (nine levels) counts
+ * with its own paragraphs, and an app list sharing it would carry on its numbers in Word.
+ */
+function appListNumId(build: Build, kind: "bullet" | "ordered") {
+  const known = kind === "bullet" ? build.bulletId : build.orderedId
+  if (known) {
+    return known
+  }
+  const format = kind === "bullet" ? "bullet" : "decimal"
+  const { abstracts, instances } = build.numbering
+  const found = instances.find((instance) => {
+    const levels = abstracts.find((item) => item.id === instance.abstractNumId)?.levels ?? []
+    return levels.length === 1 && levels[0].format === format && Object.keys(levels[0].pPr).length === 0
+  })
+  let numId = found?.id
+  if (numId === undefined) {
     const abstractId = Math.max(0, ...abstracts.map((item) => item.id)) + 1
-    const numId = Math.max(0, ...instances.map((item) => item.id)) + 1
+    numId = Math.max(0, ...instances.map((item) => item.id)) + 1
     abstracts.push({
       id: abstractId,
       levels: [
@@ -2970,15 +3063,13 @@ function ensureListNumbering(numbering: NumberingDefinitions, json: JsonNode, bu
       ],
     })
     instances.push({ id: numId, abstractNumId: abstractId })
-    return numId
   }
-  if (wantsBullet) {
-    build.bulletId = add("bullet")
+  if (kind === "bullet") {
+    build.bulletId = numId
+  } else {
+    build.orderedId = numId
   }
-  if (wantsOrdered) {
-    build.orderedId = add("decimal")
-  }
-  return { ...numbering, abstracts, instances }
+  return numId
 }
 
 /**
