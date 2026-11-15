@@ -215,7 +215,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
-- [ ] **List right-click menu (2026-11-15)**: right-click a numbered list item: Adjust List Indents…, Restart at 1,
+- [x] **List right-click menu (2026-11-15; checked 2026-11-15 in headless Chrome, light and dark)**: right-click a numbered list item: Adjust List Indents…, Restart at 1,
       Continue Numbering (greyed out on the first list), Set Numbering Value…; on a bullet only Adjust List Indents….
       Both dialogs fit without scrolling and read well in light and dark; the Preview number matches the list's format.
 

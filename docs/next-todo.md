@@ -123,11 +123,10 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
       `components/status-dialogs.tsx`, `editor/proofing.ts`, `editor/word-count.ts`). Left: Formatted Page Number,
       Vertical Page Position, Line Number and Column; Zoom's Text width; Detect language automatically.
 - [ ] U18. KeyTips (Alt shows letter badges on tabs and commands).
-- [ ] U19. List context menu: Restart at 1, Continue Numbering, Set Numbering Value, Adjust List Indents.
-      Built 2026-11-15, not yet committed (`editor/list-numbering.ts`, `components/list-numbering-dialogs.tsx`,
-      `components/text-context-menu.tsx`, save in `docx/project.ts`). Tests pass and Word numbers the saves like the
-      app. To finish: screenshots of the menu and dialogs in light and dark, the overflow crawl, then commit.
-      Left: Adjust List Indents for deeper levels; drawing its tab stop.
+- [x] U19. (2026-11-15) List context menu: Restart at 1, Continue Numbering, Set Numbering Value, Adjust List Indents.
+      Done (`editor/list-numbering.ts`, `components/list-numbering-dialogs.tsx`, `components/text-context-menu.tsx`,
+      save in `docx/project.ts`); Word numbers the saves like the app. Left: Adjust List Indents for deeper levels;
+      drawing its tab stop.
   - [ ] Lists made in the app save as one level of "1." / "•". Write their own number formats (a., i., 1), ✓…) and
         nested levels to `numbering.xml`, with Word's indents per level.
 - [ ] U20. Spelling context menu: Ignore All, AutoCorrect submenu, Language; grammar marks (listed: Editor pane).

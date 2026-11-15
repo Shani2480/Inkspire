@@ -7,6 +7,18 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-15
 
+### Text right-click menu: fits the window; Search names the caret's word (U19 follow-up)
+
+- **What was wrong or missing:** the text right-click menu was clamped to a fixed 360 px from the window's bottom,
+  but with the list commands it is 486 px tall, so a right-click low on the page drew its last rows (Translate,
+  Link…, New Comment) below the window. With nothing selected it offered Search “show”, a placeholder word.
+- **What changed:** `components/text-context-menu.tsx` measures the menu after it renders and opens it below and to
+  the right of the click when it fits, else above / to the left, always 8 px inside the window (`placeMenu`). With
+  no selection Search names the word the caret is in (`selectedWord`), or reads just "Search" between words.
+- **Checked:** `components/text-context-menu.test.ts` (4 tests); the full suite, 1525 tests pass; typecheck and
+  ESLint clean. Headless Chrome, light and dark, 1300 × 900: the menu on a list item low on the page opens above it
+  and nothing is off screen.
+
 ### List right-click menu: Restart at 1, Continue Numbering, Set Numbering Value, Adjust List Indents (U19)
 
 - **What was wrong or missing:** right-clicking a list gave no list commands. Set Numbering Value (from the
@@ -54,9 +66,10 @@ in Word, Chrome or the desktop app.
     Word showed the same numbers as the app in each, and the app shows those numbers again when it opens the files.
   - The validator: 0 errors on all five.
   - Chrome: the menu items run with no console errors (light and dark).
+  - Screenshots in headless Chrome, light and dark: the menu on a second list (all four items), on the first list
+    (Continue Numbering greyed out) and on a bullet (only Adjust List Indents…); both dialogs fit with no scrolling.
+    The dialog overflow crawl finds nothing new (only the font, SmartArt and equation galleries Word also scrolls).
 - **Still open:**
-  - Screenshots of the menu and both dialogs in light and dark, and the dialog overflow crawl. Not done yet: the
-    disk filled up during the browser run.
   - Adjust List Indents for deeper levels (it changes the first level only), and drawing the added tab stop in the
     editor (it is saved).
   - Lists made in the app still save as one level of "1." / "•": their own formats (a., i., ✓) and nested levels

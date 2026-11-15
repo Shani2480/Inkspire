@@ -29,7 +29,7 @@ import {
   restartNumbering,
 } from "@/editor/list-numbering"
 import type { Editor } from "@tiptap/core"
-import { useEffect, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 
 type Item = {
@@ -44,6 +44,9 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
   const [point, setPoint] = useState<{ x: number; y: number } | null>(null)
   const [query, setQuery] = useState("")
   const [pasteOpen, setPasteOpen] = useState(false)
+  // Where the menu is drawn once measured: below the click when it fits, else above it, as Word does.
+  const [placed, setPlaced] = useState<{ left: number; top: number } | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const items = useClipboard((state) => state.items)
 
   useEffect(() => {
@@ -82,10 +85,8 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
       rememberSelection(editor)
       setQuery("")
       setPasteOpen(false)
-      setPoint({
-        x: Math.max(8, Math.min(event.clientX, window.innerWidth - 280)),
-        y: Math.max(8, Math.min(event.clientY, window.innerHeight - 360)),
-      })
+      setPlaced(null)
+      setPoint({ x: event.clientX, y: event.clientY })
     }
     editor.view.dom.addEventListener("contextmenu", onContext)
     return () => editor.view.dom.removeEventListener("contextmenu", onContext)
@@ -114,6 +115,14 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
       window.removeEventListener("keydown", onKey)
     }
   }, [point])
+
+  useLayoutEffect(() => {
+    const menu = menuRef.current
+    if (!point || !menu) {
+      return
+    }
+    setPlaced(placeMenu(point, menu.offsetWidth, menu.offsetHeight))
+  }, [point, query])
 
   if (!editor || !point) {
     return null
@@ -184,7 +193,9 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
       label: "Block Authors",
       run: () => useViewStore.getState().setRestricted(!useViewStore.getState().restricted),
     },
-    { id: "search", label: `Search “${word || "show"}”`, run: () => findSelection(word || "show") },
+    word
+      ? { id: "search", label: `Search “${word}”`, run: () => findSelection(word) }
+      : { id: "search", label: "Search", run: () => findSelection("") },
     { id: "synonyms", label: "Synonyms", run: () => useProofing.getState().openPanel("thesaurus") },
     { id: "aloud", label: "Read Aloud", run: () => speak(editor) },
     { id: "translate", label: "Translate", run: () => useProofing.getState().openPanel("translation") },
@@ -222,7 +233,8 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
       aria-label="Text"
       data-text-menu=""
       className="app-popup fixed z-[70] w-64 rounded-md border border-[#d0d0d0] bg-white py-1 text-[13px] text-[#242424] shadow-lg"
-      style={{ left: Math.min(point.x, window.innerWidth - 272), top: Math.min(point.y, window.innerHeight - 360) }}
+      ref={menuRef}
+      style={placed ?? { left: point.x, top: point.y, visibility: "hidden" }}
       onPointerDown={(event) => event.stopPropagation()}
       onMouseDown={(event) => {
         if (event.target instanceof HTMLInputElement) {
@@ -290,11 +302,27 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
   )
 }
 
-function selectedWord(editor: Editor) {
-  const { from, to, empty } = editor.state.selection
-  const text = empty ? "" : editor.state.doc.textBetween(from, to, " ")
-  const word = text.trim().split(/\s+/)[0] ?? ""
+/** The selection's first word, or with no selection the word the caret is in (Word's "Search “word”"). */
+export function selectedWord(editor: Editor) {
+  const { from, to, empty, $from } = editor.state.selection
+  if (empty) {
+    const text = $from.parent.textBetween(0, $from.parent.content.size, "\uFFFC", "\uFFFC")
+    const at = $from.parentOffset
+    const before = /[\p{L}\p{N}'’-]*$/u.exec(text.slice(0, at))?.[0] ?? ""
+    const after = /^[\p{L}\p{N}'’-]*/u.exec(text.slice(at))?.[0] ?? ""
+    return (before + after).replace(/^['’-]+|['’-]+$/g, "").slice(0, 40)
+  }
+  const word = editor.state.doc.textBetween(from, to, " ").trim().split(/\s+/)[0] ?? ""
   return word.slice(0, 40)
+}
+
+/** Places a menu of the given size at a click: below and to the right when it fits, else flipped above / to the left,
+ * and kept 8 px inside the window. */
+export function placeMenu(point: { x: number; y: number }, width: number, height: number, view = { width: innerWidth, height: innerHeight }) {
+  const margin = 8
+  const left = point.x + width <= view.width - margin ? point.x : Math.max(margin, Math.min(point.x - width, view.width - margin - width))
+  const top = point.y + height <= view.height - margin ? point.y : Math.max(margin, Math.min(point.y - height, view.height - margin - height))
+  return { left, top }
 }
 
 function speak(editor: Editor) {
