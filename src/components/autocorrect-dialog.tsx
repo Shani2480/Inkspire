@@ -5,10 +5,17 @@ import { useAutoCorrect } from "@/editor/autocorrect"
 import type { AutoCorrectOptions } from "@/editor/autocorrect-rules"
 
 /** Whether AutoCorrect Options is open (File > Options > Proofing > AutoCorrect Options…). */
-export const useAutoCorrectDialog = create<{ open: boolean; show: () => void; hide: () => void }>((set) => ({
+export const useAutoCorrectDialog = create<{
+  open: boolean
+  /** What "With:" starts with: the symbol, when opened from the Symbol dialog's AutoCorrect… button. */
+  withText: string
+  show: (withText?: string) => void
+  hide: () => void
+}>((set) => ({
   open: false,
-  show: () => set({ open: true }),
-  hide: () => set({ open: false }),
+  withText: "",
+  show: (withText = "") => set({ open: true, withText }),
+  hide: () => set({ open: false, withText: "" }),
 }))
 
 const AUTOCORRECT_CHECKS: [keyof AutoCorrectOptions, string][] = [
@@ -45,7 +52,7 @@ function AutoCorrectDialog() {
   const deleteEntry = useAutoCorrect((state) => state.deleteEntry)
   const [tab, setTab] = useState("autocorrect")
   const [replace, setReplace] = useState("")
-  const [withText, setWithText] = useState("")
+  const [withText, setWithText] = useState(() => useAutoCorrectDialog.getState().withText)
   const sorted = useMemo(() => [...entries].sort(([a], [b]) => a.localeCompare(b)), [entries])
   const existing = entries.get(replace.trim())
 

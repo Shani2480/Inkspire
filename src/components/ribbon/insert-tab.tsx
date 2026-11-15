@@ -1,3 +1,5 @@
+import { SymbolDialog } from "@/components/symbol-dialog"
+import { insertSymbol, useRecentSymbols, type SymbolChoice } from "@/editor/symbols"
 import { useBookmarkDialog } from "@/document/bookmark-dialog"
 import { openCoverGenerator } from "@/components/cover-page-dialog"
 import { IconLibrary } from "@/components/icon-library"
@@ -268,101 +270,6 @@ const TEXT_BOXES: { label: string; text: string; fill: string; borderColor: stri
   { label: "Banded Sidebar", text: "Sidebar", fill: "#deecf9", borderColor: "#2e75b6", width: 140 },
   { label: "Facet Quote", text: "Your quote here", fill: "#ffffff", borderColor: "#0f6cbd", width: 220 },
   { label: "Filigree Quote", text: "Your quote here", fill: "#fff8e8", borderColor: "#bf8f00", width: 220 },
-]
-
-const EXTRA_SYMBOLS = [
-  "←",
-  "→",
-  "↑",
-  "↓",
-  "↔",
-  "⇒",
-  "⇐",
-  "♠",
-  "♣",
-  "♥",
-  "♦",
-  "♪",
-  "♫",
-  "☑",
-  "☒",
-  "★",
-  "☆",
-  "✓",
-  "✗",
-  "⌘",
-  "⌥",
-  "∑",
-  "∏",
-  "∫",
-  "∂",
-  "∆",
-  "∇",
-  "∈",
-  "∉",
-  "⊂",
-  "⊃",
-  "∧",
-  "∨",
-  "¬",
-  "⊕",
-  "⊗",
-  "∠",
-  "⊥",
-  "∥",
-  "∴",
-  "∵",
-  "½",
-  "¼",
-  "¾",
-  "²",
-  "³",
-  "¹",
-  "℃",
-  "℉",
-  "№",
-  "℗",
-  "℠",
-]
-
-const SYMBOLS = [
-  "©",
-  "®",
-  "™",
-  "€",
-  "£",
-  "¥",
-  "°",
-  "±",
-  "×",
-  "÷",
-  "≠",
-  "≈",
-  "≤",
-  "≥",
-  "∞",
-  "√",
-  "π",
-  "µ",
-  "§",
-  "¶",
-  "•",
-  "–",
-  "—",
-  "‘",
-  "’",
-  "“",
-  "”",
-  "«",
-  "»",
-  "†",
-  "‡",
-  "…",
-  "‰",
-  "α",
-  "β",
-  "γ",
-  "Ω",
 ]
 
 /** A saved cover in the gallery, with buttons to rename it (the name turns into a field) and to delete it. */
@@ -804,11 +711,13 @@ export function InsertTab() {
       </MenuButton>
     </div>
   )
+  const recentSymbols = useRecentSymbols((state) => state.recent)
   const symbolMenu = (close: () => void) => (
     <div className="w-56 p-1">
-      <div className="grid grid-cols-8 gap-0.5">
-        {SYMBOLS.map((symbol) => (
-          <SymbolButton key={symbol} symbol={symbol} editor={editor} close={close} />
+      {/* Word's Symbol gallery: the 20 symbols used last. */}
+      <div className="grid grid-cols-5 gap-0.5">
+        {recentSymbols.map((symbol) => (
+          <SymbolButton key={`${symbol.font ?? ""}|${symbol.char}`} symbol={symbol} editor={editor} close={close} />
         ))}
       </div>
       <MenuButton
@@ -1392,43 +1301,24 @@ function BookmarkDialog({ editor, names, onClose }: { editor: Editor; names: str
   )
 }
 
-function SymbolDialog({ editor, onClose }: { editor: Editor; onClose: () => void }) {
-  const [query, setQuery] = useState("")
-  const symbols = [...SYMBOLS, ...EXTRA_SYMBOLS].filter((symbol) => !query || symbol.includes(query))
-
-  return (
-    <Overlay title="Symbol" onClose={onClose}>
-      <input
-        aria-label="Find a symbol"
-        value={query}
-        placeholder="Type a character to find it"
-        className="h-8 w-full rounded-md border border-black/15 px-2 text-sm"
-        onChange={(event) => setQuery(event.target.value)}
-      />
-      <div className="mt-3 grid max-h-52 grid-cols-10 gap-1 overflow-auto">
-        {symbols.map((symbol) => (
-          <SymbolButton key={symbol} symbol={symbol} editor={editor} close={onClose} />
-        ))}
-      </div>
-    </Overlay>
-  )
-}
-
-function SymbolButton({ symbol, editor, close }: { symbol: string; editor: Editor | null; close: () => void }) {
+/** One of the recently used symbols on Insert > Symbol, in its own font. */
+function SymbolButton({ symbol, editor, close }: { symbol: SymbolChoice; editor: Editor | null; close: () => void }) {
   return (
     <button
       type="button"
-      aria-label={`Insert ${symbol}`}
-      className="h-7 rounded text-sm hover:bg-neutral-100"
+      aria-label={`Insert ${symbol.char}`}
+      title={symbol.font ? `${symbol.font}: ${symbol.char}` : symbol.char}
+      className="h-8 rounded text-base hover:bg-[var(--app-hover)]"
+      style={{ fontFamily: symbol.font ? `"${symbol.font}"` : undefined }}
       onMouseDown={(event) => event.preventDefault()}
       onClick={() => {
         if (editor) {
-          chainWithSelection(editor).insertContent(symbol).run()
+          insertSymbol(editor, symbol)
         }
         close()
       }}
     >
-      {symbol}
+      {symbol.char}
     </button>
   )
 }

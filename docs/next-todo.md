@@ -135,7 +135,9 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
 - [x] U20. (2026-11-15; grammar marks stay listed with the Editor pane) Spelling context menu: Ignore All,
       AutoCorrect submenu, Language; grammar marks (listed: Editor pane). Done in `components/text-context-menu.tsx`.
       Left: Language Preferences… (U24); Ignore All kept with the document.
-- [ ] U21. Symbol dialog: font and subset, character code (Unicode/ASCII), Special Characters tab, Shortcut Key…
+- [x] U21. (2026-11-15) Symbol dialog: font and subset, character code (Unicode/ASCII), Special Characters tab,
+      Shortcut Key… Done (`components/symbol-dialog.tsx`, `editor/symbols.ts`), checked in Word. Left: subsets per
+      font, Alt+X, Customize Keyboard's command lists.
 - [ ] U22. Quick Parts: Field… dialog (every field with its switches), Document Property, AutoText, Building Blocks
       Organizer.
 - [ ] U23. Info > Protect Document (Encrypt with Password, Restrict Editing, Always Open Read-Only, Digital
@@ -162,7 +164,7 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
 - [ ] U36. Format Picture pane (Corrections, Crop, Transparency); Thesaurus as a pane (listed).
 - [ ] U37. Researcher / Smart Lookup; Share by link and Account (listed: Future features); Transform (listed 21.28);
       Macros (listed).
-- [ ] U38. Rare shortcuts: Alt+Ctrl+C/T/R/. symbols, Ctrl+- optional hyphen, Alt+Shift+D/T/P fields,
+- [ ] U38. Rare shortcuts: ~~Alt+Ctrl+C/T/R/. symbols~~ (done with U21), Ctrl+- optional hyphen (taken by zoom out), Alt+Shift+D/T/P fields,
       Alt+Shift+X/O/I mark entries, Ctrl+Alt+P/O/N views, F6 panes, Ctrl+F6 windows, F8 Extend Selection, Alt+F8.
 
 ## Rich header and footer (H1-H4 done; left over below)

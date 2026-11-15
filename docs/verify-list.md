@@ -335,6 +335,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **Symbol dialog (2026-11-15)**: on Windows (fonts installed), Insert > Symbol > More Symbols… with Wingdings:
+      the grid shows Wingdings' pictures, and an inserted one shows as that picture in the page. Ctrl+Alt+C types ©,
+      and a key assigned with Shortcut Key… types its symbol after a restart.
+
 - [ ] **KeyTips (2026-11-15)**: in the desktop app (WebKitGTK, and on Windows), press and release Alt: badges on
       File, the tabs and the Quick Access Toolbar, and the window manager does not take the Alt key; H, then 1 bolds;
       Alt+H opens Home directly; Esc steps back. Compare the letters with Word's own on the Home and Insert tabs.

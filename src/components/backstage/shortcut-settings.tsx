@@ -3,7 +3,7 @@ import { SHORTCUTS, comboFromEvent, keysOf, useShortcuts, type ShortcutDef } fro
 import { useEffect, useState } from "react"
 
 /** Keys the application itself uses, so a command cannot be moved onto them. */
-const RESERVED = new Set([
+export const RESERVED = new Set([
   "Mod+S",
   "Mod+O",
   "Mod+N",

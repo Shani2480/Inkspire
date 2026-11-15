@@ -45,6 +45,7 @@ import { useBookmarkDialog } from "@/document/bookmark-dialog"
 import { useStylePanes } from "@/document/style-panes"
 import { openMarkEntryDialog } from "@/components/index-dialogs"
 import { create } from "zustand"
+import { insertSymbol, symbolOfCommand } from "@/editor/symbols"
 
 export type ShortcutDef = {
   id: string
@@ -56,6 +57,9 @@ export type ShortcutDef = {
   /** Keys the editor's own keymap also binds to this command; they stop working once it is rebound. */
   native?: string[]
 }
+
+/** Types a character at the selection, as Word's symbol keys do. */
+const typeText = (text: string) => (editor: Editor) => editor.chain().focus().insertContent(text).run()
 
 const align = (kind: "left" | "center" | "right" | "justify") => (editor: Editor) => {
   applyAlign(editor, kind)
@@ -503,6 +507,13 @@ export const SHORTCUTS: ShortcutDef[] = [
     keys: ["Mod+Shift+F5"],
     run: () => (useBookmarkDialog.getState().show(), true),
   },
+  // Word's symbol keys (Insert > Symbol > Special Characters). Ctrl+- and Ctrl+Num - zoom out in this app, so the
+  // en dash, nonbreaking hyphen and optional hyphen have no key until one is assigned there.
+  { id: "em-dash", label: "Em Dash", group: "Insert", keys: ["Mod+Alt+Num -"], run: typeText("\u2014") },
+  { id: "copyright", label: "Copyright", group: "Insert", keys: ["Mod+Alt+C"], run: typeText("\u00A9") },
+  { id: "registered", label: "Registered", group: "Insert", keys: ["Mod+Alt+R"], run: typeText("\u00AE") },
+  { id: "trademark", label: "Trademark", group: "Insert", keys: ["Mod+Alt+T"], run: typeText("\u2122") },
+  { id: "ellipsis", label: "Ellipsis", group: "Insert", keys: ["Mod+Alt+."], run: typeText("\u2026") },
   { id: "repeat", label: "Repeat", group: "Tools", keys: ["F4"], run: repeatLast },
   { id: "redo-repeat", label: "Redo or Repeat", group: "Tools", keys: ["Mod+Y"], native: ["Mod+Y"], run: redoOrRepeat },
   { id: "go-back", label: "Go Back", group: "Tools", keys: ["Shift+F5"], run: goBack },
@@ -575,6 +586,7 @@ const CODE_NAMES: Record<string, string> = {
   Backslash: "\\",
   Backquote: "`",
   Space: "Space",
+  NumpadSubtract: "Num -",
 }
 
 /** The key of an event as the registry writes it: "Mod+Shift+L", "F7", "Mod+Alt+1". Null for a bare modifier. */
@@ -656,7 +668,18 @@ export const useShortcuts = create<ShortcutStore>((set) => ({
           custom[other.id] = keysOf(other, custom).filter((key) => !keys.includes(key))
         }
       }
+      for (const other of Object.keys(custom)) {
+        if (other !== id && other.startsWith("symbol:")) {
+          custom[other] = custom[other].filter((key) => !keys.includes(key))
+          if (custom[other].length === 0) {
+            delete custom[other]
+          }
+        }
+      }
       custom[id] = keys
+      if (id.startsWith("symbol:") && keys.length === 0) {
+        delete custom[id]
+      }
       persist(custom)
       return { custom }
     }),
@@ -675,11 +698,30 @@ export function keysOf(def: ShortcutDef, custom: Record<string, string[]> = useS
   return custom[def.id] ?? def.keys
 }
 
+/** The keys assigned to a command (a SHORTCUTS id, or a symbol's `symbol:` id). */
+export function keysForCommand(id: string, custom: Record<string, string[]> = useShortcuts.getState().custom) {
+  const def = SHORTCUTS.find((item) => item.id === id)
+  return def ? keysOf(def, custom) : (custom[id] ?? [])
+}
+
 /** The command a key runs, or null; and whether it is a native key of a command that has been rebound. */
 export function shortcutFor(combo: string, custom: Record<string, string[]> = useShortcuts.getState().custom) {
   const bound = SHORTCUTS.find((def) => keysOf(def, custom).includes(combo))
   if (bound) {
     return { def: bound, blocked: false }
+  }
+  // A key assigned to a symbol in the Symbol dialog (Shortcut Key…).
+  const symbolId = Object.keys(custom).find((id) => id.startsWith("symbol:") && custom[id].includes(combo))
+  const symbol = symbolId ? symbolOfCommand(symbolId) : null
+  if (symbolId && symbol) {
+    const def: ShortcutDef = {
+      id: symbolId,
+      label: symbol.char,
+      group: "Insert",
+      keys: custom[symbolId],
+      run: (editor) => (insertSymbol(editor, symbol), true),
+    }
+    return { def, blocked: false }
   }
   const orphan = SHORTCUTS.find((def) => def.native?.includes(combo))
   return orphan ? { def: orphan, blocked: true } : null

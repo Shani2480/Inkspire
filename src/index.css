@@ -16240,3 +16240,194 @@ textarea.tp-input {
 .keytip[data-disabled] {
   opacity: 0.45;
 }
+
+/* Insert > Symbol > More Symbols…: Word's Symbol dialog (16 columns of characters) and Customize Keyboard. */
+.symbol-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+}
+
+.symbol-dialog-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+
+.symbol-dialog-row select,
+.symbol-dialog-code select,
+.symbol-dialog-code input {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.symbol-grid {
+  display: grid;
+  grid-template-columns: repeat(16, 30px);
+  grid-auto-rows: 30px;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  /* Four whole rows, scrolled a row at a time, as Word's grid. */
+  box-sizing: content-box;
+  scroll-snap-type: y mandatory;
+  width: max-content;
+  max-width: 100%;
+  border: 1px solid var(--dlg-control-border);
+  background: var(--dlg-surface);
+  color: var(--dlg-text);
+  outline-offset: 1px;
+}
+
+.symbol-grid button {
+  scroll-snap-align: start;
+}
+
+.symbol-grid button,
+.symbol-recent button,
+.symbol-recent span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-right: 1px solid var(--dlg-rule);
+  border-bottom: 1px solid var(--dlg-rule);
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+  cursor: default;
+}
+
+.symbol-grid button:hover,
+.symbol-recent button:hover {
+  background: var(--dlg-item-hover);
+}
+
+.symbol-grid button[aria-selected="true"] {
+  background: var(--dlg-accent);
+  color: var(--dlg-accent-text);
+}
+
+.symbol-dialog-label {
+  margin: 0;
+}
+
+.symbol-recent {
+  display: grid;
+  grid-template-columns: repeat(16, 30px);
+  grid-auto-rows: 30px;
+  width: max-content;
+  max-width: 100%;
+  border: 1px solid var(--dlg-control-border);
+  border-right: 0;
+  background: var(--dlg-surface);
+  color: var(--dlg-text);
+}
+
+.symbol-dialog-code {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 64px auto 128px;
+  align-items: end;
+  gap: 6px;
+}
+
+.symbol-dialog-name {
+  min-height: 16px;
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.symbol-dialog-keys {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.symbol-dialog-shortcut {
+  color: var(--dlg-muted);
+}
+
+.symbol-special {
+  display: flex;
+  flex-direction: column;
+  height: 250px;
+  overflow-y: auto;
+  border: 1px solid var(--dlg-control-border);
+  background: var(--dlg-surface);
+  color: var(--dlg-text);
+}
+
+.symbol-special-head,
+.symbol-special button {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 150px;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 6px;
+  text-align: left;
+}
+
+.symbol-special-head {
+  position: sticky;
+  top: 0;
+  border-bottom: 1px solid var(--dlg-rule);
+  background: var(--dlg-surface);
+}
+
+.symbol-special button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  cursor: default;
+}
+
+.symbol-special button:hover {
+  background: var(--dlg-item-hover);
+}
+
+.symbol-special button[aria-selected="true"] {
+  background: var(--dlg-accent);
+  color: var(--dlg-accent-text);
+}
+
+.symbol-special-glyph {
+  text-align: center;
+  font-size: 14px;
+}
+
+.customize-keyboard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.customize-keyboard select,
+.customize-keyboard input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.customize-keyboard select[size] {
+  height: 72px;
+  padding: 2px 0;
+}
+
+.customize-keyboard-command {
+  margin: 0 0 4px;
+  font-weight: 600;
+}
+
+.customize-keyboard-owner {
+  min-height: 16px;
+  margin: 0;
+  color: var(--dlg-muted);
+}
