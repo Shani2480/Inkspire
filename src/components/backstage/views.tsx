@@ -32,6 +32,12 @@ import { defaultPictureWrap, setDefaultPictureWrap } from "@/document/object-lay
 import { WRAP_CHOICES } from "@/editor/objects"
 import { useBodyEditor } from "@/editor/document-editor"
 import { useInspectDialog } from "@/components/inspect-dialog"
+import {
+  ManageDocumentCard,
+  ProtectDocumentCard,
+  recoverUnsavedDocuments,
+  VersionHistoryCard,
+} from "@/components/backstage/info-protect"
 import { useAutoCorrectDialog } from "@/components/autocorrect-dialog"
 import { INSPECT_KINDS, inspectDocument } from "@/document/inspect"
 import { useEditorState } from "@tiptap/react"
@@ -45,7 +51,7 @@ import {
   useEditingOptions,
 } from "@/document/editing-options"
 import { useUserSettings } from "@/document/user-settings"
-import { FileDown, FileText, FolderOpen, Monitor, Printer } from "lucide-react"
+import { FileDown, FileSearch, FileText, FolderOpen, Monitor, Printer } from "lucide-react"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 
 export function HomeView() {
@@ -276,7 +282,11 @@ export function OpenView() {
               ))}
             </ul>
           )}
-          <button type="button" className="backstage-secondary-btn backstage-recover-btn" onClick={browse}>
+          <button
+            type="button"
+            className="backstage-secondary-btn backstage-recover-btn"
+            onClick={() => void recoverUnsavedDocuments()}
+          >
             Recover Unsaved Documents
           </button>
         </div>
@@ -340,10 +350,7 @@ export function InfoView() {
   const path = useDocumentStore((state) => state.currentFilePath)
   const html = useDocumentStore((state) => state.documentHTML)
   const props = useDocumentStore((state) => state.documentProps)
-  const isDirty = useDocumentStore((state) => state.isDirty)
-  const readOnly = useDocumentStore((state) => state.readOnly)
   const setDocumentProps = useDocumentStore((state) => state.setDocumentProps)
-  const setReadOnly = useDocumentStore((state) => state.setReadOnly)
   const editor = useBodyEditor()
   const [showAll, setShowAll] = useState(false)
   const stats = useEditorState({
@@ -381,35 +388,39 @@ export function InfoView() {
               {path ?? "Not saved yet — this document only exists in memory."}
             </p>
           </div>
-          <div className="backstage-action-cards">
-            <button type="button" className="backstage-action-card" onClick={() => setReadOnly(!readOnly)}>
-              <strong>Protect Document</strong>
-              <em>Control what types of changes people can make to this document.</em>
-              <span>{readOnly ? "Allow Editing" : "Mark as Final"}</span>
-            </button>
-            <button type="button" className="backstage-action-card" onClick={() => useInspectDialog.getState().show()}>
-              <strong>Inspect Document</strong>
-              <em>Check for Issues</em>
-              <span>
+          <div className="backstage-info-rows">
+            <ProtectDocumentCard />
+            <div className="backstage-info-row">
+              <div className="backstage-info-trigger-wrap">
+                <button
+                  type="button"
+                  className="backstage-info-trigger"
+                  onClick={() => useInspectDialog.getState().show()}
+                >
+                  <span className="backstage-info-trigger-icon">
+                    <FileSearch className="size-7" strokeWidth={1.5} />
+                  </span>
+                  <span className="backstage-info-trigger-label">Check for Issues</span>
+                </button>
+              </div>
+              <div className="backstage-info-text">
+                <h3>Inspect Document</h3>
                 {inspectSummary.length ? (
                   <>
-                    Before publishing this file, be aware that it contains:
-                    {inspectSummary.map((title) => (
-                      <span key={title} className="block">
-                        {title}
-                      </span>
-                    ))}
+                    <p>Before publishing this file, be aware that it contains:</p>
+                    <ul>
+                      {inspectSummary.map((title) => (
+                        <li key={title}>{title}</li>
+                      ))}
+                    </ul>
                   </>
                 ) : (
-                  "Nothing was found that you may want to remove before sharing this file."
+                  <p>Nothing was found that you may want to remove before sharing this file.</p>
                 )}
-              </span>
-            </button>
-            <button type="button" className="backstage-action-card" disabled>
-              <strong>Manage Document</strong>
-              <em>Manage Document</em>
-              <span>{isDirty ? "There are unsaved changes." : "There are no unsaved changes."}</span>
-            </button>
+              </div>
+            </div>
+            <VersionHistoryCard />
+            <ManageDocumentCard />
           </div>
         </div>
         <aside className="backstage-card backstage-props">
@@ -1125,9 +1136,7 @@ export function AddInsView() {
   )
 }
 
-export function HistoryView() {
-  return <StubView title="History" detail="Version history will appear here in a future update." />
-}
+export { HistoryView } from "@/components/backstage/info-protect"
 
 export function ShareView() {
   const closeBackstage = useBackstage((state) => state.closeBackstage)

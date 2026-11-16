@@ -16744,3 +16744,313 @@ textarea.tp-input {
   margin: 0;
   overflow-wrap: anywhere;
 }
+
+/* File > Info rows (Protect Document, Inspect Document, Version History, Manage Document), as Word lays them out:
+   a square button with a large icon on the left, the explanation beside it. */
+:root,
+.light {
+  --info-flag-bg: #fff4ce;
+  --info-flag-border: #f2c661;
+  --message-bar-bg: #fff4ce;
+  --message-bar-border: #f2c661;
+}
+
+html.dark,
+.dark .backstage {
+  --info-flag-bg: #3d3420;
+  --info-flag-border: #8a6d26;
+  --message-bar-bg: #3d3420;
+  --message-bar-border: #8a6d26;
+}
+
+.backstage-info-rows {
+  display: flex;
+  flex-direction: column;
+  margin-top: 14px;
+  border-top: 1px solid var(--backstage-border);
+}
+
+.backstage-info-row {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  border-bottom: 1px solid var(--backstage-border);
+  padding: 14px 10px;
+}
+
+.backstage-info-row.is-flagged {
+  background: var(--info-flag-bg);
+}
+
+.backstage-info-trigger-wrap {
+  position: relative;
+  flex: none;
+}
+
+.backstage-info-trigger {
+  display: flex;
+  width: 96px;
+  min-height: 92px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--backstage-border);
+  border-radius: 4px;
+  background: var(--backstage-card);
+  padding: 8px 4px;
+  color: inherit;
+  font-size: 12px;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.backstage-info-trigger:hover,
+.backstage-info-trigger[aria-expanded="true"] {
+  border-color: var(--app-theme-primary);
+  background: var(--hover, rgba(0, 0, 0, 0.04));
+}
+
+.backstage-info-trigger-icon {
+  color: var(--app-theme-primary);
+}
+
+.backstage-info-trigger-label {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.backstage-info-text {
+  min-width: 0;
+  padding-top: 4px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.backstage-info-text h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.backstage-info-text p,
+.backstage-info-text ul {
+  margin: 0;
+  color: var(--backstage-muted);
+}
+
+.backstage-info-text ul {
+  padding-left: 18px;
+  list-style: disc;
+}
+
+.backstage-info-text .backstage-info-flag {
+  margin-top: 4px;
+  border-left: 3px solid var(--info-flag-border);
+  padding-left: 8px;
+  color: inherit;
+}
+
+.backstage-info-menu {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  z-index: 5;
+  display: flex;
+  width: min(360px, calc(100vw - 40px));
+  flex-direction: column;
+  border: 1px solid var(--popover-border, var(--backstage-border));
+  border-radius: 6px;
+  background: var(--popover-bg, var(--backstage-card));
+  padding: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  will-change: opacity;
+}
+
+.backstage-info-menu-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border-radius: 4px;
+  padding: 10px;
+  color: inherit;
+  text-align: left;
+}
+
+.backstage-info-menu-item:hover,
+.backstage-info-menu-item:focus-visible {
+  background: var(--hover, rgba(0, 0, 0, 0.05));
+}
+
+.backstage-info-menu-item.is-on {
+  background: color-mix(in srgb, var(--app-theme-primary) 14%, transparent);
+}
+
+.backstage-info-menu-icon {
+  flex: none;
+  color: var(--app-theme-primary);
+}
+
+.backstage-info-menu-item strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.backstage-info-menu-item span span {
+  display: block;
+  margin-top: 2px;
+  color: var(--backstage-muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+/* File > History */
+.history-intro {
+  max-width: 640px;
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.history-list {
+  display: flex;
+  max-width: 720px;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.history-day {
+  border: 1px solid var(--backstage-border);
+  border-radius: 8px;
+  background: var(--backstage-card);
+  padding: 12px 14px 6px;
+}
+
+.history-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--backstage-border);
+  padding: 8px 0;
+}
+
+.history-day .backstage-card-title + .history-row {
+  border-top: 0;
+}
+
+.history-row strong {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.history-row > div:first-child > span {
+  display: block;
+  color: var(--backstage-muted);
+  font-size: 12px;
+}
+
+.history-current {
+  border: 1px solid color-mix(in srgb, var(--app-theme-primary) 55%, transparent);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--app-theme-primary) 16%, transparent);
+  padding: 0 6px;
+  color: inherit;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.history-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.history-actions .backstage-secondary-btn,
+.history-clear .backstage-secondary-btn {
+  height: 30px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+.history-clear {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+
+/* Protect Document's dialogs */
+.protect-file-name {
+  margin: 2px 0 8px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  color: var(--backstage-muted);
+}
+
+.protect-caution {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.protect-warning {
+  margin: 6px 0 0;
+  color: var(--destructive, #c50f1f);
+  font-size: 12px;
+}
+
+/* The message bar under the ribbon: Marked as Final, read-only, signatures. */
+.document-message-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: center;
+  border-bottom: 1px solid var(--message-bar-border);
+  background: var(--message-bar-bg);
+  padding: 5px 12px;
+  color: var(--app-ribbon-text, #242424);
+  font-size: 12px;
+}
+
+.document-message-bar strong {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.document-message-bar-text {
+  min-width: 0;
+}
+
+.document-message-bar-action {
+  border: 1px solid var(--message-bar-border);
+  border-radius: 3px;
+  background: var(--backstage-card, #fff);
+  padding: 2px 10px;
+  color: inherit;
+  font-size: 12px;
+}
+
+.document-message-bar-action:hover {
+  border-color: var(--app-theme-primary);
+}
+
+.document-message-bar-close {
+  display: inline-flex;
+  border-radius: 3px;
+  padding: 3px;
+  color: inherit;
+}
+
+.document-message-bar-close:hover {
+  background: rgba(0, 0, 0, 0.08);
+}

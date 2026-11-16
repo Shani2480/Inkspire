@@ -7,6 +7,7 @@ export type FileProblemKind =
   | "unsupported"
   | "legacy-word"
   | "protected"
+  | "wrong-password"
   | "damaged"
   | "permission"
   | "read-only"
@@ -74,6 +75,9 @@ export function classifyFileError(error: unknown, context: Pick<Context, "file" 
   const detail = errorDetail(error)
   const name = baseName(context.file)
   const ext = extensionOf(name)
+  if (error instanceof Error && error.name === "EncryptionError") {
+    return (error as { code?: string }).code === "wrong-password" ? "wrong-password" : "protected"
+  }
   if (context.operation === "open" && isCompoundFile(context.bytes)) {
     // Word stores a password-protected .docx encrypted inside a compound file, the container .doc files use too.
     return ext === "docx" ? "protected" : "legacy-word"
@@ -173,8 +177,14 @@ export function describeFileProblem(error: unknown, context: Context): FileProbl
     case "protected":
       return problem(
         "This document is password protected",
-        `"${fileName}" is encrypted with a password. Inkspire can't open protected documents yet. Remove the password in Word, then open it here.`,
+        `"${fileName}" is encrypted in a way Inkspire can't open yet (Word 2007's encryption, or a certificate). Open it in Word, then save it again with File > Info > Protect Document > Encrypt with Password, or without a password.`,
         ["open-other", "close"],
+      )
+    case "wrong-password":
+      return problem(
+        "The password is incorrect",
+        `The password is incorrect. Inkspire cannot open "${fileName}". Passwords are case-sensitive.`,
+        ["retry", "close"],
       )
     case "damaged":
       return problem(

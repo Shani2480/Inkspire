@@ -1625,8 +1625,16 @@ function writeSettings(settings: Settings) {
   if (settings.protection !== undefined) {
     modelled.set("w:documentProtection", protectionXml(settings.protection))
   }
+  if (settings.readOnlyRecommended !== undefined) {
+    modelled.set(
+      "w:writeProtection",
+      writeProtectionXml(settings.raw?.children.find((child) => child.name === "w:writeProtection")?.xml, settings.readOnlyRecommended),
+    )
+  }
   if (!settings.raw) {
-    return `<w:settings xmlns:w="${WORD_NS}">${[...modelled.values()].join("")}</w:settings>`
+    // In schema order, as with a source's settings below.
+    const ordered = [...modelled].sort((a, b) => settingsRank(a[0]) - settingsRank(b[0]))
+    return `<w:settings xmlns:w="${WORD_NS}">${ordered.map(([, xml]) => xml).join("")}</w:settings>`
   }
   const children = settings.raw.children.map((child) => {
     const replacement = modelled.get(child.name)
@@ -1649,6 +1657,18 @@ function writeSettings(settings: Settings) {
     (item) => `${item.prefix ? `${item.prefix}:` : ""}${item.local}="${escapeXml(item.value)}"`,
   )
   return `<w:settings ${attributes.join(" ")}>${children.map((child) => child.xml).join("")}</w:settings>`
+}
+
+/**
+ * Always Open Read-Only, in w:writeProtection. Any other attribute the source had (a password to modify, from Word's
+ * Save Options) is kept; the element goes when nothing is left in it.
+ */
+function writeProtectionXml(source: string | undefined, recommended: boolean) {
+  const attributes = (source ? /^<w:writeProtection\b([^>]*?)\/?>/.exec(source)?.[1] ?? "" : "")
+    .replace(/\s*w:recommended="[^"]*"/, "")
+    .trim()
+  const all = [recommended ? 'w:recommended="1"' : "", attributes].filter(Boolean).join(" ")
+  return all ? `<w:writeProtection ${all}/>` : ""
 }
 
 /** Writes compatibilityMode 15 and keeps every other compat setting from the source. */

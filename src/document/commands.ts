@@ -34,6 +34,9 @@ import { describeFileProblem, useFileError, type FileOperation } from "@/documen
 import { playDocumentEntrance } from "@/document/motion"
 import { useSavePrompt } from "@/document/save-prompt"
 import { useMacroPrompt } from "@/document/macro-prompt"
+import { protectionForSave, useFileProtection } from "@/document/file-protection"
+import { askOpenPassword, askOpenReadOnly } from "@/document/protect-prompts"
+import { readVersion, recordVersion, versionFileName } from "@/document/versions"
 import { defaultStyles, packStyles, stylesFromWord, unpackStyles, useStyleStore } from "@/document/styles"
 import { useEditingOptions } from "@/document/editing-options"
 import { documentName, useDocumentStore, type DocumentProps } from "@/document/store"
@@ -60,6 +63,41 @@ import { message } from "@tauri-apps/plugin-dialog"
 // The .docx reader and writer (and the zip library under them) are large and needed only once a file is opened or
 // saved, so they load then rather than when the app starts.
 const docxIo = () => import("@/document/docx/io")
+const docxEncryption = () => import("@/document/docx/encryption")
+
+/** Opening was called off by the person (Cancel in the Password or read-only question): nothing to report. */
+class OpenCancelled extends Error {
+  override name = "OpenCancelled"
+}
+
+/**
+ * A Word document's package: an encrypted one asks for its password (or tries `known`, the password of the
+ * document it is a version of). Throws EncryptionError for a wrong password, OpenCancelled on Cancel.
+ */
+async function wordPackageBytes(file: OpenedFile, known?: string | null) {
+  const head = file.bytes.subarray(0, 8)
+  const compound = head.length === 8 && head[0] === 0xd0 && head[1] === 0xcf && head[2] === 0x11 && head[3] === 0xe0
+  if (!compound) {
+    return { bytes: file.bytes, password: null }
+  }
+  const encryption = await docxEncryption()
+  if (!encryption.isEncryptedPackage(file.bytes)) {
+    // Not an encrypted package (an old .doc renamed): the reader's error says so.
+    return { bytes: file.bytes, password: null }
+  }
+  if (known) {
+    try {
+      return { bytes: await encryption.decryptPackage(file.bytes, known), password: known }
+    } catch {
+      // Not this password: ask.
+    }
+  }
+  const password = await askOpenPassword(documentName(file.path ?? file.name) || file.name)
+  if (password === null) {
+    throw new OpenCancelled()
+  }
+  return { bytes: await encryption.decryptPackage(file.bytes, password), password }
+}
 const docxOptimizer = () => import("@/document/docx/optimize")
 
 export const BLANK_DOCUMENT_HTML = '<p style="text-align: left;"></p>'
@@ -233,15 +271,23 @@ async function openPickedFile() {
  * Reads and opens a file. When that fails the error dialog says why and offers what fits: try again, open another
  * file, or take a missing file off the Recent list.
  */
-async function openWithRecovery(read: () => Promise<OpenedFile | null>, label: string | null, recent = false) {
+async function openWithRecovery(
+  read: () => Promise<OpenedFile | null>,
+  label: string | null,
+  recent = false,
+  knownPassword?: string | null,
+) {
   let file: OpenedFile | null = null
   try {
     file = await read()
     if (file) {
-      await loadOpenedFile(file)
+      await loadOpenedFile(file, knownPassword)
     }
     return
   } catch (error) {
+    if (error instanceof OpenCancelled) {
+      return
+    }
     const action = await askAboutFileProblem(error, {
       operation: "open",
       file: file?.path ?? file?.name ?? label,
@@ -249,7 +295,7 @@ async function openWithRecovery(read: () => Promise<OpenedFile | null>, label: s
       recent,
     })
     if (action === "retry") {
-      await openWithRecovery(read, label, recent)
+      await openWithRecovery(read, label, recent, knownPassword)
     } else if (action === "open-other") {
       await openPickedFile()
     } else if (action === "remove-recent" && label) {
@@ -306,7 +352,8 @@ export function openFilters() {
 export async function readFileHtml(file: OpenedFile) {
   const ext = fileExtension(file.name || file.path || "")
   if (isWordPackage(ext)) {
-    const opened = await (await docxIo()).openDocxBytes(file.bytes, file.name || file.path || "document.docx")
+    const { bytes } = await wordPackageBytes(file)
+    const opened = await (await docxIo()).openDocxBytes(bytes, file.name || file.path || "document.docx")
     return opened.view.html
   }
   if (ext === "odt" || (ext === "rtf" && isTauriRuntime() && file.path)) {
@@ -335,11 +382,26 @@ export async function readFileHtml(file: OpenedFile) {
     .join("")
 }
 
-async function loadOpenedFile(file: OpenedFile) {
+async function loadOpenedFile(file: OpenedFile, knownPassword?: string | null) {
   const editor = getDocumentEditor()
   if (!editor) {
     return
   }
+  // Asked before anything of the open document is let go, so Cancel leaves it as it was.
+  const ext0 = fileExtension(file.name || file.path || "")
+  const unlocked = isWordPackage(ext0) ? await wordPackageBytes(file, knownPassword) : null
+  const opened = unlocked
+    ? await (await docxIo()).openDocxBytes(unlocked.bytes, file.name || file.path || "document.docx")
+    : null
+  // Always Open Read-Only: asked as Word asks, unless the file is marked final (which opens read-only anyway).
+  const answer =
+    opened?.protection.readOnlyRecommended && !opened.protection.markedFinal
+      ? await askOpenReadOnly(documentName(file.path ?? file.name) || file.name)
+      : "no"
+  if (answer === "cancel") {
+    throw new OpenCancelled()
+  }
+  useFileProtection.getState().opened()
   // Prior dirty draft stays in IndexedDB for the Unsaved Documents rail.
   resetRecoverySession()
   clearWordDocument()
@@ -368,8 +430,7 @@ async function loadOpenedFile(file: OpenedFile) {
     applyOpenedSources(opened.word)
     return
   }
-  if (isWordPackage(ext)) {
-    const opened = await (await docxIo()).openDocxBytes(file.bytes, file.name || file.path || "document.docx")
+  if (unlocked && opened) {
     rememberWordDocument(opened.word)
     useStyleStore.getState().load(stylesFromWord(opened.word))
     setWordNoteTexts(opened.view.notes)
@@ -377,6 +438,15 @@ async function loadOpenedFile(file: OpenedFile) {
     applyOpenedReview(opened.word.settings)
     applyOpenedNotes(opened.word)
     applyOpenedSources(opened.word)
+    useFileProtection.getState().opened({
+      password: unlocked.password,
+      readOnlyRecommended: opened.protection.readOnlyRecommended,
+      markedFinal: opened.protection.markedFinal,
+      signatures: opened.signatures,
+    })
+    if (opened.protection.markedFinal || answer === "yes") {
+      useDocumentStore.getState().setReadOnly(true)
+    }
     return
   }
   if (ext === "odt") {
@@ -641,6 +711,7 @@ export async function emailDocument() {
         review: reviewForSave(),
         notes: notesForSave(),
         bibliography: sourcesForSave(),
+        ...protectionForSave(),
         fileName,
       })
       await invoke("email_document", { fileName, bytes: Array.from(saved.bytes), subject })
@@ -803,6 +874,7 @@ export function newBlankDocument(html = BLANK_DOCUMENT_HTML) {
   applyOpenedNotes(null)
   applyOpenedSources(null)
   useStyleStore.getState().load(defaultStyles())
+  useFileProtection.getState().opened()
   useDocumentStore.getState().startUntitled(html)
   editor.commands.setContent(html, { emitUpdate: false })
   const next = EditorState.create({
@@ -909,6 +981,43 @@ export function insertHtmlAsNewDocument(html: string) {
   editor.commands.focus("start")
   enterDocument()
   return "ok" as const
+}
+
+/**
+ * History > Open version: the version opens as a new, unsaved copy (named with the time it was saved), in a window
+ * of its own where one can open, as Word opens a version beside the document.
+ */
+export async function openVersion(id: string) {
+  const version = await readVersion(id)
+  if (!version) {
+    return
+  }
+  const file: OpenedFile = { name: versionFileName(version.file, version.savedAt), path: null, bytes: version.bytes }
+  if (!untouchedHere() && openWindow({ kind: "handoff", handoff: { kind: "file", file } })) {
+    return
+  }
+  if (!(await confirmCloseDocument())) {
+    return
+  }
+  await openWithRecovery(async () => file, file.name)
+}
+
+/**
+ * History > Restore: the version becomes the document again and is saved over the file, as Word's Restore does. The
+ * version it replaces stays in History. Unsaved changes are offered for saving first.
+ */
+export async function restoreVersion(id: string) {
+  const version = await readVersion(id)
+  const path = useDocumentStore.getState().currentFilePath
+  if (!version || !path || !(await confirmCloseDocument())) {
+    return
+  }
+  const known = useFileProtection.getState().password
+  await openWithRecovery(async () => ({ name: documentName(path), path, bytes: version.bytes }), path, false, known)
+  if (useDocumentStore.getState().currentFilePath === path) {
+    useDocumentStore.setState({ isDirty: true })
+    saveDocument()
+  }
 }
 
 /**
@@ -1025,10 +1134,15 @@ async function writeDocument(path: string, forceExt?: string, operation: FileOpe
         review: reviewForSave(),
         notes: notesForSave(),
         bibliography: sourcesForSave(),
+        ...protectionForSave(),
         fileName: path.split(/[/\\]/).pop() || "document.docx",
       })
       rememberWordDocument(saved.word)
       await writeBytes(path, saved.bytes)
+      // File > History: the file as just written.
+      void recordVersion(path, saved.bytes, props.author).catch(() => undefined)
+      // The signatures the file had were for the file as it was; this save left them out.
+      useFileProtection.setState({ signatures: 0 })
     } else if (ext === "odt" || ext === "pdf" || ext === "rtf") {
       if (!isTauriRuntime()) {
         throw new Error(`Saving .${ext} requires the desktop app.`)

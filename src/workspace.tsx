@@ -76,6 +76,8 @@ import { StyleDialogs } from "@/components/style-dialogs"
 import { showEditedStyles, useStyleStore } from "@/document/styles"
 import { SaveChangesDialog } from "@/components/save-changes-dialog"
 import { MacroPromptDialog } from "@/components/macro-prompt-dialog"
+import { ProtectDocumentDialogs } from "@/components/protect-document-dialogs"
+import { DocumentMessageBar } from "@/components/document-message-bar"
 import { BookmarkDialogHost } from "@/components/ribbon/insert-tab"
 import { useDocumentCommands } from "@/document/app-menu"
 import { getDocumentEditor } from "@/document/editor-ref"
@@ -289,6 +291,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
           <Ribbon />
           <KeyTipsLayer />
           <QuickAccessToolbar placement="below" />
+          <DocumentMessageBar />
         </div>
         <div className="flex min-h-0 min-w-0 flex-1 flex-row">
           {/* Task panes sit beside the rulers, as in Word, so the rulers never run over or cover them. */}
@@ -351,6 +354,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
       <FormatDialogHost />
       <SaveChangesDialog />
       <MacroPromptDialog />
+      <ProtectDocumentDialogs />
       <BookmarkDialogHost />
       <FileErrorDialog />
       <PageNumberFormatDialog />

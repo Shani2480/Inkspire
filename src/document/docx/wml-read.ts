@@ -596,6 +596,11 @@ function readSettings(xml: string | undefined, notes: WordNote[]): Settings {
   if (protection) {
     settings.protection = protection
   }
+  const writeProtection = wordChild(root, "writeProtection")
+  if (writeProtection) {
+    const recommended = attr(writeProtection, "recommended")
+    settings.readOnlyRecommended = recommended === "1" || recommended === "true" || recommended === "on"
+  }
   const footnotePr = readNotePr(wordChild(root, "footnotePr"), "footnote")
   const endnotePr = readNotePr(wordChild(root, "endnotePr"), "endnote")
   const footnoteProps = readNoteProps(wordChild(root, "footnotePr"))

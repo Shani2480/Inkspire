@@ -335,6 +335,13 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **Protect Document and History (2026-11-16)**: in the desktop app:
+      - Encrypt a document with a password, save, close and reopen it: it asks for the password, and a wrong one
+        says so. Open the saved file in Word on Windows with the same password.
+      - Always Open Read-Only: reopening asks. Mark as Final: it saves, and reopening shows the MARKED AS FINAL bar.
+      - Save a few times, then File > History: the versions are listed (and still there after a restart). Open
+        version opens a new window, and Restore brings the old text back into the file.
+
 - [ ] **Quick Parts (2026-11-16)**: in the desktop app, Insert > Quick Parts: save a selection to the gallery and to
       AutoText (they are still there after a restart), insert them, and open the Field… dialog and the Building
       Blocks Organizer; the Document Property flyout opens to the left when the menu is at the window's right edge.

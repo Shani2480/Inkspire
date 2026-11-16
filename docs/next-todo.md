@@ -143,8 +143,12 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
       `components/quick-parts-dialogs.tsx`, Quick Parts menu in `ribbon/insert-tab.tsx`); field results checked
       against Word's own. Left: Word's built-in building blocks (Building Blocks.dotx); the special dialogs Word opens
       from the Field list (TOC, Index, Hyperlink…); Document Property as bound content controls; Mail Merge data.
-- [ ] U23. Info > Protect Document (Encrypt with Password, Restrict Editing, Always Open Read-Only, Digital
-      Signature); Manage Document (Recover Unsaved Documents); History (versions).
+- [x] U23. Info > Protect Document (Encrypt with Password, Restrict Editing, Always Open Read-Only, Digital
+      Signature); Manage Document (Recover Unsaved Documents); History (versions). Done 2026-11-16
+      (`docx/encryption.ts`, `docx/cfb.ts`, `document/file-protection.ts`, `document/versions.ts`,
+      `backstage/info-protect.tsx`). Checked with Word both ways: encrypted, read-only and final files. Left: Add a
+      Digital Signature (needs a certificate; existing signatures are shown and dropped on save), Word 2007's
+      Standard encryption, and versions kept beside the file rather than in the app.
 - [ ] U24. Options: Language, grammar as you type, Custom Dictionaries, Advanced editing items now greyed (listed 22.9).
 - [ ] U25. Mail merge tab (listed: Future features).
 - [ ] U39. (asked 2026-11-16) Optional fonts to download, so documents written with Office's fonts look right where

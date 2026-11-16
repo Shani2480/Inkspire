@@ -7,6 +7,79 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-16
 
+### Info: Protect Document, Manage Document, History (U23)
+
+- **What was wrong or missing:**
+  - Info's Protect Document card only toggled a read-only state that was never saved.
+  - Manage Document did nothing.
+  - History was a placeholder.
+  - An encrypted .docx could not be opened, and the app could not write one.
+  - Open's "Recover Unsaved Documents" opened the file picker.
+- **What changed:**
+  - **Info** is laid out as Word's rows: Protect Document, Inspect Document (Check for Issues), Version History
+    and Manage Document, each a square button with its explanation beside it. A row whose protection is on is
+    highlighted and says what is on.
+  - **Protect Document ▾** (Word's items):
+    - **Always Open Read-Only:** saved as `w:writeProtection w:recommended="1"` in settings.xml, and read back. On
+      open the app asks, as Word does, whether to open read-only (Yes / No / Cancel).
+    - **Encrypt with Password…:** Encrypt Document, then Confirm Password. An empty password takes the encryption
+      off. Saving writes the file encrypted as Word does (MS-OFFCRYPTO Agile: AES-256-CBC, SHA-512 with 100,000
+      spins, data integrity HMAC), in a compound file with Word's DataSpaces.
+      - New modules: `docx/encryption.ts`, `docx/cfb.ts` (compound file reader and writer, mini stream and DIFAT
+        included), and `docx/sha512.ts` (synchronous, so the 100,000 spins take a fraction of a second).
+      - Opening an encrypted file asks for its password; a wrong one says so and offers Try Again. The password is
+        kept for later saves.
+    - **Restrict Editing:** opens the Restrict Editing pane.
+    - **Mark as Final:** "will be marked as final and then saved", then saves. It is written as Word writes it
+      (`_MarkAsFinal` in custom.xml, keeping the other custom properties, and Status "Final").
+      - A file marked final opens read-only, with Word's MARKED AS FINAL bar and Edit Anyway.
+  - **Digital signatures** in an opened file are counted. Info and a SIGNATURES bar say a save here removes them,
+    and the save does leave them out, as Word drops them when the document changes.
+  - **Manage Document ▾ > Recover Unsaved Documents** (and the button on Open) opens the Unsaved Documents pane, or
+    says there is nothing to recover.
+  - **History:** every save of a Word document keeps a copy of the file as written (`document/versions.ts`,
+    IndexedDB, the last 20 per file; an encrypted file's copies stay encrypted). History lists them by day with
+    time, author and size.
+    - **Open version** opens a copy in a new window, named with the time it was saved.
+    - **Restore** makes it the document again and saves it over the file, as Word's Restore does.
+    - **Delete all versions…** clears them.
+  - The read-only and Password questions come before anything of the open document is let go, so Cancel leaves
+    it as it was.
+  - A settings.xml made from scratch is now in schema order. Track Changes and Restrict Editing used to come
+    after `w:defaultTabStop`. The validator found this when it rejected the first Always Open Read-Only file.
+  - `tools/word-render.py --password / --save-password / --info` (local): opens or saves with a password and
+    prints HasPassword, ReadOnlyRecommended, Final and the signature count.
+- **Checked:**
+  - Tests:
+    - `docx/encryption.test.ts` (6 tests): SHA-512 against Node's, compound files with small, large and 8 MB
+      streams, encryption round trips at every segment boundary, wrong passwords, and a file Word encrypted.
+    - `docx/file-protection.test.ts` (5 tests): read-only, final with another custom property kept, encrypted,
+      all three together, signatures left out.
+    - The full suite: 1567 tests pass. Typecheck and ESLint are clean.
+  - **Real Word (office-runner VM):**
+    - Files the app encrypted open in Word with the password, including a non-ASCII one, and report
+      HasPassword=True. A wrong password gets "The password is incorrect".
+    - A file Word encrypted opens in the app with its password.
+    - The app's Always Open Read-Only file reports ReadOnlyRecommended=True, and its Mark as Final file
+      Final=True.
+    - A file with all three, saved again by Word with its password, reads back in the app with all three.
+    - The validator reports 0 errors.
+  - Headless Chrome, light and dark:
+    - Every Protect Document item, a mismatched confirmation, the flagged row, Manage Document with nothing to
+      recover, and History with three versions all work.
+    - The MARKED AS FINAL bar stops editing, and Edit Anyway lets it go again.
+    - Opening Word's encrypted file works: the Password dialog, a wrong password, Try Again, then the text.
+    - The read-only question shows.
+    - No dialog or menu scrolls or overflows, and the overflow crawl shows only the 3 known galleries.
+- **Still open:**
+  - **Add a Digital Signature** is left out: signing needs a certificate and its key (a .pfx), which the app
+    cannot read yet. Signatures already in a file are shown and dropped on save.
+  - The READ-ONLY bar (opened read-only on the author's advice) stops editing until Edit Anyway. Word lets you edit
+    and asks for a new name when you save.
+  - Word 2007's Standard encryption and certificate-only encryption are not read (the error says so).
+  - Versions are kept in this app's storage only, not beside the file or on OneDrive as Word's are.
+  - A draft recovered from Unsaved Documents comes back without its password.
+
 ### Quick Parts: Field…, Document Property, AutoText, Building Blocks Organizer (U22)
 
 - **What was wrong or missing:** Insert > Quick Parts was a list of saved snippets with a name box. There was no

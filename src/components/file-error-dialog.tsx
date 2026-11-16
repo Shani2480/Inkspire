@@ -157,6 +157,7 @@ function drawing(kind: FileProblemKind) {
         </>
       )
     case "protected":
+    case "wrong-password":
     case "permission":
     case "read-only":
       return (

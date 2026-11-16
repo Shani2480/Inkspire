@@ -854,6 +854,8 @@ export type Settings = {
   trackRevisions?: boolean
   /** Restrict Editing / Lock Tracking (w:documentProtection); null when it was taken off. */
   protection?: DocumentProtection | null
+  /** Info > Protect Document > Always Open Read-Only (w:writeProtection w:recommended). Absent: as the file had it. */
+  readOnlyRecommended?: boolean
   /** Separator note ids listed in w:footnotePr, including -1 and 0. */
   footnotePr?: number[]
   /** Footnote position and numbering for the document (w:footnotePr's pos, numFmt, numStart, numRestart). */
