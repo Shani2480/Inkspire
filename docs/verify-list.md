@@ -7,6 +7,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [x] **Selection pane names and Hide (2026-11-16)** — a Word file with Frame 6 and Heart 7, renamed and hidden in the
+  app and saved: Word hides the frame and keeps the new name, and re-saves `name` and `hidden="1"` on `wp:docPr`;
+  0 validator errors.
 - [x] **Paragraph boxes and lines between (2026-11-16)** — Outside / All Borders over three paragraphs each: the app
   draws one box and the lines between, as Word does; Word re-saves the app's `w:between`.
 - [x] **Underline types (2026-11-16)** — the app's file with all 17 types and two colours: Word draws each one and
@@ -228,6 +231,13 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       places.
 
 ## Needs Chrome (the web build in a browser)
+
+- [x] **Select Objects and the Selection pane (2026-11-16; checked in headless Chrome, light and dark)** — Home >
+      Select lists Select Objects and Selection Pane…; the pane shows Word's names, top of the stack first; click
+      selects, double-click renames, Hide All / Show All, Send Backward and Undo; Select Objects drags a rectangle
+      that picks both shapes, and Esc ends it. The pane never scrolls sideways.
+- [ ] **Selection pane drag to reorder (2026-11-16)** — drag a row onto another: the object moves to that place in
+      the stack (only checked through the function; drag and drop is not driven in the headless check).
 
 - [x] **List right-click menu (2026-11-15; checked 2026-11-15 in headless Chrome, light and dark)**: right-click a numbered list item: Adjust List Indents…, Restart at 1,
       Continue Numbering (greyed out on the first list), Set Numbering Value…; on a bullet only Adjust List Indents….

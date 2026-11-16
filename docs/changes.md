@@ -7,6 +7,41 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-16
 
+### Select Objects and the Selection pane as Word's: names, Show All / Hide All, rename, reorder (U28)
+
+- **What was missing:** Home > Select had only Select All and Select Text with Similar Formatting. The Selection
+  pane (on Layout and the object tabs only) listed objects in document order with made-up names. It could hide one
+  object at a time, but it couldn't rename, reorder, show all or hide all. Nothing of it was saved: Word's object
+  names were lost on open, and a hidden object came back shown.
+- **What changed:**
+  - **Home > Select** (both ribbon layouts) adds Select Objects and Selection Pane…, as Word's.
+  - **Select Objects** (`components/select-objects-mode.tsx`): while it is on, a click on the page takes the topmost
+    object under the pointer, behind the text too. Dragging draws a rectangle and picks every object inside it.
+    Text selection is off until Esc or choosing it again.
+  - **The pane** (`components/selection-pane.tsx`): Show All, Hide All, Bring Forward and Send Backward along the
+    top, then the objects, top of the stack first and in-line objects last. The eye is on the right. Click selects,
+    and Ctrl or Shift+click adds to the picked objects. Double-click or F2 renames (Enter keeps the name, Esc puts
+    the old one back). Dragging a row moves the object in the stack. Behind-text objects move only among
+    themselves, as they stay under the text.
+  - **Model** (`editor/object-group.ts`): `objectName` on every object; `listObjects` sorted by layer;
+    `renameObject`, `setAllObjectsHidden` (one undo step) and `moveObjectInStack` (numbers the stack again,
+    bottom up, like Word's `relativeHeight`).
+  - **.docx** (`docx/inlines.ts`): `wp:docPr` `name` and `hidden` are read onto the object and written back on
+    every drawing the app saves (`patchDocPr`). The app's own objects keep them through `restoreObjects`.
+  - **Fixed on the way:** saving dropped an app object (shape, text box…) that was hidden, because its picture was
+    taken from a `display: none` element. It is now measured shown within one synchronous step, so the page never
+    draws it (`object-pictures.ts`).
+- **Checked:**
+  - **Word in the VM:** Word's file with Frame 6 and Heart 7, one renamed and one hidden. Saved from the test and
+    from the app in Chrome: Word hides the frame, shows "Big heart", and re-saves both. 0 validator errors.
+  - **Chrome, light and dark:** the menu, the pane with Word's names, rename by double-click, Hide All / Show All,
+    Send Backward and Undo, and a Select Objects rectangle that picks both shapes. The overflow crawl shows only
+    the baseline items.
+  - **Tests:** `selection-pane.test.ts` (order, rename, stack moves and layers, Hide All with Undo, hit tests,
+    `wp:docPr`, opening and saving names and Hide).
+- **Not done:** groups are not shown nested in the pane (a "Grouped" tag marks them). Drag to reorder was checked
+  through the function, not driven by a mouse.
+
 ### Home > Borders as Word's: Outside, Inside, Inside Horizontal/Vertical, diagonals, boxes that join (U27)
 
 - **What was missing:** Home > Borders had six choices and set only one side of a paragraph at a time. It did

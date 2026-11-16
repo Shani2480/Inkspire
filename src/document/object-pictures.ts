@@ -11,7 +11,16 @@ const OBJECT_TYPES = new Set(["figure", "threeDModel", "smartArt", "drawingCanva
  * What an object and its picture share: the size, the turn, the wrap and the place, and for a chart opened from
  * Word the run it came from, so an unchanged chart keeps Word's parts.
  */
-const LAYOUT_KEYS = ["width", "height", "rotate", "docxKey", ...Object.keys(floatingAttributes("inline"))]
+// The name and Hide of the Selection pane are the file's (wp:docPr), as its layout is: Word may have changed them.
+const LAYOUT_KEYS = [
+  "width",
+  "height",
+  "rotate",
+  "docxKey",
+  "objectName",
+  "hidden",
+  ...Object.keys(floatingAttributes("inline")),
+]
 
 const SKIPPED = "[data-resize], [data-rotate], [data-object-handle], .object-edge, .object-size-tip"
 
@@ -90,6 +99,10 @@ function svgSource(svg: SVGSVGElement, width: number, height: number) {
 function paintsOf(dom: HTMLElement): { width: number; height: number; paints: Paint[] } {
   const turn = dom.style.transform
   dom.style.transform = "none"
+  // An object hidden on the Selection pane is still in the file (wp:docPr hidden): it is measured shown, all within
+  // this one synchronous step, so the page never draws it.
+  const hidden = dom.getAttribute("data-hidden")
+  dom.removeAttribute("data-hidden")
   try {
     const frame = dom.getBoundingClientRect()
     const width = dom.offsetWidth || frame.width
@@ -159,6 +172,9 @@ function paintsOf(dom: HTMLElement): { width: number; height: number; paints: Pa
     return { width, height, paints }
   } finally {
     dom.style.transform = turn
+    if (hidden !== null) {
+      dom.setAttribute("data-hidden", hidden)
+    }
   }
 }
 

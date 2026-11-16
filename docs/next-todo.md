@@ -183,7 +183,7 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
 - [x] U26. Underline menu: Thick, Words only, More Underlines…, Underline Color; Ctrl+Shift+W.
 - [x] U27. Home Borders menu: Outside, Inside, Inside Horizontal/Vertical, Diagonals, Horizontal Line, Draw Table,
       View Gridlines.
-- [ ] U28. Select > Select Objects, Selection Pane; Selection pane Show All / Hide All, rename, reorder.
+- [x] U28. Select > Select Objects, Selection Pane; Selection pane Show All / Hide All, rename, reorder.
 - [ ] U29. Insert: Excel Spreadsheet, Quick Tables, Stock Images; Drop Cap Options… (font, lines, distance).
 - [ ] U30. Draw: Eraser, Lasso Select, pen gallery and Add Pen, Ink to Shape, Ink Replay, Ruler, ink anywhere on the
       page.

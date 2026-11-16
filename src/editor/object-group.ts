@@ -4,7 +4,18 @@ import { NodeSelection, Plugin } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
 import { create } from "zustand"
 
-const OBJECT_TYPES = new Set(["image", "textBox", "figure", "wordArt", "drawingCanvas", "signatureLine"])
+import { isFloating } from "@/editor/objects"
+
+const OBJECT_TYPES = new Set([
+  "image",
+  "textBox",
+  "figure",
+  "wordArt",
+  "drawingCanvas",
+  "signatureLine",
+  "threeDModel",
+  "smartArt",
+])
 
 let regroupId: string | null = null
 
@@ -28,8 +39,31 @@ export const useObjectSelection = create<PickState>((set) => ({
   clear: () => set({ picked: [] }),
 }))
 
-export function listObjects(doc: ProseNode) {
-  const rows: { pos: number; label: string; hidden: boolean; groupId: string }[] = []
+export type PaneObject = {
+  pos: number
+  /** The name the Selection pane shows: the object's own (Word's docPr name) or "Picture 1", "Text Box 2"… */
+  label: string
+  /** The object's own name, when it has one. */
+  name: string
+  hidden: boolean
+  groupId: string
+  /** In line with text objects have no layer: the pane lists them last and can't move them up or down. */
+  floating: boolean
+  behind: boolean
+  z: number
+}
+
+/** A floating object's place in the stack: behind-text objects are under every other one, as in Word. */
+function stackKey(node: ProseNode) {
+  return (node.attrs.wrap === "behind" ? -100_000 : 0) + (Number(node.attrs.z) || 0)
+}
+
+/**
+ * The objects on the Selection pane, as Word lists them: top of the stack first, objects in line with text after.
+ * Objects without a name of their own are numbered by kind in document order.
+ */
+export function listObjects(doc: ProseNode): PaneObject[] {
+  const rows: (PaneObject & { key: number; order: number })[] = []
   const counts = new Map<string, number>()
   doc.descendants((node, pos) => {
     const label = objectLabel(node)
@@ -38,14 +72,85 @@ export function listObjects(doc: ProseNode) {
     }
     const count = (counts.get(label) ?? 0) + 1
     counts.set(label, count)
+    const name = typeof node.attrs.objectName === "string" ? node.attrs.objectName.trim() : ""
+    const floating = isFloating(node)
     rows.push({
       pos,
-      label: `${label} ${count}`,
+      label: name || `${label} ${count}`,
+      name,
       hidden: node.attrs.hidden === "1",
       groupId: typeof node.attrs.groupId === "string" ? node.attrs.groupId : "",
+      floating,
+      behind: floating && node.attrs.wrap === "behind",
+      z: Number(node.attrs.z) || 0,
+      key: floating ? stackKey(node) : Number.NEGATIVE_INFINITY,
+      order: rows.length,
     })
   })
-  return rows.reverse()
+  return rows
+    .sort((left, right) => right.key - left.key || right.order - left.order)
+    .map(({ key: _key, order: _order, ...row }) => row)
+}
+
+/** Rename an object (an empty name gives it back its numbered one). */
+export function renameObject(editor: Editor, pos: number, name: string) {
+  const node = editor.state.doc.nodeAt(pos)
+  if (!node || !OBJECT_TYPES.has(node.type.name)) {
+    return false
+  }
+  const value = name.trim().slice(0, 255) || null
+  if ((node.attrs.objectName ?? null) === value) {
+    return false
+  }
+  editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, objectName: value }))
+  return true
+}
+
+/** Selection pane > Show All / Hide All: one step to undo. */
+export function setAllObjectsHidden(editor: Editor, hidden: boolean) {
+  const tr = editor.state.tr
+  editor.state.doc.descendants((node, pos) => {
+    if (OBJECT_TYPES.has(node.type.name) && (node.attrs.hidden === "1") !== hidden) {
+      tr.setNodeMarkup(pos, undefined, { ...node.attrs, hidden: hidden ? "1" : null })
+    }
+  })
+  if (tr.docChanged) {
+    editor.view.dispatch(tr)
+  }
+  return tr.docChanged
+}
+
+/**
+ * Move a floating object in the stack to the place of another (the pane's drag), or one up or down (its arrows):
+ * the floating objects are numbered again from the bottom, behind-text ones keeping their own layer.
+ */
+export function moveObjectInStack(editor: Editor, pos: number, to: number | "up" | "down") {
+  const stack = listObjects(editor.state.doc).filter((row) => row.floating)
+  const from = stack.findIndex((row) => row.pos === pos)
+  if (from < 0) {
+    return false
+  }
+  const target = to === "up" ? from - 1 : to === "down" ? from + 1 : stack.findIndex((row) => row.pos === to)
+  // Behind-text objects are a layer of their own, under the text: they move among themselves.
+  if (target < 0 || target >= stack.length || target === from || stack[target]!.behind !== stack[from]!.behind) {
+    return false
+  }
+  const order = [...stack]
+  const [moved] = order.splice(from, 1)
+  order.splice(target, 0, moved!)
+  const tr = editor.state.tr
+  // Bottom first; z is 1 and up, as Word's relativeHeight. Wrap stays as it is, so a behind-text object moved above
+  // an in-front one stays behind the text.
+  order.reverse().forEach((row, index) => {
+    const node = tr.doc.nodeAt(row.pos)
+    if (node && Number(node.attrs.z) !== index + 1) {
+      tr.setNodeMarkup(row.pos, undefined, { ...node.attrs, z: index + 1 })
+    }
+  })
+  if (tr.docChanged) {
+    editor.view.dispatch(tr)
+  }
+  return tr.docChanged
 }
 
 export function canRegroup(doc: ProseNode) {
@@ -161,6 +266,12 @@ export const ObjectGrouping = Extension.create({
       {
         types: [...OBJECT_TYPES],
         attributes: {
+          objectName: {
+            default: null,
+            parseHTML: (element: HTMLElement) => element.getAttribute("data-object-name") || null,
+            renderHTML: (attributes: { objectName?: string | null }) =>
+              attributes.objectName ? { "data-object-name": attributes.objectName } : {},
+          },
           hidden: {
             default: null,
             parseHTML: (element: HTMLElement) => (element.getAttribute("data-hidden") === "1" ? "1" : null),
@@ -327,6 +438,12 @@ function objectLabel(node: ProseNode) {
   }
   if (node.type.name === "signatureLine") {
     return "Signature Line"
+  }
+  if (node.type.name === "threeDModel") {
+    return "3D Model"
+  }
+  if (node.type.name === "smartArt") {
+    return "Diagram"
   }
   if (node.type.name === "figure") {
     if (node.attrs.kind === "chart") {

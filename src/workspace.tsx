@@ -42,6 +42,7 @@ import { ApplyStylesBox, RevealFormattingPane, StyleInspector, StylesPane } from
 import { EditorPane } from "@/components/editor-pane"
 import { ReviewPanel } from "@/components/review-panel"
 import { SelectionPane } from "@/components/selection-pane"
+import { SelectObjectsMode } from "@/components/select-objects-mode"
 import { FormatShapePane } from "@/components/format-shape-pane"
 import { StatusBar } from "@/components/status-bar"
 import { TemplateBuilder } from "@/components/template-builder"
@@ -327,6 +328,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
                 ) : null}
               </div>
               <SelectionPane />
+              <SelectObjectsMode />
               <FormatShapePane />
               <ChartFormatPane />
               <AiSidebar />

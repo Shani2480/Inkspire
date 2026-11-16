@@ -26,7 +26,7 @@ import {
   readChartEx,
 } from "@/document/docx/chartex-xml"
 import { MC_NS } from "@/document/docx/mce"
-import { decodeXml } from "@/document/docx/xml"
+import { decodeXml, escapeXml } from "@/document/docx/xml"
 import { WORD_HIGHLIGHTS, readWordShape, schemeColors, shapeLook, wordShapeMark } from "@/document/docx/shape-import"
 import { wordShapeGraphic } from "@/document/docx/shape-write"
 import { boxLink, readWordTextBox, textBoxMark, wordTextBoxGraphic } from "@/document/docx/word-text-box"
@@ -338,23 +338,23 @@ function runHtml(run: Run, ctx: Projection) {
   }
   const chart = chartPictureHtml(run, ctx)
   if (chart) {
-    return wrapComments(chart, ctx)
+    return wrapComments(withDocPr(chart, run), ctx)
   }
   const box = textBoxPictureHtml(run, ctx)
   if (box) {
-    return wrapComments(box, ctx)
+    return wrapComments(withDocPr(box, run), ctx)
   }
   const shape = shapePictureHtml(run, ctx)
   if (shape) {
-    return wrapComments(shape, ctx)
+    return wrapComments(withDocPr(shape, run), ctx)
   }
   const diagram = diagramPictureHtml(run, ctx)
   if (diagram) {
-    return wrapComments(diagram, ctx)
+    return wrapComments(withDocPr(diagram, run), ctx)
   }
   const model = modelPictureHtml(run, ctx)
   if (model) {
-    return wrapComments(model, ctx)
+    return wrapComments(withDocPr(model, run), ctx)
   }
   if (run.content.some((item) => item.kind === "drawing" && !mediaFor(ctx.doc, item.relId))) {
     // Shapes and text boxes have no picture to show; keep them whole and show their text.
@@ -464,19 +464,22 @@ function runContentHtml(content: RunContent, run: Run, ctx: Projection) {
       const layout = content.layout ? floatingLayout(content.layout, content.cx, ctx.doc.section, content.cy) : null
       const theme = ctx.doc.preserved?.parts.find((item) => item.name.toLowerCase() === "/word/theme/theme1.xml")
       const look = readPictureLook(content.xml, theme ? decodeXml(theme.data) : null)
-      return imageHtml(
-        media,
-        content.cx,
-        content.cy,
-        content.name,
-        run.key,
-        layout,
-        content.rot,
-        content.object,
-        content.crop,
-        content.geometry,
-        content,
-        look,
+      return withDocPrOf(
+        content.xml,
+        imageHtml(
+          media,
+          content.cx,
+          content.cy,
+          content.name,
+          run.key,
+          layout,
+          content.rot,
+          content.object,
+          content.crop,
+          content.geometry,
+          content,
+          look,
+        ),
       )
     }
     case "text":
@@ -485,6 +488,53 @@ function runContentHtml(content: RunContent, run: Run, ctx: Projection) {
     default:
       return ""
   }
+}
+
+/**
+ * The name and visibility the Selection pane shows (wp:docPr name and hidden), on the object's element: Word's own
+ * names ("Picture 3", "Text Box 5") stay as they are, and a hidden object stays hidden.
+ */
+function withDocPr(html: string, run: Run) {
+  const drawing = run.content.find((item) => item.kind === "drawing")
+  return drawing?.kind === "drawing" ? withDocPrOf(drawing.xml, html) : html
+}
+
+function withDocPrOf(xml: string, html: string) {
+  const docPr = /<wp:docPr\b[^>]*>/.exec(xml)?.[0]
+  if (!docPr || !html.startsWith("<img")) {
+    return html
+  }
+  const name = /\sname="([^"]*)"/.exec(docPr)?.[1]
+  const hidden = /\shidden="(1|true|on)"/.test(docPr)
+  const attrs =
+    (name ? ` data-object-name="${escapeHtml(unescapeXmlAttr(name))}"` : "") + (hidden ? ` data-hidden="1"` : "")
+  return attrs ? `<img${attrs}${html.slice(4)}` : html
+}
+
+function unescapeXmlAttr(value: string) {
+  return value
+    .replace(/&#x([0-9a-f]+);/gi, (_match, hex: string) => String.fromCodePoint(Number.parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_match, dec: string) => String.fromCodePoint(Number(dec)))
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&")
+}
+
+/** The object's name and visibility from the editor, on the drawing written for it (wp:docPr). */
+export function patchDocPr(xml: string, name: string, hidden: boolean) {
+  return xml.replace(/<wp:docPr\b([^>]*?)(\/?)>/, (_match, attrs: string, slash: string) => {
+    let next = attrs.replace(/\shidden="[^"]*"/, "")
+    if (name) {
+      const value = ` name="${escapeXml(name)}"`
+      next = /\sname="/.test(next) ? next.replace(/\sname="[^"]*"/, value) : `${next}${value}`
+    }
+    if (hidden) {
+      next += ` hidden="1"`
+    }
+    return `<wp:docPr${next}${slash}>`
+  })
 }
 
 function wrapComments(html: string, ctx: Projection) {
@@ -2252,6 +2302,24 @@ export function propsFromMarks(marks: JsonMark[]): RunProperties {
  * as Word wrote it (position, wrapping, cropping, effects); otherwise it becomes a new inline picture.
  */
 export function imageRun(node: JsonNode, build: InlineBuild, asPicture = false): Run | null {
+  const run = objectRun(node, build, asPicture)
+  const name = typeof node.attrs?.objectName === "string" ? node.attrs.objectName.trim() : ""
+  const hidden = node.attrs?.hidden === "1"
+  if (
+    !run ||
+    (!name && !hidden && !run.content.some((item) => item.kind === "drawing" && /\shidden="/.test(item.xml)))
+  ) {
+    return run
+  }
+  return {
+    ...run,
+    content: run.content.map((item) =>
+      item.kind === "drawing" ? { ...item, xml: patchDocPr(item.xml, name, hidden), ...(name ? { name } : {}) } : item,
+    ),
+  }
+}
+
+function objectRun(node: JsonNode, build: InlineBuild, asPicture: boolean): Run | null {
   const object = typeof node.attrs?.objectNode === "string" ? node.attrs.objectNode : ""
   const figure = object ? decodeObjectJson(object) : null
   if (figure?.type === "figure" && figure.attrs?.kind === "chart" && !asPicture) {

@@ -7,6 +7,7 @@ import { FontMenuList } from "@/components/font-menu"
 import { requestFormatDialog } from "@/components/format-dialogs"
 import { FONT_FAMILIES, FONT_SIZES, LINE_SPACINGS } from "@/components/ribbon/options"
 import { MenuButton } from "@/components/ribbon/ribbon-button"
+import { useSelectObjects } from "@/components/select-objects-mode"
 import { useViewStore } from "@/document/view"
 import { openNavigationSearch, selectedSearchText } from "@/document/nav-search"
 import { changeCase, setLineSpacing, type CaseKind } from "@/editor/actions"
@@ -742,7 +743,10 @@ export function FindMenu({ close }: { close: () => void }) {
   )
 }
 
+/** Home > Select, as Word's: Select All, Select Objects, Select Text with Similar Formatting, Selection Pane. */
 export function SelectMenu({ editor, close }: { editor: Editor | null; close: () => void }) {
+  const selectingObjects = useSelectObjects((state) => state.on)
+  const paneOpen = useViewStore((state) => state.selectionPane)
   return (
     <div className="flex w-64 flex-col">
       <MenuButton
@@ -762,6 +766,24 @@ export function SelectMenu({ editor, close }: { editor: Editor | null; close: ()
         }}
       >
         Select Text with Similar Formatting
+      </MenuButton>
+      <MenuButton
+        selected={selectingObjects}
+        onClick={() => {
+          useSelectObjects.getState().set(!selectingObjects)
+          close()
+        }}
+      >
+        Select Objects
+      </MenuButton>
+      <MenuButton
+        selected={paneOpen}
+        onClick={() => {
+          useViewStore.getState().toggleSelectionPane()
+          close()
+        }}
+      >
+        Selection Pane…
       </MenuButton>
     </div>
   )
