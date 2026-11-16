@@ -6,6 +6,11 @@ import { pageLabelAt } from "@/editor/toc"
 import { formatSequence, parseInstruction, wordBookmarkName } from "@/document/field-instructions"
 import { citationContext, formatCitation, parseCitation } from "@/document/bibliography"
 import { useBibliography } from "@/document/bibliography-store"
+import { infoFieldResult, isComputedField, type FieldInfo } from "@/document/field-results"
+import { useDocumentStore } from "@/document/store"
+import { useUserSettings } from "@/document/user-settings"
+import { styleName } from "@/editor/style-inspect"
+import { countWords } from "@/editor/word-count"
 
 export { formatSequence, isAppField, parseInstruction, wordBookmarkName } from "@/document/field-instructions"
 
@@ -124,6 +129,8 @@ type Context = {
   pageAt: (pos: number) => string | null
   /** A CITATION field's result in the document's style, from its sources. */
   citation?: (instr: string) => string
+  /** Document properties, counts and the like, for the Field dialog's other fields (AUTHOR, NUMPAGES…). */
+  info?: FieldInfo
 }
 
 /** The sources cited in a document, in the order first cited (IEEE numbers them so). */
@@ -204,6 +211,8 @@ export function fieldResults(doc: ProseNode, context: Context) {
           }
         }
       }
+    } else if (parsed.kind !== "SEQ" && parsed.kind !== "XE" && node.type.name === "wordField" && context.info) {
+      result = infoFieldResult(instr, context.info, pos)
     }
     if (node.type.name === "wordField" && result !== null) {
       results.set(pos, result)
@@ -213,19 +222,104 @@ export function fieldResults(doc: ProseNode, context: Context) {
   return results
 }
 
+/** The editor's document properties, counts and page layout, as the Field dialog's other fields read them. */
+export function fieldInfo(editor: Editor, doc: ProseNode): FieldInfo {
+  const store = useDocumentStore.getState()
+  const props = store.documentProps
+  const user = useUserSettings.getState()
+  const pagination = editor.storage.pagination as { breaks?: number[]; pageCount?: number; sectionStarts?: boolean[] } | undefined
+  const pageIndex = (pos: number) => (pagination?.breaks ?? []).filter((at) => at <= pos).length
+  const pageCount = () => Math.max(1, pagination?.pageCount ?? 1)
+  let text: string | null = null
+  const allText = () => (text ??= doc.textBetween(0, doc.content.size, "\n", " "))
+  return {
+    now: new Date(),
+    locale: user.locale || undefined,
+    props: {
+      title: props.title,
+      subject: props.subject,
+      keywords: props.tags,
+      comments: props.comments,
+      author: props.author || user.author,
+      company: props.company,
+      category: props.category,
+      createdAt: props.createdAt,
+      savedAt: store.lastSavedTimestamp,
+      printedAt: props.lastPrintedAt,
+      editingMinutes: Math.round(props.totalEditingMs / 60000),
+    },
+    fileName: store.fileName,
+    path: store.currentFilePath,
+    user: { name: user.author, initials: user.initials, address: "" },
+    pages: pageCount,
+    words: () => countWords(allText()),
+    characters: () => allText().replace(/\s/g, "").length,
+    pageAt: (pos) => pageAt(editor, pos),
+    section: (pos) => {
+      // A page that starts a section (sectionStarts[i]) begins the next one; the first page begins section 1.
+      const starts = pagination?.sectionStarts ?? []
+      const page = pageIndex(pos)
+      let number = 1
+      let first = 0
+      for (let index = 1; index <= page; index += 1) {
+        if (starts[index]) {
+          number += 1
+          first = index
+        }
+      }
+      let last = first
+      while (last + 1 < pageCount() && !starts[last + 1]) {
+        last += 1
+      }
+      return { number, pages: last - first + 1 }
+    },
+    styleText: (style, pos) => {
+      const wanted = style.toLowerCase()
+      let before: string | null = null
+      let after: string | null = null
+      doc.descendants((node, at) => {
+        if (!node.isTextblock) {
+          return true
+        }
+        const id = node.type.name === "heading" ? `heading-${Number(node.attrs.level) || 1}` : String(node.attrs.namedStyle || "normal")
+        if (styleName(id).toLowerCase() === wanted || id.toLowerCase() === wanted) {
+          if (at < pos) {
+            before = node.textContent
+          } else if (after === null) {
+            after = node.textContent
+          }
+        }
+        return false
+      })
+      return before ?? after
+    },
+  }
+}
+
+function pageAt(editor: Editor, pos: number) {
+  return pageLabelAt(editor, pos)
+}
+
 const fieldKey = new PluginKey("wordFields")
 const REFRESH = "refreshFields"
 /** Citations only: the sources or the style changed, which Word shows in every citation at once. */
 export const REFRESH_CITATIONS = "refreshCitations"
 
 /** Brings every field's result up to date in `tr` (nothing when they already are). */
-function refresh(tr: Transaction, pageAt: Context["pageAt"], forced: boolean, citations = forced) {
+function refresh(
+  tr: Transaction,
+  pageAt: Context["pageAt"],
+  forced: boolean,
+  citations = forced,
+  info?: (doc: ProseNode) => FieldInfo,
+) {
   // Twice: a reference to "Figure 1" reads the caption's number, which the first pass may have just changed.
   for (let pass = 0; pass < 2; pass += 1) {
     const results = fieldResults(tr.doc, {
       bookmarks: collectBookmarks(tr.doc),
       pageAt,
       citation: citationFormatter(tr.doc),
+      info: info?.(tr.doc),
     })
     let changed = false
     for (const [pos, result] of results) {
@@ -316,6 +410,10 @@ export const WordField = Node.create({
         dom.dataset.instr = String(current.attrs.instr ?? "")
         // An index entry is hidden text in Word: shown only with formatting marks on.
         dom.classList.toggle("is-index-entry", /^\s*XE\b/i.test(dom.dataset.instr))
+        // A field the app has no result for (FILESIZE, a TOC inserted from the Field dialog) shows its code faintly,
+        // so it is not lost; Word would show its own result there after F9.
+        const empty = !String(current.attrs.result ?? "") && !isComputedField(dom.dataset.instr)
+        dom.classList.toggle("is-empty", empty)
         paintField(dom, String(current.attrs.result ?? ""), String(current.attrs.instr ?? "").trim())
       }
       paint(node)
@@ -352,7 +450,7 @@ export const WordField = Node.create({
           if (!has) {
             return null
           }
-          const tr = refresh(state.tr, pageAt, forced, citations)
+          const tr = refresh(state.tr, pageAt, forced, citations, (doc) => fieldInfo(editor, doc))
           return tr.docChanged ? tr : null
         },
         view(view) {

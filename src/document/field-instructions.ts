@@ -13,6 +13,8 @@ export const FIELD_KINDS = ["SEQ", "REF", "PAGEREF", "XE", "CITATION"] as const
 const VALUE_SWITCHES: Record<string, string[]> = {
   SEQ: ["r", "s"],
   XE: ["t", "r", "f"],
+  FILLIN: ["d"],
+  ASK: ["d"],
   INDEX: ["b", "c", "d", "e", "f", "g", "h", "k", "l", "p", "s", "z"],
 }
 

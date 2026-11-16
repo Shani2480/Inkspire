@@ -67,7 +67,16 @@ import { updateBlocks } from "@/editor/block-format"
 import { EquationEditor } from "@/components/equation-editor"
 import { EQUATION_PRESETS } from "@/editor/equation"
 import { openLocalFile } from "@/lib/file-io"
-import { deleteQuickPart, loadQuickParts, saveQuickPart, type QuickPart } from "@/editor/quick-parts"
+import type { BlockGallery, QuickPart } from "@/editor/quick-parts"
+import {
+  insertBuildingBlock,
+  insertField,
+  openBuildingBlocksOrganizer,
+  openCreateBuildingBlock,
+  openFieldDialog,
+  useQuickPartsDialogs,
+} from "@/components/quick-parts-dialogs"
+import { MenuFlyout, MenuHeading, MenuRow, MenuSeparator } from "@/components/shape-menus"
 import { chainWithSelection, insertAtSelectionEnd, restoreSelection } from "@/editor/selection-memory"
 import { DOMSerializer } from "@tiptap/pm/model"
 import type { Editor } from "@tiptap/core"
@@ -1662,62 +1671,141 @@ function CommentMenu({ editor, close }: { editor: Editor | null; close: () => vo
   )
 }
 
+/** Document Property: the properties the app keeps, inserted as the field Word shows them with. */
+const DOCUMENT_PROPERTY_FIELDS: [string, string][] = [
+  ["Author", "AUTHOR"],
+  ["Category", "DOCPROPERTY Category"],
+  ["Comments", "COMMENTS"],
+  ["Company", "DOCPROPERTY Company"],
+  ["Keywords", "KEYWORDS"],
+  ["Subject", "SUBJECT"],
+  ["Title", "TITLE"],
+]
+
+/**
+ * Insert > Quick Parts, as in Word: the Quick Parts gallery by category, AutoText, Document Property, Field…,
+ * Building Blocks Organizer… and Save Selection to Quick Part Gallery…. Word's Document Property entries are content
+ * controls bound to the property; the app inserts the property's field, which Word shows and updates the same way.
+ * "Get More on Office.com" is left out (no online gallery).
+ */
 function QuickMenu({ editor, close }: { editor: Editor | null; close: () => void }) {
-  const [parts, setParts] = useState<QuickPart[]>(() => loadQuickParts())
-  const [name, setName] = useState("")
+  const parts = useQuickPartsDialogs((state) => state.parts)
+  const reload = useQuickPartsDialogs((state) => state.reload)
+  useEffect(() => reload(), [reload])
+  const quick = parts.filter((part) => part.gallery === "Quick Parts")
+  const autoText = parts.filter((part) => part.gallery === "AutoText")
+  const categories = [...new Set(quick.map((part) => part.category))].sort()
+  const hasSelection = !!editor && !editor.state.selection.empty
+  const insert = (part: QuickPart) => {
+    if (editor) {
+      insertBuildingBlock(editor, part)
+    }
+    close()
+  }
+  const saveTo = (gallery: BlockGallery) => {
+    if (!editor) {
+      return
+    }
+    const html = selectionHtml(editor)
+    const { from, to } = editor.state.selection
+    close()
+    openCreateBuildingBlock(editor, gallery, html, editor.state.doc.textBetween(from, to, " "))
+  }
   return (
-    <div className="flex w-56 flex-col">
-      {parts.map((part) => (
-        <MenuButton
-          key={part.id}
-          onClick={() => {
-            editor?.chain().focus().insertContent(part.html).run()
-            close()
-          }}
-        >
-          <span className="flex w-full items-center justify-between gap-2">
-            <span className="truncate">{part.name}</span>
-            <span
-              className="text-[11px] text-neutral-400"
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={(event) => {
-                event.stopPropagation()
-                setParts(deleteQuickPart(part.id))
+    <div className="shape-menu quick-parts-menu">
+      {/* Only the gallery scrolls: the flyouts below must not sit in a scrolling box, which would clip them. */}
+      <div className="quick-parts-gallery">
+        {categories.map((category) => (
+          <div key={category}>
+            <MenuHeading>{category}</MenuHeading>
+            {quick
+              .filter((part) => part.category === category)
+              .map((part) => (
+                <BlockTile key={part.id} part={part} onClick={() => insert(part)} />
+              ))}
+          </div>
+        ))}
+      </div>
+      {categories.length > 0 ? <MenuSeparator /> : null}
+      <MenuFlyout label="AutoText">
+        <div className="shape-menu quick-parts-menu">
+          <div className="quick-parts-gallery">
+            {autoText.length > 0 ? <MenuHeading>General</MenuHeading> : null}
+            {autoText.map((part) => (
+              <BlockTile key={part.id} part={part} onClick={() => insert(part)} />
+            ))}
+          </div>
+          {autoText.length > 0 ? <MenuSeparator /> : null}
+          <MenuRow disabled={!hasSelection} onClick={() => saveTo("AutoText")}>
+            Save Selection to AutoText Gallery
+          </MenuRow>
+        </div>
+      </MenuFlyout>
+      <MenuFlyout label="Document Property">
+        <div className="shape-menu">
+          {DOCUMENT_PROPERTY_FIELDS.map(([label, instr]) => (
+            <MenuRow
+              key={label}
+              onClick={() => {
+                if (editor) {
+                  insertField(editor, `${instr} \\* MERGEFORMAT`)
+                }
+                close()
               }}
             >
-              Remove
-            </span>
-          </span>
-        </MenuButton>
-      ))}
-      {parts.length === 0 ? <p className="px-2 py-1 text-xs text-neutral-500">No saved parts yet.</p> : null}
-      <form
-        className="mt-1 flex gap-1 border-t border-black/10 p-1"
-        onSubmit={(event) => {
-          event.preventDefault()
-          if (!editor) {
-            return
-          }
-          const html = selectionHtml(editor)
-          if (!html) {
-            return
-          }
-          setParts(saveQuickPart(name || "Part", html))
-          setName("")
+              {label}
+            </MenuRow>
+          ))}
+        </div>
+      </MenuFlyout>
+      <MenuRow
+        icon={<FieldIcon />}
+        onClick={() => {
+          close()
+          openFieldDialog(editor)
         }}
       >
-        <input
-          aria-label="Quick part name"
-          value={name}
-          placeholder="Save selection"
-          className="h-7 min-w-0 flex-1 rounded border border-black/15 px-2 text-xs"
-          onChange={(event) => setName(event.target.value)}
-        />
-        <button type="submit" className="rounded bg-neutral-900 px-2 text-xs text-white">
-          Save
-        </button>
-      </form>
+        Field...
+      </MenuRow>
+      <MenuRow
+        onClick={() => {
+          close()
+          openBuildingBlocksOrganizer(editor)
+        }}
+      >
+        Building Blocks Organizer...
+      </MenuRow>
+      <MenuSeparator />
+      <MenuRow disabled={!hasSelection} onClick={() => saveTo("Quick Parts")}>
+        Save Selection to Quick Part Gallery...
+      </MenuRow>
     </div>
+  )
+}
+
+/** A building block in a Quick Parts gallery: its name and a small picture of its text, as Word shows it. */
+function BlockTile({ part, onClick }: { part: QuickPart; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className="quick-part-tile"
+      title={part.description || part.name}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={onClick}
+    >
+      <span className="quick-part-name">{part.name}</span>
+      <span className="quick-part-preview" data-keep-light dangerouslySetInnerHTML={{ __html: part.html }} />
+    </button>
+  )
+}
+
+function FieldIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
+      <rect x="2.5" y="4.5" width="11" height="7" rx="1" fill="none" stroke="var(--icon-base-color, currentColor)" />
+      <path d="M5 6.5v3M7 6.5h-2M7 8h-2" stroke="var(--icon-accent-color, currentColor)" fill="none" />
+      <path d="M9 9.5h3" stroke="var(--icon-base-color, currentColor)" />
+    </svg>
   )
 }
 

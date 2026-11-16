@@ -422,7 +422,7 @@ export function Section({ title, children }: { title: string; children: ReactNod
 
 /** A label whose shortcut letter is underlined while Alt is held. */
 export function Keyed({ text, letter }: { text: string; letter: string }) {
-  const at = text.indexOf(letter)
+  const at = letter ? text.indexOf(letter) : -1
   if (at < 0) {
     return <>{text}</>
   }

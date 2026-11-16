@@ -68,6 +68,7 @@ import { SmartArtTextPane } from "@/components/smartart-text-pane"
 import { ColumnsDialogHost } from "@/components/columns-dialog"
 import { InsertTableDialogHost } from "@/components/insert-table-dialog"
 import { CaptionDialogsHost } from "@/components/caption-dialogs"
+import { QuickPartsDialogsHost } from "@/components/quick-parts-dialogs"
 import { TablePropertiesHost } from "@/components/table-properties-dialog"
 import { ListNumberingHost } from "@/components/list-numbering-dialogs"
 import { FirstRunSetup } from "@/components/first-run-setup"
@@ -367,6 +368,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
       <ColumnsDialogHost />
       <InsertTableDialogHost />
       <CaptionDialogsHost />
+      <QuickPartsDialogsHost />
       <IndexDialogsHost />
       <FootnoteDialogHost />
       <SourceDialogsHost />

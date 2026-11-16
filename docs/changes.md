@@ -5,6 +5,72 @@ wrong or missing, what changed, where (files, tests), how it was checked, and wh
 story of each feature stays in `next-todo.md` under its section; `verify-list.md` holds what still needs a check
 in Word, Chrome or the desktop app.
 
+## 2026-11-16
+
+### Quick Parts: Field…, Document Property, AutoText, Building Blocks Organizer (U22)
+
+- **What was wrong or missing:** Insert > Quick Parts was a list of saved snippets with a name box. There was no
+  Field… dialog, no Document Property or AutoText, no Building Blocks Organizer, and no category or description
+  for a saved part. Fields other than captions, cross-references and dates had no result in the app. Category and
+  Company were not saved to the .docx, so Word's DOCPROPERTY fields had nothing to show.
+- **What changed:**
+  - **Field… dialog** (`components/quick-parts-dialogs.tsx`):
+    - Layout: Categories and Field names on the left, Field properties in the middle (date formats with
+      today's date as an example, text and number formats, numeric pictures, a name, bookmark, style, property or
+      Info category), Field options on the right (each field's switches, with a value box where one is needed), and
+      Preserve formatting during updates (`\* MERGEFORMAT`). Description below.
+    - Field Codes edits the instruction by hand.
+    - The catalog (`document/field-catalog.ts`) has Word's 9 categories and 74 fields, each with its description
+      and switches.
+  - **Field results** (`document/field-results.ts`, used by `editor/word-field.ts`):
+    - Fields with results: AUTHOR, TITLE, SUBJECT, KEYWORDS, COMMENTS, DOCPROPERTY, INFO, FILENAME, NUMPAGES,
+      NUMWORDS, NUMCHARS, PAGE, SECTION, SECTIONPAGES, CREATEDATE, SAVEDATE, PRINTDATE, EDITTIME, DATE, TIME,
+      USERNAME, USERINITIALS, QUOTE, SYMBOL, STYLEREF, MERGEFIELD («name»), MACROBUTTON / GOTOBUTTON, FILLIN / ASK
+      defaults.
+    - Word's general switches: Upper, Lower, FirstCap, Caps; roman, ALPHABETIC, Ordinal, CardText, OrdText, Hex,
+      DollarText; `\#` numeric pictures (unused # places become spaces, as in Word); and `\@` date pictures.
+    - A field the app has no result for shows its code faintly.
+  - **Quick Parts menu** (Word's order):
+    - The Quick Parts gallery by category, with a small picture of each block.
+    - AutoText › (its entries, Save Selection to AutoText Gallery).
+    - Document Property › (Author, Category, Comments, Company, Keywords, Subject, Title, inserted as their fields).
+    - Field…, Building Blocks Organizer…, and Save Selection to Quick Part Gallery…
+  - **Create New Building Block** (Name, Gallery, Category, Description) and the **Building Blocks Organizer**:
+    - The Organizer lists Name / Gallery / Category / Template, sortable by column, with a preview, Edit
+      Properties…, Delete and Insert.
+    - Blocks keep a gallery, category and description (`editor/quick-parts.ts`). Older saved parts become Quick
+      Parts in General.
+  - `docx/io.ts`: Category is saved in core.xml and Company in app.xml, and both are read on open. A file's existing
+    app.xml stays byte for byte unless Company changed.
+  - `MenuFlyout` opens to the left when the window has no room on the right, for every menu that uses it.
+  - `tools/word-render.py --fields` (local): has Word update every field and prints each code with Word's result.
+- **Checked:**
+  - Tests:
+    - `document/field-results.test.ts` (6 tests) and `components/quick-parts.test.ts` (5 tests): results, formats,
+      instructions built from the dialog, blocks, the saves, and Company in an existing app.xml.
+    - The full suite: 1556 tests pass. Typecheck and ESLint are clean.
+  - **Real Word (office-runner VM), with every field updated by Word:**
+    - 26 fields with formats (CardText, OrdText, Ordinal, Hex, DollarText, ROMAN, ALPHABETIC, numeric pictures,
+      FirstCap, Caps, CREATEDATE with and without a picture, STYLEREF, SECTION, PAGE, NUMPAGES, MACROBUTTON, SYMBOL,
+      the document properties). Word gives the same text as the app for every one.
+    - DOCPROPERTY Company and Category read the saved properties. A file saved by Word, then by the app with a new
+      Company, shows the new one.
+    - The validator reports 0 errors.
+    - This found two differences, both fixed: Word's default date-and-time uses AM/PM in capitals, and an unquoted
+      number in QUOTE is a character code (QUOTE 65 is "A").
+  - Headless Chrome, light and dark:
+    - Saving a selection as a block, the gallery, Document Property › Author, the Field dialog (Date formats, Seq's
+      options, Field Codes, NUMWORDS \* CardText) and the Organizer with Modify Building Block all work.
+    - No dialog or menu scrolls or overflows.
+- **Still open:**
+  - Word's own building blocks (cover pages, headers, page numbers… in Building Blocks.dotx) are not in the
+    Organizer, and "Save in" is fixed to the app.
+  - Fields Word inserts through a dialog of their own (TOC, Index, Hyperlink, Citation, AddressBlock…) go in as a
+    plain field with their switches, without that dialog.
+  - Document Property inserts fields, where Word inserts content controls bound to the property.
+  - REVNUM, FILESIZE, TEMPLATE's path, USERADDRESS, LINK and INCLUDETEXT have no result in the app.
+  - The dialog's layout follows Word from memory; there is no screenshot of it in the repo.
+
 ## 2026-11-15
 
 ### Symbol dialog: font and subset, character code, Special Characters, Shortcut Key (U21)

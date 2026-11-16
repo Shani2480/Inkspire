@@ -335,6 +335,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **Quick Parts (2026-11-16)**: in the desktop app, Insert > Quick Parts: save a selection to the gallery and to
+      AutoText (they are still there after a restart), insert them, and open the Field… dialog and the Building
+      Blocks Organizer; the Document Property flyout opens to the left when the menu is at the window's right edge.
+
 - [ ] **Symbol dialog (2026-11-15)**: on Windows (fonts installed), Insert > Symbol > More Symbols… with Wingdings:
       the grid shows Wingdings' pictures, and an inserted one shows as that picture in the page. Ctrl+Alt+C types ©,
       and a key assigned with Shortcut Key… types its symbol after a restart.

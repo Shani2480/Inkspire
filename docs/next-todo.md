@@ -138,8 +138,11 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
 - [x] U21. (2026-11-15) Symbol dialog: font and subset, character code (Unicode/ASCII), Special Characters tab,
       Shortcut Key… Done (`components/symbol-dialog.tsx`, `editor/symbols.ts`), checked in Word. Left: subsets per
       font, Alt+X, Customize Keyboard's command lists.
-- [ ] U22. Quick Parts: Field… dialog (every field with its switches), Document Property, AutoText, Building Blocks
-      Organizer.
+- [x] U22. Quick Parts: Field… dialog (every field with its switches), Document Property, AutoText, Building Blocks
+      Organizer. Done 2026-11-16 (`document/field-catalog.ts`, `document/field-results.ts`,
+      `components/quick-parts-dialogs.tsx`, Quick Parts menu in `ribbon/insert-tab.tsx`); field results checked
+      against Word's own. Left: Word's built-in building blocks (Building Blocks.dotx); the special dialogs Word opens
+      from the Field list (TOC, Index, Hyperlink…); Document Property as bound content controls; Mail Merge data.
 - [ ] U23. Info > Protect Document (Encrypt with Password, Restrict Editing, Always Open Read-Only, Digital
       Signature); Manage Document (Recover Unsaved Documents); History (versions).
 - [ ] U24. Options: Language, grammar as you type, Custom Dictionaries, Advanced editing items now greyed (listed 22.9).

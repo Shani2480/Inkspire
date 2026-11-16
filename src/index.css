@@ -11521,6 +11521,11 @@ html.dark .asset-library .asset-library-icon {
   display: block;
 }
 
+.menu-flyout[data-side="left"] > .menu-flyout-panel {
+  right: calc(100% + 2px);
+  left: auto;
+}
+
 /* Only the flyout under the pointer, as one menu shows one submenu. */
 :has(> .menu-flyout:hover) > .menu-flyout:not(:hover) > .menu-flyout-panel {
   display: none;
@@ -16430,4 +16435,312 @@ textarea.tp-input {
   min-height: 16px;
   margin: 0;
   color: var(--dlg-muted);
+}
+
+/* A field the app has no result for: its code, faint, until Word updates it (Insert > Quick Parts > Field). */
+.page-editor .word-field.is-empty::before {
+  content: attr(data-field-code);
+  color: var(--app-muted-text, #777);
+  opacity: 0.7;
+}
+
+/* Insert > Quick Parts: the gallery of building blocks. */
+.quick-parts-menu {
+  width: 300px;
+}
+
+.quick-parts-gallery {
+  max-height: calc(100vh - 340px);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.quick-parts-gallery:empty {
+  display: none;
+}
+
+.quick-part-tile {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 3px;
+  padding: 5px 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+.quick-part-tile:hover,
+.quick-part-tile:focus-visible {
+  background: var(--app-hover);
+  border-color: var(--popover-border);
+}
+
+.quick-part-name {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.quick-part-preview {
+  display: block;
+  max-height: 44px;
+  overflow: hidden;
+  padding: 3px 6px;
+  border: 1px solid #d6d6d6;
+  background: #fff;
+  color: #222;
+  font-size: 9px;
+  line-height: 1.3;
+  pointer-events: none;
+}
+
+.quick-part-preview :is(p, h1, h2, h3, h4, ul, ol) {
+  margin: 0;
+  font-size: inherit;
+}
+
+/* Insert > Quick Parts > Field…: choose / properties / options, the description below. */
+.field-dialog {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr) 230px;
+  gap: 14px;
+  height: 330px;
+  font-size: 12px;
+}
+
+.field-dialog-column {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.field-dialog-column.field-dialog-wide {
+  grid-column: span 2;
+}
+
+.field-dialog-column > h3 {
+  margin: 0 0 2px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--dlg-rule);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.field-dialog-stack {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field-dialog-stack:has(.field-dialog-list) {
+  flex: 1 1 0;
+}
+
+.field-dialog-pair {
+  display: grid;
+  min-height: 0;
+  flex: 1 1 0;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.field-dialog-column input:not([type="checkbox"]),
+.field-dialog-column select {
+  width: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.field-dialog-list {
+  min-height: 60px;
+  flex: 1 1 0;
+  overflow-y: auto;
+  border: 1px solid var(--dlg-control-border);
+  background: var(--dlg-surface);
+  color: var(--dlg-text);
+}
+
+.field-dialog-list.is-short {
+  flex: 0 0 auto;
+  height: 96px;
+}
+
+.field-dialog-list:focus-visible {
+  outline: 1px solid var(--dlg-accent);
+  outline-offset: -1px;
+}
+
+.field-dialog-item {
+  padding: 2px 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.field-dialog-item:hover {
+  background: var(--dlg-item-hover, var(--app-hover));
+}
+
+.field-dialog-item.is-selected {
+  background: var(--dlg-accent);
+  color: var(--dlg-accent-text, #fff);
+}
+
+.field-dialog-note {
+  margin: 4px 0;
+  color: var(--dlg-muted, var(--dlg-disabled-text));
+  overflow-wrap: anywhere;
+}
+
+.field-dialog .word-dialog-check {
+  align-items: flex-start;
+  white-space: normal;
+}
+
+.field-dialog .word-dialog-check > input {
+  margin-top: 2px;
+}
+
+.field-dialog-switch {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.field-dialog-switch > input {
+  margin-left: 22px;
+  width: calc(100% - 22px) !important;
+}
+
+.field-dialog-description {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 10px;
+  min-height: 34px;
+  font-size: 12px;
+}
+
+/* Create New Building Block. */
+.block-dialog-grid {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: center;
+  gap: 8px 10px;
+  font-size: 12px;
+}
+
+.block-dialog-grid :is(input, select) {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Building Blocks Organizer. */
+.organizer-dialog {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 250px;
+  gap: 14px;
+  height: 360px;
+  font-size: 12px;
+}
+
+.organizer-left,
+.organizer-right {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.organizer-table {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  border: 1px solid var(--dlg-control-border);
+  background: var(--dlg-surface);
+  color: var(--dlg-text);
+}
+
+.organizer-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.1fr);
+  cursor: default;
+}
+
+.organizer-row > * {
+  overflow: hidden;
+  padding: 2px 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.organizer-row.is-head {
+  position: sticky;
+  top: 0;
+  border-bottom: 1px solid var(--dlg-rule);
+  background: var(--dlg-surface);
+}
+
+.organizer-row.is-head > * {
+  border: 0;
+  border-right: 1px solid var(--dlg-rule);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.organizer-row.is-head > [aria-sort="ascending"] {
+  font-weight: 600;
+}
+
+.organizer-row:not(.is-head):hover {
+  background: var(--dlg-item-hover, var(--app-hover));
+}
+
+.organizer-row.is-selected,
+.organizer-row.is-selected:hover {
+  background: var(--dlg-accent);
+  color: var(--dlg-accent-text, #fff);
+}
+
+.organizer-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.organizer-preview {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+  padding: 12px;
+  border: 1px solid var(--dlg-control-border);
+  background: #fff;
+  color: #222;
+  font-size: 9px;
+}
+
+.organizer-preview :is(p, h1, h2, h3) {
+  margin: 0 0 4px;
+}
+
+.organizer-preview h1 {
+  font-size: 14px;
+}
+
+.organizer-caption {
+  display: flex;
+  min-height: 34px;
+  flex-direction: column;
+  margin: 0;
+  overflow-wrap: anywhere;
 }

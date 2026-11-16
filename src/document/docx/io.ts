@@ -16,6 +16,8 @@ import { designChanged } from "@/document/docx/session"
 
 const CORE_TYPE = "application/vnd.openxmlformats-package.core-properties+xml"
 const CORE_REL = "http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties"
+const APP_TYPE = "application/vnd.openxmlformats-officedocument.extended-properties+xml"
+const APP_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties"
 
 type JsonNode = {
   type?: string
@@ -79,6 +81,7 @@ export async function saveDocxBytes(input: {
     writeThemePart(pkg, currentTheme(setup, input.word))
   }
   attachCoreProperties(pkg, input.props ?? {})
+  attachAppProperties(pkg, input.props ?? {})
   if (input.bibliography) {
     writeSourcesPart(pkg, input.bibliography.sources, input.bibliography.style, citationOrder(input.json))
   }
@@ -118,6 +121,15 @@ function coreProperties(pkg: OpcPackage): Partial<DocumentProps> {
   const tags = text("keywords")
   const comments = text("description")
   const createdAt = text("created")
+  const category = text("category")
+  if (category) {
+    props.category = category
+  }
+  const app = findPart(pkg, "/docProps/app.xml")
+  const company = app ? /<(?:\w+:)?Company>([\s\S]*?)<\/(?:\w+:)?Company>/.exec(decodeXml(app.data))?.[1] : undefined
+  if (company) {
+    props.company = decodeXmlText(company)
+  }
   if (title) {
     props.title = title
   }
@@ -148,6 +160,7 @@ function attachCoreProperties(pkg: OpcPackage, props: Partial<DocumentProps>) {
     props.author ? `<dc:creator>${escapeXml(props.author)}</dc:creator>` : "",
     props.tags ? `<cp:keywords>${escapeXml(props.tags)}</cp:keywords>` : "",
     props.comments ? `<dc:description>${escapeXml(props.comments)}</dc:description>` : "",
+    props.category ? `<cp:category>${escapeXml(props.category)}</cp:category>` : "",
     `<cp:lastModifiedBy>${escapeXml(props.author || "")}</cp:lastModifiedBy>`,
     `<dcterms:created xsi:type="dcterms:W3CDTF">${escapeXml(created)}</dcterms:created>`,
     `<dcterms:modified xsi:type="dcterms:W3CDTF">${escapeXml(modified)}</dcterms:modified>`,
@@ -175,6 +188,62 @@ function attachCoreProperties(pkg: OpcPackage, props: Partial<DocumentProps>) {
     target: "docProps/core.xml",
     targetMode: "Internal",
     partName: "/docProps/core.xml",
+  })
+}
+
+/**
+ * The Company property, in docProps/app.xml as Word keeps it (DOCPROPERTY Company reads it there). A package that
+ * has the part keeps everything else in it; one without gets a part with just the application and the company.
+ */
+function attachAppProperties(pkg: OpcPackage, props: Partial<DocumentProps>) {
+  const company = props.company ?? ""
+  const existing = pkg.parts.find((part) => part.contentType === APP_TYPE)
+  if (existing) {
+    const read = decodeXml(existing.data)
+    const current = /<Company>([\s\S]*?)<\/Company>/.exec(read)?.[1]
+    if (props.company === undefined || decodeXmlText(current ?? "") === company) {
+      // Unchanged: the part stays byte for byte as it was read.
+      return
+    }
+    // xmlBytes writes the declaration itself.
+    let xml = read.replace(/^\uFEFF?\s*<\?xml[^>]*\?>\s*/, "")
+    const element = company ? `<Company>${escapeXml(company)}</Company>` : ""
+    if (/<Company\s*\/>|<Company>[\s\S]*?<\/Company>/.test(xml)) {
+      xml = xml.replace(/<Company\s*\/>|<Company>[\s\S]*?<\/Company>/, element)
+    } else if (element) {
+      // After Template and Manager, where Word writes it.
+      const after = /<\/Manager>|<Manager\s*\/>|<\/Template>|<Template\s*\/>/.exec(xml)
+      xml = after
+        ? xml.slice(0, after.index + after[0].length) + element + xml.slice(after.index + after[0].length)
+        : xml.replace(/(<Properties\b[^>]*>)/, `$1${element}`)
+    }
+    existing.data = xmlBytes(xml)
+    return
+  }
+  if (!company) {
+    return
+  }
+  const xml =
+    `<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" ` +
+    `xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">` +
+    `<Company>${escapeXml(company)}</Company><Application>Inkspire</Application></Properties>`
+  pkg.parts.push({ name: "/docProps/app.xml", contentType: APP_TYPE, data: xmlBytes(xml) })
+  const root = pkg.relationships.find((group) => group.source === "")
+  if (!root) {
+    return
+  }
+  root.items = root.items.filter((item) => item.type !== APP_REL)
+  const used = new Set(pkg.relationships.flatMap((group) => group.items.map((item) => item.id)))
+  let number = 1
+  while (used.has(`rId${number}`)) {
+    number += 1
+  }
+  root.items.push({
+    id: `rId${number}`,
+    type: APP_REL,
+    target: "docProps/app.xml",
+    targetMode: "Internal",
+    partName: "/docProps/app.xml",
   })
 }
 
