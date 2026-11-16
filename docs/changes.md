@@ -7,6 +7,62 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-16
 
+### Options: Proofing and Language as Word's, Custom Dictionaries, grammar options (U24, part 1)
+
+- **What was wrong or missing:**
+  - Options > Proofing listed "Mark grammar errors as you type" as not available, though the app checks grammar
+    as you type; its only switch was in the Editor pane.
+  - There were no grammar settings, no Frequently confused words, no Recheck Document, and no exceptions for one
+    document.
+  - There were no Custom Dictionaries: added words went into a hidden list per language.
+  - The Language page showed only the first-run locale.
+- **What changed:**
+  - **Proofing** is laid out in Word's sections: AutoCorrect options; When correcting spelling (the Ignore… and
+    Flag repeated words options, Suggest from main dictionary only, Custom Dictionaries…); When correcting
+    spelling and grammar (Check spelling as you type, Mark grammar errors as you type, Frequently confused words,
+    Check grammar and refinements in the Editor Pane, readability statistics, Writing Style: Grammar with
+    Settings…, Recheck Document); Exceptions for the document.
+  - **Frequently confused words** (`editor/grammar-rules.ts`): could/would/should of, more/less/rather… then,
+    your welcome / your not, its a / its not, it's own, their is / their are, alot. Only where the words around
+    decide which is meant. Off with the option.
+  - **Grammar Settings…** switches rule groups on and off (capitalization, punctuation, space between words, a/an,
+    "I", confused words), with Reset All. The choices are kept with the Editor pane's (`editor/grammar.ts`).
+  - **Check grammar and refinements in the Editor Pane** off: the pane lists spelling only.
+  - **Recheck Document** asks as Word does, then checks the ignored words and grammar again.
+  - **Hide spelling / grammar errors in this document only** (`document/proofing-exceptions.ts`) are kept in the
+    document, as Word keeps them: `w:hideSpellingErrors` and `w:hideGrammaticalErrors` in settings.xml, read on open.
+  - **Custom Dictionaries…** (`editor/custom-dictionaries.ts`, `components/proofing-dialogs.tsx`):
+    - Word's model: named dictionaries, each for all languages or one, each on or off, and a default that Add to
+      Dictionary writes to.
+    - The dialog has Edit Word List… (Add, Delete, Delete all), Change Default, New…, Add… (reads a Word .dic file
+      in UTF-16 or UTF-8), Remove, and Dictionary language.
+    - Words added before move into CUSTOM.DIC. A word taken out, or a dictionary switched off, is taken out of the
+      spelling checker at once.
+  - **Language** (`document/language-settings.ts`): the display language (English only, said so), and the
+    authoring languages with "Proofing installed", Add a Language… (with "Set as your preferred authoring
+    language"), Remove and Set as Preferred. A preferred language set here proofs new documents.
+- **Checked:**
+  - Tests:
+    - `editor/proofing-options.test.ts` (5 tests): confused words and their right uses; dictionaries on, off, per
+      language and default; reading a Word .dic; the preferred language for new documents.
+    - `docx/file-protection.test.ts`: the two exceptions written and read.
+    - `options-pages.test.tsx` now checks grammar as you type is a real switch.
+    - The full suite passes. Typecheck and ESLint are clean.
+  - **Word (VM):** the file with both exceptions validates (0 errors), and Word keeps both elements when it saves
+    the file again. The VM's headless Word has its own proofing off and writes these elements into every file it
+    saves, so it can't show whether it hides the underlines.
+  - Headless Chrome, light and dark:
+    - Confused words are underlined, and the underlines go when the option is turned off.
+    - Grammar Settings, Custom Dictionaries (New… "Place names", Edit Word List, adding Zeebrugge) and Recheck
+      Document work. Hide grammar errors removes every grammar underline.
+    - On Language, adding Dutch as preferred makes new documents Dutch.
+    - No dialog scrolls or overflows.
+- **Still open:**
+  - Writing Style has Grammar only; Word's Refinements (clarity, conciseness…) are not checked by rules (the AI pass
+    in the Editor pane does that).
+  - The display language is English only.
+  - Dictionaries are kept in the app, not as .dic files on disk, so Word does not see them.
+
 ### Info: Protect Document, Manage Document, History (U23)
 
 - **What was wrong or missing:**

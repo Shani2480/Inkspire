@@ -47,6 +47,8 @@ export function EditorPane() {
   const aiError = useEditorPane((state) => state.aiError)
   const ignoredCount = useEditorPane((state) => state.ignored.length)
   const version = useEditorPane((state) => state.version)
+  // Options > Proofing > Check grammar and refinements in the Editor Pane.
+  const paneGrammar = useEditorPane((state) => state.paneGrammar)
   const spellCheck = useViewStore((state) => state.spellCheck)
   const setSpellCheck = useViewStore((state) => state.setSpellCheck)
   const language = useDocumentStore((state) => state.pageSetup.language)
@@ -54,9 +56,9 @@ export function EditorPane() {
 
   const grammar = useSettledEditorValue(
     editor,
-    (current) => (open ? listGrammarIssues(current) : []),
+    (current) => (open && paneGrammar ? listGrammarIssues(current) : []),
     [] as FlaggedIssue[],
-    [open, version, language],
+    [open, paneGrammar, version, language],
   )
   const spelling = useSettledEditorValue(
     editor,

@@ -335,6 +335,11 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **Proofing options (2026-11-16)**: in the desktop app, File > Options > Proofing > Custom Dictionaries…: New…, add
+      a word in Edit Word List, Add… a .dic file Word made (it lists its words); after a restart they are still there and
+      the words are not underlined. Hide spelling errors in this document only, save, and open the file in Word on
+      Windows: Word shows no red underlines in it either.
+
 - [ ] **Protect Document and History (2026-11-16)**: in the desktop app:
       - Encrypt a document with a password, save, close and reopen it: it asks for the password, and a wrong one
         says so. Open the saved file in Word on Windows with the same password.

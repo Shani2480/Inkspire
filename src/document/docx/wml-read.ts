@@ -596,6 +596,12 @@ function readSettings(xml: string | undefined, notes: WordNote[]): Settings {
   if (protection) {
     settings.protection = protection
   }
+  for (const name of ["hideSpellingErrors", "hideGrammaticalErrors"] as const) {
+    const flag = wordChild(root, name)
+    if (flag) {
+      settings[name] = readOnOff(flag) ?? true
+    }
+  }
   const writeProtection = wordChild(root, "writeProtection")
   if (writeProtection) {
     const recommended = attr(writeProtection, "recommended")

@@ -35,6 +35,7 @@ import { playDocumentEntrance } from "@/document/motion"
 import { useSavePrompt } from "@/document/save-prompt"
 import { useMacroPrompt } from "@/document/macro-prompt"
 import { protectionForSave, useFileProtection } from "@/document/file-protection"
+import { proofingForSave, useProofingExceptions } from "@/document/proofing-exceptions"
 import { askOpenPassword, askOpenReadOnly } from "@/document/protect-prompts"
 import { readVersion, recordVersion, versionFileName } from "@/document/versions"
 import { defaultStyles, packStyles, stylesFromWord, unpackStyles, useStyleStore } from "@/document/styles"
@@ -402,6 +403,7 @@ async function loadOpenedFile(file: OpenedFile, knownPassword?: string | null) {
     throw new OpenCancelled()
   }
   useFileProtection.getState().opened()
+  useProofingExceptions.getState().opened()
   // Prior dirty draft stays in IndexedDB for the Unsaved Documents rail.
   resetRecoverySession()
   clearWordDocument()
@@ -443,6 +445,10 @@ async function loadOpenedFile(file: OpenedFile, knownPassword?: string | null) {
       readOnlyRecommended: opened.protection.readOnlyRecommended,
       markedFinal: opened.protection.markedFinal,
       signatures: opened.signatures,
+    })
+    useProofingExceptions.getState().opened({
+      hideSpelling: opened.word.settings.hideSpellingErrors,
+      hideGrammar: opened.word.settings.hideGrammaticalErrors,
     })
     if (opened.protection.markedFinal || answer === "yes") {
       useDocumentStore.getState().setReadOnly(true)
@@ -875,6 +881,7 @@ export function newBlankDocument(html = BLANK_DOCUMENT_HTML) {
   applyOpenedSources(null)
   useStyleStore.getState().load(defaultStyles())
   useFileProtection.getState().opened()
+  useProofingExceptions.getState().opened()
   useDocumentStore.getState().startUntitled(html)
   editor.commands.setContent(html, { emitUpdate: false })
   const next = EditorState.create({
@@ -1135,6 +1142,7 @@ async function writeDocument(path: string, forceExt?: string, operation: FileOpe
         notes: notesForSave(),
         bibliography: sourcesForSave(),
         ...protectionForSave(),
+        proofing: proofingForSave(),
         fileName: path.split(/[/\\]/).pop() || "document.docx",
       })
       rememberWordDocument(saved.word)

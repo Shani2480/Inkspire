@@ -1,8 +1,9 @@
 import { cancelAiRequest } from "@/ai/generate"
 import { requestGrammar, type GrammarIssue as AiIssue } from "@/ai/proofing"
 import { useDocumentStore } from "@/document/store"
+import { useProofingExceptions } from "@/document/proofing-exceptions"
 import { refreshDisplayedMarks } from "@/editor/display-refresh"
-import { findGrammarIssues, type GrammarKind } from "@/editor/grammar-rules"
+import { findGrammarIssues, GRAMMAR_RULES, type GrammarKind } from "@/editor/grammar-rules"
 import { Extension, type Editor } from "@tiptap/core"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
@@ -30,8 +31,14 @@ export type FlaggedIssue = {
 
 type EditorPaneState = {
   open: boolean
-  /** The rules run as you type. */
+  /** The rules run as you type (Options > Proofing > Mark grammar errors as you type). */
   checkGrammar: boolean
+  /** Options > Proofing > Frequently confused words. */
+  confusedWords: boolean
+  /** Options > Proofing > Check grammar and refinements in the Editor Pane: the pane lists grammar too. */
+  paneGrammar: boolean
+  /** Grammar Settings: the rule groups switched off. */
+  rulesOff: GrammarKind[]
   /** The AI pass runs by itself when typing pauses. */
   aiAuto: boolean
   aiIssues: AiIssue[]
@@ -48,6 +55,7 @@ type EditorPaneState = {
   openPane: () => void
   closePane: () => void
   setCheckGrammar: (checkGrammar: boolean) => void
+  setGrammarOptions: (patch: Partial<Pick<EditorPaneState, "confusedWords" | "paneGrammar" | "rulesOff">>) => void
   setAiAuto: (aiAuto: boolean) => void
   setAiIssues: (issues: AiIssue[], checkedText: string) => void
   setAiRunning: (running: boolean) => void
@@ -59,21 +67,33 @@ type EditorPaneState = {
   dismissAi: (issue: FlaggedIssue) => void
 }
 
-function loadChoices() {
+type Choices = Pick<EditorPaneState, "checkGrammar" | "aiAuto" | "confusedWords" | "paneGrammar" | "rulesOff">
+
+const KINDS = new Set<string>([...GRAMMAR_RULES.map((rule) => rule.kind), "confused"])
+
+function loadChoices(): Choices {
   try {
     const parsed = JSON.parse(localStorage.getItem(KEY) || "{}") as Record<string, unknown>
+    const flag = (name: string, fallback: boolean) => (typeof parsed[name] === "boolean" ? (parsed[name] as boolean) : fallback)
     return {
-      checkGrammar: typeof parsed.checkGrammar === "boolean" ? parsed.checkGrammar : true,
-      aiAuto: typeof parsed.aiAuto === "boolean" ? parsed.aiAuto : false,
+      checkGrammar: flag("checkGrammar", true),
+      aiAuto: flag("aiAuto", false),
+      // Word's defaults: both on.
+      confusedWords: flag("confusedWords", true),
+      paneGrammar: flag("paneGrammar", true),
+      rulesOff: Array.isArray(parsed.rulesOff)
+        ? (parsed.rulesOff.filter((kind) => typeof kind === "string" && KINDS.has(kind)) as GrammarKind[])
+        : [],
     }
   } catch {
-    return { checkGrammar: true, aiAuto: false }
+    return { checkGrammar: true, aiAuto: false, confusedWords: true, paneGrammar: true, rulesOff: [] }
   }
 }
 
-function saveChoices(state: Pick<EditorPaneState, "checkGrammar" | "aiAuto">) {
+function saveChoices(state: Choices) {
   try {
-    localStorage.setItem(KEY, JSON.stringify({ checkGrammar: state.checkGrammar, aiAuto: state.aiAuto }))
+    const { checkGrammar, aiAuto, confusedWords, paneGrammar, rulesOff } = state
+    localStorage.setItem(KEY, JSON.stringify({ checkGrammar, aiAuto, confusedWords, paneGrammar, rulesOff }))
   } catch {
     // Without storage the choice lasts until the page closes.
   }
@@ -99,6 +119,10 @@ export const useEditorPane = create<EditorPaneState>((set, get) => ({
   },
   setCheckGrammar: (checkGrammar) => {
     set((state) => ({ checkGrammar, version: state.version + 1 }))
+    saveChoices(get())
+  },
+  setGrammarOptions: (patch) => {
+    set((state) => ({ ...patch, version: state.version + 1 }))
     saveChoices(get())
   },
   setAiAuto: (aiAuto) => {
@@ -152,7 +176,7 @@ const listed = new WeakMap<ProseMirrorNode, { key: string; issues: FlaggedIssue[
 
 function settingsKey() {
   const state = useEditorPane.getState()
-  return `${useDocumentStore.getState().pageSetup.language}|${state.version}|${state.checkGrammar}`
+  return `${useDocumentStore.getState().pageSetup.language}|${state.version}|${state.checkGrammar}|${state.confusedWords}|${state.rulesOff.join()}`
 }
 
 function issuesIn(doc: ProseMirrorNode): FlaggedIssue[] {
@@ -180,8 +204,8 @@ function issuesIn(doc: ProseMirrorNode): FlaggedIssue[] {
       const { text, map } = blockText(node, pos)
       const own: FlaggedIssue[] = []
       if (state.checkGrammar) {
-        for (const issue of findGrammarIssues(text, language)) {
-          if (ignored.has(ignoreKey(issue))) {
+        for (const issue of findGrammarIssues(text, language, state.confusedWords)) {
+          if (ignored.has(ignoreKey(issue)) || state.rulesOff.includes(issue.kind)) {
             continue
           }
           own.push({
@@ -306,6 +330,10 @@ export function stopAiCheck() {
 const grammarKey = new PluginKey("grammar")
 
 function grammarDecorations(doc: ProseMirrorNode) {
+  if (useProofingExceptions.getState().hideGrammar) {
+    // Options > Proofing > Hide grammar errors in this document only.
+    return null
+  }
   const state = useEditorPane.getState()
   if (!state.checkGrammar && state.aiIssues.length === 0) {
     return null

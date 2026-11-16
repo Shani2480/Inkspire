@@ -72,6 +72,8 @@ export async function saveDocxBytes(input: {
   protection?: FileProtection
   /** Encrypt with Password: the file is written encrypted, and opens only with this password. */
   password?: string | null
+  /** Options > Proofing > Exceptions for this document; the document's own when left out. */
+  proofing?: { hideSpelling: boolean; hideGrammar: boolean }
 }) {
   const settings = input.word?.settings
   const reviewChanged =
@@ -98,6 +100,20 @@ export async function saveDocxBytes(input: {
   }
   if (input.notes) {
     applyNoteSettings(word, input.notes)
+  }
+  if (
+    input.proofing &&
+    (Boolean(word.settings.hideSpellingErrors) !== input.proofing.hideSpelling ||
+      Boolean(word.settings.hideGrammaticalErrors) !== input.proofing.hideGrammar)
+  ) {
+    word = {
+      ...word,
+      settings: {
+        ...word.settings,
+        hideSpellingErrors: input.proofing.hideSpelling,
+        hideGrammaticalErrors: input.proofing.hideGrammar,
+      },
+    }
   }
   if (input.protection && Boolean(word.settings.readOnlyRecommended) !== input.protection.readOnlyRecommended) {
     word = { ...word, settings: { ...word.settings, readOnlyRecommended: input.protection.readOnlyRecommended } }

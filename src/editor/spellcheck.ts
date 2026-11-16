@@ -2,6 +2,8 @@ import { useEditingOptions } from "@/document/editing-options"
 import { normalizeDocumentLanguage, proofingLanguage, type DocumentLanguageId } from "@/document/languages"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
+import { activeCustomWords, useCustomDictionaries } from "@/editor/custom-dictionaries"
+import { useProofingExceptions } from "@/document/proofing-exceptions"
 import { refreshDisplayedMarks } from "@/editor/display-refresh"
 import { Extension, type Editor } from "@tiptap/core"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
@@ -10,21 +12,16 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view"
 import nspell from "nspell"
 
 type SpellChecker = ReturnType<typeof nspell>
-type CustomDictionaries = Partial<Record<DocumentLanguageId, string[]>>
 
 const SUGGESTION_LIMIT = 5
 const WORD_PATTERN = /[\p{L}]+(?:['’][\p{L}]+)*/gu
-const CUSTOM_DICTIONARY_KEY = "aiword.custom-dictionaries"
 
 /** Session-only ignores (not persisted). */
 const ignoredWords = new Set<string>()
-/** Persisted user words, keyed by proofing language. */
-const customWords = new Map<DocumentLanguageId, Set<string>>()
 const cache = new Map<DocumentLanguageId, SpellChecker>()
 const loading = new Map<DocumentLanguageId, Promise<SpellChecker>>()
 let activeLanguage: DocumentLanguageId | null = null
 let activeSpell: SpellChecker | null = null
-let customDictionariesLoaded = false
 
 const DICTIONARY_URLS: Record<DocumentLanguageId, { aff: URL; dic: URL }> = {
   "en-US": {
@@ -65,76 +62,60 @@ function currentLanguage() {
   return normalizeDocumentLanguage(useDocumentStore.getState().pageSetup.language)
 }
 
-function readStoredDictionaries(): CustomDictionaries {
-  if (typeof localStorage === "undefined") {
-    return {}
-  }
-  try {
-    const parsed = JSON.parse(localStorage.getItem(CUSTOM_DICTIONARY_KEY) ?? "{}") as unknown
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return {}
-    }
-    const result: CustomDictionaries = {}
-    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
-      if (!Array.isArray(value)) {
-        continue
-      }
-      const lang = normalizeDocumentLanguage(key)
-      const words = value
-        .filter((item): item is string => typeof item === "string")
-        .map(normalizeToken)
-        .filter(Boolean)
-      result[lang] = [...new Set([...(result[lang] ?? []), ...words])]
-    }
-    return result
-  } catch {
-    return {}
-  }
-}
-
-function ensureCustomDictionariesLoaded() {
-  if (customDictionariesLoaded) {
-    return
-  }
-  customDictionariesLoaded = true
-  const stored = readStoredDictionaries()
-  for (const [lang, words] of Object.entries(stored) as [DocumentLanguageId, string[]][]) {
-    customWords.set(lang, new Set(words))
-  }
-}
+/** The custom words for a language, worked out again when the dictionaries change. */
+const wordSets = new Map<DocumentLanguageId, { from: unknown; words: Set<string> }>()
 
 function customWordSet(language: DocumentLanguageId) {
-  ensureCustomDictionariesLoaded()
-  let set = customWords.get(language)
-  if (!set) {
-    set = new Set()
-    customWords.set(language, set)
+  const from = useCustomDictionaries.getState().dictionaries
+  const kept = wordSets.get(language)
+  if (kept && kept.from === from) {
+    return kept.words
   }
-  return set
+  const words = activeCustomWords(language)
+  wordSets.set(language, { from, words })
+  return words
 }
 
-function persistCustomDictionaries() {
-  if (typeof localStorage === "undefined") {
-    return
-  }
-  const payload: CustomDictionaries = {}
-  for (const [lang, words] of customWords) {
-    if (words.size > 0) {
-      payload[lang] = [...words].sort((a, b) => a.localeCompare(b))
-    }
-  }
-  localStorage.setItem(CUSTOM_DICTIONARY_KEY, JSON.stringify(payload))
-}
+/** The custom words each loaded checker was given, so a word taken out of a dictionary can be taken out of it. */
+const applied = new Map<DocumentLanguageId, Set<string>>()
 
 function applyCustomWords(spell: SpellChecker, language: DocumentLanguageId) {
-  for (const word of customWordSet(language)) {
-    try {
-      spell.add(word)
-    } catch {
-      // Ignore individual add failures; the word still stays in our set.
+  const words = customWordSet(language)
+  const before = applied.get(language) ?? new Set<string>()
+  for (const word of before) {
+    if (!words.has(word)) {
+      try {
+        spell.remove(word)
+      } catch {
+        // Not in the checker: nothing to take out.
+      }
     }
   }
+  for (const word of words) {
+    if (!before.has(word)) {
+      try {
+        spell.add(word)
+      } catch {
+        // Ignore individual add failures; the word still stays in our set.
+      }
+    }
+  }
+  applied.set(language, new Set(words))
 }
+
+// A dictionary switched off, a word deleted or a list added: every loaded checker follows, and the page is redrawn.
+useCustomDictionaries.subscribe((state, previous) => {
+  if (state.dictionaries === previous.dictionaries) {
+    return
+  }
+  for (const [language, spell] of cache) {
+    applyCustomWords(spell, language)
+  }
+  wordsVersion += 1
+  if (shownEditor && !shownEditor.isDestroyed) {
+    refreshDisplayedMarks(shownEditor)
+  }
+})
 
 async function loadSpell(language: DocumentLanguageId) {
   const cached = cache.get(language)
@@ -171,7 +152,6 @@ async function loadSpell(language: DocumentLanguageId) {
 /** Prefetch / switch the Hunspell dictionary for the document proofing language. */
 export function ensureDictionary(language?: string) {
   const lang = normalizeDocumentLanguage(language ?? currentLanguage())
-  ensureCustomDictionariesLoaded()
   return loadSpell(lang).then((spell) => {
     activeLanguage = lang
     activeSpell = spell
@@ -179,29 +159,29 @@ export function ensureDictionary(language?: string) {
   })
 }
 
+/**
+ * Options > Proofing > Recheck Document: the words and grammar put aside with Ignore are checked again, as Word's
+ * Recheck Document resets them.
+ */
+export function recheckDocument() {
+  ignoredWords.clear()
+  wordsVersion += 1
+}
+
 export function ignoreSpelling(word: string) {
   wordsVersion += 1
   ignoredWords.add(normalizeToken(word))
 }
 
-/** Persist a word in the custom dictionary for the active proofing language. */
+/** Add to Dictionary: the word goes into the default custom dictionary (Options > Proofing > Custom Dictionaries). */
 export function addToDictionary(word: string) {
   const lang = activeLanguage ?? currentLanguage()
   const lower = normalizeToken(word)
   if (!lower || lower.length > 64) {
     return lang
   }
-  const set = customWordSet(lang)
-  if (!set.has(lower)) {
-    wordsVersion += 1
-    set.add(lower)
-    persistCustomDictionaries()
-  }
-  const spell = cache.get(lang) ?? activeSpell
-  try {
-    spell?.add(lower)
-  } catch {
-    // Keep the persisted entry even if the checker rejects the form.
+  if (!customWordSet(lang).has(lower)) {
+    useCustomDictionaries.getState().addWord(word)
   }
   return lang
 }
@@ -575,6 +555,10 @@ export const Spellcheck = Extension.create({
         },
         props: {
           decorations(state) {
+            if (useProofingExceptions.getState().hideSpelling) {
+              // Options > Proofing > Hide spelling errors in this document only.
+              return null
+            }
             if (!useViewStore.getState().spellCheck) {
               // Checking as you type is off: show only what "Check Spelling Now" found.
               return spellcheckKey.getState(state) ?? null

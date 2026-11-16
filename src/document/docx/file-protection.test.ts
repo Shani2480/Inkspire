@@ -103,6 +103,15 @@ describe("Protect Document in the saved file", { timeout: 60_000 }, () => {
     expect(opened.protection).toEqual({ readOnlyRecommended: true, markedFinal: true })
   })
 
+  it("writes Options > Proofing's exceptions for the document into settings, and reads them back", async () => {
+    const bytes = await save("hide-errors", { proofing: { hideSpelling: true, hideGrammar: true } })
+    const settings = decodeXml(findPart(await openPackage(bytes, "a.docx"), "/word/settings.xml")!.data)
+    expect(settings).toContain("<w:hideSpellingErrors/>")
+    expect(settings).toContain("<w:hideGrammaticalErrors/>")
+    const opened = await openDocxBytes(bytes, "a.docx")
+    expect(opened.word.settings).toMatchObject({ hideSpellingErrors: true, hideGrammaticalErrors: true })
+  })
+
   it("leaves out the digital signatures of the file as it was", async () => {
     const bytes = await save("signed", {})
     const pkg = await openPackage(bytes, "a.docx")

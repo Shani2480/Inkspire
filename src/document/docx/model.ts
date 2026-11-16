@@ -856,6 +856,9 @@ export type Settings = {
   protection?: DocumentProtection | null
   /** Info > Protect Document > Always Open Read-Only (w:writeProtection w:recommended). Absent: as the file had it. */
   readOnlyRecommended?: boolean
+  /** Options > Proofing > Hide spelling / grammar errors in this document only. Absent: as the file had it. */
+  hideSpellingErrors?: boolean
+  hideGrammaticalErrors?: boolean
   /** Separator note ids listed in w:footnotePr, including -1 and 0. */
   footnotePr?: number[]
   /** Footnote position and numbering for the document (w:footnotePr's pos, numFmt, numStart, numRestart). */

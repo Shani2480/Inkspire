@@ -6,7 +6,58 @@ import { normalizeDocumentLanguage } from "@/document/languages"
  * fires; anything that needs judgement is left to the AI check in the Editor pane.
  */
 
-export type GrammarKind = "spacing" | "punctuation" | "capitalization" | "article" | "pronoun" | "ai"
+export type GrammarKind = "spacing" | "punctuation" | "capitalization" | "article" | "pronoun" | "confused" | "ai"
+
+/** The rule groups Grammar Settings switches on and off (every kind but the AI's). */
+export const GRAMMAR_RULES: { kind: Exclude<GrammarKind, "ai" | "confused">; label: string }[] = [
+  { kind: "capitalization", label: "Capitalization" },
+  { kind: "punctuation", label: "Punctuation" },
+  { kind: "spacing", label: "Space between words" },
+  { kind: "article", label: "Indefinite article use (a, an)" },
+  { kind: "pronoun", label: "Pronoun use (I)" },
+]
+
+/**
+ * Frequently confused words: pairs whose wrong one is a real word, so spelling cannot catch it. Only where the words
+ * around it decide which is meant.
+ */
+const CONFUSED: { pattern: RegExp; fix: (match: RegExpMatchArray) => string; message: string }[] = [
+  {
+    pattern: /\b(could|would|should|must|might|may)\s+of\b/gi,
+    fix: (match) => `${match[1]} have`,
+    message: "“have”, not “of”, after a verb such as could, would or should.",
+  },
+  {
+    pattern: /\b(more|less|rather|other|better|worse|greater|fewer|smaller|larger|bigger|older|younger|faster|slower|higher|lower)\s+then\b/gi,
+    fix: (match) => `${match[1]} than`,
+    message: "“than” compares; “then” is about time.",
+  },
+  {
+    pattern: /\byour\s+(welcome|right|wrong|not|going|being|doing|getting|very|so|too|a|an|the)\b/gi,
+    fix: (match) => `${match[0][0] === "Y" ? "You're" : "you're"} ${match[1]}`,
+    message: "“you're” (you are), not “your”.",
+  },
+  {
+    pattern: /\bits\s+(a|an|the|not|been|going|very|so|too|time|true|important|possible|likely)\b/gi,
+    fix: (match) => `${match[0][0] === "I" ? "It's" : "it's"} ${match[1]}`,
+    message: "“it's” (it is), not “its”.",
+  },
+  {
+    pattern: /\bit['’]s\s+(own|self)\b/gi,
+    fix: (match) => `${match[0][0] === "I" ? "Its" : "its"} ${match[1]}`,
+    message: "“its” (belonging to it), not “it's”.",
+  },
+  {
+    pattern: /\btheir\s+(is|are|was|were|will be|has been|have been)\b/gi,
+    fix: (match) => `${match[0][0] === "T" ? "There" : "there"} ${match[1]}`,
+    message: "“there”, not “their” (belonging to them).",
+  },
+  {
+    pattern: /\balot\b/gi,
+    fix: (match) => (match[0][0] === "A" ? "A lot" : "a lot"),
+    message: "“a lot” is two words.",
+  },
+]
 
 export type GrammarIssue = {
   /** Offsets inside the text that was checked. */
@@ -26,7 +77,7 @@ const A_BEFORE = /^(?:uni|use|usu|ute|utensil|ubiq|euro|eu|one|once|u[a-z]*$|uk\
 const LETTER = /\p{L}/u
 
 /** Finds the issues in one run of text, as offsets into it. */
-export function findGrammarIssues(text: string, language: string): GrammarIssue[] {
+export function findGrammarIssues(text: string, language: string, confused = true): GrammarIssue[] {
   const issues: GrammarIssue[] = []
   if (!text.trim()) {
     return issues
@@ -150,6 +201,21 @@ export function findGrammarIssues(text: string, language: string): GrammarIssue[
       message: wantAn ? `“an” before “${next}”.` : `“a” before “${next}”.`,
       kind: "article",
     })
+  }
+
+  if (confused) {
+    for (const rule of CONFUSED) {
+      for (const match of text.matchAll(rule.pattern)) {
+        issues.push({
+          from: match.index,
+          to: match.index + match[0].length,
+          text: match[0],
+          suggestions: [rule.fix(match)],
+          message: rule.message,
+          kind: "confused",
+        })
+      }
+    }
   }
 
   return sorted(issues)

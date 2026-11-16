@@ -38,7 +38,7 @@ import {
   recoverUnsavedDocuments,
   VersionHistoryCard,
 } from "@/components/backstage/info-protect"
-import { useAutoCorrectDialog } from "@/components/autocorrect-dialog"
+import { LanguagePage, ProofingPage } from "@/components/backstage/proofing-pages"
 import { INSPECT_KINDS, inspectDocument } from "@/document/inspect"
 import { useEditorState } from "@tiptap/react"
 import { MARGIN_PRESETS, marginPresetId, pageMetrics } from "@/document/page-setup"
@@ -1256,8 +1256,6 @@ export function OptionsPages({ initialPage = "general" }: { initialPage?: Option
   const setDocumentProps = useDocumentStore((state) => state.setDocumentProps)
   const ribbonLayout = useViewStore((state) => state.ribbonLayout)
   const setRibbonLayout = useViewStore((state) => state.setRibbonLayout)
-  const spellCheck = useViewStore((state) => state.spellCheck)
-  const toggleSpellCheck = useViewStore((state) => state.toggleSpellCheck)
   const settings = {
     locale: useUserSettings((state) => state.locale),
     dateFormat: useUserSettings((state) => state.dateFormat),
@@ -1570,65 +1568,8 @@ export function OptionsPages({ initialPage = "general" }: { initialPage?: Option
           </section>
         )}
         {page === "advanced" && <ShortcutSettings />}
-        {page === "proofing" && (
-          <section className="backstage-card">
-            <h2 className="backstage-card-title">Proofing</h2>
-            <p className="backstage-muted">Change how Inkspire corrects and formats text as you type.</p>
-            <button type="button" className="dialog-btn mb-3" onClick={() => useAutoCorrectDialog.getState().show()}>
-              AutoCorrect Options…
-            </button>
-            <label className="backstage-check">
-              <input type="checkbox" checked={spellCheck} onChange={toggleSpellCheck} /> Check spelling as you type
-            </label>
-            {(
-              [
-                ["ignoreUppercase", "Ignore words in UPPERCASE"],
-                ["ignoreNumbers", "Ignore words that contain numbers"],
-                ["ignoreAddresses", "Ignore Internet and file addresses"],
-                ["flagRepeated", "Flag repeated words"],
-              ] as const
-            ).map(([name, label]) => (
-              <label key={name} className="backstage-check">
-                <input
-                  type="checkbox"
-                  checked={editing[name]}
-                  onChange={(event) => editing.set({ [name]: event.target.checked })}
-                />{" "}
-                {label}
-              </label>
-            ))}
-            <label className="backstage-check">
-              <input
-                type="checkbox"
-                checked={editing.mainDictionaryOnly}
-                onChange={(event) => editing.set({ mainDictionaryOnly: event.target.checked })}
-              />{" "}
-              Suggest from main dictionary only
-            </label>
-            <label className="backstage-check">
-              <input
-                type="checkbox"
-                checked={editing.readability}
-                onChange={(event) => editing.set({ readability: event.target.checked })}
-              />{" "}
-              Show readability statistics (in Word Count)
-            </label>
-            <UnavailableOptions items={["Mark grammar errors as you type"]} />
-          </section>
-        )}
-        {page === "language" && (
-          <section className="backstage-card">
-            <h2 className="backstage-card-title">Language</h2>
-            <dl className="backstage-defaults">
-              <dt>Language</dt>
-              <dd>{settings.locale || "Not set"}</dd>
-              <dt>Date format</dt>
-              <dd>{settings.dateFormat || "Not set"}</dd>
-            </dl>
-            <p className="backstage-muted">These come from the first-run setup. Change them by running it again.</p>
-            <UnavailableOptions items={["Choose editing languages", "Display language", "Help language"]} />
-          </section>
-        )}
+        {page === "proofing" && <ProofingPage />}
+        {page === "language" && <LanguagePage locale={settings.locale} dateFormat={settings.dateFormat} />}
         {page === "accessibility" && (
           <section className="backstage-card">
             <h2 className="backstage-card-title">Accessibility</h2>

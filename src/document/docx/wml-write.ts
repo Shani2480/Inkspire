@@ -1625,6 +1625,11 @@ function writeSettings(settings: Settings) {
   if (settings.protection !== undefined) {
     modelled.set("w:documentProtection", protectionXml(settings.protection))
   }
+  for (const name of ["hideSpellingErrors", "hideGrammaticalErrors"] as const) {
+    if (settings[name] !== undefined) {
+      modelled.set(`w:${name}`, settings[name] ? `<w:${name}/>` : "")
+    }
+  }
   if (settings.readOnlyRecommended !== undefined) {
     modelled.set(
       "w:writeProtection",

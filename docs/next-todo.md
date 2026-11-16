@@ -150,6 +150,9 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
       Digital Signature (needs a certificate; existing signatures are shown and dropped on save), Word 2007's
       Standard encryption, and versions kept beside the file rather than in the app.
 - [ ] U24. Options: Language, grammar as you type, Custom Dictionaries, Advanced editing items now greyed (listed 22.9).
+      Part 1 done 2026-11-16: Proofing in Word's sections (grammar as you type, Frequently confused words, Grammar
+      Settings, Recheck Document, exceptions for the document saved in settings.xml), Custom Dictionaries, Language
+      (authoring languages, preferred one proofs new documents). Left: the greyed Advanced editing items.
 - [ ] U25. Mail merge tab (listed: Future features).
 - [ ] U39. (asked 2026-11-16) Optional fonts to download, so documents written with Office's fonts look right where
       those fonts are missing (Linux, the web build, Android).

@@ -1,3 +1,4 @@
+import { preferredAuthoringLanguage } from "@/document/language-settings"
 import {
   DEFAULT_PAGE_SETUP,
   effectPreset,
@@ -207,5 +208,7 @@ export function loadPageSetupDefault(): PageSetupDefault | null {
 export function pageSetupForNewDocument(): PageSetup {
   const format = loadFormatDefault()
   const page = loadPageSetupDefault()
-  return { ...DEFAULT_PAGE_SETUP, ...format, ...page }
+  // Options > Language: the preferred authoring language proofs new documents.
+  const preferred = preferredAuthoringLanguage()
+  return { ...DEFAULT_PAGE_SETUP, ...format, ...page, ...(preferred ? { language: preferred } : {}) }
 }

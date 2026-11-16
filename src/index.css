@@ -17054,3 +17054,156 @@ html.dark,
 .document-message-bar-close:hover {
   background: rgba(0, 0, 0, 0.08);
 }
+
+/* Options > Proofing and Language, in Word's sections */
+.options-sub {
+  margin: 14px 0 6px;
+  border-bottom: 1px solid var(--backstage-border);
+  padding-bottom: 3px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.options-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin: 6px 0;
+  font-size: 13px;
+}
+
+.options-inline-btn {
+  margin: 6px 0 2px;
+}
+
+.options-confirm {
+  margin: 6px 0;
+  border: 1px solid var(--info-flag-border);
+  border-radius: 4px;
+  background: var(--info-flag-bg);
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.options-language-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.options-language-list {
+  min-width: 0;
+  max-width: 460px;
+  flex: 1 1 260px;
+  border: 1px solid var(--backstage-border);
+  border-radius: 4px;
+  background: var(--backstage-input);
+  padding: 2px;
+}
+
+.options-language-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  justify-content: space-between;
+  border-radius: 3px;
+  padding: 4px 8px;
+  font-size: 13px;
+  cursor: default;
+}
+
+.options-language-item.is-selected {
+  background: color-mix(in srgb, var(--app-theme-primary) 16%, transparent);
+}
+
+.options-language-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Custom Dictionaries, Edit Word List, Add a language */
+.dictionaries-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+}
+
+.dictionaries-list,
+.word-list-box {
+  max-height: calc(100vh - 360px);
+  min-height: 120px;
+  overflow-y: auto;
+  border: 1px solid var(--popover-border, #c8c6c4);
+  background: var(--backstage-input, #fff);
+  margin-top: 4px;
+}
+
+.dictionaries-item,
+.word-list-item {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 2px 6px;
+  font-size: 13px;
+  cursor: default;
+}
+
+.dictionaries-item.is-selected,
+.word-list-item.is-selected {
+  background: color-mix(in srgb, var(--app-theme-primary) 18%, transparent);
+}
+
+.dictionaries-buttons,
+.word-list-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.word-list-actions {
+  flex-direction: row;
+  margin-top: 6px;
+}
+
+.dictionaries-meta {
+  margin: 6px 0;
+  color: var(--backstage-muted);
+  font-size: 12px;
+}
+
+.dictionaries-language,
+.dictionaries-name {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+.dictionaries-language select,
+.dictionaries-name input {
+  min-width: 0;
+  flex: 1 1 160px;
+}
+
+.word-list-add {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.word-list-add input {
+  min-width: 0;
+  flex: 1;
+}
+
+.grammar-settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}

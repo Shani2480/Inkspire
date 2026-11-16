@@ -77,6 +77,7 @@ import { showEditedStyles, useStyleStore } from "@/document/styles"
 import { SaveChangesDialog } from "@/components/save-changes-dialog"
 import { MacroPromptDialog } from "@/components/macro-prompt-dialog"
 import { ProtectDocumentDialogs } from "@/components/protect-document-dialogs"
+import { ProofingDialogs } from "@/components/proofing-dialogs"
 import { DocumentMessageBar } from "@/components/document-message-bar"
 import { BookmarkDialogHost } from "@/components/ribbon/insert-tab"
 import { useDocumentCommands } from "@/document/app-menu"
@@ -355,6 +356,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
       <SaveChangesDialog />
       <MacroPromptDialog />
       <ProtectDocumentDialogs />
+      <ProofingDialogs />
       <BookmarkDialogHost />
       <FileErrorDialog />
       <PageNumberFormatDialog />
