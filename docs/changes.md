@@ -7,6 +7,41 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-16
 
+### Edit in Cells: the Excel Spreadsheet opens in Cells and its changes come back (U29, with Cells' I7 link)
+
+- **What was missing:** Word opens an embedded worksheet in Excel; Inkspire only had the small grid on the page, and
+  Cells, the companion spreadsheet app, never saw the sheet.
+- **What changed:**
+  - **Desktop shell** (`src-tauri/src/cells_link.rs`): `edit_in_cells` writes the sheet's workbook to Inkspire's
+    edit folder (`<cache dir>/inkspire/edit/`, the real `~/.cache` in a Flatpak) and opens
+    `cells://edit?file=…&for=<document>`, the link Cells has for this (its `docs/app-links.md`); it says when Cells
+    is not installed. `edit_copy_modified` and `read_edit_copy` read only `.xlsx` files inside that folder.
+  - **Sheet** (`editor/sheet-block.ts`, `editor/sheet-cells.ts`): an Edit in Cells button (desktop app only) and a
+    double-click on the sheet's headings or frame. The copy is looked at once a second; each save Cells makes comes
+    into the sheet as one undoable change.
+  - **Cells' workbook kept** (`docx/sheet-object.ts`, `inlines.ts`, `sheet-grid.ts`): the sheet keeps the workbook
+    Word or Cells wrote (`workbook`, `workbookGrid`, `workbookValues`). While its cells are unchanged it is what goes
+    to Cells and into the saved `.docx`, so formatting made in Cells or Excel stays, and formulas show the workbook's
+    own results, so functions the editor does not calculate (ROUND, VLOOKUP…) show their value instead of #ERR; such a
+    formula keeps that result after other cells change, while its own text is the same, and a workbook the app writes
+    leaves its result out so Excel or Cells calculate it. The sheet keeps at least its size when Cells saves fewer cells.
+  - **Permissions:** the three commands are listed in `src-tauri/build.rs` and allowed in `capabilities/default.json`
+    (without that Tauri refuses them: "edit_in_cells not allowed").
+- **Checked:**
+  - **Desktop app and Cells, on a virtual display:** Insert > Table > Excel Spreadsheet, 10 in A1, Edit in Cells:
+    the running Cells came forward with the sheet; `=A1*2` and `=ROUND(A1/3,1)` typed there came back into
+    Inkspire's sheet within a second or two (20 and 3.3), the sheet kept its 4 by 4 size, and after Add Row the
+    ROUND cell still showed 3.3. Cells' own save of a typed 3 also read back with Cells' results (12, 18).
+  - **Cells' reader and writer:** Inkspire's workbook opens in Cells with no warnings; Cells' save opens in Inkspire.
+  - **Tests:** `sheet-object.test.ts` (Cells' saved workbook as a fixture, `tests/docx-fixtures/cells/`: kept
+    byte for byte in the saved `.docx`, ROUND's result kept until a cell changes, a Cells save taken into the sheet
+    it was sent from and undone, Word's own workbook sent while unchanged); `cells_link.rs` (copy names, the link).
+- **Not done:** in Cells, the first formula typed after the link opened the sheet was kept as text (`=round(a1/3,1)`
+  shown as typed) twice; typed again it calculated. Not looked into (Cells' side). Cells titles the window
+  "Chart in <document>", as its link was made for chart data; a worksheet
+  should read "Worksheet in <document>" (a change in Cells). The picture Word shows is drawn by Inkspire from the
+  values, without Cells' formatting. The browser build has no Edit in Cells.
+
 ### Excel Spreadsheet as Word's: an embedded Excel worksheet that opens and saves (U29, part 2)
 
 - **What was missing:** Insert > Table had no Excel Spreadsheet. The app's own Spreadsheet (Insert > Spreadsheet and

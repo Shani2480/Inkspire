@@ -145,3 +145,92 @@ describe("Excel Spreadsheet (U29)", () => {
     expect(grid?.[1]?.[1]).toBe("3")
   })
 })
+
+describe("Edit in Cells", () => {
+  const CELLS = path.resolve(process.cwd(), "tests/docx-fixtures/cells/fruit-saved-by-cells.xlsx")
+
+  it("reads a workbook Cells saved and keeps the results of functions the editor does not work out", async () => {
+    const { attrsFromWorkbook } = await import("@/editor/sheet-cells")
+    const { shownCells } = await import("@/editor/sheet-grid")
+    const { readZip, storedZip } = await import("@/document/docx/zip")
+    const bytes = new Uint8Array(readFileSync(CELLS))
+    const attrs = (await attrsFromWorkbook(bytes))!
+    expect(JSON.parse(attrs.grid)).toEqual(GRID)
+    // A function only Cells knows: its result shows while the grid is Cells', and the editor's own once it changes.
+    const entries = await readZip(bytes)
+    const withRound = storedZip(
+      entries.map((entry) => ({
+        name: entry.normalizedName,
+        data:
+          entry.normalizedName === "xl/worksheets/sheet1.xml"
+            ? new TextEncoder().encode(
+                decodeXml(entry.data).replace("<f>SUM(C2:C3)</f><v>7</v>", "<f>ROUND(B2,0)</f><v>2</v>"),
+              )
+            : entry.data,
+      })),
+    )
+    const round = (await attrsFromWorkbook(withRound))!
+    const grid = JSON.parse(round.grid) as string[][]
+    expect(grid[3]![2]).toBe("=ROUND(B2,0)")
+    expect(shownCells(grid, round.workbookGrid, round.workbookValues)(3, 2)).toBe("2")
+    expect(resolveCell(grid, 3, 2)).toBe("#ERR")
+    const changed = grid.map((row) => [...row])
+    changed[1]![1] = "4"
+    const shown = shownCells(changed, round.workbookGrid, round.workbookValues)
+    expect(shown(1, 3)).toBe("16")
+    // ROUND keeps Cells' result while its text is the same; written anew, it has no result for Excel to show.
+    expect(shown(3, 2)).toBe("2")
+    expect(
+      decodeXml(
+        (await readZip(sheetWorkbook(changed))).find((e) => e.normalizedName === "xl/worksheets/sheet1.xml")!.data,
+      ),
+    ).toContain('<c r="C4"><f>ROUND(B2,0)</f></c>')
+    changed[3]![2] = "=ROUND(B2,1)"
+    expect(shownCells(changed, round.workbookGrid, round.workbookValues)(3, 2)).toBe("#ERR")
+  })
+
+  it("takes Cells' saves into the sheet it sent (undoably), and saves Cells' workbook as it is", async () => {
+    const { takeFromCells } = await import("@/editor/sheet-cells")
+    const name = "f01_runs.docx"
+    const opened = await openDocxBytes(new Uint8Array(readFileSync(path.join(AUTHORED, name))), name)
+    const editor = editorWith(opened.view.html)
+    editor.commands.setTextSelection(1)
+    const copy = "/home/alex/.cache/inkspire/edit/t - Worksheet 1.xlsx"
+    editor.commands.insertContent({ type: "sheetBlock", attrs: { grid: JSON.stringify([["a"]]), cellsEdit: copy } })
+    const cells = new Uint8Array(readFileSync(CELLS))
+    // Cells saves seconds later: a step of its own for Undo.
+    const { closeHistory } = await import("@tiptap/pm/history")
+    editor.view.dispatch(closeHistory(editor.state.tr))
+    expect(await takeFromCells(editor, "/elsewhere.xlsx", cells)).toBe(false)
+    expect(await takeFromCells(editor, copy, cells)).toBe(true)
+    const [sheet] = sheets(editor)
+    expect(JSON.parse(String(sheet?.grid))).toEqual(GRID)
+    // Cells keeps only the cells in use: a bigger sheet keeps its size.
+    const { attrsFromWorkbook } = await import("@/editor/sheet-cells")
+    const grown = JSON.parse((await attrsFromWorkbook(cells, 6, 5))!.grid) as string[][]
+    expect([grown.length, grown[0]!.length, grown[1]![3], grown[5]![4]]).toEqual([6, 5, "=B2*C2", ""])
+    expect(sheet?.cellsEdit).toBe(copy)
+    const { xml, pkg } = await save(editor, opened)
+    const id = /<o:OLEObject\b[^>]*\br:id="([^"]+)"/.exec(xml)![1]
+    const part = relationshipsFor(pkg, "/word/document.xml").find((rel) => rel.id === id)!.partName!
+    expect(findPart(pkg, part)!.data).toEqual(cells)
+    editor.commands.undo()
+    expect(JSON.parse(String(sheets(editor)[0]?.grid))).toEqual([["a"]])
+  })
+
+  it("sends Word's own workbook while the sheet is unchanged, and one made from the grid after an edit", async () => {
+    const { workbookOf } = await import("@/editor/sheet-cells")
+    const name = "f01_runs.docx"
+    const opened = await openDocxBytes(new Uint8Array(readFileSync(path.join(AUTHORED, name))), name)
+    const editor = editorWith(opened.view.html)
+    editor.commands.setTextSelection(1)
+    editor.commands.insertContent({ type: "sheetBlock", attrs: { grid: JSON.stringify(GRID) } })
+    const { bytes } = await save(editor, opened)
+    const again = await openDocxBytes(bytes, "t.docx")
+    const reopened = editorWith(again.view.html)
+    const [sheet] = sheets(reopened)
+    expect(workbookOf(sheet!)).toEqual(again.word.sheets![0]!.workbook)
+    const edited = { ...sheet, grid: JSON.stringify([["x"]]) }
+    expect(await readSheetGrid(workbookOf(edited))).toEqual([["x"]])
+  })
+})

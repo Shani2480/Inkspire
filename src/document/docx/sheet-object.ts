@@ -17,7 +17,8 @@ const REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationsh
 export const CELL_WIDTH_PT = 48
 export const CELL_HEIGHT_PT = 15
 
-export type EmbeddedSheet = { relId: string; grid: string[][] }
+/** A worksheet embedded in the document: its grid, the values its workbook shows, and the workbook itself. */
+export type EmbeddedSheet = { relId: string; grid: string[][]; values: string[][]; workbook: Uint8Array }
 
 function children(element: Element | undefined, name: string) {
   return element?.children.filter((child) => child.name === name) ?? []
@@ -58,6 +59,14 @@ function resolvePath(base: string, target: string) {
 
 /** The first worksheet of a workbook as the editor's grid: formulas as "=…", the rest as shown. */
 export async function readSheetGrid(bytes: Uint8Array): Promise<string[][] | null> {
+  return (await readSheetWorkbook(bytes))?.grid ?? null
+}
+
+/**
+ * The first worksheet of a workbook: what was typed (`grid`) and what each cell shows (`values`), with the result
+ * Excel or Cells worked out for each formula, kept for the functions the editor does not calculate.
+ */
+export async function readSheetWorkbook(bytes: Uint8Array): Promise<{ grid: string[][]; values: string[][] } | null> {
   let entries
   try {
     entries = await readZip(bytes)
@@ -79,7 +88,7 @@ export async function readSheetGrid(bytes: Uint8Array): Promise<string[][] | nul
     return null
   }
   const shared = children(part("xl/sharedStrings.xml"), "si").map(stringOf)
-  const cells: { row: number; col: number; value: string }[] = []
+  const cells: { row: number; col: number; value: string; shown: string }[] = []
   const data = first(worksheet, "sheetData")
   for (const row of children(data, "row")) {
     for (const cell of children(row, "c")) {
@@ -90,9 +99,8 @@ export async function readSheetGrid(bytes: Uint8Array): Promise<string[][] | nul
       const formula = first(cell, "f")?.text
       const raw = first(cell, "v")?.text ?? ""
       const type = cell.attrs.t
-      const value = formula
-        ? `=${formula}`
-        : type === "s"
+      const plain =
+        type === "s"
           ? (shared[Number(raw)] ?? "")
           : type === "inlineStr"
             ? stringOf(first(cell, "is"))
@@ -101,20 +109,24 @@ export async function readSheetGrid(bytes: Uint8Array): Promise<string[][] | nul
                 ? "TRUE"
                 : "FALSE"
               : raw
+      const value = formula ? `=${formula}` : plain
       if (value !== "") {
-        cells.push({ row: Number(ref[2]) - 1, col: columnIndex(ref[1]!), value })
+        cells.push({ row: Number(ref[2]) - 1, col: columnIndex(ref[1]!), value, shown: plain })
       }
     }
   }
   const rows = Math.min(200, Math.max(1, ...cells.map((cell) => cell.row + 1)))
   const cols = Math.min(52, Math.max(1, ...cells.map((cell) => cell.col + 1)))
-  const grid = Array.from({ length: rows }, () => Array.from({ length: cols }, () => ""))
+  const blank = () => Array.from({ length: rows }, () => Array.from({ length: cols }, () => ""))
+  const grid = blank()
+  const values = blank()
   for (const cell of cells) {
     if (cell.row < rows && cell.col < cols) {
       grid[cell.row]![cell.col] = cell.value
+      values[cell.row]![cell.col] = cell.shown
     }
   }
-  return grid
+  return { grid, values }
 }
 
 /** Every Excel workbook the document's body embeds, read into a grid, by the relationship that points at it. */
@@ -125,9 +137,9 @@ export async function readEmbeddedSheets(pkg: OpcPackage): Promise<EmbeddedSheet
       continue
     }
     const part = findPart(pkg, rel.partName)
-    const grid = part ? await readSheetGrid(part.data) : null
-    if (grid) {
-      sheets.push({ relId: rel.id, grid })
+    const read = part ? await readSheetWorkbook(part.data) : null
+    if (part && read) {
+      sheets.push({ relId: rel.id, ...read, workbook: part.data })
     }
   }
   return sheets
@@ -156,6 +168,10 @@ export function sheetWorkbook(grid: string[][]) {
       if (text.startsWith("=")) {
         const result = resolveCell(grid, row, col)
         const number = Number(result)
+        if (result === "#ERR") {
+          // A function the editor does not calculate: no result, so Excel or Cells works it out on opening.
+          return `<c r="${ref}"><f>${escapeXmlText(text.slice(1))}</f></c>`
+        }
         return result !== "" && Number.isFinite(number)
           ? `<c r="${ref}"><f>${escapeXmlText(text.slice(1))}</f><v>${number}</v></c>`
           : `<c r="${ref}" t="str"><f>${escapeXmlText(text.slice(1))}</f><v>${escapeXmlText(result)}</v></c>`

@@ -1,5 +1,5 @@
 import { sheetSizePx } from "@/document/docx/sheet-object"
-import { parseGrid, resolveCell } from "@/editor/sheet-grid"
+import { parseGrid, shownCells } from "@/editor/sheet-grid"
 import { floatingAttributes } from "@/editor/objects"
 import { textBoxChains } from "@/editor/text-box-link"
 import { textBoxMark } from "@/document/docx/word-text-box"
@@ -267,7 +267,8 @@ async function objectPicture(dom: HTMLElement) {
  * The picture Word shows of an embedded worksheet, as Excel draws it: the cells' values in Calibri 11 on Excel's
  * default 64 by 20 pixel cells, text to the left and numbers to the right, without gridlines.
  */
-function sheetPicture(grid: string[][]) {
+function sheetPicture(grid: string[][], kept: Record<string, unknown> = {}) {
+  const shownAt = shownCells(grid, kept.workbookGrid as string | null, kept.workbookValues as string | null)
   const { width, height } = sheetSizePx(grid)
   const canvas = document.createElement("canvas")
   const density = 2
@@ -285,7 +286,7 @@ function sheetPicture(grid: string[][]) {
   context.textBaseline = "alphabetic"
   grid.forEach((line, row) =>
     line.forEach((_, col) => {
-      const shown = resolveCell(grid, row, col)
+      const shown = shownAt(row, col)
       if (!shown) {
         return
       }
@@ -371,7 +372,9 @@ export async function documentWithObjectPictures(editor: Editor): Promise<JSONCo
   }
   const pictures = await Promise.all(
     found.map(({ node, dom }) =>
-      node.type.name === "sheetBlock" ? sheetPicture(parseGrid(String(node.attrs.grid ?? ""))) : objectPicture(dom),
+      node.type.name === "sheetBlock"
+        ? sheetPicture(parseGrid(String(node.attrs.grid ?? "")), node.attrs)
+        : objectPicture(dom),
     ),
   )
   const saved = chainsAsWord(state.doc)

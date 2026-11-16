@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-edit-in-cells"
+description = "Enables the edit_in_cells command without any pre-configured scope."
+commands.allow = ["edit_in_cells"]
+
+[[permission]]
+identifier = "deny-edit-in-cells"
+description = "Denies the edit_in_cells command without any pre-configured scope."
+commands.deny = ["edit_in_cells"]

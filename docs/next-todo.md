@@ -187,6 +187,7 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
 - [ ] U29. Insert: Excel Spreadsheet, Quick Tables, Stock Images; Drop Cap Options… (font, lines, distance).
       Part 1 done 2026-11-16: Drop Cap Options…, Word drop caps open and save (`w:framePr w:dropCap`).
       Part 2 done 2026-11-16: Excel Spreadsheet (Insert > Table), saved and opened as Word's embedded worksheet.
+      Edit in Cells (2026-11-16): the sheet opens in Cells (`cells://edit`) and Cells' saves come back.
 - [ ] U30. Draw: Eraser, Lasso Select, pen gallery and Add Pen, Ink to Shape, Ink Replay, Ruler, ink anywhere on the
       page.
 - [ ] U31. Custom Watermark dialog (picture, font, size, colour, layout, semitransparent); Hyphenation Manual and

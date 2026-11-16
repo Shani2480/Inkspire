@@ -241,6 +241,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - [x] **Insert > Table > Excel Spreadsheet (2026-11-16; headless Chrome, light and dark)** — inserts the sheet;
       typing with Enter fills cells and formulas show their values.
 - [ ] **Excel Spreadsheet in the desktop app (WebKitGTK)** — insert, type, Add Row / Add Column, save and reopen.
+- [ ] **Edit in Cells on Windows and macOS** — the button opens the sheet in Cells and Cells' changes come back
+      (checked on Linux only; Windows shows its own "find an app" prompt when Cells is not installed).
 - [x] **Drop Cap menu and Drop Cap Options… (2026-11-16; checked in headless Chrome, light and dark)** — tiles show
       the current position; the dialog sets lines, font and distance; None clears; In margin keeps the text edge.
 - [ ] **Drop caps in the desktop app (WebKitGTK)** — drawn with `initial-letter` (and `-webkit-initial-letter`):

@@ -1001,7 +1001,7 @@ export type WordDocument = {
   /** Parts Word keeps but this reader does not interpret, with the relationships that point at them. */
   preserved?: PreservedPackage
   /** Embedded Excel worksheets (Insert > Table > Excel Spreadsheet), read into grids, by their relationship. */
-  sheets?: { relId: string; grid: string[][] }[]
+  sheets?: { relId: string; grid: string[][]; values: string[][]; workbook: Uint8Array }[]
   notes: WordNote[]
 }
 

@@ -462,7 +462,10 @@ function runContentHtml(content: RunContent, run: Run, ctx: Projection) {
       if (sheet) {
         // Word's embedded Excel worksheet: the editor's sheet, keeping the run to write back while unchanged.
         const grid = escapeHtml(JSON.stringify(sheet.grid))
-        return `<div data-sheet-block="" data-grid="${grid}" data-sheet-source="${grid}"${run.key ? ` data-docx="${escapeHtml(run.key)}"` : ""}></div>`
+        const kept =
+          ` data-workbook="${encodeBase64(sheet.workbook)}" data-workbook-grid="${grid}"` +
+          ` data-workbook-values="${escapeHtml(JSON.stringify(sheet.values))}"`
+        return `<div data-sheet-block="" data-grid="${grid}" data-sheet-source="${grid}"${kept}${run.key ? ` data-docx="${escapeHtml(run.key)}"` : ""}></div>`
       }
       const media = mediaFor(ctx.doc, content.relId)
       if (!media) {
@@ -2487,6 +2490,10 @@ function sheetRun(node: JsonNode, figure: JsonNode, build: InlineBuild): Run | n
   } catch {
     return null
   }
+  // The workbook Word or Cells wrote, while it still holds this grid; otherwise one made from the grid.
+  const kept =
+    typeof figure.attrs?.workbook === "string" && figure.attrs.workbookGrid === grid ? figure.attrs.workbook : ""
+  const workbook = kept ? Uint8Array.from(atob(kept), (char) => char.charCodeAt(0)) : sheetWorkbook(cells)
   const { relId: imageRelId, id } = addPicture(build, decoded)
   const packageRelId = `rId${20 + build.media.length}`
   const workbookName = freePartName(build, (index) => `/word/embeddings/Microsoft_Excel_Worksheet${index}.xlsx`)
@@ -2496,7 +2503,7 @@ function sheetRun(node: JsonNode, figure: JsonNode, build: InlineBuild): Run | n
     target: workbookName.slice("/word/".length),
     name: workbookName,
     contentType: WORKBOOK_CONTENT_TYPE,
-    data: sheetWorkbook(cells),
+    data: workbook,
   })
   const size = sheetSizePx(cells)
   const width = numberAttr(node.attrs?.width) ?? size.width

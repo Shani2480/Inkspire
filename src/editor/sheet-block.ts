@@ -6,8 +6,9 @@ import {
   columnName,
   emptyGrid,
   parseGrid,
-  resolveCell,
+  shownCells,
 } from "@/editor/sheet-grid"
+import { isTauriRuntime } from "@/lib/platform"
 import { Node, mergeAttributes } from "@tiptap/core"
 
 /**
@@ -29,7 +30,11 @@ const rowsOf = (grid: string[][]) => grid.length
 const colsOf = (grid: string[][]) => grid[0]?.length ?? 0
 
 /** Builds the frame once; the cells are built again only when the sheet changes size (`showSheet`). */
-function buildSheet(grid: string[][], onCommit: (grid: string[][], focus?: string) => void): SheetView {
+function buildSheet(
+  grid: string[][],
+  onCommit: (grid: string[][], focus?: string) => void,
+  onEditInCells?: () => void,
+): SheetView {
   const dom = document.createElement("div")
   dom.setAttribute("data-sheet-block", "")
   dom.className = "sheet-block"
@@ -52,6 +57,27 @@ function buildSheet(grid: string[][], onCommit: (grid: string[][], focus?: strin
   }
   grow("Add Row", (current) => [...current.map((line) => [...line]), current[0]!.map(() => "")])
   grow("Add Column", (current) => current.map((line) => [...line, ""]))
+  if (onEditInCells) {
+    // As Word opens the worksheet in Excel: in Cells, which saves its changes back here.
+    const button = document.createElement("button")
+    button.type = "button"
+    button.className = "sheet-tool"
+    button.textContent = "Edit in Cells"
+    button.title = "Open the worksheet in Cells (or double-click its frame); changes saved there come back here"
+    button.addEventListener("mousedown", (event) => {
+      event.preventDefault()
+      event.stopPropagation()
+    })
+    button.addEventListener("click", onEditInCells)
+    tools.append(button)
+    // A double-click on the headings or the frame, not in a cell (where it selects a word).
+    dom.addEventListener("dblclick", (event) => {
+      if (!(event.target instanceof HTMLInputElement) && !(event.target instanceof HTMLButtonElement)) {
+        event.preventDefault()
+        onEditInCells()
+      }
+    })
+  }
   const hint = document.createElement("span")
   hint.className = "sheet-hint"
   hint.textContent = "Formulas: =A1+B2, =SUM(A1:A4)"
@@ -151,7 +177,8 @@ function focusCell(view: SheetView, ref: string) {
 }
 
 /** Shows a grid in the existing cells (built again if its size changed); the one being typed in keeps its text. */
-function showSheet(view: SheetView, grid: string[][]) {
+function showSheet(view: SheetView, grid: string[][], kept: Record<string, unknown> = {}) {
+  const shownAt = shownCells(grid, kept.workbookGrid as string | null, kept.workbookValues as string | null)
   const resized = rowsOf(grid) !== view.inputs.length || colsOf(grid) !== (view.inputs[0]?.length ?? 0)
   view.grid = grid
   if (resized) {
@@ -163,7 +190,7 @@ function showSheet(view: SheetView, grid: string[][]) {
       if (input !== document.activeElement && input.value !== grid[row]![col]) {
         input.value = grid[row]![col]!
       }
-      const shown = resolveCell(grid, row, col)
+      const shown = shownAt(row, col)
       const value = view.values[row]![col]!
       value.textContent = shown
       // Numbers sit to the right of their cell, as in Excel.
@@ -203,6 +230,26 @@ export const SheetBlock = Node.create({
         parseHTML: (element) => element.getAttribute("data-sheet-source") || null,
         renderHTML: (attributes) => (attributes.sheetSource ? { "data-sheet-source": attributes.sheetSource } : {}),
       },
+      // The workbook behind the sheet (base64), with the grid it holds and the values it shows: the one opened from
+      // Word or saved by Cells. Saved as it is while the grid is unchanged, so formatting made in Excel or Cells stays.
+      workbook: {
+        default: null,
+        parseHTML: (element) => element.getAttribute("data-workbook") || null,
+        renderHTML: (attributes) => (attributes.workbook ? { "data-workbook": attributes.workbook } : {}),
+      },
+      workbookGrid: {
+        default: null,
+        parseHTML: (element) => element.getAttribute("data-workbook-grid") || null,
+        renderHTML: (attributes) => (attributes.workbookGrid ? { "data-workbook-grid": attributes.workbookGrid } : {}),
+      },
+      workbookValues: {
+        default: null,
+        parseHTML: (element) => element.getAttribute("data-workbook-values") || null,
+        renderHTML: (attributes) =>
+          attributes.workbookValues ? { "data-workbook-values": attributes.workbookValues } : {},
+      },
+      // The edit copy this sheet was sent to Cells as (`editor/sheet-cells.ts`); only while the document is open.
+      cellsEdit: { default: null, rendered: false },
       // The picture Word shows, made when saving (`documentWithObjectPictures`); never drawn.
       preview: { default: null, rendered: false },
     }
@@ -216,33 +263,44 @@ export const SheetBlock = Node.create({
   addNodeView() {
     return ({ node, editor, getPos }) => {
       let pending: string | undefined
-      const view = buildSheet(parseGrid(String(node.attrs.grid || "")), (grid, focus) => {
-        const pos = typeof getPos === "function" ? getPos() : null
-        if (typeof pos !== "number") {
-          return
-        }
-        pending = focus
-        editor
-          .chain()
-          .command(({ tr }) => {
-            const current = tr.doc.nodeAt(pos)
-            tr.setNodeMarkup(pos, undefined, { ...current?.attrs, grid: JSON.stringify(grid) })
-            return true
-          })
-          .run()
-        if (pending) {
-          focusCell(view, pending)
-          pending = undefined
-        }
-      })
-      showSheet(view, view.grid)
+      const view = buildSheet(
+        parseGrid(String(node.attrs.grid || "")),
+        (grid, focus) => {
+          const pos = typeof getPos === "function" ? getPos() : null
+          if (typeof pos !== "number") {
+            return
+          }
+          pending = focus
+          editor
+            .chain()
+            .command(({ tr }) => {
+              const current = tr.doc.nodeAt(pos)
+              tr.setNodeMarkup(pos, undefined, { ...current?.attrs, grid: JSON.stringify(grid) })
+              return true
+            })
+            .run()
+          if (pending) {
+            focusCell(view, pending)
+            pending = undefined
+          }
+        },
+        isTauriRuntime()
+          ? () => {
+              const pos = typeof getPos === "function" ? getPos() : null
+              if (typeof pos === "number") {
+                void import("@/editor/sheet-cells").then(({ editSheetInCells }) => editSheetInCells(editor, pos))
+              }
+            }
+          : undefined,
+      )
+      showSheet(view, view.grid, node.attrs)
       return {
         dom: view.dom,
         update(updated) {
           if (updated.type.name !== "sheetBlock") {
             return false
           }
-          showSheet(view, parseGrid(String(updated.attrs.grid || "")))
+          showSheet(view, parseGrid(String(updated.attrs.grid || "")), updated.attrs)
           return true
         },
         // Typing, clicking and moving between cells belong to the grid, not to the document.

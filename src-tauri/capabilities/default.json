@@ -34,6 +34,9 @@
     "allow-local-ai-cancel-install",
     "allow-local-ai-remove",
     "allow-list-system-fonts",
+    "allow-edit-in-cells",
+    "allow-edit-copy-modified",
+    "allow-read-edit-copy",
     "dialog:default",
     {
       "identifier": "opener:allow-open-url",

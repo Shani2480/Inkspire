@@ -137,3 +137,35 @@ export function resolveCell(grid: string[][], row: number, col: number, visiting
     visiting.delete(self)
   }
 }
+
+/**
+ * What each cell shows. While the grid is still the one its workbook holds (opened from Word, or saved by Cells), a
+ * formula shows the workbook's own result, which covers every function Excel and Cells know. Once the grid changes, the
+ * editor works formulas out itself (`resolveCell`); a formula it cannot work out (a function it does not know) keeps the
+ * workbook's result while its text is the same, until Cells or Excel calculate it again.
+ */
+export function shownCells(grid: string[][], workbookGrid?: string | null, workbookValues?: string | null) {
+  let values: string[][] | null = null
+  let kept: string[][] | null = null
+  if (workbookGrid && workbookValues) {
+    try {
+      values = JSON.parse(workbookValues) as string[][]
+      kept = JSON.parse(workbookGrid) as string[][]
+    } catch {
+      values = null
+    }
+  }
+  const same = Boolean(values) && workbookGrid === JSON.stringify(grid)
+  return (row: number, col: number) => {
+    const text = grid[row]?.[col] ?? ""
+    const result = values?.[row]?.[col]
+    if (!text.trim().startsWith("=") || result === undefined) {
+      return resolveCell(grid, row, col)
+    }
+    if (same) {
+      return result
+    }
+    const own = resolveCell(grid, row, col)
+    return own === "#ERR" && kept?.[row]?.[col] === text ? result : own
+  }
+}

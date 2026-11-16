@@ -21,6 +21,9 @@ fn main() {
             "list_system_fonts",
             "open_window",
             "rename_document",
+            "edit_in_cells",
+            "edit_copy_modified",
+            "read_edit_copy",
         ]),
     ))
     .expect("failed to run Tauri build script");

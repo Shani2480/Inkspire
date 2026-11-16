@@ -1,4 +1,5 @@
 mod ai;
+mod cells_link;
 mod local_ai;
 mod office;
 mod pinch;
@@ -54,7 +55,10 @@ pub fn run() {
             tools::tools_remove,
             email_document,
             reveal_document,
-            system_defaults
+            system_defaults,
+            cells_link::edit_in_cells,
+            cells_link::edit_copy_modified,
+            cells_link::read_edit_copy
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
@@ -626,7 +630,18 @@ fn is_recipient_list_extension(ext: &str) -> bool {
 fn is_local_document_extension(ext: &str) -> bool {
     matches!(
         ext,
-        "html" | "htm" | "txt" | "md" | "rtf" | "docx" | "docm" | "dotx" | "dotm" | "odt" | "pdf" | "thmx"
+        "html"
+            | "htm"
+            | "txt"
+            | "md"
+            | "rtf"
+            | "docx"
+            | "docm"
+            | "dotx"
+            | "dotm"
+            | "odt"
+            | "pdf"
+            | "thmx"
     )
 }
 
@@ -945,8 +960,8 @@ mod legacy_tests {
 mod tests {
     use super::{
         assert_local_document_path, assert_settings_path, assert_user_document_path, document_body,
-        export_format, font_families, import_format, is_local_document_extension, is_recipient_list_extension, percent_decode,
-        typst_project_root,
+        export_format, font_families, import_format, is_local_document_extension,
+        is_recipient_list_extension, percent_decode, typst_project_root,
     };
     use super::{existing_file_path, file_uri, gecos_name};
     use std::path::Path;
@@ -1013,7 +1028,10 @@ mod tests {
         }
         assert!(!is_local_document_extension("exe"));
         assert!(is_recipient_list_extension("csv") && is_recipient_list_extension("vcf"));
-        assert!(!is_local_document_extension("csv"), "recipient lists are read, never written");
+        assert!(
+            !is_local_document_extension("csv"),
+            "recipient lists are read, never written"
+        );
         assert!(!is_local_document_extension("sh"));
 
         assert!(assert_local_document_path("/home/user/notes.HTM").is_ok());
