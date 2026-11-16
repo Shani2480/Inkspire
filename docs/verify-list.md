@@ -417,7 +417,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       case nothing is pasted); a copied screenshot offers Picture (PNG) only.
 
 - [ ] **Word 97–2003 files (2026-11-14)** — in the desktop app, File > Open a real .doc with LibreOffice installed
-      (opens as an unsaved .docx; Save asks where), and once without it (the older-Word-file message).
+      (opens as an unsaved .docx; Save asks where), and once without it (the older-Word-file message). Until 2026-11-16 Tauri refused the command (missing from `build.rs`), so this could not work in the desktop app before.
 - [ ] **New splash screen (2026-11-14)** — start the desktop app with the system in light, then dark: the card matches, the bar fills smoothly with no jump or stale frame, and the start screen shows at once after it, with no blend.
 - [ ] **Google Docs form (2026-11-12)** — open a .docx exported from Google Docs whose tables are wider than the
       text and pulled into the left margin: the page has the file's margins (not 1 in) and every table ends inside
@@ -458,8 +458,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       jump after settling (checked in WebKitGTK on a software display; confirm with the GPU).
       Every tab slides in, not only Home; the scroll arrows follow the tab in front on a narrow window.
 - [ ] **Open Containing Folder (21.34)** — the file manager actually opens (`ShowItems`); macOS and Windows
-      branches untested.
-- [ ] **First-run setup wizard (21.42)** — `system_defaults` returns the real author and locale live.
+      branches untested. Until 2026-11-16 Tauri refused the command (missing from `build.rs`), so this could not work in the desktop app before.
+- [ ] **Share by email attaches the document (2026-11-16)** — in the desktop app, Share > Email opens the mail
+      client with the .docx attached (it fell back to a plain message while Tauri refused `email_document`).
+- [ ] **First-run setup wizard (21.42)** — `system_defaults` returns the real author and locale live. Until 2026-11-16 Tauri refused the command (missing from `build.rs`), so this could not work in the desktop app before.
 
 - [ ] **Narrow / Wide cell margins in Word (2026-10-27)** — set Wide on a table, save, open in Word: Table
       Properties → Options shows 0.26 cm top/bottom and 0.37 cm left/right; reopened in the app, Cell Margins is Wide.
@@ -603,7 +605,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Customization Import/Export (2026-10-27)
 
-- Desktop app: Export all customizations to a folder with a non-ASCII name, then Reset, then Import the file.
+- Desktop app: Export all customizations to a folder with a non-ASCII name, then Reset, then Import the file. Until 2026-11-16 Tauri refused the command (missing from `build.rs`), so this could not work in the desktop app before.
   The toolbar and tabs come back after OK.
 - Desktop app: choosing a non-.json file is refused with a message.
 

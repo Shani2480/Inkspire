@@ -7,6 +7,21 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-16
 
+### Six desktop commands Tauri refused: Open containing folder, Share by email, first-run defaults, .doc, customizations
+
+- **What was wrong:** `reveal_document`, `email_document`, `system_defaults`, `convert_legacy_document`,
+  `read_settings_file` and `write_settings_file` were registered in the shell but not listed in the app manifest
+  (`src-tauri/build.rs`) nor allowed in `capabilities/default.json`, so Tauri refused each with "<name> not allowed.
+  Command not found" since the first commit. In the desktop app: Open containing folder showed an error; Share by email
+  fell back to a message without the document; the first-run setup could not fill in the system's name and regional
+  formats; a Word 97–2003 `.doc` could not be converted; Import/Export of customizations failed.
+- **Changed:** the six are listed in `build.rs` and allowed in the capability (with their generated permission files).
+  New test `src/lib/tauri-commands.test.ts`: every command in `generate_handler!` must be listed and allowed.
+- **Checked:** the desktop app on a private virtual display with a temporary probe calling each command without
+  arguments: before, all were "not allowed"; after, `system_defaults` answered and the other five reached their own
+  argument check. The test fails on the old files and passes now; 1621 tests pass.
+- **Not done:** each feature itself still has its item in `verify-list.md` (now with the cause noted).
+
 ### Edit in Cells: the Excel Spreadsheet opens in Cells and its changes come back (U29, with Cells' I7 link)
 
 - **What was missing:** Word opens an embedded worksheet in Excel; Inkspire only had the small grid on the page, and

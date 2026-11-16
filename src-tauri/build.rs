@@ -24,6 +24,12 @@ fn main() {
             "edit_in_cells",
             "edit_copy_modified",
             "read_edit_copy",
+            "reveal_document",
+            "email_document",
+            "system_defaults",
+            "convert_legacy_document",
+            "read_settings_file",
+            "write_settings_file",
         ]),
     ))
     .expect("failed to run Tauri build script");

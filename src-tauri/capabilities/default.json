@@ -37,6 +37,12 @@
     "allow-edit-in-cells",
     "allow-edit-copy-modified",
     "allow-read-edit-copy",
+    "allow-reveal-document",
+    "allow-email-document",
+    "allow-system-defaults",
+    "allow-convert-legacy-document",
+    "allow-read-settings-file",
+    "allow-write-settings-file",
     "dialog:default",
     {
       "identifier": "opener:allow-open-url",
