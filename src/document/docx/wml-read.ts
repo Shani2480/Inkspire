@@ -104,6 +104,7 @@ import {
   type OpcPart,
 } from "@/document/docx/opc"
 import { decodeXml } from "@/document/docx/xml"
+import { objectSizePt } from "@/document/docx/sheet-object"
 import type { DocumentProtection } from "@/document/review"
 
 const REL_TYPES = [
@@ -161,6 +162,7 @@ const PRESERVED_MARKUP = new Map<string, RawKind>([
   ["AlternateContent", "drawing"],
   ["drawing", "drawing"],
   ["pict", "drawing"],
+  ["object", "drawing"],
   ["sdt", "sdt"],
   ["oMathPara", "math"],
   ["oMath", "math"],
@@ -841,6 +843,9 @@ function readRunContent(child: MarkupNode, raw: RawCursor = NO_RAW): RunContent 
   if (child.local === "drawing" || child.local === "pict") {
     return drawingContent(child, raw)
   }
+  if (child.local === "object" && child.uri === WORD_NS) {
+    return embeddedObjectContent(child, raw)
+  }
   if (child.local === "t" || child.local === "delText") {
     const text = applySpace(child.text, preservesSpace(child))
     return text ? { kind: child.local === "delText" ? "delText" : "text", text } : undefined
@@ -908,6 +913,28 @@ function rawRunText(node: MarkupNode) {
     default:
       return visibleText(node)
   }
+}
+
+/**
+ * An embedded object (w:object: an Excel worksheet, a Word document…), written back as it was. It shows as its
+ * picture (v:imagedata); an Excel worksheet opens as the editor's sheet (`docx/sheet-object.ts`).
+ */
+function embeddedObjectContent(node: MarkupNode, raw: RawCursor): RunContent {
+  const xml = raw.take("drawing") ?? ""
+  const content: Extract<RunContent, { kind: "drawing" }> = { kind: "drawing", xml, text: "", floating: false }
+  const imagedata = descendant(node, "imagedata")
+  const relId = imagedata ? attr(imagedata, "id", REL_NS) : undefined
+  if (relId) {
+    content.relId = relId
+  }
+  const size = objectSizePt(xml)
+  if (size.width) {
+    content.cx = Math.round(size.width * 12700)
+  }
+  if (size.height) {
+    content.cy = Math.round(size.height * 12700)
+  }
+  return content
 }
 
 function drawingContent(node: MarkupNode, raw: RawCursor): RunContent {

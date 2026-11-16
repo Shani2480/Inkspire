@@ -1000,6 +1000,8 @@ export type WordDocument = {
   glossary?: GlossaryPackage
   /** Parts Word keeps but this reader does not interpret, with the relationships that point at them. */
   preserved?: PreservedPackage
+  /** Embedded Excel worksheets (Insert > Table > Excel Spreadsheet), read into grids, by their relationship. */
+  sheets?: { relId: string; grid: string[][] }[]
   notes: WordNote[]
 }
 

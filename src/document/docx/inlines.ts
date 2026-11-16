@@ -1,3 +1,4 @@
+import { excelObjectRelId, excelObjectXml, sheetWorkbook, sheetSizePx } from "@/document/docx/sheet-object"
 import { frameOfPreset, presetOfFrame } from "@/editor/picture-shape"
 import { dateFieldResult } from "@/document/field-date"
 import { isAppField, isMergeField, wordBookmarkName } from "@/document/field-instructions"
@@ -457,6 +458,12 @@ function runContentHtml(content: RunContent, run: Run, ctx: Projection) {
     case "tab":
       return wrapText(`<span data-tab="1"></span>`, run.rPr, ctx.theme)
     case "drawing": {
+      const sheet = sheetOf(ctx.doc, content.xml)
+      if (sheet) {
+        // Word's embedded Excel worksheet: the editor's sheet, keeping the run to write back while unchanged.
+        const grid = escapeHtml(JSON.stringify(sheet.grid))
+        return `<div data-sheet-block="" data-grid="${grid}" data-sheet-source="${grid}"${run.key ? ` data-docx="${escapeHtml(run.key)}"` : ""}></div>`
+      }
       const media = mediaFor(ctx.doc, content.relId)
       if (!media) {
         return ""
@@ -1311,6 +1318,12 @@ export function visibleText(inlines: Inline[]) {
   }
   inlines.forEach(visit)
   return text
+}
+
+/** The embedded Excel worksheet a w:object holds, read into a grid when the file opened. */
+export function sheetOf(doc: WordDocument, xml: string) {
+  const relId = xml.startsWith("<w:object") ? excelObjectRelId(xml) : null
+  return relId ? doc.sheets?.find((item) => item.relId === relId) : undefined
 }
 
 export function mediaFor(doc: WordDocument, relId: string | undefined) {
@@ -2330,6 +2343,12 @@ function objectRun(node: JsonNode, build: InlineBuild, asPicture: boolean): Run 
       return run
     }
   }
+  if (figure?.type === "sheetBlock") {
+    const sheet = sheetRun(node, figure, build)
+    if (sheet) {
+      return sheet
+    }
+  }
   if (figure?.type === "textBox") {
     const box = textBoxRun(node, figure, build)
     if (box) {
@@ -2442,6 +2461,65 @@ function objectRun(node: JsonNode, build: InlineBuild, asPicture: boolean): Run 
         name: `Picture ${id}`,
         cx,
         cy,
+      },
+    ],
+  }
+}
+
+/**
+ * Insert > Table > Excel Spreadsheet as Word keeps it: a w:object with the sheet's picture, which Word shows, and the
+ * workbook, which Excel opens on a double-click. One opened from Word and not changed is written as Word wrote it.
+ */
+function sheetRun(node: JsonNode, figure: JsonNode, build: InlineBuild): Run | null {
+  const grid = typeof figure.attrs?.grid === "string" ? figure.attrs.grid : ""
+  const key = typeof figure.attrs?.docxKey === "string" ? figure.attrs.docxKey : undefined
+  const origin = key ? build.runs.get(key) : undefined
+  if (origin && figure.attrs?.sheetSource === grid) {
+    return structuredClone(origin)
+  }
+  const decoded = decodeDataUrl(typeof node.attrs?.src === "string" ? node.attrs.src : "")
+  if (!decoded) {
+    return null
+  }
+  let cells: string[][]
+  try {
+    cells = JSON.parse(grid) as string[][]
+  } catch {
+    return null
+  }
+  const { relId: imageRelId, id } = addPicture(build, decoded)
+  const packageRelId = `rId${20 + build.media.length}`
+  const workbookName = freePartName(build, (index) => `/word/embeddings/Microsoft_Excel_Worksheet${index}.xlsx`)
+  build.media.push({
+    relId: packageRelId,
+    type: PACKAGE_RELATIONSHIP,
+    target: workbookName.slice("/word/".length),
+    name: workbookName,
+    contentType: WORKBOOK_CONTENT_TYPE,
+    data: sheetWorkbook(cells),
+  })
+  const size = sheetSizePx(cells)
+  const width = numberAttr(node.attrs?.width) ?? size.width
+  const height = numberAttr(node.attrs?.height) ?? size.height
+  return {
+    kind: "run",
+    rPr: {},
+    content: [
+      {
+        kind: "drawing",
+        xml: excelObjectXml({
+          shapeId: 1025 + id,
+          objectId: 1800000000 + id,
+          widthPt: Math.round(width * 0.75 * 100) / 100,
+          heightPt: Math.round(height * 0.75 * 100) / 100,
+          imageRelId,
+          packageRelId,
+        }),
+        text: "",
+        floating: false,
+        relId: imageRelId,
+        cx: Math.round(width * EMU_PER_PX),
+        cy: Math.round(height * EMU_PER_PX),
       },
     ],
   }

@@ -10165,47 +10165,116 @@ html.dark,
   }
 }
 
-/* Spreadsheet block */
+/* Excel Spreadsheet (Insert > Table): Excel's own cells, 64 by 20 pixels in Calibri 11, as Word shows the open
+   worksheet. A cell shows its value; the one being typed in shows what was typed. On the page, so always light. */
 .sheet-block {
-  margin: 12px 0;
+  margin: 6px 0;
+  width: max-content;
+  max-width: 100%;
   overflow-x: auto;
-}
-.sheet-grid {
-  border-collapse: collapse;
-  font-size: 12px;
+  border: 1px solid #9e9e9e;
   background: #fff;
 }
-.sheet-grid th,
-.sheet-grid td {
-  border: 1px solid #c6c6c6;
-  min-width: 72px;
+.ProseMirror .sheet-block table.sheet-grid,
+.sheet-grid {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: auto;
+  margin: 0;
+  font:
+    14.67px/1 Calibri,
+    Carlito,
+    "Segoe UI",
+    sans-serif;
+  color: #000;
+  background: #fff;
+}
+.ProseMirror .sheet-block .sheet-grid th,
+.ProseMirror .sheet-block .sheet-grid td {
+  position: relative;
+  min-width: 0;
+  width: 64px;
+  height: 20px;
   padding: 0;
-  vertical-align: top;
+  border: 1px solid #d4d4d4;
+  vertical-align: middle;
 }
-.sheet-grid th {
-  background: #f3f3f3;
+.ProseMirror .sheet-block .sheet-grid th {
+  background: #e6e6e6;
+  border-color: #bdbdbd;
+  color: #333;
+  font-size: 12px;
+  font-weight: 400;
   text-align: center;
-  padding: 4px;
-  font-weight: 600;
 }
-.sheet-cell {
-  display: block;
-  width: 100%;
-  border: 0;
-  padding: 4px 6px;
-  font: inherit;
-  background: transparent;
+.ProseMirror .sheet-block .sheet-grid th:first-child {
+  width: 26px;
 }
 .sheet-cell-value {
   display: block;
-  padding: 0 6px 4px;
-  color: #616161;
-  font-size: 11px;
+  overflow: hidden;
+  padding: 0 3px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.sheet-cell-value[data-number] {
+  text-align: right;
+}
+.sheet-cell {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  padding: 0 3px;
+  font: inherit;
+  color: transparent;
+  caret-color: transparent;
+  background: transparent;
+  cursor: cell;
+  outline: none;
+}
+.sheet-cell:focus {
+  z-index: 1;
+  color: #000;
+  caret-color: auto;
+  background: #fff;
+  box-shadow: inset 0 0 0 2px #217346;
+  cursor: text;
+}
+.sheet-tools {
+  /* As wide as the cells, never wider: it wraps instead. */
+  box-sizing: border-box;
+  width: 0;
+  min-width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px;
+  border-top: 1px solid #d4d4d4;
+  background: #f3f3f3;
+  font:
+    12px "Segoe UI",
+    system-ui,
+    sans-serif;
+  color: #444;
+}
+.sheet-tool {
+  padding: 1px 8px;
+  border: 1px solid #c8c8c8;
+  border-radius: 3px;
+  background: #fff;
+  color: #222;
+  font: inherit;
+}
+.sheet-tool:hover {
+  background: #e8f1ec;
+  border-color: #217346;
 }
 .sheet-hint {
-  margin: 4px 0 0;
-  font-size: 11px;
-  color: #767676;
+  margin-left: 2px;
+  color: #6b6b6b;
 }
 
 /* Asset libraries (Icons / SmartArt / 3D) */

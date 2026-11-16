@@ -453,8 +453,8 @@ export function InsertTab() {
   }
   const insertBlankPage = () => editor && insertAtSelectionEnd(editor).setBlankPage().run()
   const insertPageBreak = () => editor && insertAtSelectionEnd(editor).setPageBreak().run()
-  // Word's Table menu: the grid, then Insert Table…, Draw Table and Convert Text to Table… (with a selection only).
-  // Excel Spreadsheet and Quick Tables are left out: the app has no embedded workbook or building-block gallery.
+  // Word's Table menu: the grid, then Insert Table…, Draw Table, Convert Text to Table… (with a selection only) and
+  // Excel Spreadsheet, an embedded worksheet saved as Word's (`docx/sheet-object.ts`).
   const tableMenu = (close: () => void) => (
     <div className="flex flex-col">
       <TableGrid
@@ -491,6 +491,14 @@ export function InsertTab() {
         }}
       >
         Convert Text to Table…
+      </MenuButton>
+      <MenuButton
+        onClick={() => {
+          close()
+          insertSheet()
+        }}
+      >
+        Excel Spreadsheet
       </MenuButton>
     </div>
   )
@@ -677,14 +685,6 @@ export function InsertTab() {
       </MenuButton>
       <MenuButton
         onClick={() => {
-          editor?.chain().focus().insertSheetBlock().run()
-          close()
-        }}
-      >
-        Spreadsheet
-      </MenuButton>
-      <MenuButton
-        onClick={() => {
           newEquation()
           close()
         }}
@@ -866,7 +866,6 @@ export function InsertTab() {
           { id: "3d-models", label: "3D Models", icon: <CubeIcon />, onClick: () => setModelLibraryOpen(true) },
           { id: "smartart", label: "SmartArt", icon: <SmartArtIcon />, menu: smartArtMenu },
           { id: "chart", label: "Chart", icon: <ChartIcon />, menu: chartMenu },
-          { id: "spreadsheet", label: "Spreadsheet", icon: <SheetIcon />, onClick: insertSheet },
           { id: "screenshot", label: "Screenshot", icon: <ScreenshotIcon />, menu: screenshotMenu },
         ],
       },
@@ -940,9 +939,6 @@ export function InsertTab() {
         </RibbonCommand>
         <RibbonCommand label="Chart" disabled={off} menu={chartMenu}>
           <ChartIcon />
-        </RibbonCommand>
-        <RibbonCommand label="Spreadsheet" disabled={off} onClick={insertSheet}>
-          <SheetIcon />
         </RibbonCommand>
         <RibbonCommand label="Drawing Canvas" disabled={off} onClick={insertCanvas}>
           <DrawingCanvasIcon />
@@ -2052,14 +2048,6 @@ function SmartArtIcon() {
       <rect x="22" y="8" width="4" height="6" rx="1" fill="#9cc7f0" stroke="#0f6cbd" />
       <path d="M11 11h2M20 11h2" stroke="#0f6cbd" />
       <rect x="8" y="16" width="12" height="5" rx="1" fill="#fff4ce" stroke="#8a6116" />
-    </Svg>
-  )
-}
-function SheetIcon() {
-  return (
-    <Svg>
-      <rect x="5" y="5" width="18" height="18" fill="#fff" stroke="#107c10" />
-      <path d="M5 11h18M5 17h18M11 5v18M17 5v18" stroke="#107c10" />
     </Svg>
   )
 }

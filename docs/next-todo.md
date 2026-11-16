@@ -69,7 +69,7 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
       Styles (Save As moves to F12).
 - [x] U8. Insert > Table: Insert Table… dialog (columns, rows, AutoFit), Convert Text to Table, Draw Table.
       Done: Word's 10 × 8 grid and menu, both dialogs (`editor/table-insert.ts`, `components/insert-table-dialog.tsx`).
-      Left out: Excel Spreadsheet and Quick Tables; AutoFit to contents fits once, it does not grow while typing.
+      Left out: Quick Tables (Excel Spreadsheet landed 2026-11-16, U29); AutoFit to contents fits once, it does not grow while typing.
 
 ### Wave 2 — common (M)
 
@@ -186,6 +186,7 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
 - [x] U28. Select > Select Objects, Selection Pane; Selection pane Show All / Hide All, rename, reorder.
 - [ ] U29. Insert: Excel Spreadsheet, Quick Tables, Stock Images; Drop Cap Options… (font, lines, distance).
       Part 1 done 2026-11-16: Drop Cap Options…, Word drop caps open and save (`w:framePr w:dropCap`).
+      Part 2 done 2026-11-16: Excel Spreadsheet (Insert > Table), saved and opened as Word's embedded worksheet.
 - [ ] U30. Draw: Eraser, Lasso Select, pen gallery and Add Pen, Ink to Shape, Ink Replay, Ruler, ink anywhere on the
       page.
 - [ ] U31. Custom Watermark dialog (picture, font, size, colour, layout, semitransparent); Hyphenation Manual and

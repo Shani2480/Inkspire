@@ -7,6 +7,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [x] **Excel Spreadsheet (2026-11-16)** — the app's sheet renders in Word as in the app and Word re-saves it as an
+  embedded `Excel.Sheet.12` object, which the app opens with the same grid; 0 validator errors.
+- [ ] **Excel Spreadsheet opens in Excel** — double-click the app's sheet in Word: Excel opens the workbook with the
+  same cells and formulas.
 - [x] **Drop caps (2026-11-16)** — Word's Dropped / In margin frames open as the paragraph's drop cap and re-save as
   they were; the app's 5-line Georgia drop cap and an In margin one render in Word as in the app; 0 validator errors.
 - [x] **Selection pane names and Hide (2026-11-16)** — a Word file with Frame 6 and Heart 7, renamed and hidden in the
@@ -234,6 +238,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [x] **Insert > Table > Excel Spreadsheet (2026-11-16; headless Chrome, light and dark)** — inserts the sheet;
+      typing with Enter fills cells and formulas show their values.
+- [ ] **Excel Spreadsheet in the desktop app (WebKitGTK)** — insert, type, Add Row / Add Column, save and reopen.
 - [x] **Drop Cap menu and Drop Cap Options… (2026-11-16; checked in headless Chrome, light and dark)** — tiles show
       the current position; the dialog sets lines, font and distance; None clears; In margin keeps the text edge.
 - [ ] **Drop caps in the desktop app (WebKitGTK)** — drawn with `initial-letter` (and `-webkit-initial-letter`):

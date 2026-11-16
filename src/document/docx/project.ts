@@ -1,3 +1,4 @@
+import { sheetSizePx } from "@/document/docx/sheet-object"
 import { dropCapOf, splitDropCap, withDropCap } from "@/document/docx/drop-cap"
 import { NOTE_MARK } from "@/document/note-numbering"
 import { BUILT_IN_STYLES, catalogWithStyles, wordIdForNamedStyle, type StyleDef } from "@/document/styles"
@@ -46,6 +47,7 @@ import {
   diagramSvg,
   inlinesHtml,
   mediaFor,
+  sheetOf,
   encodeBase64,
   numberAttr,
   payloadBlock,
@@ -1273,7 +1275,10 @@ function picturesOnly(paragraph: Paragraph, doc: WordDocument) {
         inline.content.length > 0 &&
         inline.content.every(
           (item) =>
-            item.kind === "drawing" && (mediaFor(doc, item.relId) !== undefined || diagramSvg(doc, item) !== null),
+            item.kind === "drawing" &&
+            (mediaFor(doc, item.relId) !== undefined ||
+              diagramSvg(doc, item) !== null ||
+              sheetOf(doc, item.xml) !== undefined),
         ),
     )
   )
@@ -2599,11 +2604,36 @@ function withSuffix(build: Build, numId: number, suffix: "space" | "nothing", st
   return own
 }
 
+const BLANK_PNG =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4//8/AwAI/AL+p5qgoAAAAABJRU5ErkJggg=="
+
 function isBlankParagraph(node: JsonNode) {
   return node.type === "paragraph" && !node.attrs?.docxKey && (node.content ?? []).length === 0
 }
 
 function blockFromNode(node: JsonNode, build: Build): Block | null {
+  if (node.type === "sheetBlock") {
+    // A sheet saved without its picture (made where there is no canvas): Excel draws it when the object is opened.
+    const grid = String(node.attrs?.grid ?? "[]")
+    let size = { width: 256, height: 80 }
+    try {
+      size = sheetSizePx(JSON.parse(grid) as string[][])
+    } catch {
+      // The default size.
+    }
+    return blockFromNode(
+      {
+        type: "image",
+        attrs: {
+          src: BLANK_PNG,
+          width: size.width,
+          height: size.height,
+          objectNode: encodeBase64(new TextEncoder().encode(JSON.stringify(node))),
+        },
+      },
+      build,
+    )
+  }
   if (node.type === "columnBreak") {
     return {
       kind: "paragraph",

@@ -1,3 +1,4 @@
+import { readEmbeddedSheets } from "@/document/docx/sheet-object"
 import type { BibSource, BibStyleId } from "@/document/bibliography"
 import type { NoteSettings } from "@/document/note-numbering"
 import { citationOrder, writeSourcesPart } from "@/document/docx/sources-part"
@@ -43,6 +44,10 @@ type JsonNode = {
 export async function openDocxBytes(bytes: Uint8Array, fileName = "document.docx") {
   const pkg = await openPackage(bytes, fileName)
   const word = readDocument(pkg)
+  const sheets = await readEmbeddedSheets(pkg)
+  if (sheets.length > 0) {
+    word.sheets = sheets
+  }
   const view: EditorView = { ...wordToEditor(word), props: coreProperties(pkg) }
   const protection: FileProtection = {
     readOnlyRecommended: Boolean(word.settings.readOnlyRecommended),

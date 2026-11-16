@@ -7,6 +7,36 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-16
 
+### Excel Spreadsheet as Word's: an embedded Excel worksheet that opens and saves (U29, part 2)
+
+- **What was missing:** Insert > Table had no Excel Spreadsheet. The app's own Spreadsheet (Insert > Spreadsheet and
+  Object > Spreadsheet) was a fixed 4 by 4 grid that saving dropped, and an Excel worksheet embedded by Word
+  (`w:object` with `o:OLEObject ProgID="Excel.Sheet.12"`) did not open as one.
+- **What changed:**
+  - **Menu** (`ribbon/insert-tab.tsx`): Excel Spreadsheet is the last entry of Insert > Table, as in Word; the
+    separate Spreadsheet button and Object > Spreadsheet go.
+  - **Sheet** (`editor/sheet-grid.ts`, `editor/sheet-block.ts`): any size of grid with Excel's column names (A…Z,
+    AA…), Add Row and Add Column, formulas with cell references, ranges and SUM / AVERAGE / MIN / MAX / COUNT;
+    numbers sit to the right of their cell.
+  - **Saving** (`docx/sheet-object.ts`, `inlines.ts`, `object-pictures.ts`): written as Word writes it: a
+    `w:object` holding the sheet's picture (drawn as Excel shows it: Calibri 11 on 64 by 20 pixel cells, no
+    gridlines) and an embedded workbook (`word/embeddings/Microsoft_Excel_Worksheet*.xlsx`) with text, numbers and
+    formulas with their values. A sheet opened from Word and not changed is written back as Word wrote it.
+  - **Opening** (`wml-read.ts`, `io.ts`, `project.ts`): a `w:object` is kept as it was; an Excel worksheet opens as
+    the sheet, read from the first worksheet of its workbook (shared and inline strings, booleans, formulas).
+- **Checked:**
+  - **Word in the VM:** the app's save (made in headless Chrome by Insert > Table > Excel Spreadsheet and typing)
+    renders in Word as in the app: the cells' text, numbers right-aligned, formulas worked out (6, 6, 7, 12). Word
+    re-saves it as an embedded `Excel.Sheet.12` object, and the app opens Word's save with the same grid, an edited
+    cell included. 0 validator errors.
+  - **Chrome, light and dark:** the menu entry, typing with Enter between cells, the formula results.
+  - **Tests:** `docx/sheet-object.test.ts` (cell names and formulas, the workbook, save, reopen, untouched save as
+    it was, a changed cell written anew).
+- **Not done:** double-clicking does not open Excel (the sheet is edited in place); cell formatting, column widths,
+  other worksheets and Excel functions beyond the five above are not read. After a sheet opened from Word is
+  changed, its old workbook stays in the file without a relationship (Word drops it on its next save). Quick Tables
+  and Stock Images are still open.
+
 ### Drop Cap as Word's: Word's drop caps open and save, Drop Cap Options… (U29, part 1)
 
 - **What was wrong:** Insert > Drop Cap only changed the look of the paragraph's first letter, at a fixed size, and
