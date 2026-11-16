@@ -1320,7 +1320,7 @@ function generateParagraphProperties(paragraph: ReturnType<typeof paragraphPrope
 
 /** w:pBdr and w:shd of a paragraph, in the order the schema wants them. */
 function writeParagraphBox(props: ParagraphProperties) {
-  const sides = (["top", "left", "bottom", "right"] as const)
+  const sides = (["top", "left", "bottom", "right", "between"] as const)
     .map((side) => writeBorder(side, props.borders?.[side]))
     .join("")
   return `${sides ? `<w:pBdr>${sides}</w:pBdr>` : ""}${writeShading(props.shading)}`
@@ -1633,7 +1633,10 @@ function writeSettings(settings: Settings) {
   if (settings.readOnlyRecommended !== undefined) {
     modelled.set(
       "w:writeProtection",
-      writeProtectionXml(settings.raw?.children.find((child) => child.name === "w:writeProtection")?.xml, settings.readOnlyRecommended),
+      writeProtectionXml(
+        settings.raw?.children.find((child) => child.name === "w:writeProtection")?.xml,
+        settings.readOnlyRecommended,
+      ),
     )
   }
   if (!settings.raw) {
@@ -1669,7 +1672,7 @@ function writeSettings(settings: Settings) {
  * Save Options) is kept; the element goes when nothing is left in it.
  */
 function writeProtectionXml(source: string | undefined, recommended: boolean) {
-  const attributes = (source ? /^<w:writeProtection\b([^>]*?)\/?>/.exec(source)?.[1] ?? "" : "")
+  const attributes = (source ? (/^<w:writeProtection\b([^>]*?)\/?>/.exec(source)?.[1] ?? "") : "")
     .replace(/\s*w:recommended="[^"]*"/, "")
     .trim()
   const all = [recommended ? 'w:recommended="1"' : "", attributes].filter(Boolean).join(" ")

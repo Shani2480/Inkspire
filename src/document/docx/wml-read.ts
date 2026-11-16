@@ -1476,7 +1476,11 @@ function readParagraphBorders(node: MarkupNode | undefined) {
       borders[side] = border
     }
   }
-  return borders.top || borders.left || borders.bottom || borders.right ? borders : undefined
+  const between = readBorder(wordChild(node, "between"))
+  if (between) {
+    borders.between = between
+  }
+  return borders.top || borders.left || borders.bottom || borders.right || borders.between ? borders : undefined
 }
 
 function readBorder(node: MarkupNode | undefined): Border | undefined {

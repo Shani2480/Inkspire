@@ -32,6 +32,8 @@ export type ActiveMarks = {
   charStyle: string
   shading: string
   border: string
+  /** The line between paragraphs that share a box (w:between). */
+  borderBetween: boolean
   bulletMarker: string
   numberMarker: string
   listScheme: string
@@ -63,6 +65,7 @@ const idleMarks: ActiveMarks = {
   charStyle: "",
   shading: "",
   border: "",
+  borderBetween: false,
   bulletMarker: "",
   numberMarker: "",
   listScheme: "",
@@ -156,6 +159,7 @@ export function useActiveMarks(editor: Editor | null) {
         charStyle: typeof textStyle.charStyle === "string" ? textStyle.charStyle : "",
         shading: typeof block.shading === "string" ? block.shading : "",
         border: typeof block.border === "string" ? block.border : "",
+        borderBetween: block.borderBetween === true,
         bulletMarker: typeof bullet.marker === "string" ? bullet.marker : "",
         numberMarker: typeof ordered.marker === "string" ? ordered.marker : "",
         listScheme:

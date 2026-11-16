@@ -213,7 +213,8 @@ export type TabStop = { val: TabAlign; leader?: TabLeader; pos: number }
 
 export type TightWrap = "none" | "allLines" | "firstAndLastLine" | "firstLineOnly" | "lastLineOnly"
 
-export type ParagraphBorders = { top?: Border; left?: Border; bottom?: Border; right?: Border }
+/** w:pBdr; `between` is the line between paragraphs that share these borders (Inside Horizontal Border). */
+export type ParagraphBorders = { top?: Border; left?: Border; bottom?: Border; right?: Border; between?: Border }
 
 export type ParagraphProperties = {
   /** w:pPr as written (with pStyle, the mark's rPr, and sectPr when on a paragraph). */

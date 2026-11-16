@@ -7,6 +7,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [x] **Paragraph boxes and lines between (2026-11-16)** — Outside / All Borders over three paragraphs each: the app
+  draws one box and the lines between, as Word does; Word re-saves the app's `w:between`.
 - [x] **Underline types (2026-11-16)** — the app's file with all 17 types and two colours: Word draws each one and
   re-saves every `w:u` value and colour unchanged; the Open XML validator reports 0 errors.
 - [x] **Optional fonts (2026-11-16)** — a document in Georgia, rendered by Word in the VM and by the app with

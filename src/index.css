@@ -2250,7 +2250,7 @@ button.line-menu-row:focus-visible {
  * beside by default) plus its line away from the text. Above and below, the paragraph grows by that much; beside,
  * the box reaches out into the indent or margin, so the text keeps its place. The lines are a layer behind the text.
  */
-:is(p, h1, h2, h3, h4, h5, h6)[data-border] {
+:is(p, h1, h2, h3, h4, h5, h6):is([data-border], [data-border-between="1"]) {
   --para-line: var(--para-border-width, 1px);
   position: relative;
   padding-top: calc(var(--para-top-on, 0) * (var(--para-space-top, 1pt) + var(--para-line-top, var(--para-line))));
@@ -2259,7 +2259,7 @@ button.line-menu-row:focus-visible {
   );
 }
 
-:is(p, h1, h2, h3, h4, h5, h6)[data-border]::before {
+:is(p, h1, h2, h3, h4, h5, h6):is([data-border], [data-border-between="1"])::before {
   position: absolute;
   top: 0;
   right: calc(-1 * var(--para-right-on, 0) * (var(--para-space-right, 4pt) + var(--para-line-right, var(--para-line))));
@@ -17838,4 +17838,35 @@ html.dark,
 /* Words only: the mark draws nothing, each word its own line (character-format.ts). */
 .underline-word {
   text-decoration-line: underline;
+}
+
+/*
+ * Paragraphs in one box (U27, paragraph-box-groups.ts): Word draws neighbours with the same borders as a single box.
+ * A paragraph joined to the one before has no top line (the between line instead, when set); one joined to the next
+ * has no bottom line, and its sides reach down through the space to it.
+ */
+:is(p, h1, h2, h3, h4, h5, h6)[data-border-join~="prev"] {
+  padding-top: 0;
+}
+
+:is(p, h1, h2, h3, h4, h5, h6)[data-border-join~="prev"]::before {
+  border-top: 0 none;
+}
+
+:is(p, h1, h2, h3, h4, h5, h6)[data-border-join~="prev"][data-border-between="1"] {
+  padding-top: calc(1pt + var(--para-line));
+}
+
+:is(p, h1, h2, h3, h4, h5, h6)[data-border-join~="prev"][data-border-between="1"]::before {
+  border-top: var(--para-border, 1px solid #1c1c1c);
+}
+
+:is(p, h1, h2, h3, h4, h5, h6)[data-border-join~="next"] {
+  padding-bottom: 0;
+}
+
+:is(p, h1, h2, h3, h4, h5, h6)[data-border-join~="next"]::before {
+  /* 1px over, so a rounded gap leaves no notch where the sides meet the next paragraph's lines. */
+  bottom: calc(-1 * var(--para-join-gap, 0px) - 1px);
+  border-bottom: 0 none;
 }

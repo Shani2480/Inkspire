@@ -181,7 +181,7 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
 ### Wave 3 — rare (L)
 
 - [x] U26. Underline menu: Thick, Words only, More Underlines…, Underline Color; Ctrl+Shift+W.
-- [ ] U27. Home Borders menu: Outside, Inside, Inside Horizontal/Vertical, Diagonals, Horizontal Line, Draw Table,
+- [x] U27. Home Borders menu: Outside, Inside, Inside Horizontal/Vertical, Diagonals, Horizontal Line, Draw Table,
       View Gridlines.
 - [ ] U28. Select > Select Objects, Selection Pane; Selection pane Show All / Hide All, rename, reorder.
 - [ ] U29. Insert: Excel Spreadsheet, Quick Tables, Stock Images; Drop Cap Options… (font, lines, distance).

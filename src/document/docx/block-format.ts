@@ -31,6 +31,8 @@ export type BlockFormat = {
    * ("top:single,12,C00000;bottom:double,18,0070C0", `paragraph-sides.ts`); null when they share one pen.
    */
   borderSides: string | null
+  /** w:between: a line between this paragraph and the next one with the same borders (Inside Horizontal). */
+  borderBetween: boolean
   /** Word's Shadow setting: the border casts a shadow to the bottom right. */
   borderShadow: boolean
   /** Word's 3-D setting: the border's frame effect. */
@@ -65,6 +67,7 @@ export const PLAIN_BLOCK: BlockFormat = {
   border: null,
   borderPen: null,
   borderSides: null,
+  borderBetween: false,
   borderShadow: false,
   borderFrame: false,
   borderSpace: null,
@@ -98,7 +101,7 @@ const GROUPS: (keyof BlockFormat)[][] = [
   ["dontHyphenate"],
   ["mirrorIndents"],
   ["tightWrap"],
-  ["border", "borderPen", "borderSides", "borderShadow", "borderFrame", "borderSpace"],
+  ["border", "borderPen", "borderSides", "borderBetween", "borderShadow", "borderFrame", "borderSpace"],
   ["shading", "shadingPattern"],
 ]
 
@@ -167,6 +170,7 @@ export function blockFromProperties(pPr: ParagraphProperties): BlockFormat {
   block.borderPen = penOfProperties(pPr.borders)
   block.borderSides = sidesOfProperties(pPr.borders)
   block.borderSpace = spaceOfProperties(pPr.borders)
+  block.borderBetween = drawn(pPr.borders?.between)
   block.borderShadow = BORDER_SIDES.some((side) => drawn(pPr.borders?.[side]) && pPr.borders?.[side]?.shadow)
   block.borderFrame = BORDER_SIDES.some((side) => drawn(pPr.borders?.[side]) && pPr.borders?.[side]?.frame)
   block.shading = shadingOfProperties(pPr.shading)
@@ -254,16 +258,21 @@ function paragraphFill(css: unknown): string | null {
 
 function bordersFromBlock(block: BlockFormat): ParagraphProperties["borders"] {
   const { border, borderPen: pen, borderShadow: shadow, borderFrame: frame } = block
-  if (!border || border === "none") {
+  if ((!border || border === "none") && !block.borderBetween) {
     return undefined
   }
-  const sides = border === "all" ? [...BORDER_SIDES] : BORDER_SIDES.filter((side) => border.split(",").includes(side))
+  const sides =
+    !border || border === "none"
+      ? []
+      : border === "all"
+        ? [...BORDER_SIDES]
+        : BORDER_SIDES.filter((side) => border.split(",").includes(side))
   const gaps = (block.borderSpace ?? "").split(" ").map(Number)
   const line = pen
     ? borderOf(pen)
     : { value: "single" as const, sz: PARAGRAPH_BORDER_SZ, color: PARAGRAPH_BORDER_COLOR }
   const own = parseBorderSides(block.borderSides)
-  return Object.fromEntries(
+  const borders: NonNullable<ParagraphProperties["borders"]> = Object.fromEntries(
     sides.map((side) => {
       const index = BORDER_SIDES.indexOf(side)
       const mine = own[side]
@@ -276,6 +285,11 @@ function bordersFromBlock(block: BlockFormat): ParagraphProperties["borders"] {
       return [side, { ...line, space, ...(shadow ? { shadow: true } : {}), ...(frame ? { frame: true } : {}) }]
     }),
   )
+  if (block.borderBetween) {
+    // Drawn with the paragraph's pen, 1 pt from the text as Word's Inside Horizontal Border is.
+    borders.between = { ...line, space: 1 }
+  }
+  return borders
 }
 
 /** HTML attributes the editor's parseHTML rules read back into exactly `block`, plus the source anchor. */
@@ -345,6 +359,9 @@ export function blockHtmlAttributes(block: BlockFormat, key?: string, options: {
     data.push(`data-border-sides="${block.borderSides}"`)
     style.push(...borderSidesStyle(block.borderSides))
   }
+  if (block.borderBetween) {
+    data.push(`data-border-between="1"`)
+  }
   if (block.borderShadow) {
     data.push(`data-border-shadow="1"`)
   }
@@ -408,6 +425,7 @@ export function blockFromAttrs(attrs: Record<string, unknown> | undefined): Bloc
     border: text("border", "") && text("border", "") !== "none" ? text("border", "") : null,
     borderPen: text("borderPen", "") || null,
     borderSides: Object.keys(parseBorderSides(value.borderSides)).length > 0 ? text("borderSides", "") : null,
+    borderBetween: value.borderBetween === true,
     borderShadow: value.borderShadow === true,
     borderFrame: value.borderFrame === true,
     borderSpace: text("borderSpace", "") || null,

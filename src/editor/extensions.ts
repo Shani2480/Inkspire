@@ -8,6 +8,7 @@ import TextAlign from "@tiptap/extension-text-align"
 import { FontSize, TextStyle } from "@tiptap/extension-text-style"
 import { WordLineHeight } from "@/editor/line-height"
 import StarterKit from "@tiptap/starter-kit"
+import { ParagraphBoxGroups } from "@/editor/paragraph-box-groups"
 import { CharacterStyle, StyledUnderline, SubscriptMark, SuperscriptMark, TextBoxMark } from "@/editor/character-format"
 import { ProofingMark } from "@/editor/proofing"
 import { ListNumbering } from "@/editor/list-numbering"
@@ -107,6 +108,7 @@ export function createExtensions() {
     StyledOrderedList.configure(),
     ListNumbering.configure(),
     StyledUnderline.configure(),
+    ParagraphBoxGroups,
     SubscriptMark.configure(),
     SuperscriptMark.configure(),
     TextBoxMark.configure(),

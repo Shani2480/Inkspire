@@ -4,6 +4,8 @@ import { useClipboard } from "@/document/clipboard"
 import { currentWordDocument } from "@/document/docx/session"
 import { findStyle, wordIdForNamedStyle, type StyleDef } from "@/document/styles"
 import { updateBlocks } from "@/editor/block-format"
+import { applyBorders, DEFAULT_PEN, type BorderKind } from "@/editor/table-tools"
+import { CellSelection, cellAround } from "@tiptap/pm/tables"
 import { chainWithSelection, restoreSelection } from "@/editor/selection-memory"
 import { Extension, type Editor } from "@tiptap/core"
 import type { Mark } from "@tiptap/pm/model"
@@ -471,9 +473,83 @@ export function setShading(editor: Editor, color: string | null) {
   updateBlocks(editor, { shading: color })
 }
 
-export function setBlockBorder(editor: Editor, next: "bottom" | "top" | "left" | "right" | "all" | "none") {
+const BOX = ["top", "right", "bottom", "left"] as const
+
+/** The box sides a paragraph's `border` value draws ("all", or sides joined by commas). */
+function boxSides(value: unknown) {
+  if (value === "all") {
+    return new Set<string>(BOX)
+  }
+  return new Set(
+    typeof value === "string" ? value.split(",").filter((side) => (BOX as readonly string[]).includes(side)) : [],
+  )
+}
+
+function boxValue(sides: Set<string>) {
+  const drawn = BOX.filter((side) => sides.has(side))
+  return drawn.length === 4 ? "all" : drawn.length > 0 ? drawn.join(",") : null
+}
+
+/** Kinds that only a table has (cells side by side, diagonals across a cell). */
+export const TABLE_ONLY_BORDERS: BorderKind[] = ["insideV", "diagDown", "diagUp"]
+
+/**
+ * Home > Borders, as Word's: in a table, the selected cells' borders (with the default pen); elsewhere the
+ * paragraphs' (U27). For paragraphs a side toggles, Outside toggles the box, Inside and Inside Horizontal toggle
+ * the line between paragraphs (w:between), All draws both, and No Border takes every line off.
+ */
+export function setBlockBorder(editor: Editor, kind: BorderKind) {
   restoreSelection(editor)
-  updateBlocks(editor, { border: next === "none" ? null : next })
+  if (cellAround(editor.state.selection.$from) || editor.state.selection instanceof CellSelection) {
+    applyBorders(editor, kind, DEFAULT_PEN)
+    return
+  }
+  if (TABLE_ONLY_BORDERS.includes(kind)) {
+    return
+  }
+  const attrs = editor.state.selection.$from.parent.attrs
+  const sides = boxSides(attrs.border)
+  const between = attrs.borderBetween === true
+  if (kind === "none") {
+    updateBlocks(editor, { border: null, borderBetween: false })
+  } else if (kind === "all") {
+    updateBlocks(editor, { border: "all", borderBetween: true })
+  } else if (kind === "outside") {
+    updateBlocks(editor, { border: sides.size === 4 ? null : "all" })
+  } else if (kind === "inside" || kind === "insideH") {
+    updateBlocks(editor, { borderBetween: !between })
+  } else {
+    const next = new Set(sides)
+    if (next.has(kind)) {
+      next.delete(kind)
+    } else {
+      next.add(kind)
+    }
+    updateBlocks(editor, { border: boxValue(next) })
+  }
+}
+
+/** Whether a Borders menu row is on for the paragraph the selection starts in (sides, box, between). */
+export function paragraphBorderOn(kind: BorderKind, border: unknown, between: boolean) {
+  const sides = boxSides(border)
+  switch (kind) {
+    case "none":
+      return sides.size === 0 && !between
+    case "all":
+      return sides.size === 4 && between
+    case "outside":
+      return sides.size === 4
+    case "inside":
+    case "insideH":
+      return between
+    case "top":
+    case "right":
+    case "bottom":
+    case "left":
+      return sides.has(kind)
+    default:
+      return false
+  }
 }
 
 export function sortBlocks(editor: Editor, direction: "asc" | "desc") {

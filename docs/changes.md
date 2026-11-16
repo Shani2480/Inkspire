@@ -7,6 +7,34 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-16
 
+### Home > Borders as Word's: Outside, Inside, Inside Horizontal/Vertical, diagonals, boxes that join (U27)
+
+- **What was missing:** Home > Borders had six choices and set only one side of a paragraph at a time. It did
+  nothing in a table, and Horizontal Line, Draw Table and View Gridlines were only on Table Design. Word's line
+  between paragraphs (`w:between`) was neither read, saved nor drawn. Paragraphs in a row with the same borders
+  each drew a box of their own, where Word draws one box around them all.
+- **What changed:**
+  - **The menu** (both ribbon layouts) is Word's list, each row with a 16-grid picture: Bottom, Top, Left, Right,
+    No Border, All, Outside, Inside, Inside Horizontal, Inside Vertical, Diagonal Down and Diagonal Up. Then
+    Horizontal Line, Draw Table, View Gridlines and Borders and Shading…. Rows that are on show pressed.
+  - **In a table** the rows set the selected cells' borders, as Table Design's menu does, with the default pen.
+    View Gridlines is the table's.
+  - **On paragraphs** (`setBlockBorder`): a side toggles and keeps the others. Outside toggles the box. Inside and
+    Inside Horizontal toggle the line between. All draws both, and No Border takes every line off. Inside
+    Vertical and the diagonals are off outside tables.
+  - **`w:between`** (`borderBetween`): read, written in the schema's order, and drawn.
+  - **Boxes that join** (`editor/paragraph-box-groups.ts`): neighbours with the same borders and indents are drawn
+    as one box. The top line goes over the first, the bottom line under the last, and the between line between
+    each two. The sides run through the space between paragraphs; that space is measured after each draw and
+    kept as a decoration, so ProseMirror's DOM is never touched.
+- **Checked:**
+  - **Word in the VM:** a file with three paragraphs inside Outside Borders, three with All Borders and one bottom
+    border. The app draws the same boxes as Word: one box, the lines between, about the same height.
+  - **Saved from the app:** 0 validator errors, and Word re-saves all three `w:between`.
+  - **Chrome, light and dark:** the menu in a paragraph (states, table-only rows off) and in a table (all on).
+  - **Tests:** `paragraph-borders.test.ts` (toggles, joins, cells in a table, `w:between` open and save).
+- **Not done:** paragraphs that take their borders from a style are not joined (only direct borders are).
+
 ### Underline menu as Word's: every underline type, Underline Color, More Underlines…, Ctrl+Shift+W (U26)
 
 - **What was missing:** Home > Underline offered five lines. Underline types and colours from Word files opened as

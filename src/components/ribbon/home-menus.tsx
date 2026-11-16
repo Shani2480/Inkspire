@@ -19,12 +19,19 @@ import {
   pasteFromClipboard,
   selectSimilarFormatting,
   setBlockBorder,
+  paragraphBorderOn,
+  TABLE_ONLY_BORDERS,
+  insertHorizontalLine,
   setShading,
 } from "@/editor/home-actions"
 import { chainWithSelection } from "@/editor/selection-memory"
 import type { useActiveMarks } from "@/editor/use-active-marks"
 import type { Editor } from "@tiptap/core"
 import { RIBBON_UNDERLINES, underlineKind } from "@/document/underlines"
+import { useTableDraw } from "@/editor/table-draw"
+import { toggleGridlines, tableLayoutState } from "@/editor/table-layout"
+import type { BorderKind } from "@/editor/table-tools"
+import { CellSelection, cellAround } from "@tiptap/pm/tables"
 import { useMemo, useState, type CSSProperties } from "react"
 
 /** The Home tab's menus, shared by the classic and the single line ribbon. */
@@ -38,16 +45,23 @@ const CASE_OPTIONS: { id: CaseKind; label: string }[] = [
   { id: "title", label: "Capitalize Each Word" },
 ]
 
-export const BORDERS = [
+/** Home > Borders' rows, in Word's order (U27). */
+export const BORDERS: { id: BorderKind; label: string }[] = [
   { id: "bottom", label: "Bottom Border" },
   { id: "top", label: "Top Border" },
   { id: "left", label: "Left Border" },
   { id: "right", label: "Right Border" },
-  { id: "all", label: "All Borders" },
   { id: "none", label: "No Border" },
-] as const
+  { id: "all", label: "All Borders" },
+  { id: "outside", label: "Outside Borders" },
+  { id: "inside", label: "Inside Borders" },
+  { id: "insideH", label: "Inside Horizontal Border" },
+  { id: "insideV", label: "Inside Vertical Border" },
+  { id: "diagDown", label: "Diagonal Down Border" },
+  { id: "diagUp", label: "Diagonal Up Border" },
+]
 
-export type BorderId = (typeof BORDERS)[number]["id"]
+export type BorderId = BorderKind
 
 export type GalleryStyle = {
   id: string
@@ -501,6 +515,11 @@ export function ShadingMenu({
   )
 }
 
+/**
+ * Home > Borders, as Word's list: each row with its picture. In a table the rows set the selected cells' borders;
+ * elsewhere the paragraphs', where Inside Vertical and the diagonals do not apply. Then Horizontal Line, Draw Table,
+ * View Gridlines (a table's) and Borders and Shading….
+ */
 export function BordersMenu({
   editor,
   marks,
@@ -512,18 +531,19 @@ export function BordersMenu({
   onPick: (border: BorderId) => void
   close: () => void
 }) {
+  const inTable = Boolean(
+    editor && (cellAround(editor.state.selection.$from) || editor.state.selection instanceof CellSelection),
+  )
+  const gridlines = editor && inTable ? tableLayoutState(editor)?.gridlines !== false : false
   return (
-    <div className="w-[188px] p-1">
-      <div className="grid grid-cols-3 gap-1">
-        {BORDERS.map((border) => (
-          <button
+    <div className="borders-menu flex w-60 flex-col">
+      {BORDERS.map((border) => {
+        const off = !inTable && TABLE_ONLY_BORDERS.includes(border.id)
+        return (
+          <MenuButton
             key={border.id}
-            type="button"
-            aria-label={border.label}
-            aria-pressed={marks.border === border.id || (border.id === "none" && !marks.border)}
-            title={border.label}
-            className="flex h-12 items-center justify-center rounded border border-[#e1e1e1] bg-white aria-pressed:border-[var(--app-theme-primary)] aria-pressed:bg-[var(--app-theme-light)]"
-            onMouseDown={(event) => event.preventDefault()}
+            disabled={!editor || off}
+            selected={!inTable && paragraphBorderOn(border.id, marks.border, marks.borderBetween)}
             onClick={() => {
               onPick(border.id)
               if (editor) {
@@ -532,12 +552,49 @@ export function BordersMenu({
               close()
             }}
           >
-            <BorderSample id={border.id} />
-          </button>
-        ))}
-      </div>
+            <span className="flex items-center gap-2">
+              <BorderSample id={border.id} />
+              {border.label}
+            </span>
+          </MenuButton>
+        )
+      })}
       <div className="my-1 border-t border-[var(--app-popover-border)]" />
       <MenuButton
+        disabled={!editor}
+        onClick={() => {
+          if (editor) {
+            insertHorizontalLine(editor)
+          }
+          close()
+        }}
+      >
+        Horizontal Line
+      </MenuButton>
+      <MenuButton
+        disabled={!editor}
+        onClick={() => {
+          useTableDraw.getState().toggle("draw")
+          editor?.view.focus()
+          close()
+        }}
+      >
+        Draw Table
+      </MenuButton>
+      <MenuButton
+        disabled={!inTable}
+        selected={gridlines}
+        onClick={() => {
+          if (editor) {
+            toggleGridlines(editor)
+          }
+          close()
+        }}
+      >
+        View Gridlines
+      </MenuButton>
+      <MenuButton
+        disabled={!editor}
         onClick={() => {
           if (editor) {
             openBordersAndShading(editor)
@@ -551,18 +608,43 @@ export function BordersMenu({
   )
 }
 
+/** Word's Borders menu pictures, on the 16 grid: the box and its middle lines dotted, the row's lines drawn. */
+const BORDER_LINES: Record<string, string[]> = {
+  top: ["M2.5 2.5h11"],
+  bottom: ["M2.5 13.5h11"],
+  left: ["M2.5 2.5v11"],
+  right: ["M13.5 2.5v11"],
+  none: [],
+  all: ["M2.5 2.5h11v11h-11z", "M2.5 8h11", "M8 2.5v11"],
+  outside: ["M2.5 2.5h11v11h-11z"],
+  inside: ["M2.5 8h11", "M8 2.5v11"],
+  insideH: ["M2.5 8h11"],
+  insideV: ["M8 2.5v11"],
+  diagDown: ["M2.5 2.5l11 11"],
+  diagUp: ["M2.5 13.5l11-11"],
+}
+
 function BorderSample({ id }: { id: string }) {
-  const side = (edge: string) => (id === "all" || id === edge ? "1.5px solid #242424" : "1px solid #e1e1e1")
   return (
-    <span
-      className="block h-7 w-9 bg-white"
-      style={{
-        borderTop: side("top"),
-        borderRight: side("right"),
-        borderBottom: side("bottom"),
-        borderLeft: side("left"),
-      }}
-    />
+    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden className="shrink-0">
+      <path
+        d="M2.5 2.5h11v11h-11zM2.5 8h11M8 2.5v11"
+        fill="none"
+        stroke="var(--icon-muted-color, #9a9a9a)"
+        strokeWidth="1"
+        strokeDasharray="1 1"
+      />
+      {(BORDER_LINES[id] ?? []).map((d) => (
+        <path
+          key={d}
+          d={d}
+          fill="none"
+          stroke="var(--icon-base-color, #242424)"
+          strokeWidth="1.5"
+          strokeLinecap="square"
+        />
+      ))}
+    </svg>
   )
 }
 

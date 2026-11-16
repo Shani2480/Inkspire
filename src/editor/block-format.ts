@@ -99,6 +99,13 @@ export function blockFormatAttributes() {
         }
       },
     },
+    /** Word's between border (Inside Horizontal): a line between this paragraph and the next one in its box (U27). */
+    borderBetween: {
+      default: false,
+      parseHTML: (element: HTMLElement) => element.getAttribute("data-border-between") === "1",
+      renderHTML: (attributes: { borderBetween?: boolean }) =>
+        attributes.borderBetween ? { "data-border-between": "1" } : {},
+    },
     /** Word's Shadow border setting: a shadow to the bottom right of the box (22.4). */
     borderShadow: {
       default: false,
