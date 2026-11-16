@@ -155,7 +155,11 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
       (authoring languages, preferred one proofs new documents). Part 2 done 2026-11-16: select entire word, smart
       paragraph selection, smart cursoring, click and type, Paste Options button, AutoComplete. Left greyed: Prompt to
       update style, Keep track of formatting (need direct formatting tracked in the Styles pane).
-- [ ] U25. Mail merge tab (listed: Future features).
+- [x] U25. Mail merge tab (listed: Future features). Done 2026-11-16 (`mailings-tab.tsx`, `mailings-dialogs.tsx`,
+      `merge-sources.ts`, `merge-fields.ts`, `merge-output.ts`, `envelopes-labels.ts`). Lists: CSV/text, Excel, Outlook
+      contacts (vCard, CSV), typed. Finish & Merge: Edit Individual Documents and Print Documents (no e-mail, as asked).
+      Checked against Word's own merge in the VM. Left: Add to Document for envelopes, saving a typed list to a file,
+      Rules' Ask / Fill-in / Set Bookmark.
 - [ ] U39. (asked 2026-11-16) Optional fonts to download, so documents written with Office's fonts look right where
       those fonts are missing (Linux, the web build, Android).
       - **What:** free fonts with the same widths as Office's, which Word documents use most. Carlito = Calibri,

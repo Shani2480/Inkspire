@@ -7,6 +7,14 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [x] **Mail merge main documents (2026-11-16)** — checked in Word in the VM: a main document saved by the app opens
+      with its merge fields, and Word's merge of it with the same CSV matches the app's merge line for line.
+- [ ] **Envelopes and labels in Word (2026-11-16)**: an envelope (Size 10, DL) and a sheet of Avery 5160 / L7160
+      labels made in the app print on the right spots when opened in Word: the page size, the delivery address
+      position, and each label's exact row height.
+- [ ] **Mailings in the desktop app (2026-11-16)**: Use an Existing List and Choose from Outlook Contacts open .csv,
+      .xlsx and .vcf through the system file dialog, and Edit Individual Documents opens Letters1 in a window of its own.
+
 - [x] **Outline levels 7-9 (2026-11-14)** — checked in Word in the VM: a heading demoted past Heading 6 in the app's
       Outline view opens in Word at outline level 7, and a paragraph Word set to level 8 opens in the app at level 8.
 

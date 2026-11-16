@@ -16,6 +16,20 @@ const VALUE_SWITCHES: Record<string, string[]> = {
   FILLIN: ["d"],
   ASK: ["d"],
   INDEX: ["b", "c", "d", "e", "f", "g", "h", "k", "l", "p", "s", "z"],
+  MERGEFIELD: ["b", "f"],
+  ADDRESSBLOCK: ["f", "l", "c", "e"],
+  GREETINGLINE: ["f", "l", "e"],
+}
+
+/**
+ * Mail merge fields, which the app fills in from the recipient list (Mailings). They are kept as the editor's own
+ * fields when read from Word; IF is one when it compares a merge field (Rules > If…Then…Else).
+ */
+export const MERGE_KINDS = ["MERGEFIELD", "ADDRESSBLOCK", "GREETINGLINE", "MERGEREC", "MERGESEQ", "NEXT", "NEXTIF", "SKIPIF"] as const
+
+export function isMergeField(instr: string) {
+  const kind = parseInstruction(instr).kind
+  return (MERGE_KINDS as readonly string[]).includes(kind) || (kind === "IF" && /\{\s*MERGEFIELD\b/i.test(instr))
 }
 
 export type FieldInstruction = { kind: string; argument: string; switches: Map<string, string> }

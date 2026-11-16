@@ -2,6 +2,8 @@ import { applyOpenedNotes, notesForSave } from "@/document/note-settings"
 import { applyOpenedSources, sourcesForSave } from "@/document/bibliography-store"
 import { applyOpenedReview, reviewForSave } from "@/document/review"
 import { withWordMarkers } from "@/editor/word-markers"
+import { useMailMerge, type MainDocumentType } from "@/document/mail-merge"
+import { mergeDocument, type JsonNode, type MergeRange } from "@/document/merge-output"
 import { useBackstage } from "@/document/backstage"
 import { invokeWithTools } from "@/document/helper-tools"
 import {
@@ -58,6 +60,8 @@ import {
 import { openExternal } from "@/document/help"
 import { isTauriRuntime } from "@/lib/platform"
 import { EditorState } from "@tiptap/pm/state"
+import { generateJSON } from "@tiptap/core"
+import type { PageSetup } from "@/document/page-setup"
 import { invoke } from "@tauri-apps/api/core"
 import { message } from "@tauri-apps/plugin-dialog"
 
@@ -649,6 +653,102 @@ export async function openWindowRequest(request: WindowRequest) {
     await openWithRecovery(() => openDroppedFile(handoff.file), handoff.file.name)
   } else {
     await openWithRecovery(async () => handoff.file, handoff.file.name)
+    if (handoff.then === "print") {
+      useBackstage.getState().openBackstage("print")
+    }
+  }
+}
+
+/** The name Word gives a merged document: Letters1, Envelopes1, Labels1, Directory1. */
+const MERGED_NAMES: Record<MainDocumentType, string> = {
+  normal: "Letters",
+  letters: "Letters",
+  envelopes: "Envelopes",
+  labels: "Labels",
+  directory: "Directory",
+}
+let mergedCount = 0
+
+/**
+ * Finish & Merge > Edit Individual Documents or Print Documents: the merged document opens as a new, unsaved one
+ * in a window of its own ("Letters1"), with File > Print open on it for Print Documents. The main document stays as
+ * it is. Resolves to the number of records merged.
+ */
+export async function finishMerge(range: MergeRange, then: "edit" | "print") {
+  const editor = getDocumentEditor()
+  if (!editor) {
+    return 0
+  }
+  const state = useMailMerge.getState()
+  const merged = mergeDocument((await documentWithObjectPictures(editor)) as JsonNode, range, state)
+  mergedCount += 1
+  await openAsNewDocument({
+    json: merged.json,
+    chrome: currentChrome(),
+    fileName: `${MERGED_NAMES[state.type]}${mergedCount}.docx`,
+    print: then === "print",
+    keepStyles: true,
+  })
+  return merged.copies
+}
+
+let madeCount = 0
+
+/**
+ * Envelopes and Labels' New Document and Print: a document of the envelope's or sheet's page size, from the
+ * editor's HTML, in a window of its own (Word's "Document2").
+ */
+export async function openHtmlAsNewDocument(html: string, pageSetup: PageSetup, print: boolean) {
+  const editor = getDocumentEditor()
+  if (!editor) {
+    return
+  }
+  madeCount += 1
+  await openAsNewDocument({
+    json: generateJSON(html, editor.extensionManager.extensions) as JsonNode,
+    chrome: { ...emptyChrome(), pageSetup },
+    fileName: `Document${madeCount + 1}.docx`,
+    print,
+    keepStyles: false,
+  })
+}
+
+/** A document made here (a merge, envelopes, labels) saved to .docx and opened, unsaved, in a new window. */
+async function openAsNewDocument(options: {
+  json: JsonNode
+  chrome: DocumentChrome
+  fileName: string
+  print: boolean
+  keepStyles: boolean
+}) {
+  const saved = await (
+    await docxIo()
+  ).saveDocxBytes({
+    json: options.json as never,
+    chrome: options.chrome,
+    ...(options.keepStyles
+      ? {
+          props: useDocumentStore.getState().documentProps,
+          word: currentWordDocument(),
+          styles: useStyleStore.getState().styles,
+          review: reviewForSave(),
+          notes: notesForSave(),
+          bibliography: sourcesForSave(),
+        }
+      : { word: null }),
+    unchanged: false,
+    fileName: options.fileName,
+  })
+  const file: OpenedFile = { name: options.fileName, path: null, bytes: saved.bytes }
+  if (openWindow({ kind: "handoff", handoff: { kind: "file", file, ...(options.print ? { then: "print" as const } : {}) } })) {
+    return
+  }
+  // The browser blocked the new tab: the document opens here, after offering to save this one.
+  if (await confirmCloseDocument()) {
+    await openWithRecovery(async () => file, file.name)
+    if (options.print) {
+      useBackstage.getState().openBackstage("print")
+    }
   }
 }
 

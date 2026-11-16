@@ -7,7 +7,8 @@
  */
 
 import { formatPicture } from "@/document/field-date"
-import { parseInstruction, type FieldInstruction } from "@/document/field-instructions"
+import { isMergeField, MERGE_KINDS, parseInstruction, type FieldInstruction } from "@/document/field-instructions"
+import { mergeFieldResult, type MergeContext, type MergeEffect } from "@/document/merge-fields"
 
 /** What a field result may read. Counts are functions, so a document without such fields never counts its words. */
 export type FieldInfo = {
@@ -37,6 +38,8 @@ export type FieldInfo = {
   section: (pos: number) => { number: number; pages: number }
   /** STYLEREF: the text of the nearest paragraph in that style, above the field (or below when there is none). */
   styleText: (style: string, pos: number) => string | null
+  /** Mailings: the record Preview Results shows (or the one being merged); null shows merge fields' names. */
+  merge?: MergeContext | null
 }
 
 const DATE_FIELDS = new Set(["DATE", "TIME", "CREATEDATE", "SAVEDATE", "PRINTDATE"])
@@ -47,6 +50,7 @@ const COMPUTED = new Set([
   ..."EDITTIME AUTHOR LASTSAVEDBY TITLE SUBJECT KEYWORDS COMMENTS DOCPROPERTY FILENAME NUMPAGES NUMWORDS NUMCHARS".split(" "),
   ..."PAGE SECTION SECTIONPAGES TEMPLATE USERNAME USERINITIALS USERADDRESS QUOTE SYMBOL STYLEREF MERGEFIELD".split(" "),
   ..."MACROBUTTON GOTOBUTTON FILLIN ASK INFO SEQ REF PAGEREF CITATION XE TC TA RD".split(" "),
+  ...MERGE_KINDS,
 ])
 
 /** Whether an empty result is the field's real result (an AUTHOR with no author) rather than one not worked out. */
@@ -144,8 +148,17 @@ function rawResult(
     case "STYLEREF":
       return parsed.argument ? (info.styleText(parsed.argument, pos) ?? "Error! No text of specified style in document.") : null
     case "MERGEFIELD":
-      // Without a data source Word shows the field's name in chevrons.
-      return parsed.argument ? `«${parsed.argument}»` : null
+    case "ADDRESSBLOCK":
+    case "GREETINGLINE":
+    case "MERGEREC":
+    case "MERGESEQ":
+    case "NEXT":
+    case "NEXTIF":
+    case "SKIPIF":
+      // Without a list (or out of Preview Results) Word shows the field's name in chevrons.
+      return mergeFieldResult(instr, info.merge ?? null)
+    case "IF":
+      return isMergeField(instr) ? mergeFieldResult(instr, info.merge ?? null) : null
     case "MACROBUTTON":
     case "GOTOBUTTON": {
       // The display text is everything after the macro name or destination.
@@ -188,6 +201,14 @@ export function infoFieldResult(instr: string, info: FieldInfo, pos: number): st
     // Numeric text (QUOTE 123) takes the number formats too, as in Word.
     text = /^-?\d+(\.\d+)?$/.test(raw.trim()) ? applyNumberSwitches(Number(raw), parsed, instr) : raw
   }
+  return applyTextFormats(text, instr)
+}
+
+/** A merge field's text for the record being merged, with its general switches (\* Upper, \# 0.00) applied. */
+export function mergeFieldText(instr: string, context: MergeContext | null, effect?: MergeEffect) {
+  const parsed = parseInstruction(instr)
+  const raw = mergeFieldResult(instr, context, effect)
+  const text = /^-?\d+(\.\d+)?$/.test(raw.trim()) ? applyNumberSwitches(Number(raw), parsed, instr) : raw
   return applyTextFormats(text, instr)
 }
 

@@ -8,6 +8,8 @@ import { citationContext, formatCitation, parseCitation } from "@/document/bibli
 import { useBibliography } from "@/document/bibliography-store"
 import { infoFieldResult, isComputedField, type FieldInfo } from "@/document/field-results"
 import { useDocumentStore } from "@/document/store"
+import { previewContext, useMailMerge } from "@/document/mail-merge"
+import { isMergeField } from "@/document/field-instructions"
 import { useUserSettings } from "@/document/user-settings"
 import { styleName } from "@/editor/style-inspect"
 import { countWords } from "@/editor/word-count"
@@ -250,6 +252,7 @@ export function fieldInfo(editor: Editor, doc: ProseNode): FieldInfo {
     },
     fileName: store.fileName,
     path: store.currentFilePath,
+    merge: previewContext(),
     user: { name: user.author, initials: user.initials, address: "" },
     pages: pageCount,
     words: () => countWords(allText()),
@@ -304,6 +307,8 @@ const fieldKey = new PluginKey("wordFields")
 const REFRESH = "refreshFields"
 /** Citations only: the sources or the style changed, which Word shows in every citation at once. */
 export const REFRESH_CITATIONS = "refreshCitations"
+/** Merge fields only: Preview Results, the record shown, the list or Match Fields changed. */
+export const REFRESH_MERGE = "refreshMergeFields"
 
 /** Brings every field's result up to date in `tr` (nothing when they already are). */
 function refresh(
@@ -312,6 +317,7 @@ function refresh(
   forced: boolean,
   citations = forced,
   info?: (doc: ProseNode) => FieldInfo,
+  merge = false,
 ) {
   // Twice: a reference to "Figure 1" reads the caption's number, which the first pass may have just changed.
   for (let pass = 0; pass < 2; pass += 1) {
@@ -325,8 +331,9 @@ function refresh(
     for (const [pos, result] of results) {
       const node = tr.doc.nodeAt(pos)
       const isCitation = /^\s*CITATION\b/i.test(String(node?.attrs.instr ?? ""))
+      const isMerge = merge && isMergeField(String(node?.attrs.instr ?? ""))
       // A field read from Word keeps the result Word gave it until F9, as in Word; the app's own follow every edit.
-      if (node && node.attrs.result !== result && (forced || (citations && isCitation) || !node.attrs.source)) {
+      if (node && node.attrs.result !== result && (forced || (citations && isCitation) || isMerge || !node.attrs.source)) {
         tr.setNodeMarkup(pos, undefined, { ...node.attrs, result })
         changed = true
       }
@@ -410,6 +417,8 @@ export const WordField = Node.create({
         dom.dataset.instr = String(current.attrs.instr ?? "")
         // An index entry is hidden text in Word: shown only with formatting marks on.
         dom.classList.toggle("is-index-entry", /^\s*XE\b/i.test(dom.dataset.instr))
+        // Mailings: Highlight Merge Fields shades these; an Address Block keeps its lines.
+        dom.classList.toggle("is-merge-field", isMergeField(dom.dataset.instr))
         // A field the app has no result for (FILESIZE, a TOC inserted from the Field dialog) shows its code faintly,
         // so it is not lost; Word would show its own result there after F9.
         const empty = !String(current.attrs.result ?? "") && !isComputedField(dom.dataset.instr)
@@ -439,7 +448,8 @@ export const WordField = Node.create({
         appendTransaction(transactions, _old, state) {
           const forced = transactions.some((tr) => tr.getMeta(REFRESH))
           const citations = forced || transactions.some((tr) => tr.getMeta(REFRESH_CITATIONS))
-          if (!citations && !transactions.some((tr) => tr.docChanged)) {
+          const merge = transactions.some((tr) => tr.getMeta(REFRESH_MERGE))
+          if (!citations && !merge && !transactions.some((tr) => tr.docChanged)) {
             return null
           }
           let has = false
@@ -450,7 +460,7 @@ export const WordField = Node.create({
           if (!has) {
             return null
           }
-          const tr = refresh(state.tr, pageAt, forced, citations, (doc) => fieldInfo(editor, doc))
+          const tr = refresh(state.tr, pageAt, forced, citations, (doc) => fieldInfo(editor, doc), merge)
           return tr.docChanged ? tr : null
         },
         view(view) {
@@ -468,7 +478,30 @@ export const WordField = Node.create({
               })
             }
           })
-          return { destroy: unsubscribe }
+          // Preview Results shows the record's values in every merge field (Mailings).
+          const unsubscribeMerge = useMailMerge.subscribe((next, previous) => {
+            if (
+              next.preview !== previous.preview ||
+              next.position !== previous.position ||
+              next.source !== previous.source ||
+              next.fieldMap !== previous.fieldMap ||
+              next.included !== previous.included ||
+              next.sort !== previous.sort ||
+              next.filters !== previous.filters
+            ) {
+              queueMicrotask(() => {
+                if (!view.isDestroyed) {
+                  view.dispatch(view.state.tr.setMeta(REFRESH_MERGE, true).setMeta("addToHistory", false))
+                }
+              })
+            }
+          })
+          return {
+            destroy: () => {
+              unsubscribe()
+              unsubscribeMerge()
+            },
+          }
         },
         props: {
           // Ctrl+click on a cross-reference inserted as a hyperlink (\h) goes to what it refers to.

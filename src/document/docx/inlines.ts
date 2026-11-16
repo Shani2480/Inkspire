@@ -1,6 +1,6 @@
 import { frameOfPreset, presetOfFrame } from "@/editor/picture-shape"
 import { dateFieldResult } from "@/document/field-date"
-import { isAppField, wordBookmarkName } from "@/document/field-instructions"
+import { isAppField, isMergeField, wordBookmarkName } from "@/document/field-instructions"
 import { equationOmml, isOmml, ommlToTex } from "@/document/docx/omml"
 import { equationToText } from "@/editor/equation-gallery"
 import {
@@ -1017,8 +1017,10 @@ function equationHtml(xml: string) {
  * keeping the markup they were read from; any other field is kept whole as an atom.
  */
 function fieldHtml(field: Inline[]) {
-  const instr = fieldInstruction(field).replace(/\s+/g, " ").trim()
-  if (!isAppField(instr)) {
+  const nested = nestedFieldCode(field)
+  const merge = isMergeField(nested)
+  const instr = merge ? nested : fieldInstruction(field).replace(/\s+/g, " ").trim()
+  if (!merge && !isAppField(instr)) {
     return atomHtml("field", field, fieldText(field))
   }
   const text = visibleText(field)
@@ -1116,6 +1118,54 @@ function fieldText(inlines: Inline[]) {
 }
 
 /** A field's own instruction: a simple field's w:instr, or a complex field's w:instrText before its separator. */
+/**
+ * A field's whole code as Word shows it with Alt+F9: fields inside it in braces ({ MERGEFIELD City }), line breaks
+ * (Word's w:cr in an Address Block's format) as new lines. Spaces are tidied but the lines are kept.
+ */
+function nestedFieldCode(inlines: Inline[]) {
+  const first = inlines[0]
+  if (first?.kind === "simpleField") {
+    return first.instr.replace(/[ \t]+/g, " ").trim()
+  }
+  let depth = 0
+  const inCode: boolean[] = []
+  let text = ""
+  for (const inline of inlines) {
+    if (inline.kind !== "run") {
+      continue
+    }
+    for (const content of inline.content) {
+      if (content.kind === "fldChar") {
+        if (content.fieldType === "begin") {
+          depth += 1
+          inCode[depth] = true
+          if (depth > 1 && inCode[depth - 1]) {
+            text += "{ "
+          }
+        } else if (content.fieldType === "separate") {
+          inCode[depth] = false
+        } else {
+          if (depth > 1 && inCode[depth - 1]) {
+            text += " }"
+          }
+          depth = Math.max(0, depth - 1)
+        }
+      } else if (depth > 0 && inCode.slice(1, depth + 1).every(Boolean)) {
+        if (content.kind === "instrText") {
+          text += content.text
+        } else if (content.kind === "break") {
+          text += "\n"
+        }
+      }
+    }
+  }
+  return text
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+/g, " "))
+    .join("\n")
+    .trim()
+}
+
 function fieldInstruction(inlines: Inline[]) {
   const first = inlines[0]
   if (first?.kind === "simpleField") {
@@ -1140,6 +1190,38 @@ function fieldInstruction(inlines: Inline[]) {
     }
   }
   return text
+}
+
+/**
+ * The runs of a field's code up to its separator: the begin mark, the code, and any field inside it (in braces) as a
+ * field of its own, without a result, which Word works out on update. A new line is Word's w:cr.
+ */
+function complexFieldCode(instr: string): Inline[] {
+  const runs: Inline[] = [{ kind: "run", rPr: {}, content: [{ kind: "fldChar", fieldType: "begin" }] }]
+  let text = " "
+  const flush = () => {
+    if (text) {
+      runs.push({ kind: "run", rPr: {}, content: [{ kind: "instrText", text }] })
+      text = ""
+    }
+  }
+  for (const char of instr) {
+    if (char === "{") {
+      flush()
+      runs.push({ kind: "run", rPr: {}, content: [{ kind: "fldChar", fieldType: "begin" }] })
+    } else if (char === "}") {
+      flush()
+      runs.push({ kind: "run", rPr: {}, content: [{ kind: "fldChar", fieldType: "end" }] })
+    } else if (char === "\n") {
+      flush()
+      runs.push({ kind: "run", rPr: {}, content: [{ kind: "raw", xml: "<w:cr/>", text: "" }] })
+    } else {
+      text += char
+    }
+  }
+  text += " "
+  flush()
+  return runs
 }
 
 /** Text a reader sees: field results without their codes, deleted text left out. */
@@ -1743,6 +1825,18 @@ export function inlinesFromEditor(nodes: JsonNode[], build: InlineBuild): Inline
           `<w:sdt><w:sdtPr><w:id w:val="${0x51a0000 + build.controlIds}"/><w:citation/></w:sdtPr>` +
           `<w:sdtContent>${inlinesXml(runs)}</w:sdtContent></w:sdt>`
         pieces.push({ inline: { kind: "raw", xml, text: result }, ...annotations })
+      } else if (/[\n{}]/.test(instr)) {
+        // Fields inside it ({ MERGEFIELD City } in an IF) or line breaks (an Address Block's format): a complex
+        // field, as Word writes them; a simple field's instruction can hold neither.
+        const runs = complexFieldCode(instr)
+        runs.push(
+          { kind: "run", rPr: {}, content: [{ kind: "fldChar", fieldType: "separate" }] },
+          textRun(result, marks, annotations.revision, build),
+          { kind: "run", rPr: {}, content: [{ kind: "fldChar", fieldType: "end" }] },
+        )
+        for (const inline of runs) {
+          pieces.push({ inline, ...annotations })
+        }
       } else {
         pieces.push({
           inline: {

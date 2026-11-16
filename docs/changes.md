@@ -7,6 +7,60 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-16
 
+### Mailings tab: recipient lists, merge fields, Preview Results, Finish & Merge, Envelopes and Labels (U25)
+
+- **What was missing:** there was no Mailings tab (an earlier one was removed in d16e459). Mail merge fields read
+  from Word showed only their names.
+- **What changed:**
+  - **Mailings tab** (`components/ribbon/mailings-tab.tsx`, both ribbon layouts, KeyTips as Word's). It has
+    Word's groups:
+    - **Create:** Envelopes and Labels.
+    - **Start Mail Merge:** Letters, Envelopes…, Labels…, Directory and Normal Word Document.
+    - **Select Recipients:** Type a New List, Use an Existing List, and Choose from Outlook Contacts.
+    - **Edit Recipient List.**
+    - **Write & Insert Fields:** Highlight Merge Fields, Address Block, Greeting Line, Insert Merge Field, Rules
+      (If…Then…Else, Merge Record #, Merge Sequence #, Next Record, Next Record If, Skip Record If), Match Fields
+      and Update Labels.
+    - **Preview Results:** Preview Results with record navigation, Find Recipient and Check for Errors.
+    - **Finish & Merge:** Edit Individual Documents and Print Documents, for All, Current record or From–To.
+  - **Recipient lists** (`document/merge-sources.ts`):
+    - CSV and text files: commas, semicolons or tabs, quotes, UTF-8 or Windows-1252.
+    - Excel workbooks: shared and inline strings, dates, and Select Table when there are several sheets.
+    - Outlook contacts exported as vCard (2.1/3.0, quoted-printable) or Outlook CSV, read into Outlook's field names.
+    - A list typed in New Address List.
+    - The desktop app now reads .csv, .tsv, .xlsx and .vcf; it never writes them.
+  - **Field results** (`document/merge-fields.ts`, wired into `field-results.ts` and `editor/word-field.ts`):
+    MERGEFIELD with \b and \f, ADDRESSBLOCK and GREETINGLINE formats, MERGEREC, MERGESEQ, NEXT, NEXTIF, SKIPIF,
+    and IF with merge fields inside it. Preview Results refreshes merge fields only, so a Word document's other
+    fields keep Word's results.
+  - **Fields in .docx** (`docx/inlines.ts`): fields with line breaks or fields inside them are written as Word's
+    complex fields (nested begin/end, `<w:cr/>` for the Address Block's lines).
+  - **Merged output** (`document/merge-output.ts`, `finishMerge` in `commands.ts`): the main document once per
+    recipient, opened unsaved in a new window as Letters1. Print Documents opens File > Print on it.
+- **Word's behaviour the merge copies**, each found by merging in Word in the VM:
+  - an Address Block's lines become paragraphs of their own, and empty lines drop out;
+  - a paragraph holding only empty merge fields is removed, except a copy's last paragraph;
+  - with a suffix in the name format and no last name, the title is left out ("Kim", not "Dr. Kim");
+  - the greeting falls back to first and last name;
+  - NEXT moves to the next record inside one copy (labels), and SKIPIF leaves a record out.
+- **Tests:** `merge-sources.test.ts` and `merge-fields.test.ts` (16 tests, including a Word-made fixture,
+  `tests/docx-fixtures/mail-merge/word-merge-fields.docx`).
+- **How it was checked:**
+  - **Word, VM:** a main document saved by the app (Address Block, Greeting Line, MERGEFIELD \b \f, MERGEREC,
+    an IF made by the Rules dialog) opens in Word with the same field codes. Word's merge with the same list gives
+    the same text as the app's merge, line for line. The Open XML validator reports 0 errors.
+  - **Chrome, light and dark:**
+    - a CSV picked through Use an Existing List;
+    - Address Block, Greeting Line and Insert Merge Field put in;
+    - Preview Results showing record 1, then record 2;
+    - Edit Individual Documents opening Letters1 with all three letters;
+    - every dialog looked at, plus the overflow crawl.
+- **Differences from Word:**
+  - Match Fields matches a "Postal Code" column, where Word's own matching did not.
+  - Envelopes and Labels makes a new document; Word's Add to Document is not offered.
+  - A typed list is kept with the window, not saved as an .mdb.
+  - Left out: Send Email Messages, and the Rules' Ask, Fill-in and Set Bookmark.
+
 ### Options > Advanced: whole words, smart paragraph selection, smart cursoring, click and type, Paste Options, AutoComplete (U24, part 2)
 
 - **What was wrong or missing:** eight of Options > Advanced's editing options were greyed out as not available.

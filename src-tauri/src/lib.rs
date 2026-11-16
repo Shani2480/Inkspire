@@ -619,6 +619,10 @@ fn assert_local_document_path(path: &str) -> Result<PathBuf, String> {
     }
 }
 
+fn is_recipient_list_extension(ext: &str) -> bool {
+    matches!(ext, "csv" | "tsv" | "xlsx" | "xlsm" | "vcf")
+}
+
 fn is_local_document_extension(ext: &str) -> bool {
     matches!(
         ext,
@@ -626,12 +630,13 @@ fn is_local_document_extension(ext: &str) -> bool {
     )
 }
 
-/// A file the person picked to open: the documents Inkspire saves, and Word 97–2003 files, which it only reads
-/// (converted, see `convert_legacy_document`).
+/// A file the person picked to open: the documents Inkspire saves, Word 97–2003 files, which it only reads
+/// (converted, see `convert_legacy_document`), and Mailings' recipient lists (text, Excel, vCard), only read.
 fn assert_openable_document_path(path: &str) -> Result<PathBuf, String> {
     let checked = assert_user_document_path(path)?;
     match file_extension(checked.to_string_lossy().as_ref()).as_deref() {
         Some("doc") | Some("dot") => Ok(checked),
+        Some(ext) if is_recipient_list_extension(ext) => Ok(checked),
         _ => assert_local_document_path(path),
     }
 }
@@ -940,7 +945,7 @@ mod legacy_tests {
 mod tests {
     use super::{
         assert_local_document_path, assert_settings_path, assert_user_document_path, document_body,
-        export_format, font_families, import_format, is_local_document_extension, percent_decode,
+        export_format, font_families, import_format, is_local_document_extension, is_recipient_list_extension, percent_decode,
         typst_project_root,
     };
     use super::{existing_file_path, file_uri, gecos_name};
@@ -1007,6 +1012,8 @@ mod tests {
             assert!(is_local_document_extension(ext), "{ext}");
         }
         assert!(!is_local_document_extension("exe"));
+        assert!(is_recipient_list_extension("csv") && is_recipient_list_extension("vcf"));
+        assert!(!is_local_document_extension("csv"), "recipient lists are read, never written");
         assert!(!is_local_document_extension("sh"));
 
         assert!(assert_local_document_path("/home/user/notes.HTM").is_ok());

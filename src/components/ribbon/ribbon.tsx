@@ -18,6 +18,7 @@ import { ReviewTab } from "@/components/ribbon/review-tab"
 import { HelpTab } from "@/components/ribbon/help-tab"
 import { ViewTab } from "@/components/ribbon/view-tab"
 import { ReferencesTab } from "@/components/ribbon/references-tab"
+import { MailingsTab } from "@/components/ribbon/mailings-tab"
 import { SmartArtDesignTab } from "@/components/ribbon/smartart-tab"
 import { SmartArtFormatTab } from "@/components/ribbon/smartart-format-tab"
 import { EquationTab } from "@/components/ribbon/equation-tab"
@@ -66,6 +67,7 @@ const MAIN_TABS: [string, ComponentType][] = (
     ["design", DesignTab],
     ["layout", LayoutTab],
     ["references", ReferencesTab],
+    ["mailings", MailingsTab],
     ["review", ReviewTab],
     ["view", ViewTab],
     ["help", HelpTab],

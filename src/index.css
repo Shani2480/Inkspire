@@ -6796,6 +6796,16 @@ li[data-drop-cap="margin"]::first-letter {
   font-style: italic;
 }
 
+/* Mailings: an Address Block's result keeps its lines; Highlight Merge Fields shades merge fields as Word does. */
+.page-editor .word-field.is-merge-field > .field-value {
+  white-space: pre-line;
+}
+
+:root[data-highlight-merge] .page-editor .word-field.is-merge-field {
+  background: #d9d9d9;
+  box-shadow: 0 0 0 1px #d9d9d9;
+}
+
 /* An index entry (XE field) is hidden text: nothing on the page until formatting marks are shown. */
 .page-editor .word-field.is-index-entry > .field-value {
   display: none;
@@ -17304,4 +17314,423 @@ html.dark,
 
 .autocomplete-hint {
   opacity: 0.7;
+}
+
+/* ---------- Mailings (U25) ---------- */
+
+.mailings-note {
+  color: var(--dlg-muted);
+  font-size: 12px;
+  line-height: 1.35;
+  margin: 2px 0 6px;
+}
+
+.mailings-message {
+  font-size: 13px;
+  margin: 0 0 8px;
+  overflow-wrap: anywhere;
+}
+
+.mailings-two {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.mailings-wide,
+.word-dialog select.mailings-wide,
+.word-dialog .mailings-wide {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.mailings-indent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: 20px;
+}
+
+.mailings-indented {
+  box-sizing: border-box;
+  width: calc(100% - 20px);
+  margin-left: 20px;
+}
+
+.mailings-list .mailings-row,
+.mailings-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 90px;
+  gap: 8px;
+  padding: 2px 6px;
+  font-size: 13px;
+  cursor: default;
+}
+
+.mailings-row.is-head {
+  color: var(--dlg-muted);
+  border-bottom: 1px solid var(--dlg-control-border);
+}
+
+.mailings-row.is-selected {
+  background: color-mix(in srgb, var(--app-theme-primary) 18%, transparent);
+}
+
+/* The recipient grid scrolls down as a list does, never sideways: columns share the width, long values are cut. */
+.mailings-grid {
+  max-height: calc(100vh - 340px);
+  min-height: 140px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 1px solid var(--dlg-control-border);
+  background: var(--dlg-surface);
+  margin: 4px 0;
+}
+
+.mailings-grid table {
+  border-collapse: collapse;
+  font-size: 12px;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.mailings-grid th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--dlg-bg);
+  border-bottom: 1px solid var(--dlg-control-border);
+  border-right: 1px solid color-mix(in srgb, var(--dlg-control-border) 50%, transparent);
+  padding: 2px 6px;
+  text-align: left;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mailings-grid td {
+  border-bottom: 1px solid color-mix(in srgb, var(--dlg-control-border) 35%, transparent);
+  border-right: 1px solid color-mix(in srgb, var(--dlg-control-border) 35%, transparent);
+  padding: 0 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  height: 22px;
+}
+
+.mailings-entries {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.4fr);
+  gap: 12px;
+}
+
+.mailings-entry-list {
+  max-height: calc(100vh - 300px);
+  min-height: 200px;
+}
+
+.mailings-entry-form {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 3px 8px;
+  align-items: center;
+  font-size: 12px;
+  max-height: calc(100vh - 300px);
+  overflow-y: auto;
+}
+
+.mailings-entry-form input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.mailings-grid tr.is-selected td {
+  background: color-mix(in srgb, var(--app-theme-primary) 12%, transparent);
+}
+
+.mailings-grid .mailings-check {
+  width: 28px;
+  text-align: center;
+}
+
+.mailings-sort {
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+
+.mailings-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.mailings-buttons .mailings-note {
+  margin: 0 0 0 auto;
+}
+
+.mailings-refine {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 6px;
+}
+
+.mailings-refine-links {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.mailings-link {
+  border: 0;
+  background: none;
+  color: var(--dlg-accent);
+  font-size: 13px;
+  padding: 0;
+  cursor: pointer;
+}
+
+.mailings-link:hover {
+  text-decoration: underline;
+}
+
+.mailings-filter {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 4px 8px;
+  align-items: center;
+}
+
+.mailings-filter > select,
+.mailings-filter > input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.mailings-sort-row,
+.mailings-find-field,
+.mailings-range-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+.mailings-range-row input {
+  width: 56px;
+}
+
+.mailings-range {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mailings-formats {
+  max-height: calc(100vh - 420px);
+  min-height: 96px;
+  margin-bottom: 6px;
+}
+
+.mailings-formats [aria-disabled="true"] {
+  color: var(--dlg-disabled-text);
+}
+
+.mailings-preview-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.mailings-preview-nav > span:first-child {
+  font-weight: 600;
+  width: 100%;
+}
+
+.mailings-preview-nav > .mailings-note {
+  width: 100%;
+  margin: 0;
+}
+
+.dialog-btn.is-icon {
+  min-width: 28px;
+  padding: 0 4px;
+}
+
+/* A preview of the merged text: paper, light in both themes. */
+.mailings-preview {
+  margin-top: 6px;
+  min-height: 92px;
+  border: 1px solid var(--dlg-control-border);
+  background: #ffffff;
+  color: #1b1b1b;
+  padding: 8px 10px;
+  font-family: Calibri, Carlito, "Segoe UI", sans-serif;
+  font-size: 13px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.mailings-greeting {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.6fr) minmax(0, 0.6fr);
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.mailings-match {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 3px 10px;
+  align-items: center;
+  font-size: 13px;
+  max-height: calc(100vh - 280px);
+  overflow-y: auto;
+}
+
+.mailings-match select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.mailings-rule {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 3px 8px;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.mailings-rule > select,
+.mailings-rule > input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+.mailings-textarea {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  height: 52px;
+  padding: 4px;
+  resize: none;
+  margin-bottom: 6px;
+}
+
+.mailings-choice {
+  align-items: flex-start;
+  margin-bottom: 6px;
+}
+
+.mailings-envelope {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.mailings-address {
+  box-sizing: border-box;
+  width: 100%;
+  height: 88px;
+  padding: 4px 6px;
+  resize: none;
+}
+
+.mailings-return {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.mailings-size {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.mailings-size select {
+  flex: 1;
+  min-width: 0;
+}
+
+.mailings-menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.2;
+  white-space: normal;
+  text-align: left;
+}
+
+.mailings-menu-detail {
+  color: var(--app-ribbon-muted, var(--dlg-muted));
+  font-size: 11px;
+}
+
+.mailings-menu {
+  width: 240px;
+}
+
+.mailings-menu.is-wide {
+  width: 320px;
+}
+
+.mailings-menu-item + * {
+  white-space: normal;
+}
+
+.mailings-label-at {
+  margin: 4px 0 0 20px;
+}
+
+.mailings-field-menu {
+  width: 220px;
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+}
+
+.mailings-nav {
+  display: flex;
+  align-items: center;
+  height: 24px;
+}
+
+.mailings-record {
+  display: flex;
+  align-items: center;
+  padding: 0 2px;
+}
+
+.mailings-record-box {
+  width: 40px;
+  height: 20px;
+  border: 1px solid var(--app-popover-border);
+  border-radius: 3px;
+  background: var(--backstage-input);
+  color: var(--app-ribbon-text);
+  font-size: 12px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.mailings-record-box:disabled {
+  opacity: 0.5;
 }
