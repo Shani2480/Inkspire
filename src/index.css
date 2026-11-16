@@ -10437,6 +10437,127 @@ html.dark .asset-library .asset-library-icon {
   font-size: 11px;
   color: var(--al-muted);
 }
+/* Insert > Pictures > Stock Images: photos in rows of three, several chosen at once, Insert (n) at the foot. */
+.stock-images .stock-images-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: 120px;
+  max-height: min(420px, calc(100vh - 260px));
+}
+
+.stock-images-tile {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  background: var(--al-chip);
+  cursor: pointer;
+}
+
+.stock-images-tile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.stock-images-tile.is-chosen {
+  border-color: var(--al-chip-active);
+}
+
+.stock-images-tile:focus-visible {
+  outline: 2px solid var(--al-chip-active);
+  outline-offset: 1px;
+}
+
+/* Word's tick in the corner: an empty ring on hover, filled when chosen. */
+.stock-images-check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border: 1.5px solid #fff;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.25);
+  color: #fff;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.stock-images-tile:hover .stock-images-check,
+.stock-images-tile.is-chosen .stock-images-check {
+  opacity: 1;
+}
+
+.stock-images-tile.is-chosen .stock-images-check {
+  border-color: var(--al-chip-active);
+  background: var(--al-chip-active);
+}
+
+/* The next page of a search, across the grid's width. */
+.stock-images-more {
+  grid-column: 1 / -1;
+  height: 32px;
+  border: 1px solid var(--al-border);
+  border-radius: 4px;
+  background: var(--al-surface);
+  color: var(--al-text);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.stock-images-more:hover {
+  background: var(--al-hover);
+}
+
+.stock-images-shimmer {
+  height: 100%;
+}
+
+.stock-images-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--al-border);
+}
+
+.stock-images-status {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--al-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stock-images-button {
+  min-width: 80px;
+  padding: 5px 14px;
+  border: 1px solid var(--al-border);
+  border-radius: 4px;
+  background: var(--al-surface);
+  color: var(--al-text);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.stock-images-button.is-primary {
+  border-color: var(--al-chip-active);
+  background: var(--al-chip-active);
+  color: var(--al-chip-active-text);
+}
+
+.stock-images-button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
 .icon-shimmer {
   display: block;
   width: 100%;

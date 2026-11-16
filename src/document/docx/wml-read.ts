@@ -961,6 +961,10 @@ function drawingContent(node: MarkupNode, raw: RawCursor): RunContent {
   if (name) {
     content.name = name
   }
+  const description = anyAttr(properties, "descr")
+  if (description) {
+    content.description = description
+  }
   if (cx !== undefined) {
     content.cx = cx
   }

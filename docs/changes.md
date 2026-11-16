@@ -7,6 +7,32 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-16
 
+### Stock Images (U29), and pictures' alt text saved for Word
+
+- **What was missing:** Insert > Pictures had only This Device. Found on the way: a picture's alt text typed in the
+  app (Alt Text, the Format pane) was never saved to Word, and a Word picture's alt text (its description) was not
+  read; the app showed the picture's name instead.
+- **What changed:**
+  - **Insert > Pictures > Stock Images...** (`components/stock-images.tsx`, `editor/stock-images.ts`): Word's dialog
+    of photos to search, with categories (Nature, Business, Food, …), several pictures chosen at once with a tick,
+    Insert (n), and More pictures for the next 20. The photos come from Openverse (openverse.org), asked for public
+    domain photos only (CC0 and the Public Domain Mark) from Flickr and Wikimedia Commons, so no credit line is
+    needed; only the search words leave the computer, and the pictures go into the document. Each picture's alt
+    text is its title and who took it. A Commons picture wider than 1920 pixels comes as Commons' 1920-pixel copy.
+    Without a connection, or past Openverse's limit for searches without an account, the dialog says so.
+  - The desktop app's content policy lets the app reach api.openverse.org, live.staticflickr.com and
+    upload.wikimedia.org (`tauri.conf.json`).
+  - **Alt text** (`docx/inlines.ts`, `wml-read.ts`): a picture's alt text is saved as Word's description
+    (wp:docPr descr) when it was set or changed in the app, and a Word picture's description is read as its alt text
+    (its name when it has none, as before); an unchanged picture stays as written.
+- **Checked:** headless Chrome, light and dark: the Pictures menu, the dialog (categories, a typed search, More
+  pictures, two photos chosen and inserted, no overflow). The saved document: 0 validator errors; Word in the VM
+  shows both photos and keeps their descriptions when it saves the file again. Tests:
+  `editor/stock-images.test.ts` (the search asked, which results are kept, Commons' copy, names, alt text) and
+  `docx/picture-alt.test.ts` (alt text saved, read back, written once); 1632 pass.
+- **Not done:** Word's other Stock Images tabs (Icons, Cutout People, Stickers, Illustrations, Cartoon People);
+  Online Pictures (Bing). Not tried in the desktop app (the content policy above).
+
 ### Quick Tables (U29), and tables made in the app keep their widths and cell margins in Word
 
 - **What was missing:** Insert > Table had no Quick Tables. Found on the way: every table made in the app (not opened

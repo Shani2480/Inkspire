@@ -360,6 +360,8 @@ export type RunContent =
       layout?: DrawingLayout
       relId?: string
       name?: string
+      /** wp:docPr descr: the picture's alt text in Word. */
+      description?: string
       cx?: number
       cy?: number
       /** a:xfrm rot, the turn clockwise in 60000ths of a degree. */

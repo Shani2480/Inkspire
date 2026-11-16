@@ -480,7 +480,7 @@ function runContentHtml(content: RunContent, run: Run, ctx: Projection) {
           media,
           content.cx,
           content.cy,
-          content.name,
+          content.description ?? content.name,
           run.key,
           layout,
           content.rot,
@@ -696,7 +696,7 @@ function chartPictureHtml(run: Run, ctx: Projection) {
     picture,
     drawing.cx,
     drawing.cy,
-    drawing.name,
+    drawing.description ?? drawing.name,
     run.key,
     layout,
     drawing.rot,
@@ -769,7 +769,7 @@ function modelPictureHtml(run: Run, ctx: Projection) {
     picture,
     drawing.cx,
     drawing.cy,
-    drawing.name,
+    drawing.description ?? drawing.name,
     run.key,
     layout,
     drawing.rot,
@@ -820,7 +820,7 @@ function diagramPictureHtml(run: Run, ctx: Projection) {
     picture,
     drawing.cx,
     drawing.cy,
-    drawing.name,
+    drawing.description ?? drawing.name,
     run.key,
     layout,
     drawing.rot,
@@ -965,7 +965,7 @@ function shapePictureHtml(run: Run, ctx: Projection) {
     picture,
     drawing.cx,
     drawing.cy,
-    drawing.name,
+    drawing.description ?? drawing.name,
     run.key,
     layout,
     drawing.rot,
@@ -1055,7 +1055,7 @@ function textBoxPictureHtml(run: Run, ctx: Projection) {
     picture,
     drawing.cx,
     drawing.cy,
-    drawing.name,
+    drawing.description ?? drawing.name,
     run.key,
     layout,
     drawing.rot,
@@ -1474,6 +1474,7 @@ function imageHtml(
   media: MediaPart,
   cx: number | undefined,
   cy: number | undefined,
+  /** The alt text: Word's descr, else the picture's name. */
   name?: string,
   key?: string,
   layout?: FloatingLayout | null,
@@ -2318,7 +2319,7 @@ export function propsFromMarks(marks: JsonMark[]): RunProperties {
  * as Word wrote it (position, wrapping, cropping, effects); otherwise it becomes a new inline picture.
  */
 export function imageRun(node: JsonNode, build: InlineBuild, asPicture = false): Run | null {
-  const run = objectRun(node, build, asPicture)
+  const run = describedRun(objectRun(node, build, asPicture), node)
   const name = typeof node.attrs?.objectName === "string" ? node.attrs.objectName.trim() : ""
   const hidden = node.attrs?.hidden === "1"
   if (
@@ -2333,6 +2334,42 @@ export function imageRun(node: JsonNode, build: InlineBuild, asPicture = false):
       item.kind === "drawing" ? { ...item, xml: patchDocPr(item.xml, name, hidden), ...(name ? { name } : {}) } : item,
     ),
   }
+}
+
+/**
+ * The picture's alt text (Alt Text, the Format pane) as Word keeps it, wp:docPr descr. A picture opened from Word
+ * reads its descr, else its name, as the alt text: unchanged, the drawing stays as written.
+ */
+function describedRun(run: Run | null, node: JsonNode): Run | null {
+  if (!run) {
+    return run
+  }
+  const alt = typeof node.attrs?.alt === "string" ? node.attrs.alt.trim() : ""
+  return {
+    ...run,
+    content: run.content.map((item) => {
+      if (item.kind !== "drawing") {
+        return item
+      }
+      const docPr = /<wp:docPr\b[^>]*>/.exec(item.xml)?.[0] ?? ""
+      const read = (attr: string) => {
+        const value = new RegExp(`\\s${attr}="([^"]*)"`).exec(docPr)?.[1]
+        return value === undefined ? undefined : unescapeXmlAttr(value)
+      }
+      const descr = read("descr")
+      if (alt === (descr ?? read("name") ?? "").trim() || (!alt && descr === undefined)) {
+        return item
+      }
+      return { ...item, xml: patchDescr(item.xml, alt) }
+    }),
+  }
+}
+
+export function patchDescr(xml: string, descr: string) {
+  return xml.replace(/<wp:docPr\b([^>]*?)(\/?)>/, (_match, attrs: string, slash: string) => {
+    const rest = attrs.replace(/\sdescr="[^"]*"/, "")
+    return `<wp:docPr${rest}${descr ? ` descr="${escapeXml(descr)}"` : ""}${slash}>`
+  })
 }
 
 function objectRun(node: JsonNode, build: InlineBuild, asPicture: boolean): Run | null {

@@ -7,6 +7,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [x] **Stock photos and alt text in Word (2026-11-16)** — the photos show; Word keeps their descriptions when it saves.
 - [x] **Quick Tables and app-made tables in Word (2026-11-16)** — the seven built-ins render across the text width
   with their lines, shading and cell margins, as in the app; 0 validator errors.
 - [x] **An ordinary Insert Table in Word (2026-11-16)** — a 3 by 3 table made in the app renders in Word across the
@@ -242,6 +243,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [x] **Stock Images (2026-11-16; headless Chrome, light and dark)** — categories, a search, More pictures, two photos
+      inserted with their alt text; no overflow.
 - [x] **Quick Tables (2026-11-16; headless Chrome, light and dark)** — the gallery opens upward with one scrollbar;
       a click inserts the table.
 - [x] **Insert > Table > Excel Spreadsheet (2026-11-16; headless Chrome, light and dark)** — inserts the sheet;
@@ -381,6 +384,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **Stock Images in the desktop app** — the dialog finds and inserts photos (the content policy now lists
+      api.openverse.org, live.staticflickr.com and upload.wikimedia.org; tried only in Chrome).
 - [ ] **Optional fonts in the desktop app (2026-11-16)** — Options > Fonts > Download in the Tauri build (CSP: raw
   GitHub, blob: fonts). The fonts should draw after a restart, and "Get Aptos from Microsoft" should open the
   browser.

@@ -43,7 +43,10 @@
           "https://dl.polyhaven.org",
           "https://raw.githubusercontent.com",
           "blob:",
-          "data:"
+          "data:",
+          "https://api.openverse.org",
+          "https://live.staticflickr.com",
+          "https://upload.wikimedia.org"
         ],
         "img-src": [
           "'self'",
@@ -52,7 +55,10 @@
           "https://asset.localhost",
           "https://cdn.polyhaven.com",
           "blob:",
-          "data:"
+          "data:",
+          "https://api.openverse.org",
+          "https://live.staticflickr.com",
+          "https://upload.wikimedia.org"
         ],
         "font-src": ["'self'", "data:", "blob:", "asset:", "http://asset.localhost", "https://asset.localhost"],
         "style-src": ["'self'", "'unsafe-inline'", "asset:", "http://asset.localhost", "https://asset.localhost"],
@@ -78,7 +84,10 @@
           "ws://127.0.0.1:1420",
           "ws://127.0.0.1:1421",
           "http://localhost:1420",
-          "http://127.0.0.1:1420"
+          "http://127.0.0.1:1420",
+          "https://api.openverse.org",
+          "https://live.staticflickr.com",
+          "https://upload.wikimedia.org"
         ],
         "img-src": [
           "'self'",
@@ -87,7 +96,10 @@
           "https://asset.localhost",
           "https://cdn.polyhaven.com",
           "blob:",
-          "data:"
+          "data:",
+          "https://api.openverse.org",
+          "https://live.staticflickr.com",
+          "https://upload.wikimedia.org"
         ],
         "font-src": ["'self'", "data:", "blob:", "asset:", "http://asset.localhost", "https://asset.localhost"],
         "style-src": ["'self'", "'unsafe-inline'", "asset:", "http://asset.localhost", "https://asset.localhost"],

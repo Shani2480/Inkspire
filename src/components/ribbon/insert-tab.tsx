@@ -3,6 +3,7 @@ import { insertSymbol, useRecentSymbols, type SymbolChoice } from "@/editor/symb
 import { useBookmarkDialog } from "@/document/bookmark-dialog"
 import { openCoverGenerator } from "@/components/cover-page-dialog"
 import { IconLibrary } from "@/components/icon-library"
+import { StockImages } from "@/components/stock-images"
 import { ModelLibrary } from "@/components/model-library"
 import { SmartArtDialog, SmartArtMenu } from "@/components/smartart-gallery"
 import { MenuButton, RibbonCommand, RibbonGroup } from "@/components/ribbon/ribbon-button"
@@ -360,6 +361,7 @@ export function InsertTab() {
   const insertAt = useRef<number | null>(null)
   const openBookmarks = useBookmarkDialog((state) => state.show)
   const [iconLibraryOpen, setIconLibraryOpen] = useState(false)
+  const [stockImagesOpen, setStockImagesOpen] = useState(false)
   const [modelLibraryOpen, setModelLibraryOpen] = useState(false)
   const [smartArtOpen, setSmartArtOpen] = useState(false)
   const [symbolOpen, setSymbolOpen] = useState(false)
@@ -510,14 +512,27 @@ export function InsertTab() {
     </div>
   )
   const picturesMenu = (close: () => void) => (
-    <MenuButton
-      onClick={() => {
-        openImagePicker()
-        close()
-      }}
-    >
-      This Device
-    </MenuButton>
+    <>
+      <MenuButton
+        onClick={() => {
+          openImagePicker()
+          close()
+        }}
+      >
+        This Device
+      </MenuButton>
+      <MenuButton
+        onClick={() => {
+          if (editor) {
+            insertAt.current = editor.state.selection.from
+            setStockImagesOpen(true)
+          }
+          close()
+        }}
+      >
+        Stock Images...
+      </MenuButton>
+    </>
   )
   const shapesMenu = (close: () => void) => (
     <ShapesMenu
@@ -764,6 +779,9 @@ export function InsertTab() {
   )
   const dialogs = (
     <>
+      {stockImagesOpen && editor ? (
+        <StockImages editor={editor} at={insertAt.current ?? undefined} onClose={() => setStockImagesOpen(false)} />
+      ) : null}
       {iconLibraryOpen && editor ? <IconLibrary editor={editor} onClose={() => setIconLibraryOpen(false)} /> : null}
       {modelLibraryOpen && editor ? <ModelLibrary editor={editor} onClose={() => setModelLibraryOpen(false)} /> : null}
       {smartArtOpen && editor ? <SmartArtDialog editor={editor} onClose={() => setSmartArtOpen(false)} /> : null}
