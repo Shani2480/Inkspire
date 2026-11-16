@@ -24,7 +24,8 @@ import {
 import { chainWithSelection } from "@/editor/selection-memory"
 import type { useActiveMarks } from "@/editor/use-active-marks"
 import type { Editor } from "@tiptap/core"
-import { useMemo, type CSSProperties } from "react"
+import { RIBBON_UNDERLINES, underlineKind } from "@/document/underlines"
+import { useMemo, useState, type CSSProperties } from "react"
 
 /** The Home tab's menus, shared by the classic and the single line ribbon. */
 
@@ -35,14 +36,6 @@ const CASE_OPTIONS: { id: CaseKind; label: string }[] = [
   { id: "lower", label: "lowercase" },
   { id: "upper", label: "UPPERCASE" },
   { id: "title", label: "Capitalize Each Word" },
-]
-
-const UNDERLINES = [
-  { id: "solid", label: "Underline" },
-  { id: "double", label: "Double underline" },
-  { id: "dotted", label: "Dotted underline" },
-  { id: "dashed", label: "Dashed underline" },
-  { id: "wavy", label: "Wave underline" },
 ]
 
 export const BORDERS = [
@@ -296,10 +289,24 @@ export function CaseMenu({ editor, close }: { editor: Editor | null; close: () =
   )
 }
 
+/**
+ * Home > Underline's menu, as Word's: the common lines drawn as they look, More Underlines… (the Font dialog) and
+ * Underline Color as a flyout.
+ */
 export function UnderlineMenu({ editor, marks, close }: { editor: Editor | null; marks: Marks; close: () => void }) {
+  const [colors, setColors] = useState(false)
+  const setColor = (color: string) => {
+    if (editor) {
+      // A colour on text not yet underlined underlines it, as in Word.
+      chainWithSelection(editor)
+        .setMark("underline", { style: marks.underlineStyle || "solid", color: color || null })
+        .run()
+    }
+    close()
+  }
   return (
-    <div className="flex w-44 flex-col">
-      {UNDERLINES.map((style) => (
+    <div className="underline-menu relative flex w-56 flex-col">
+      {RIBBON_UNDERLINES.map((style) => (
         <MenuButton
           key={style.id}
           selected={marks.underlineStyle === style.id}
@@ -310,28 +317,51 @@ export function UnderlineMenu({ editor, marks, close }: { editor: Editor | null;
             close()
           }}
         >
-          <span
-            style={{
-              textDecoration: "underline",
-              textDecorationStyle: style.id as CSSProperties["textDecorationStyle"],
-            }}
-          >
+          <span className="underline-menu-sample" style={sampleStyle(style.id)}>
             {style.label}
           </span>
         </MenuButton>
       ))}
+      <div className="my-1 border-t border-[var(--app-popover-border)]" />
       <MenuButton
         onClick={() => {
-          if (editor) {
-            applyUnderline(editor, "")
-          }
           close()
+          requestFormatDialog("font")
         }}
       >
-        No underline
+        More Underlines…
       </MenuButton>
+      <MenuButton selected={colors} onClick={() => setColors(!colors)}>
+        <span className="flex flex-1 items-center gap-2">
+          <span className="underline-menu-swatch" style={{ background: marks.underlineColor || "currentColor" }} />
+          Underline Color
+        </span>
+        <span aria-hidden className="ml-auto opacity-70">
+          ›
+        </span>
+      </MenuButton>
+      {colors ? (
+        <div className="underline-menu-flyout app-popup" role="group" aria-label="Underline Color">
+          <ColorMenu
+            active={marks.underlineColor}
+            clearLabel="Automatic"
+            onClear={() => setColor("")}
+            onSelect={(color) => setColor(color)}
+          />
+        </div>
+      ) : null}
     </div>
   )
+}
+
+function sampleStyle(id: string): CSSProperties {
+  const kind = underlineKind(id)
+  return {
+    textDecorationLine: "underline",
+    textDecorationStyle: kind.css,
+    textDecorationThickness: kind.heavy ? "2px" : undefined,
+    textUnderlineOffset: kind.css === "wavy" ? "3px" : undefined,
+  }
 }
 
 export function HighlightMenu({

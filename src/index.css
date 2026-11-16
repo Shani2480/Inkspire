@@ -17810,3 +17810,32 @@ html.dark,
 .first-run-row .word-dialog-check > input {
   margin-top: 2px;
 }
+
+/* ---------- Underline menu (U26) ---------- */
+.underline-menu-sample {
+  text-underline-offset: 2px;
+}
+
+.underline-menu-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 3px;
+  border-radius: 1px;
+}
+
+.underline-menu-flyout {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  z-index: 10;
+  margin-left: 4px;
+  border: 1px solid var(--app-popover-border);
+  border-radius: 6px;
+  background: var(--app-popover-bg, var(--popover-bg));
+  box-shadow: 0 4px 14px rgb(0 0 0 / 18%);
+}
+
+/* Words only: the mark draws nothing, each word its own line (character-format.ts). */
+.underline-word {
+  text-decoration-line: underline;
+}

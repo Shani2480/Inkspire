@@ -97,6 +97,14 @@ function toggleDoubleUnderline(editor: Editor) {
     : chain.setMark("underline", { style: "double" }).run()
 }
 
+/** Word's Ctrl+Shift+W: underline the words but not the spaces between them, or take it off again. */
+function toggleWordsUnderline(editor: Editor) {
+  const chain = editor.chain().focus()
+  return editor.getAttributes("underline").style === "words"
+    ? chain.unsetUnderline().run()
+    : chain.setMark("underline", { style: "words" }).run()
+}
+
 /** A character format kept on the text style (small caps, hidden), on or off as Word's Ctrl+Shift+K and H. */
 const toggleTextStyle = (name: string, on: string) => (editor: Editor) => {
   const next = editor.getAttributes("textStyle")[name] === on ? null : on
@@ -325,6 +333,13 @@ export const SHORTCUTS: ShortcutDef[] = [
     group: "Text",
     keys: ["Mod+Shift+D"],
     run: toggleDoubleUnderline,
+  },
+  {
+    id: "words-underline",
+    label: "Underline Words Only",
+    group: "Text",
+    keys: ["Mod+Shift+W"],
+    run: toggleWordsUnderline,
   },
   {
     id: "small-caps",

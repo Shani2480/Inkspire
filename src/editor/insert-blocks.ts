@@ -1,3 +1,4 @@
+import { underlineKind } from "@/document/underlines"
 import { currentNoteLabels, watchNoteLabel } from "@/editor/note-labels"
 import { onMapCountries } from "@/editor/chart-map"
 import { useViewStore } from "@/document/view"
@@ -328,8 +329,10 @@ function styleShapeText(holder: HTMLElement, node: ProseNode) {
   holder.style.fontSize = `${(Number(node.attrs.textSize) || 14) * (4 / 3)}px`
   holder.style.fontWeight = node.attrs.textBold ? "700" : ""
   holder.style.fontStyle = node.attrs.textItalic ? "italic" : ""
-  holder.style.textDecorationLine = node.attrs.textUnderline ? "underline" : ""
-  holder.style.textDecorationStyle = node.attrs.textUnderline ? String(node.attrs.textUnderline) : ""
+  const underline = node.attrs.textUnderline ? underlineKind(String(node.attrs.textUnderline)) : null
+  holder.style.textDecorationLine = underline ? "underline" : ""
+  holder.style.textDecorationStyle = underline && underline.css !== "solid" ? underline.css : ""
+  holder.style.textDecorationThickness = underline?.heavy ? "max(2px, 0.1em)" : ""
   holder.style.fontFamily = String(node.attrs.textFont || "")
   const align = String(node.attrs.textAlign || "center")
   holder.style.textAlign = align

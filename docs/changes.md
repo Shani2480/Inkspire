@@ -7,6 +7,35 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-16
 
+### Underline menu as Word's: every underline type, Underline Color, More Underlines…, Ctrl+Shift+W (U26)
+
+- **What was missing:** Home > Underline offered five lines. Underline types and colours from Word files opened as
+  a plain single line, and every underline saved as single. The reader also had two of Word's names wrong
+  (`dotDashHeavy` and `dotDotDashHeavy` for Word's `dashDotHeavy` and `dashDotDotHeavy`), so those underlines
+  were dropped on open.
+- **What changed:**
+  - **One list of Word's 17 types** (`document/underlines.ts`): Word's value, the editor's id (the five older ids
+    keep their names), and how CSS draws each one. Heavy lines draw thicker. CSS has no dot-dash, long dash or
+    double wave, so those draw as the nearest line and save as what they are. The ribbon menu, the Font dialog,
+    shape text, opening and saving all use it.
+  - **Words only:** the mark draws no line of its own. A decoration puts one under each word, so the spaces stay
+    clear. It is cached and rebuilt only on edits.
+  - **Opening and saving:** `w:u` keeps its type and `w:color` both ways, including text typed in the app and
+    formatting changes (`formatChange`).
+  - **Underline menu** (both ribbon layouts): Underline, Double, Thick, Dotted, Dashed, Dot-dash, Dot-dot-dash and
+    Wave, each drawn as it looks. Then More Underlines… (the Font dialog) and Underline Color as a flyout with
+    Automatic. A colour picked on text that is not underlined underlines it, as in Word.
+  - **Font dialog:** Underline style lists (none), Words only and all of Word's types. The preview draws heavy
+    lines thicker.
+  - **Ctrl+Shift+W:** Words only on, or off again.
+- **Checked:**
+  - **Word in the VM:** a file saved by the app with every type, two colours, an edited run and typed text passes
+    the Open XML validator. Word opens it, draws every type, and saves all the values and colours back unchanged.
+  - **Chrome, light and dark:** the same file in the app, the menu and its colour flyout, More Underlines… opening
+    the Font dialog at the type and colour in use, and Ctrl+Shift+W. No overflow.
+  - **Tests:** `underlines.test.ts` (every type opened as itself, saved back, a type and colour set in the editor,
+    new text, the CSS, the words-only decoration).
+
 ### Optional fonts to download: Carlito, Caladea, Arimo, Tinos, Cousine, Gelasio (U39)
 
 - **What was missing:** documents written in Office's fonts (Calibri, Cambria, Georgia…) broke their lines

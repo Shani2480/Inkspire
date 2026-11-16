@@ -78,8 +78,10 @@ import {
   type RunPropertyChange,
   type PreservedPackage,
   type SectionProps,
+  type UnderlineValue,
   type WordDocument,
 } from "@/document/docx/model"
+import { underlineCss, underlineIdOfWord, wordColorOf, wordUnderlineOf } from "@/document/underlines"
 
 const EMU_PER_PX = 914400 / 96
 
@@ -417,7 +419,7 @@ export function savedMarksOf(props: RunProperties): JsonMark[] {
     add("italic")
   }
   if (props.u && props.u.value !== "none") {
-    add("underline")
+    add("underline", underlineMarkAttrs(props.u))
   }
   if (props.strike || props.dstrike) {
     add("strike")
@@ -1496,7 +1498,7 @@ function wrapText(text: string, props: RunProperties, theme: ThemeFonts) {
     html = `<em>${html}</em>`
   }
   if (props.u && props.u.value !== "none") {
-    html = `<u>${html}</u>`
+    html = `<u${underlineAttributes(props.u)}>${html}</u>`
   }
   if (props.strike || props.dstrike) {
     html = `<s>${html}</s>`
@@ -1594,7 +1596,8 @@ const NO_THEME_FONTS: ThemeFonts = {
 type VisibleRun = {
   b: boolean
   i: boolean
-  u: boolean
+  /** The underline type and colour, or "" for none. */
+  u: string
   strike: boolean
   vertAlign: string
   color: string
@@ -1613,7 +1616,7 @@ function visibleRun(props: RunProperties, theme: ThemeFonts): VisibleRun {
   return {
     b: props.b === true,
     i: props.i === true,
-    u: Boolean(props.u && props.u.value !== "none"),
+    u: props.u && props.u.value !== "none" ? `${props.u.value}|${props.u.color ?? ""}`.toUpperCase() : "",
     strike: props.strike === true || props.dstrike === true,
     vertAlign: props.vertAlign === "subscript" || props.vertAlign === "superscript" ? props.vertAlign : "",
     color: props.color && props.color !== "auto" ? props.color.toUpperCase() : "",
@@ -1648,7 +1651,8 @@ export function runPropertiesFromEdit(
     base.i = after.i || undefined
   }
   if (after.u !== before.u) {
-    base.u = after.u ? { value: "single" } : undefined
+    // The type and colour chosen; a colour Word had kept as a theme colour goes with a new one.
+    base.u = after.u ? edited.u : source.u?.value === "none" ? source.u : undefined
   }
   if (after.strike !== before.strike) {
     base.strike = after.strike || undefined
@@ -2189,8 +2193,9 @@ export function propsFromMarks(marks: JsonMark[]): RunProperties {
   if (marks.some((mark) => mark.type === "italic")) {
     props.i = true
   }
-  if (marks.some((mark) => mark.type === "underline")) {
-    props.u = { value: "single" }
+  const underline = marks.find((mark) => mark.type === "underline")
+  if (underline) {
+    props.u = underlineOfMark(underline.attrs)
   }
   if (marks.some((mark) => mark.type === "strike")) {
     props.strike = true
@@ -3545,4 +3550,37 @@ export function encodeBase64(data: Uint8Array) {
 
 export function escapeHtml(value: string) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+}
+
+/** The editor's underline mark attributes for Word's w:u (the five older ids keep their names). */
+function underlineMarkAttrs(u: NonNullable<RunProperties["u"]>) {
+  const attrs: Record<string, string> = {}
+  const style = underlineIdOfWord(u.value)
+  if (style !== "solid") {
+    attrs.style = style
+  }
+  if (u.color && u.color !== "auto") {
+    attrs.color = `#${u.color.toLowerCase()}`
+  }
+  return attrs
+}
+
+/** A `<u>` element's attributes the editor's underline mark reads back (type, colour), drawn as Word does. */
+function underlineAttributes(u: NonNullable<RunProperties["u"]>) {
+  const attrs = underlineMarkAttrs(u)
+  if (!attrs.style && !attrs.color) {
+    return ""
+  }
+  const parts = [` style="${underlineCss(attrs.style, attrs.color)}"`, ` data-underline="${attrs.style ?? "solid"}"`]
+  if (attrs.color) {
+    parts.push(` data-underline-color="${attrs.color}"`)
+  }
+  return parts.join("")
+}
+
+/** Word's w:u for the editor's underline mark. */
+function underlineOfMark(attrs: Record<string, unknown> | undefined): NonNullable<RunProperties["u"]> {
+  const value = wordUnderlineOf(typeof attrs?.style === "string" ? attrs.style : null) as UnderlineValue
+  const color = wordColorOf(typeof attrs?.color === "string" ? attrs.color : null)
+  return color ? { value, color } : { value }
 }

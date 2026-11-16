@@ -1,3 +1,4 @@
+import { UNDERLINE_KINDS } from "@/document/underlines"
 import { readDash, readEffects, readGradient } from "@/document/docx/shape-effects"
 import { presetAdjust, presetSegments } from "@/document/docx/preset-geometry"
 import { pathString, pointsFromCustGeom } from "@/editor/shape-points"
@@ -392,13 +393,9 @@ export const WORD_HIGHLIGHTS: Record<string, string> = {
 }
 
 /** The app's underline styles and Word's `w:u` values for them. */
-export const WORD_UNDERLINES: Record<string, string> = {
-  solid: "single",
-  double: "double",
-  dotted: "dotted",
-  dashed: "dash",
-  wavy: "wave",
-}
+export const WORD_UNDERLINES: Record<string, string> = Object.fromEntries(
+  UNDERLINE_KINDS.map((kind) => [kind.id, kind.word]),
+)
 
 const THEME_COLOR_SLOTS: Record<string, string> = {
   text1: "dk1",

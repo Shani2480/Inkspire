@@ -7,6 +7,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [x] **Underline types (2026-11-16)** — the app's file with all 17 types and two colours: Word draws each one and
+  re-saves every `w:u` value and colour unchanged; the Open XML validator reports 0 errors.
 - [x] **Optional fonts (2026-11-16)** — a document in Georgia, rendered by Word in the VM and by the app with
   Gelasio downloaded: the same 7 lines with the same last words. Before the download (Noto Serif) it was 6 lines.
 - [x] **Mail merge main documents (2026-11-16)** — checked in Word in the VM: a main document saved by the app opens
