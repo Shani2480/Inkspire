@@ -10,6 +10,7 @@ import { openInsertTableDialog } from "@/components/insert-table-dialog"
 import { openCrossReferenceDialog } from "@/components/caption-dialogs"
 import { useTableDraw } from "@/editor/table-draw"
 import { textForTable } from "@/editor/table-insert"
+import { builtInQuickTables, quickTableContent, quickTablePreview, type QuickTable } from "@/editor/quick-tables"
 import {
   LineBookmarkIcon,
   LineBreakIcon,
@@ -77,12 +78,17 @@ import {
   useQuickPartsDialogs,
 } from "@/components/quick-parts-dialogs"
 import { MenuFlyout, MenuHeading, MenuRow, MenuSeparator } from "@/components/shape-menus"
-import { chainWithSelection, insertAtSelectionEnd, restoreSelection } from "@/editor/selection-memory"
+import {
+  chainWithSelection,
+  insertAtSelectionEnd,
+  restoreSelection,
+  syncSelectionMemory,
+} from "@/editor/selection-memory"
 import { DOMSerializer } from "@tiptap/pm/model"
 import type { Editor } from "@tiptap/core"
 import { useEditorState } from "@tiptap/react"
 import { loadKatex } from "@/lib/katex-lazy"
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { openLinkDialog } from "@/components/link-dialog"
 import { DialogButtons, DialogFrame } from "@/components/word-dialog"
 
@@ -500,6 +506,7 @@ export function InsertTab() {
       >
         Excel Spreadsheet
       </MenuButton>
+      <QuickTablesMenu editor={editor} close={close} />
     </div>
   )
   const picturesMenu = (close: () => void) => (
@@ -1791,6 +1798,85 @@ function QuickMenu({ editor, close }: { editor: Editor | null; close: () => void
       <MenuRow disabled={!hasSelection} onClick={() => saveTo("Quick Parts")}>
         Save Selection to Quick Part Gallery...
       </MenuRow>
+    </div>
+  )
+}
+
+/**
+ * Insert > Table > Quick Tables: Word's built-in tables, then the ones saved to the Tables gallery by category, and
+ * Save Selection to Quick Tables Gallery.
+ */
+function QuickTablesMenu({ editor, close }: { editor: Editor | null; close: () => void }) {
+  const parts = useQuickPartsDialogs((state) => state.parts)
+  const reload = useQuickPartsDialogs((state) => state.reload)
+  useEffect(() => reload(), [reload])
+  const builtIn = useMemo(() => builtInQuickTables(), [])
+  const saved = parts.filter((part) => part.gallery === "Tables")
+  const categories = [...new Set(saved.map((part) => part.category))].sort()
+  const hasSelection = !!editor && !editor.state.selection.empty
+  const insertBuiltIn = (table: QuickTable) => {
+    if (editor) {
+      chainWithSelection(editor).insertContent(quickTableContent(table)).run()
+      syncSelectionMemory(editor)
+    }
+    close()
+  }
+  const insertSaved = (part: QuickPart) => {
+    if (editor) {
+      insertBuildingBlock(editor, part)
+    }
+    close()
+  }
+  const saveSelection = () => {
+    if (!editor) {
+      return
+    }
+    const { from, to } = editor.state.selection
+    const html = selectionHtml(editor)
+    close()
+    openCreateBuildingBlock(editor, "Tables", html, editor.state.doc.textBetween(from, to, " "))
+  }
+  return (
+    // In the Table menu's list of plain entries: lined up with them, without the icon column of picture menus.
+    <div className="table-menu-flyout">
+      <MenuFlyout label="Quick Tables">
+        <div className="shape-menu quick-parts-menu quick-tables-menu">
+          <div className="quick-parts-gallery">
+            <MenuHeading>Built-In</MenuHeading>
+            {builtIn.map((table) => (
+              <button
+                key={table.name}
+                type="button"
+                className="quick-part-tile"
+                title={table.description}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => insertBuiltIn(table)}
+              >
+                <span className="quick-part-name">{table.name}</span>
+                <span
+                  className="quick-part-preview quick-table-tile"
+                  data-keep-light
+                  dangerouslySetInnerHTML={{ __html: quickTablePreview(table) }}
+                />
+              </button>
+            ))}
+            {categories.map((category) => (
+              <div key={category}>
+                <MenuHeading>{category}</MenuHeading>
+                {saved
+                  .filter((part) => part.category === category)
+                  .map((part) => (
+                    <BlockTile key={part.id} part={part} onClick={() => insertSaved(part)} />
+                  ))}
+              </div>
+            ))}
+          </div>
+          <MenuSeparator />
+          <MenuRow disabled={!hasSelection} onClick={saveSelection}>
+            Save Selection to Quick Tables Gallery...
+          </MenuRow>
+        </div>
+      </MenuFlyout>
     </div>
   )
 }

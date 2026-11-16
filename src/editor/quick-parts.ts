@@ -1,12 +1,14 @@
 /**
  * The user's building blocks (Insert > Quick Parts): pieces of a document saved by name to a gallery (Quick Parts or
  * AutoText), with a category and a description, as Word's Create New Building Block keeps them. They are kept in
- * this browser; Word keeps them in Building Blocks.dotx, which the app does not read.
+ * this browser; Word keeps them in Building Blocks.dotx, which the app does not read. Word's built-in Quick Tables
+ * are the app's own (`editor/quick-tables.ts`).
  */
 
 const KEY = "aiword-quick-parts"
 
-export const BLOCK_GALLERIES = ["Quick Parts", "AutoText"] as const
+// Word's galleries the app keeps: Quick Parts, AutoText and Tables (Insert > Table > Quick Tables).
+export const BLOCK_GALLERIES = ["Quick Parts", "AutoText", "Tables"] as const
 export type BlockGallery = (typeof BLOCK_GALLERIES)[number]
 
 export type QuickPart = {

@@ -1117,7 +1117,8 @@ export function tableGrid(table: Pick<Table, "grid" | "rows">, section: SectionP
   if (table.grid.length > 0) {
     return table.grid
   }
-  const counts = table.rows.map((row) => row.cells.length)
+  // Columns, counting a merged cell as the columns it spans.
+  const counts = table.rows.map((row) => row.cells.reduce((sum, cell) => sum + (cell.gridSpan ?? 1), 0))
   const columns = Math.max(1, ...counts)
   const width = contentWidth(section)
   const base = Math.floor(width / columns)

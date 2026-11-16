@@ -903,20 +903,31 @@ function writeText(tag: "t" | "delText" | "instrText", text: string) {
 }
 
 function writeTable(table: Table, styles: StyleCatalog, section: SectionProps | null, ids: ParaIds): string {
-  const grid = tableGrid(table, section)
-    .map((column) => `<w:gridCol w:w="${column}"/>`)
-    .join("")
+  const columns = tableGrid(table, section)
+  const grid = columns.map((column) => `<w:gridCol w:w="${column}"/>`).join("")
+  // A table the editor gave no widths (one made in the app) is spread over the text width, as on the page. Word keeps
+  // grid columns only with a width on each cell (its own Insert Table writes them), else it fits them to the text.
+  const spread = table.grid.length === 0
+  const widthOf = (cells: TableCell[], index: number) => {
+    const at = cells.slice(0, index).reduce((sum, cell) => sum + (cell.gridSpan ?? 1), 0)
+    return columns.slice(at, at + (cells[index]?.gridSpan ?? 1)).reduce((sum, column) => sum + column, 0)
+  }
   const rows: TableRow[] = table.rows.length > 0 ? table.rows : [{ cells: [{ blocks: [emptyParagraph()] }] }]
   const written = rows
     .map((row) => {
       const exceptions = writeChildren(rowExceptionsInput(row), row.exceptionSource, writeRowExceptions, ORDER.tblPrEx)
       const properties = writeChildren(rowPropertiesInput(row), row.source, writeRowProperties, ORDER.trPr)
       const cells = row.cells
-        .map((cell) => {
+        .map((cell, index) => {
           const blocks = writeBlocks(cell.blocks, styles, section, ids)
           // A cell must end with a paragraph.
           const closing = cell.blocks[cell.blocks.length - 1]?.kind === "paragraph" ? "" : "<w:p/>"
-          return `<w:tc>${wrap("tcPr", writeCellProperties(cell))}${blocks}${closing}</w:tc>`
+          const width = widthOf(row.cells, index)
+          const sized: TableCell =
+            spread && !cell.width && !cell.source && width > 0
+              ? { ...cell, width: { value: width, type: "dxa" } }
+              : cell
+          return `<w:tc>${wrap("tcPr", writeCellProperties(sized))}${blocks}${closing}</w:tc>`
         })
         .join("")
       return `<w:tr>${wrap("tblPrEx", exceptions)}${wrap("trPr", properties)}${cells}</w:tr>`
@@ -1525,6 +1536,12 @@ function writeLanguage(props: RunProperties) {
   return attributes.length > 0 ? `<w:lang ${attributes.join(" ")}/>` : ""
 }
 
+const TABLE_NORMAL =
+  '<w:style w:type="table" w:default="1" w:styleId="TableNormal"><w:name w:val="Normal Table"/>' +
+  '<w:uiPriority w:val="99"/><w:semiHidden/><w:unhideWhenUsed/><w:tblPr><w:tblInd w:w="0" w:type="dxa"/>' +
+  '<w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="108" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/>' +
+  '<w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr></w:style>'
+
 function writeStyles(catalog: StyleCatalog) {
   if (catalog.raw) {
     return writeStylesFromSource(catalog, catalog.raw)
@@ -1534,7 +1551,10 @@ function writeStyles(catalog: StyleCatalog) {
   if (!defaults && !styles) {
     return ""
   }
-  return `<w:styles xmlns:w="${WORD_NS}">${defaults}${styles}</w:styles>`
+  // Word's Normal Table, as in its Normal template: the cell margins every table without its own takes. Without it
+  // Word draws the app's tables with no space between the text and the cell's sides.
+  const tableNormal = catalog.styles.some((style) => style.type === "table" && style.default) ? "" : TABLE_NORMAL
+  return `<w:styles xmlns:w="${WORD_NS}">${defaults}${styles}${tableNormal}</w:styles>`
 }
 
 /** Keeps latentStyles and every unedited style as Word wrote it; edited and added styles come from the model. */

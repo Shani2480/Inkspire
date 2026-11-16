@@ -7,6 +7,28 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-16
 
+### Quick Tables (U29), and tables made in the app keep their widths and cell margins in Word
+
+- **What was missing:** Insert > Table had no Quick Tables. Found on the way: every table made in the app (not opened
+  from Word) reached Word squeezed to its text, with no space between the text and the cell's sides.
+- **What changed:**
+  - **Quick Tables ›** (last in Insert > Table, as in Word; `ribbon/insert-tab.tsx`): a gallery of Word's built-ins
+    by Word's names and layouts (Calendar 1, Calendar 2, Double Table, Matrix, Tabular List, With Subheads 1 and 2;
+    `editor/quick-tables.ts`, own sample text), each drawn small as it looks; the tables saved to the Tables gallery
+    by category; Save Selection to Quick Tables Gallery… (the Create New Building Block dialog, gallery Tables, now one
+    of the building-block galleries in `editor/quick-parts.ts`, so the Organizer lists them). The panel opens upward
+    from its row and only the gallery scrolls.
+  - **Word fixes** (`docx/wml-write.ts`, `model.ts`): a table the editor gave no widths writes a width on each cell
+    from the even grid over the text width, as Word's Insert Table does (without it Word fits the columns to the
+    text); a new document's styles get Word's Normal Table (0.08" left and right cell margins) when they have no
+    default table style; the even grid counts merged cells' columns.
+- **Checked:** Word in the VM renders all seven across the text width with their colours, lines and shading, as the
+  app draws them (Chrome); 0 validator errors. Chrome, light and dark: the menu, the gallery, inserting a table, no
+  overflow. Tests: `editor/quick-tables.test.ts` (calendar layout, names, insert and save with borders, shading,
+  colours, cell widths and Normal Table, the Tables gallery); 1625 pass.
+- **Not done:** Word's own built-in content (from its Building Blocks template) is not used; built-ins are not listed
+  in the Building Blocks Organizer; More Quick Tables from Office.com is left out (online).
+
 ### Six desktop commands Tauri refused: Open containing folder, Share by email, first-run defaults, .doc, customizations
 
 - **What was wrong:** `reveal_document`, `email_document`, `system_defaults`, `convert_legacy_document`,

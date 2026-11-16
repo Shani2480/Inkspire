@@ -16742,6 +16742,45 @@ textarea.tp-input {
   font-size: inherit;
 }
 
+/* Insert > Table > Quick Tables in the Table menu: the height, padding and type of its plain entries. */
+.table-menu-flyout > .menu-flyout > .shape-menu-row {
+  min-height: 32px;
+  padding: 0 8px;
+  font-size: 14px;
+}
+
+.table-menu-flyout > .menu-flyout > .shape-menu-row > .shape-menu-icon {
+  display: none;
+}
+
+/*
+ * The Quick Tables panel opens upward from its row (the Table menu hangs from the ribbon, so the room is above), and
+ * only its gallery scrolls.
+ */
+.table-menu-flyout > .menu-flyout > .menu-flyout-panel {
+  top: auto;
+  bottom: -6px;
+  max-height: none;
+  overflow: visible;
+}
+
+.quick-tables-menu .quick-parts-gallery {
+  max-height: min(440px, calc(100vh - 230px));
+}
+
+/* Insert > Table > Quick Tables: each built-in table drawn small, whole, on white paper. */
+.quick-tables-menu .quick-table-tile {
+  max-height: 120px;
+  padding: 5px 7px;
+  font-family: Calibri, Carlito, "Segoe UI", sans-serif;
+  font-size: 7.5px;
+  line-height: 1.25;
+}
+
+.quick-table-preview td {
+  white-space: nowrap;
+}
+
 /* Insert > Quick Parts > Field…: choose / properties / options, the description below. */
 .field-dialog {
   display: grid;
