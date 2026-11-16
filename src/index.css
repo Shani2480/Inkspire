@@ -17136,8 +17136,8 @@ html.dark,
   max-height: calc(100vh - 360px);
   min-height: 120px;
   overflow-y: auto;
-  border: 1px solid var(--popover-border, #c8c6c4);
-  background: var(--backstage-input, #fff);
+  border: 1px solid var(--app-popover-border);
+  background: var(--backstage-input);
   margin-top: 4px;
 }
 
@@ -17206,4 +17206,102 @@ html.dark,
   flex-direction: column;
   gap: 4px;
   margin-top: 4px;
+}
+
+/* Paste Options button, after a paste */
+.paste-options {
+  position: fixed;
+  z-index: 60;
+}
+
+.paste-options-button {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  border: 1px solid var(--app-popover-border);
+  border-radius: 3px;
+  background: var(--app-popover-bg);
+  padding: 1px 4px;
+  color: var(--app-ribbon-text);
+  font-size: 11px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.15);
+}
+
+.paste-options-button:hover,
+.paste-options-button[aria-expanded="true"] {
+  /* The hover tint is see-through in dark mode: over the button's own fill, not over the page. */
+  background: linear-gradient(var(--app-hover), var(--app-hover)), var(--app-popover-bg);
+}
+
+.paste-options-menu {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  min-width: 220px;
+  border: 1px solid var(--app-popover-border);
+  border-radius: 4px;
+  background: var(--app-popover-bg);
+  padding: 4px 0;
+  color: var(--app-ribbon-text);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.18);
+}
+
+.paste-options-title {
+  padding: 2px 10px 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.paste-options-item {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 10px;
+  text-align: left;
+  font-size: 13px;
+}
+
+.paste-options-item:hover:not(:disabled) {
+  background: var(--app-hover);
+}
+
+.paste-options-item:disabled {
+  opacity: 0.45;
+}
+
+.paste-options-key {
+  opacity: 0.7;
+}
+
+.paste-options-separator {
+  margin: 4px 0;
+  border-top: 1px solid var(--app-popover-border);
+}
+
+/* AutoComplete tip above the cursor */
+.autocomplete-tip {
+  position: absolute;
+  z-index: 30;
+  translate: -50% -100%;
+  margin-top: -4px;
+  border: 1px solid var(--app-popover-border);
+  border-radius: 3px;
+  background: var(--app-popover-bg);
+  padding: 1px 6px;
+  color: var(--app-ribbon-text);
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.5;
+  text-decoration: none;
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.15);
+}
+
+.autocomplete-hint {
+  opacity: 0.7;
 }

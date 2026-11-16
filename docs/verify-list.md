@@ -335,6 +335,11 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **Smart editing options (2026-11-16)**: in the desktop app, paste something from a web page: the "(Ctrl)" button
+      shows at its end, and Ctrl then T pastes it again as plain text. Type "Sept" and press Enter: "September". Double
+      click low in the middle of an empty page: the cursor lands there, centred. Drag from the middle of one word into
+      the next: both whole words are selected.
+
 - [ ] **Proofing options (2026-11-16)**: in the desktop app, File > Options > Proofing > Custom Dictionaries…: New…, add
       a word in Edit Word List, Add… a .dic file Word made (it lists its words); after a restart they are still there and
       the words are not underlined. Hide spelling errors in this document only, save, and open the file in Word on

@@ -2,6 +2,7 @@ import type { Editor } from "@tiptap/core"
 import { pasteHtmlAs, pastePlainText } from "@/editor/editing-behavior"
 import { insertFittedImage } from "@/editor/image-fit"
 import { restoreSelection } from "@/editor/selection-memory"
+import { notePaste } from "@/editor/smart-editing"
 
 /**
  * Paste Options and Edit > Paste Special: what the clipboard holds, and pasting it in one chosen format. The system
@@ -102,6 +103,7 @@ export function sourceOf(clip: Clip) {
 export async function pasteClipAs(editor: Editor, clip: Clip, format: PasteFormat | "merge") {
   restoreSelection(editor)
   editor.commands.focus()
+  notePaste({ html: clip.html, text: clip.text })
   const view = editor.view
   if (format === "picture") {
     if (clip.image) {

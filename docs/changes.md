@@ -7,6 +7,48 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-16
 
+### Options > Advanced: whole words, smart paragraph selection, smart cursoring, click and type, Paste Options, AutoComplete (U24, part 2)
+
+- **What was wrong or missing:** eight of Options > Advanced's editing options were greyed out as not available.
+- **What changed** (`editor/smart-editing.ts`, `components/paste-options-button.tsx`). Each is on by default as in
+  Word, and kept with the other editing options:
+  - **When selecting, automatically select entire word:** a drag that reaches past one word selects whole words
+    at both ends. A drag inside one word still selects part of it.
+  - **Use smart paragraph selection:** Delete or Backspace on whole selected paragraphs removes the paragraphs,
+    marks and all, instead of leaving empty ones. The last paragraph of the document or of a cell stays.
+  - **Use smart cursoring:** after scrolling away from the cursor, an arrow key or Page Up/Down puts it on the
+    page in view instead of jumping back.
+  - **Enable click and type:** a double click in the empty part of the page below the text adds empty paragraphs
+    down to there and puts the cursor in the last one: centred in the middle of the page, right-aligned near its
+    right edge, left elsewhere.
+  - **Show Paste Options button when content is pasted:**
+    - After a paste, a "(Ctrl)" button sits at the end of what was pasted. Its menu (or Ctrl pressed alone, then
+      K, M or T) pastes the same clipboard again as Keep Source Formatting, Merge Formatting or Keep Text Only.
+    - Set Default Paste… opens Options > Advanced.
+    - The button goes when the document changes or on Esc. It works in headers and footers too.
+  - **Show AutoComplete suggestions:** after four letters of a month, a weekday or an AutoText entry's name, a tip
+    above the cursor offers the whole of it ("October (Press ENTER to Insert)"). Enter or F3 puts it in, and Esc
+    hides it.
+- **Checked:**
+  - `editor/smart-editing.test.ts` (5 tests): whole words both ways; deleting whole paragraphs, the option off,
+    the last paragraph; completions and Enter; the pasted range kept until the document changes, and off with
+    the option. The full suite passes. Typecheck and ESLint are clean.
+  - Headless Chrome, light and dark, with real mouse and key events:
+    - Dragging from "ick" to "bro" selected "quick brown".
+    - Deleting a whole paragraph removed it.
+    - "Octo" offered October, and Enter put it in.
+    - A paste showed the button. Ctrl opened the menu, and Keep Text Only took the colour and font off.
+    - A double click in the middle of the page, lower down, put the cursor in a centred paragraph there.
+    - After scrolling down, ArrowDown moved the cursor to the line in view.
+    - The overflow crawl shows only the 3 known galleries.
+  - Word (VM) not needed: these change how editing behaves, not what is saved. Click and type writes ordinary
+    empty paragraphs.
+- **Still open:**
+  - Prompt to update style and Keep track of formatting stay greyed: both need the Styles pane to track direct
+    formatting as styles.
+  - Click and type does not yet set a left indent or tab for clicks between the zones, or work beside text.
+  - Smart paragraph selection does not change Cut.
+
 ### Options: Proofing and Language as Word's, Custom Dictionaries, grammar options (U24, part 1)
 
 - **What was wrong or missing:**

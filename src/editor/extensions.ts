@@ -49,6 +49,7 @@ import {
 } from "@/editor/insert-blocks"
 import { ShortcutKeymap } from "@/editor/shortcut-keymap"
 import { EditingBehavior } from "@/editor/editing-behavior"
+import { SmartEditing } from "@/editor/smart-editing"
 import { DocumentTheme } from "@/editor/document-theme"
 import { SectionBreak } from "@/editor/section-break"
 import { SheetBlock } from "@/editor/sheet-block"
@@ -95,6 +96,7 @@ export function createExtensions() {
     OutlineView,
     ShortcutKeymap.configure(),
     EditingBehavior.configure(),
+    SmartEditing.configure(),
     DocxSource.configure(),
     DocxRun.configure(),
     WordInline.configure(),

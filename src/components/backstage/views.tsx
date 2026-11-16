@@ -1449,18 +1449,26 @@ export function OptionsPages({ initialPage = "general" }: { initialPage?: Option
                 </select>
               </label>
             ))}
-            <UnavailableOptions
-              items={[
-                "When selecting, automatically select entire word",
-                "Use smart paragraph selection",
-                "Use smart cursoring",
-                "Prompt to update style",
-                "Keep track of formatting",
-                "Enable click and type",
-                "Show Paste Options button when content is pasted",
-                "Show AutoComplete suggestions",
-              ]}
-            />
+            {(
+              [
+                ["selectEntireWord", "When selecting, automatically select entire word"],
+                ["smartParagraphSelection", "Use smart paragraph selection"],
+                ["smartCursoring", "Use smart cursoring"],
+                ["clickAndType", "Enable click and type"],
+                ["pasteOptionsButton", "Show Paste Options button when content is pasted"],
+                ["autoComplete", "Show AutoComplete suggestions"],
+              ] as const
+            ).map(([name, label]) => (
+              <label key={name} className="backstage-check">
+                <input
+                  type="checkbox"
+                  checked={editing[name]}
+                  onChange={(event) => editing.set({ [name]: event.target.checked })}
+                />{" "}
+                {label}
+              </label>
+            ))}
+            <UnavailableOptions items={["Prompt to update style", "Keep track of formatting"]} />
             <h3 className="backstage-card-title">Show document content</h3>
             {(
               [
