@@ -39,6 +39,7 @@ import {
   VersionHistoryCard,
 } from "@/components/backstage/info-protect"
 import { LanguagePage, ProofingPage } from "@/components/backstage/proofing-pages"
+import { FontsPage } from "@/components/backstage/fonts-page"
 import { INSPECT_KINDS, inspectDocument } from "@/document/inspect"
 import { useEditorState } from "@tiptap/react"
 import { MARGIN_PRESETS, marginPresetId, pageMetrics } from "@/document/page-setup"
@@ -1204,6 +1205,7 @@ export type OptionsPage =
   | "proofing"
   | "save"
   | "language"
+  | "fonts"
   | "accessibility"
   | "advanced"
   | "ribbon"
@@ -1217,6 +1219,7 @@ const OPTION_PAGES: { id: OptionsPage; label: string }[] = [
   { id: "proofing", label: "Proofing" },
   { id: "save", label: "Save" },
   { id: "language", label: "Language" },
+  { id: "fonts", label: "Fonts" },
   { id: "accessibility", label: "Accessibility" },
   { id: "advanced", label: "Advanced" },
   { id: "ribbon", label: "Customize Ribbon" },
@@ -1578,6 +1581,7 @@ export function OptionsPages({ initialPage = "general" }: { initialPage?: Option
         {page === "advanced" && <ShortcutSettings />}
         {page === "proofing" && <ProofingPage />}
         {page === "language" && <LanguagePage locale={settings.locale} dateFormat={settings.dateFormat} />}
+        {page === "fonts" && <FontsPage />}
         {page === "accessibility" && (
           <section className="backstage-card">
             <h2 className="backstage-card-title">Accessibility</h2>

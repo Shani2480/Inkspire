@@ -17734,3 +17734,79 @@ html.dark,
 .mailings-record-box:disabled {
   opacity: 0.5;
 }
+
+/* ---------- Optional fonts (U39) ---------- */
+.options-fonts-list {
+  max-width: 620px;
+  border: 1px solid var(--backstage-border);
+  border-radius: 4px;
+  background: var(--backstage-input);
+}
+
+.options-fonts-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.2fr) 64px 104px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  border-top: 1px solid var(--backstage-border);
+}
+
+.options-fonts-row.is-head {
+  border-top: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--backstage-muted, inherit);
+}
+
+.options-fonts-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.options-fonts-name {
+  display: block;
+  font-size: 15px;
+}
+
+.options-fonts-licence {
+  display: block;
+  font-size: 11px;
+}
+
+.options-fonts-action {
+  text-align: right;
+}
+
+.options-fonts-action .dialog-btn {
+  min-width: 96px;
+}
+
+.options-fonts-error {
+  grid-column: 1 / -1;
+  color: var(--dlg-error);
+  font-size: 12px;
+}
+
+.options-fonts-all {
+  margin: 10px 0 4px;
+}
+
+.backstage-muted .backstage-link {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+/* The first-run downloads are sentences: they wrap rather than widen the dialog. */
+.first-run-row .word-dialog-check {
+  align-items: flex-start;
+  white-space: normal;
+}
+
+.first-run-row .word-dialog-check > input {
+  margin-top: 2px;
+}

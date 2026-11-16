@@ -87,6 +87,7 @@ import { getDocumentEditor } from "@/document/editor-ref"
 import { DocumentEditorProvider, useBodyEditor } from "@/editor/document-editor"
 import { installPaginationProfileCommand } from "@/editor/pagination-profile"
 import { ensureSystemFonts } from "@/editor/system-fonts"
+import { useOptionalFonts } from "@/document/optional-fonts"
 import { useEditorState } from "@tiptap/react"
 import { setOutlineActive } from "@/editor/outline-view"
 
@@ -249,6 +250,8 @@ function DocumentShell({ onReady }: WorkspaceProps) {
         onReady()
         // Read the system's fonts while the app is idle, so the font menu has them when it first opens.
         window.setTimeout(() => void ensureSystemFonts(), 1000)
+        // Fonts downloaded in Options > Fonts are registered with the page (U39).
+        void useOptionalFonts.getState().load()
       }
     }
 

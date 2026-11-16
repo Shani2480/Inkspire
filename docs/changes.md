@@ -7,6 +7,36 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-16
 
+### Optional fonts to download: Carlito, Caladea, Arimo, Tinos, Cousine, Gelasio (U39)
+
+- **What was missing:** documents written in Office's fonts (Calibri, Cambria, Georgia…) broke their lines
+  differently where those fonts are missing (Linux, the web build, Android), and there was no way to get stand-ins.
+- **What changed:**
+  - **Fonts list** (`document/optional-fonts.ts`): free fonts with the same widths as Office's. Carlito stands in
+    for Calibri and Calibri Light, Caladea for Cambria, Arimo for Arial, Tinos for Times New Roman, Cousine for
+    Courier New and Gelasio for Georgia. They come from Google Fonts' repository at a pinned commit, and each file
+    is checked against its SHA-256. They are kept in IndexedDB (the app's data folder in the desktop app).
+  - **Drawing:** each font is registered under its own name and under the Office names it stands in for, with
+    `local()` first, so a real Calibri still wins where it is installed. Documents keep their own font names when
+    saved. Downloaded fonts join the font list.
+  - **File > Options > Fonts** (a page Word does not have): each font with what it stands in for, its size and
+    licence, Download / Remove, Download All, and an error that says a connection is needed. Aptos may not be
+    passed on, so the page links to Microsoft's own download.
+  - **First-run setup:** an opt-in "Fonts with Office's widths" under Optional downloads.
+  - **Message bar:** when an opened document uses an Office font the page cannot draw and a stand-in is not
+    downloaded yet: "This document uses Georgia, which is not installed. Download Gelasio…?". The check measures
+    text, so it works on the web without the font-list permission. A stand-in the system already has (Carlito,
+    Liberation on many Linux systems) counts as drawn.
+  - The desktop app's CSP allows `raw.githubusercontent.com` (connect) and `blob:` fonts, and the opener allows
+    Microsoft's Aptos page.
+- **Checked:** in Chrome, light and dark. A document in Georgia shows the hint. Download replaces Noto Serif with
+  Gelasio, and the lines then break at exactly the words Word's do (Word in the VM: 7 lines, the same last word on
+  every line; before, 6 lines). The fonts come back after a reload. Tests: names, CSS parsing, checksums refused,
+  offline failure.
+- **Known difference:** Arial drawn with Liberation Sans (installed here) wraps one word differently from Word's
+  Arial in a 7-line paragraph; turning kerning off made it worse. That is not about U39.
+- **Not done:** Symbol and Wingdings stand-ins (whether OpenSymbol covers their code points is still to check).
+
 ### Mailings tab: recipient lists, merge fields, Preview Results, Finish & Merge, Envelopes and Labels (U25)
 
 - **What was missing:** there was no Mailings tab (an earlier one was removed in d16e459). Mail merge fields read

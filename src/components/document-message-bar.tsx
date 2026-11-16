@@ -1,7 +1,29 @@
 import { useFileProtection } from "@/document/file-protection"
+import { fontsToOffer, useOptionalFonts } from "@/document/optional-fonts"
 import { useDocumentStore } from "@/document/store"
-import { BadgeCheck, FileLock, Signature, X } from "lucide-react"
-import { useState } from "react"
+import { BadgeCheck, FileLock, Signature, Type, X } from "lucide-react"
+import { useEffect, useState } from "react"
+
+/** The Office fonts an opened document uses that are missing here and have a free stand-in (U39). */
+function useFontsToOffer() {
+  const saved = useDocumentStore((state) => state.savedHTML)
+  const fileName = useDocumentStore((state) => state.fileName)
+  const ready = useOptionalFonts((state) => state.ready)
+  const status = useOptionalFonts((state) => state.status)
+  const [offer, setOffer] = useState<ReturnType<typeof fontsToOffer>>([])
+  useEffect(() => {
+    if (!ready) {
+      return
+    }
+    // After the document's style sheet is on the page.
+    const timer = window.setTimeout(() => {
+      const sheet = document.getElementById("word-document-styles")?.textContent ?? ""
+      setOffer(fontsToOffer(saved, sheet, status))
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [saved, fileName, ready, status])
+  return offer
+}
 
 /**
  * Word's message bar under the ribbon: a document marked as final, one opened read-only because its author asked,
@@ -13,6 +35,9 @@ export function DocumentMessageBar() {
   const signatures = useFileProtection((state) => state.signatures)
   const setMarkedFinal = useFileProtection((state) => state.setMarkedFinal)
   const [hidden, setHidden] = useState<string | null>(null)
+  const offer = useFontsToOffer()
+  const offerNames = offer.map((item) => item.office)
+  const standIns = [...new Set(offer.map((item) => item.font))]
   const bar =
     readOnly && markedFinal
       ? {
@@ -38,7 +63,18 @@ export function DocumentMessageBar() {
               text: "This document has been signed. Saving it here removes the signatures, as editing it in Word does.",
               action: null,
             }
-          : null
+          : standIns.length
+            ? {
+                id: `fonts-${offerNames.join(",")}`,
+                icon: <Type className="size-4" strokeWidth={1.75} />,
+                label: "FONTS",
+                text: `This document uses ${listOf(offerNames)}, which ${offerNames.length > 1 ? "are" : "is"} not installed. Download ${listOf(standIns.map((font) => font.family))}, ${standIns.length > 1 ? "free fonts" : "a free font"} with the same widths, so it lays out as in Word?`,
+                action: {
+                  label: "Download",
+                  run: () => void useOptionalFonts.getState().download(standIns.map((font) => font.id)),
+                },
+              }
+            : null
   if (!bar || hidden === bar.id) {
     return null
   }
@@ -64,4 +100,8 @@ export function DocumentMessageBar() {
       </button>
     </div>
   )
+}
+
+function listOf(names: string[]) {
+  return names.length < 2 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`
 }

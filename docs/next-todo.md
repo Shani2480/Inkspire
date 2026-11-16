@@ -160,7 +160,7 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
       contacts (vCard, CSV), typed. Finish & Merge: Edit Individual Documents and Print Documents (no e-mail, as asked).
       Checked against Word's own merge in the VM. Left: Add to Document for envelopes, saving a typed list to a file,
       Rules' Ask / Fill-in / Set Bookmark.
-- [ ] U39. (asked 2026-11-16) Optional fonts to download, so documents written with Office's fonts look right where
+- [x] U39. (asked 2026-11-16) Optional fonts to download, so documents written with Office's fonts look right where
       those fonts are missing (Linux, the web build, Android).
       - **What:** free fonts with the same widths as Office's, which Word documents use most. Carlito = Calibri,
         Caladea = Cambria, Liberation Sans / Serif / Mono = Arial / Times New Roman / Courier New, Gelasio =

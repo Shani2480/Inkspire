@@ -7,6 +7,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [x] **Optional fonts (2026-11-16)** — a document in Georgia, rendered by Word in the VM and by the app with
+  Gelasio downloaded: the same 7 lines with the same last words. Before the download (Noto Serif) it was 6 lines.
 - [x] **Mail merge main documents (2026-11-16)** — checked in Word in the VM: a main document saved by the app opens
       with its merge fields, and Word's merge of it with the same CSV matches the app's merge line for line.
 - [ ] **Envelopes and labels in Word (2026-11-16)**: an envelope (Size 10, DL) and a sheet of Avery 5160 / L7160
@@ -342,6 +344,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       wraps at its width; a floating picture on a landscape page stays on it.
 
 ## Needs the desktop app (Tauri build)
+
+- [ ] **Optional fonts in the desktop app (2026-11-16)** — Options > Fonts > Download in the Tauri build (CSP: raw
+  GitHub, blob: fonts). The fonts should draw after a restart, and "Get Aptos from Microsoft" should open the
+  browser.
 
 - [ ] **Smart editing options (2026-11-16)**: in the desktop app, paste something from a web page: the "(Ctrl)" button
       shows at its end, and Ctrl then T pastes it again as plain text. Type "Sept" and press Enter: "September". Double

@@ -1,6 +1,7 @@
 import { DialogButtons, DialogFrame } from "@/components/word-dialog"
 import { formatBytes } from "@/ai/local"
 import { useHelperTools } from "@/document/helper-tools"
+import { OPTIONAL_FONTS, fontSize, useOptionalFonts } from "@/document/optional-fonts"
 import { useDocumentStore } from "@/document/store"
 import {
   DATE_FORMAT_OPTIONS,
@@ -55,6 +56,9 @@ export function FirstRunSetup() {
   // The helper programs are the person's choice: nothing is downloaded unless it is ticked.
   const helpers = useHelperTools((state) => state.tools).filter((tool) => tool.supported && tool.source === "missing")
   const [wanted, setWanted] = useState<string[]>([])
+  // Fonts with Office's widths (U39), also opt-in.
+  const [fonts, setFonts] = useState(false)
+  const fontsSize = OPTIONAL_FONTS.reduce((sum, font) => sum + fontSize(font), 0)
 
   useEffect(() => {
     if (done) {
@@ -117,6 +121,9 @@ export function FirstRunSetup() {
     useUserSettings.getState().confirm(values)
     if (wanted.length > 0) {
       void useHelperTools.getState().install(wanted)
+    }
+    if (fonts) {
+      void useOptionalFonts.getState().download(OPTIONAL_FONTS.map((font) => font.id))
     }
     if (values.author) {
       useDocumentStore.getState().setDocumentProps({ author: values.author })
@@ -212,29 +219,34 @@ export function FirstRunSetup() {
         {field("decimal", "Decimal separator", "decimalSeparator", "For example .", 120)}
         {field("group", "Thousands separator", "groupSeparator", "For example ,", 120)}
       </div>
-      {helpers.length > 0 ? (
-        <fieldset className="first-run-row">
-          <legend className="text-prompt-label">Optional downloads</legend>
-          <p className="first-run-intro">
-            These free programs are not part of Inkspire. Tick the ones you want and they download in the background;
-            otherwise you are asked when a feature needs one.
-          </p>
-          {helpers.map((tool) => (
-            <label key={tool.id} className="word-dialog-check">
-              <input
-                type="checkbox"
-                checked={wanted.includes(tool.id)}
-                onChange={(event) =>
-                  setWanted(event.target.checked ? [...wanted, tool.id] : wanted.filter((id) => id !== tool.id))
-                }
-              />
-              <span>
-                {tool.label} ({formatBytes(tool.size)}) — {tool.purpose}
-              </span>
-            </label>
-          ))}
-        </fieldset>
-      ) : null}
+      <fieldset className="first-run-row">
+        <legend className="text-prompt-label">Optional downloads</legend>
+        <p className="first-run-intro">
+          These are free and not part of Inkspire. Tick the ones you want and they download in the background; otherwise
+          you are asked when a feature or document needs one.
+        </p>
+        <label className="word-dialog-check">
+          <input type="checkbox" checked={fonts} onChange={(event) => setFonts(event.target.checked)} />
+          <span>
+            Fonts with Office&rsquo;s widths ({formatBytes(fontsSize)}) — Calibri, Cambria, Arial and others lay out as
+            in Word
+          </span>
+        </label>
+        {helpers.map((tool) => (
+          <label key={tool.id} className="word-dialog-check">
+            <input
+              type="checkbox"
+              checked={wanted.includes(tool.id)}
+              onChange={(event) =>
+                setWanted(event.target.checked ? [...wanted, tool.id] : wanted.filter((id) => id !== tool.id))
+              }
+            />
+            <span>
+              {tool.label} ({formatBytes(tool.size)}) — {tool.purpose}
+            </span>
+          </label>
+        ))}
+      </fieldset>
       <DialogButtons submit ok="Continue" cancel="Skip" onCancel={() => useUserSettings.getState().skip()} />
     </DialogFrame>
   )
