@@ -144,6 +144,23 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
       Signature); Manage Document (Recover Unsaved Documents); History (versions).
 - [ ] U24. Options: Language, grammar as you type, Custom Dictionaries, Advanced editing items now greyed (listed 22.9).
 - [ ] U25. Mail merge tab (listed: Future features).
+- [ ] U39. (asked 2026-11-16) Optional fonts to download, so documents written with Office's fonts look right where
+      those fonts are missing (Linux, the web build, Android).
+      - **What:** free fonts with the same widths as Office's, which Word documents use most. Carlito = Calibri,
+        Caladea = Cambria, Liberation Sans / Serif / Mono = Arial / Times New Roman / Courier New, Gelasio =
+        Georgia. Office-like faces from Google Fonts (OFL) too. Microsoft's fonts (Aptos, Calibri, Wingdings,
+        Symbol…) may not be redistributed: for Aptos, link to Microsoft's own free download instead. For Symbol /
+        Wingdings, see whether OpenSymbol covers their code points.
+      - **Where:** File > Options > Fonts ("Download fonts": a list with size, licence and Download / Remove each), an
+        opt-in step in the quick setup (per the house rule), and a hint when an opened document uses a missing font
+        that has a download ("This document uses Calibri: download Carlito, a free font with the same widths?").
+      - **How:** fetch from a fixed list of sources (Google Fonts / the projects' releases, pinned versions and
+        checksums). Desktop: save under the app's data folder and register them with the webview (FontFace) and the
+        font list (`editor/system-fonts.ts`). Web: keep them in the Cache API / IndexedDB. Map Word's font names to
+        the stand-in when drawing, but save the document's own font name unchanged.
+      - **Check:** an Office fixture (Calibri, Cambria) opened before and after the download against Word's render in
+        the VM: line breaks and page count should match. Offline: nothing breaks, and the list says the fonts need a
+        connection.
 
 ### Wave 3 — rare (L)
 
