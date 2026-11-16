@@ -1300,6 +1300,7 @@ function generateParagraphProperties(paragraph: ReturnType<typeof paragraphPrope
     onOff("keepNext", paragraph.pPr.keepNext),
     onOff("keepLines", paragraph.pPr.keepLines),
     onOff("pageBreakBefore", paragraph.pPr.pageBreakBefore),
+    writeDropCapFrame(paragraph.pPr.dropCap),
     onOff("widowControl", paragraph.pPr.widowControl),
     writeNumbering(paragraph.pPr),
     onOff("suppressLineNumbers", paragraph.pPr.suppressLineNumbers),
@@ -1311,11 +1312,23 @@ function generateParagraphProperties(paragraph: ReturnType<typeof paragraphPrope
     onOff("contextualSpacing", paragraph.pPr.contextualSpacing),
     onOff("mirrorIndents", paragraph.pPr.mirrorIndents),
     paragraph.pPr.jc ? `<w:jc w:val="${paragraph.pPr.jc}"/>` : "",
+    // A drop cap's letter sits on the baseline of its frame, as Word writes it.
+    paragraph.pPr.dropCap ? `<w:textAlignment w:val="baseline"/>` : "",
     paragraph.pPr.textboxTightWrap ? `<w:textboxTightWrap w:val="${paragraph.pPr.textboxTightWrap}"/>` : "",
     paragraph.pPr.outlineLvl !== undefined ? `<w:outlineLvl w:val="${paragraph.pPr.outlineLvl}"/>` : "",
     wrapRunProperties(paragraph.markRPr),
     paragraph.sectionBreak ? writeSection(paragraph.sectionBreak) : "",
   ].join("")
+}
+
+/** A drop cap's frame (w:framePr), as Word writes it: around the text, from the text (or the page, in the margin). */
+function writeDropCapFrame(dropCap: ParagraphProperties["dropCap"]) {
+  if (!dropCap) {
+    return ""
+  }
+  const space = dropCap.hSpace ? ` w:hSpace="${Math.round(dropCap.hSpace)}"` : ""
+  const anchor = dropCap.kind === "margin" ? "page" : "text"
+  return `<w:framePr w:dropCap="${dropCap.kind}" w:lines="${dropCap.lines}"${space} w:wrap="around" w:vAnchor="text" w:hAnchor="${anchor}"/>`
 }
 
 /** w:pBdr and w:shd of a paragraph, in the order the schema wants them. */

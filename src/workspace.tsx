@@ -68,6 +68,7 @@ import { LinkDialogHost } from "@/components/link-dialog"
 import { SmartArtTextPane } from "@/components/smartart-text-pane"
 import { ColumnsDialogHost } from "@/components/columns-dialog"
 import { InsertTableDialogHost } from "@/components/insert-table-dialog"
+import { DropCapDialogHost } from "@/components/drop-cap-dialog"
 import { CaptionDialogsHost } from "@/components/caption-dialogs"
 import { MailingsDialogs } from "@/components/mailings-dialogs"
 import { QuickPartsDialogsHost } from "@/components/quick-parts-dialogs"
@@ -381,6 +382,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
       <ListNumberingHost />
       <ColumnsDialogHost />
       <InsertTableDialogHost />
+      <DropCapDialogHost />
       <CaptionDialogsHost />
       <QuickPartsDialogsHost />
       <MailingsDialogs />

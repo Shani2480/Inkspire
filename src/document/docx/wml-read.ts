@@ -1858,6 +1858,16 @@ function readParagraphFormatting(node: MarkupNode) {
   assignOnOff(pPr, "keepNext", wordChild(node, "keepNext"))
   assignOnOff(pPr, "keepLines", wordChild(node, "keepLines"))
   assignOnOff(pPr, "contextualSpacing", wordChild(node, "contextualSpacing"))
+  const frame = wordChild(node, "framePr")
+  const dropCap = frame ? attr(frame, "dropCap") : undefined
+  if (frame && (dropCap === "drop" || dropCap === "margin")) {
+    const lines = Number.parseInt(attr(frame, "lines") ?? "", 10)
+    const hSpace = Number.parseInt(attr(frame, "hSpace") ?? "", 10)
+    pPr.dropCap = { kind: dropCap, lines: Number.isFinite(lines) && lines > 0 ? Math.min(10, lines) : 3 }
+    if (Number.isFinite(hSpace) && hSpace > 0) {
+      pPr.dropCap.hSpace = hSpace
+    }
+  }
   assignOnOff(pPr, "pageBreakBefore", wordChild(node, "pageBreakBefore"))
   assignOnOff(pPr, "widowControl", wordChild(node, "widowControl"))
   assignOnOff(pPr, "suppressLineNumbers", wordChild(node, "suppressLineNumbers"))

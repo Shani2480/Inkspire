@@ -185,6 +185,7 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
       View Gridlines.
 - [x] U28. Select > Select Objects, Selection Pane; Selection pane Show All / Hide All, rename, reorder.
 - [ ] U29. Insert: Excel Spreadsheet, Quick Tables, Stock Images; Drop Cap Options… (font, lines, distance).
+      Part 1 done 2026-11-16: Drop Cap Options…, Word drop caps open and save (`w:framePr w:dropCap`).
 - [ ] U30. Draw: Eraser, Lasso Select, pen gallery and Add Pen, Ink to Shape, Ink Replay, Ruler, ink anywhere on the
       page.
 - [ ] U31. Custom Watermark dialog (picture, font, size, colour, layout, semitransparent); Hyphenation Manual and

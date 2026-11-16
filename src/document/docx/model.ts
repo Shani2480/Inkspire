@@ -241,7 +241,14 @@ export type ParagraphProperties = {
   shading?: Shading
   /** No space before or after when the neighbouring paragraph has the same style. */
   contextualSpacing?: boolean
+  /**
+   * w:framePr with w:dropCap: this paragraph is a drop cap, the large letter of the paragraph after it. `lines` is
+   * how many lines it drops, `hSpace` its distance from the text (twips). Other frames stay in `source`.
+   */
+  dropCap?: DropCapFrame
 }
+
+export type DropCapFrame = { kind: "drop" | "margin"; lines: number; hSpace?: number }
 
 /** How a section numbers its lines: every `countBy`th from `start`, `distance` twips from the text. */
 export type LineNumbering = {

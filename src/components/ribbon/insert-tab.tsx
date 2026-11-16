@@ -63,7 +63,7 @@ import { embedVideoSrc } from "@/editor/online-video"
 import { insertScreenClipping, pickScreenshotFile } from "@/editor/screenshot"
 import { WORD_ART_PRESETS } from "@/editor/text-effects"
 import type { BuiltInHeader } from "@/document/page-setup"
-import { updateBlocks } from "@/editor/block-format"
+import { DropCapPicture, applyDropCap, currentDropCap, openDropCapDialog } from "@/components/drop-cap-dialog"
 import { EquationEditor } from "@/components/equation-editor"
 import { EQUATION_PRESETS } from "@/editor/equation"
 import { openLocalFile } from "@/lib/file-io"
@@ -1071,7 +1071,9 @@ function VideoDialog({ editor, onClose }: { editor: Editor; onClose: () => void 
   )
 }
 
+/** Insert > Drop Cap, as Word's: None, Dropped and In margin as pictures, then Drop Cap Options…. */
 function DropCapMenu({ editor, close }: { editor: Editor | null; close: () => void }) {
+  const current = editor ? currentDropCap(editor).kind : null
   const choices = [
     { id: null, label: "None" },
     { id: "dropped", label: "Dropped" },
@@ -1079,24 +1081,38 @@ function DropCapMenu({ editor, close }: { editor: Editor | null; close: () => vo
   ] as const
 
   return (
-    <div className="grid w-[220px] grid-cols-3 gap-1 p-1">
-      {choices.map((choice) => (
-        <button
-          key={choice.label}
-          type="button"
-          className="flex h-16 flex-col items-center justify-center rounded border border-[#e1e1e1] bg-white text-[11px] hover:border-[#0f6cbd]"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => {
-            if (editor) {
-              updateBlocks(editor, { dropCap: choice.id })
-            }
-            close()
-          }}
-        >
-          <span className="text-[18px] leading-none font-medium">{choice.id ? "A" : "—"}</span>
-          {choice.label}
-        </button>
-      ))}
+    <div className="flex w-[228px] flex-col">
+      <div className="drop-cap-menu" role="group" aria-label="Drop Cap">
+        {choices.map((choice) => (
+          <button
+            key={choice.label}
+            type="button"
+            className="drop-cap-menu-tile"
+            aria-label={choice.label}
+            aria-pressed={current === choice.id}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              if (editor) {
+                const now = currentDropCap(editor)
+                applyDropCap(editor, { ...now, kind: choice.id })
+              }
+              close()
+            }}
+          >
+            <DropCapPicture kind={choice.id} />
+            <span>{choice.label}</span>
+          </button>
+        ))}
+      </div>
+      <MenuButton
+        disabled={!editor}
+        onClick={() => {
+          close()
+          openDropCapDialog(editor)
+        }}
+      >
+        Drop Cap Options…
+      </MenuButton>
     </div>
   )
 }

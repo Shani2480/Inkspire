@@ -7,6 +7,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [x] **Drop caps (2026-11-16)** — Word's Dropped / In margin frames open as the paragraph's drop cap and re-save as
+  they were; the app's 5-line Georgia drop cap and an In margin one render in Word as in the app; 0 validator errors.
 - [x] **Selection pane names and Hide (2026-11-16)** — a Word file with Frame 6 and Heart 7, renamed and hidden in the
   app and saved: Word hides the frame and keeps the new name, and re-saves `name` and `hidden="1"` on `wp:docPr`;
   0 validator errors.
@@ -231,6 +233,11 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       places.
 
 ## Needs Chrome (the web build in a browser)
+
+- [x] **Drop Cap menu and Drop Cap Options… (2026-11-16; checked in headless Chrome, light and dark)** — tiles show
+      the current position; the dialog sets lines, font and distance; None clears; In margin keeps the text edge.
+- [ ] **Drop caps in the desktop app (WebKitGTK)** — drawn with `initial-letter` (and `-webkit-initial-letter`):
+      check a 3-line drop cap draws over three lines in the Tauri build.
 
 - [x] **Select Objects and the Selection pane (2026-11-16; checked in headless Chrome, light and dark)** — Home >
       Select lists Select Objects and Selection Pane…; the pane shows Word's names, top of the stack first; click

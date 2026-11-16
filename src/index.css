@@ -6682,22 +6682,105 @@ button.word-art {
   letter-spacing: 0.08em;
 }
 
-p[data-drop-cap="dropped"]::first-letter,
-li[data-drop-cap="dropped"]::first-letter {
-  float: left;
-  padding-right: 0.06em;
-  font-size: 3.05em;
-  font-weight: 500;
-  line-height: 0.82;
+/* Insert > Drop Cap: the first letter over --drop-lines lines (Word's Lines to drop), in its own font, --drop-distance
+   from the text; In margin hangs it left of the text. */
+p[data-drop-cap]::first-letter,
+li[data-drop-cap]::first-letter {
+  -webkit-initial-letter: var(--drop-lines, 3);
+  initial-letter: var(--drop-lines, 3);
+  font-family: var(--drop-font, inherit);
+  font-weight: inherit;
+  margin-right: calc(var(--drop-distance, 0pt) + 0.04em);
 }
 
+/* The letter's box takes no room (its width is measured: --drop-w), so the text keeps its edge. */
 p[data-drop-cap="margin"]::first-letter,
 li[data-drop-cap="margin"]::first-letter {
-  float: left;
-  margin-left: -0.55em;
-  font-size: 3.05em;
-  font-weight: 500;
-  line-height: 0.82;
+  margin-left: calc(-1 * var(--drop-w, 2.4em) - var(--drop-distance, 0pt));
+  margin-right: var(--drop-distance, 0pt);
+}
+
+.drop-cap-menu {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 4px;
+}
+
+.drop-cap-menu-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 2px;
+  border: 1px solid var(--app-popover-border);
+  border-radius: 3px;
+  color: var(--app-ribbon-text);
+  font-size: 11px;
+}
+
+.drop-cap-menu-tile:hover,
+.drop-cap-menu-tile[aria-pressed="true"] {
+  border-color: var(--app-theme-primary);
+  background: var(--app-hover);
+}
+
+.drop-cap-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.drop-cap-positions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.drop-cap-position {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+}
+
+.drop-cap-position input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.drop-cap-position-picture {
+  display: flex;
+  padding: 4px 8px;
+  border: 1px solid var(--app-popover-border);
+  border-radius: 2px;
+  background: var(--app-popover-bg);
+}
+
+.drop-cap-position:has(input:checked) .drop-cap-position-picture {
+  border-color: var(--app-theme-primary);
+  box-shadow: inset 0 0 0 1px var(--app-theme-primary);
+}
+
+.drop-cap-position:has(input:focus-visible) .drop-cap-position-picture {
+  outline: 2px solid var(--app-theme-primary);
+  outline-offset: 1px;
+}
+
+.drop-cap-options {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.drop-cap-options select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
 }
 
 .equation {

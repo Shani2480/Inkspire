@@ -9,6 +9,7 @@ import { FontSize, TextStyle } from "@tiptap/extension-text-style"
 import { WordLineHeight } from "@/editor/line-height"
 import StarterKit from "@tiptap/starter-kit"
 import { ParagraphBoxGroups } from "@/editor/paragraph-box-groups"
+import { DropCapWidth } from "@/editor/drop-cap-width"
 import { CharacterStyle, StyledUnderline, SubscriptMark, SuperscriptMark, TextBoxMark } from "@/editor/character-format"
 import { ProofingMark } from "@/editor/proofing"
 import { ListNumbering } from "@/editor/list-numbering"
@@ -109,6 +110,7 @@ export function createExtensions() {
     ListNumbering.configure(),
     StyledUnderline.configure(),
     ParagraphBoxGroups,
+    DropCapWidth,
     SubscriptMark.configure(),
     SuperscriptMark.configure(),
     TextBoxMark.configure(),

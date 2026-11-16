@@ -1,3 +1,4 @@
+import { dropCapOf, splitDropCap, withDropCap } from "@/document/docx/drop-cap"
 import { NOTE_MARK } from "@/document/note-numbering"
 import { BUILT_IN_STYLES, catalogWithStyles, wordIdForNamedStyle, type StyleDef } from "@/document/styles"
 import type { DocumentChrome } from "@/document/header"
@@ -745,6 +746,20 @@ function blocksToHtml(blocks: Block[], ctx: Projection) {
       }
       html += `<${tag}${listAttributes(tag, numId, items, ctx)}>${items.map((item) => listItemHtml(item, numId, items, ctx)).join("")}</${tag}>`
       html += sectionBreakHtml(items[items.length - 1]!, ctx.doc)
+      continue
+    }
+    const next = blocks[index + 1]
+    if (
+      block?.kind === "paragraph" &&
+      block.pPr.dropCap &&
+      next?.kind === "paragraph" &&
+      !next.pPr.dropCap &&
+      !next.pPr.numPr?.numId &&
+      dropCapOf(block)
+    ) {
+      // Word's drop cap frame and the paragraph it starts open as one paragraph with its drop cap.
+      html += withDropCap(blockHtml(next, ctx), block) + sectionBreakHtml(next, ctx.doc)
+      index += 2
       continue
     }
     if (block) {
@@ -2421,6 +2436,11 @@ function blocksFromNodes(nodes: JsonNode[], build: Build, level: number, top = f
     if (floats.length > 0 && block?.kind === "paragraph") {
       placeFloats(block, floats, build)
       floats = []
+    }
+    const frame = block?.kind === "paragraph" && node.attrs?.dropCap ? splitDropCap(block, node.attrs) : null
+    if (frame) {
+      // The drop cap goes back into a frame paragraph of its own before its text, as Word keeps it.
+      blocks.push(frame)
     }
     const previous = blocks[blocks.length - 1]
     const runKey = node.type === "image" && typeof node.attrs?.docxKey === "string" ? node.attrs.docxKey : undefined

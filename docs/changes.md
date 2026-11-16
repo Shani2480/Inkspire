@@ -7,6 +7,33 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-16
 
+### Drop Cap as Word's: Word's drop caps open and save, Drop Cap Options… (U29, part 1)
+
+- **What was wrong:** Insert > Drop Cap only changed the look of the paragraph's first letter, at a fixed size, and
+  saving dropped it. A Word drop cap (a framed paragraph holding the big letter, `w:framePr w:dropCap`) opened as
+  a separate paragraph with a huge letter above the text. Drop Cap Options… was missing.
+- **What changed:**
+  - **Opening** (`docx/drop-cap.ts`, `wml-read.ts`, `project.ts`): the frame paragraph and the paragraph it starts
+    open as one paragraph. The letter comes first, and the paragraph keeps the cap's kind, lines (`w:lines`),
+    distance from the text (`w:hSpace`) and font.
+  - **Saving:** a paragraph with a drop cap is written as Word writes it: a frame paragraph (`keepNext`, `framePr`,
+    an exact line, baseline alignment) with the first letter, then the rest. The letter's size, line and drop are
+    Word's 3-line numbers, scaled by the lines and the text's size.
+  - **Drawing:** CSS `initial-letter` drops the letter over its lines, in its own font and at its distance. In
+    margin hangs the letter wholly left of the text, as Word does. Its width is measured after each draw and kept as
+    a decoration (`editor/drop-cap-width.ts`).
+  - **Menu and dialog:** the menu has None, Dropped and In margin as pictures, then Drop Cap Options…
+    (`components/drop-cap-dialog.tsx`): Position, Font, Lines to drop (1 to 10) and Distance from text. None
+    clears everything; switching between Dropped and In margin keeps the options.
+- **Checked:**
+  - **Word in the VM:** Word's own markup (three kinds) renders and re-saves unchanged. The app opens it with the
+    same line breaks beside the letter. The app's file (5 lines in Georgia, 0.3 cm; In margin at 0.5 cm; None)
+    renders in Word as in the app and re-saves both frames. 0 validator errors.
+  - **Chrome, light and dark:** the menu and the dialog driven by the mouse and keyboard, and the overflow crawl.
+  - **Tests:** `docx/drop-cap.test.ts` (open Word's three kinds, save untouched, app-made drop cap round trip, None).
+- **Not done:** formatting of the letter itself (bold, colour) set in Word is not kept on open; the letter takes the
+  paragraph's. Excel Spreadsheet, Quick Tables and Stock Images are part 2.
+
 ### Select Objects and the Selection pane as Word's: names, Show All / Hide All, rename, reorder (U28)
 
 - **What was missing:** Home > Select had only Select All and Select Text with Similar Formatting. The Selection
