@@ -7,7 +7,7 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-17
 
-### Android: system fonts, Save As keeps access, rename in place; the cursor starts at the top; no picture toolbar in Read Mode (next build)
+### Android: system fonts, Save As keeps access, rename in place; dates in Recent; the cursor starts at the top; phone dialogs and the TOC tab; no picture toolbar in Read Mode; v0.10.0
 
 - **System fonts (B3):** Android has no `fc-list`, so the font list had only Inkspire's own fonts. `list_system_fonts`
   on Android reads the named families and aliases (`sans-serif`, `serif`, `arial`, `times` …) of
@@ -37,7 +37,7 @@ in Word, Chrome or the desktop app.
   zoom. On a touch screen it now hangs under the table, 36 px tall on screen at any zoom (`--page-zoom` on the page,
   from `page-canvas.tsx`); above the table the header's zone took the tap. An out-of-date table's tab waits for a tap
   there too, not to cover the text under it. Checked in emulation: tapped, it opens Update Table of Contents.
-- Not built or checked on a device yet (verify list).
+- Built as v0.10.0 for the tablet and Linux; the device checks are in the verify list.
 
 ### A long press on text no longer opens the full right-click menu on a touch screen; v0.9.1
 

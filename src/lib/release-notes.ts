@@ -9,6 +9,32 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "0.10.0",
+    date: "2026-11-17",
+    notes: [
+      {
+        title: "Your device's fonts on Android",
+        text: "The font list on a phone or tablet now includes the fonts Android has, such as sans-serif, serif, monospace and the names it knows them by (Arial, Times …).",
+      },
+      {
+        title: "Save As and Rename on Android",
+        text: "A document saved under a new name can be saved again and opened from Recent after Inkspire restarts. Renaming a document from its title now renames the file where it is; where that place does not allow it, Inkspire says so.",
+      },
+      {
+        title: "Dates in Recent",
+        text: "Recent shows when each document was last changed: the time for today, the day and month this year, the full date before.",
+      },
+      {
+        title: "Opening starts at the top",
+        text: "An opened document puts the cursor at its start, as Word does. A document ending in a table no longer opens with the table's toolbar over the page.",
+      },
+      {
+        title: "Easier on a phone",
+        text: "Borders and Shading fits a phone's screen at full size. A table of contents' Update Table button is big enough for a finger and appears under the table when you tap it. A picture left selected no longer shows its toolbar over Read Mode.",
+      },
+    ],
+  },
+  {
     version: "0.9.1",
     date: "2026-11-17",
     notes: [

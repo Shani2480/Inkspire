@@ -384,7 +384,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
-- [ ] **Next build on the tablet (and the Pixel when back)** — Font list shows the system's fonts (sans-serif, serif,
+- [ ] **v0.10.0 on the tablet (and the Pixel when back) (2026-11-17)** — Font list shows the system's fonts (sans-serif, serif,
       monospace, arial, times …) and they draw; Save As a new .docx in Documents, close Inkspire, reopen it from
       Recent and save again; rename an opened document from the title (in Documents: renamed; from Downloads or a
       mail attachment: the message); open a .docx that ends in a table: the cursor is at the top, no table toolbar;
