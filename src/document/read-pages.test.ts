@@ -51,3 +51,22 @@ describe("Find in Read Mode", () => {
     expect(useReadFind.getState()).toMatchObject({ open: false, query: "", count: 0 })
   })
 })
+
+describe("a page turn that follows a finger", () => {
+  it("keeps the leaf's far edge under the finger going forward", async () => {
+    const { leafTime, LEAF_TURN_DEGREES } = await import("@/document/read-pages")
+    expect(leafTime(0, "forward")).toBe(0)
+    // Half the width across: the edge is at half the width when cos(angle) = 0.5, i.e. at 60 degrees.
+    expect(leafTime(0.5, "forward")).toBeCloseTo(60 / LEAF_TURN_DEGREES, 5)
+    expect(leafTime(1, "forward")).toBeCloseTo(90 / LEAF_TURN_DEGREES, 5)
+  })
+
+  it("brings the leaf down with the finger going back, and stays within the turn", async () => {
+    const { leafTime, LEAF_TURN_DEGREES } = await import("@/document/read-pages")
+    expect(leafTime(0, "back")).toBeCloseTo(1 - 90 / LEAF_TURN_DEGREES, 5)
+    expect(leafTime(0.5, "back")).toBeCloseTo(1 - 60 / LEAF_TURN_DEGREES, 5)
+    expect(leafTime(1, "back")).toBe(1)
+    expect(leafTime(3, "forward")).toBeLessThanOrEqual(1)
+    expect(leafTime(-1, "back")).toBeGreaterThanOrEqual(0)
+  })
+})

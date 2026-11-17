@@ -7,6 +7,26 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-17
 
+### Read Mode's page turn follows the finger; phone status bar fits again; v0.7.0
+
+- **What was wrong:** a swipe in Read Mode turned the page only once it ended, so the page did not move with the
+  finger. On a phone the status bar's items had been allowed to shrink below their text (the 40 px minimum width
+  replaced `min-width: auto`): "Page 6 of 6" ran into the word count and the zoom fell off the right.
+- **What changed:**
+  - `read-mode.tsx` (`followSwipe`, `scrubPage`): a sideways drag starts the page turn's View Transition and holds its
+    animations still, setting their time from the finger at each move, with the animations linear while followed
+    (`data-read-scrub`). `leafTime` (`read-pages.ts`) picks the time that keeps the leaf's far edge under the finger
+    (edge at width x cos(angle)). Let go past a third of the width or flicked (0.5 px/ms), the turn plays out;
+    otherwise it plays back and the columns return to the page. Up-and-down drags, the first and last page, and
+    reduced motion are left alone (reduced motion: a swipe turns at its end, at once).
+  - `index.css`: phone status bar items keep their text's width (`flex: none`), with no gaps and 36 px buttons.
+  - Version 0.7.0 with its release notes.
+- **Checked:** in Chrome as a phone with simulated touch: a drag held at 25% and 50% shows the leaf's edge close to
+  the finger; a long drag turns to page 2, a short slow one falls back, a drag back returns to page 1; the root's
+  flags are cleared after. Status bar: 410 of 410 px used with 1,500 words. Tests: `leafTime` in
+  `read-pages.test.ts`; 1669 pass.
+- **Open:** on the Pixel itself (verify list).
+
 ### Read Mode fast, with a page turn; phone controls a finger's size; popups behind a button on touch; v0.6.0
 
 - **What was wrong:** Read Mode took 5.2 s to open a 400-paragraph document on a phone-speed CPU and turned at about

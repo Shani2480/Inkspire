@@ -9,6 +9,20 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "0.7.0",
+    date: "2026-11-17",
+    notes: [
+      {
+        title: "Pages turn under your finger",
+        text: "In Read Mode the page now follows your finger as you swipe, its edge staying under your fingertip. Let go past a third of the page, or flick, and it turns; let go early and it falls back.",
+      },
+      {
+        title: "Phone status bar",
+        text: "The page number and word count no longer run into each other, and the zoom stays in view.",
+      },
+    ],
+  },
+  {
     version: "0.6.0",
     date: "2026-11-17",
     notes: [

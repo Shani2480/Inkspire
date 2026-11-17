@@ -22,6 +22,21 @@ export function readPageAt(scrollLeft: number, viewWidth: number, gap = READ_COL
   return Math.max(0, Math.round(scrollLeft / readPageStep(viewWidth, gap)))
 }
 
+/** How far the turning leaf goes: from flat to on its edge and a little past (`read-leaf-lift` in index.css). */
+export const LEAF_TURN_DEGREES = 92
+
+/**
+ * Where a page turn that follows a finger stands (0 to 1 of its animation), for a finger that has gone `progress` of
+ * the page's width: the leaf turns on the left edge, so its far edge is width x cos(angle) from there, and the angle
+ * is chosen to keep that edge under the finger. Forward the leaf lifts from flat; back it comes down from on edge.
+ */
+export function leafTime(progress: number, direction: "forward" | "back") {
+  const p = Math.min(1, Math.max(0, progress))
+  const full = (LEAF_TURN_DEGREES * Math.PI) / 180
+  const time = direction === "forward" ? Math.acos(1 - p) / full : 1 - Math.acos(p) / full
+  return Math.min(1, Math.max(0, time))
+}
+
 export const READ_COLUMN_WIDTHS = { narrow: 340, default: 460, wide: 620 } as const
 
 /** Where a match starts or ends: the index of a text piece and the offset in it. */

@@ -2,6 +2,7 @@ import { MenuButton, RibbonPopover } from "@/components/ribbon/ribbon-button"
 import { documentName, useDocumentStore } from "@/document/store"
 import {
   findInPieces,
+  leafTime,
   READ_COLUMN_GAP,
   READ_COLUMN_WIDTHS,
   readPageAt,
@@ -276,7 +277,6 @@ export function ReadView({ onHeadings }: { onHeadings: (headings: string[], go: 
   const [zoomed, setZoomed] = useState<{ src: string; alt: string } | null>(null)
   const lastTurn = useRef(0)
   const flipping = useRef<ViewTransition | null>(null)
-  const swipe = useRef<{ x: number; y: number; id: number } | null>(null)
 
   const measure = useCallback(() => {
     const scroller = scrollerRef.current
@@ -465,26 +465,18 @@ export function ReadView({ onHeadings }: { onHeadings: (headings: string[], go: 
           onScroll={measure}
           onWheel={onWheel}
           onPointerDown={(event) => {
-            if (event.pointerType !== "mouse") {
-              swipe.current = { x: event.clientX, y: event.clientY, id: event.pointerId }
-            }
-          }}
-          onPointerUp={(event) => {
-            const start = swipe.current
-            swipe.current = null
-            if (!start || start.id !== event.pointerId) {
+            const scroller = scrollerRef.current
+            if (event.pointerType === "mouse" || !scroller) {
               return
             }
-            // A finger's swipe sideways turns the page, as in a book: right to left is the next.
-            const dx = event.clientX - start.x
-            const dy = event.clientY - start.y
-            if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.2) {
-              lastTurn.current = performance.now()
-              turn(dx < 0 ? 1 : -1)
-            }
-          }}
-          onPointerCancel={() => {
-            swipe.current = null
+            followSwipe(event.nativeEvent, scroller, {
+              pages: () => readPageCount(bodyRef.current?.scrollWidth ?? scroller.scrollWidth, scroller.clientWidth),
+              flipping,
+              turned: () => {
+                lastTurn.current = performance.now()
+              },
+              turn,
+            })
           }}
           onClick={(event) => {
             const target = event.target as HTMLElement
@@ -560,6 +552,7 @@ function flipPage(
   flipping.current?.skipTransition()
   const root = document.documentElement
   root.dataset.readFlip = direction
+  delete root.dataset.readScrub
   const transition = start.call(document, () => {
     scroller.scrollLeft = left
   })
@@ -570,4 +563,181 @@ function flipPage(
       delete root.dataset.readFlip
     }
   })
+}
+
+type SwipeHelp = {
+  pages: () => number
+  flipping: { current: ViewTransition | null }
+  turned: () => void
+  turn: (direction: 1 | -1) => void
+}
+
+/**
+ * A finger on the page: dragged sideways, the page turns with it, its edge under the finger (`leafTime`); let go past
+ * a third of the page, or flicked, it turns the rest of the way, otherwise it falls back. Where the page turn cannot
+ * follow a finger (no View Transitions, reduced motion), the swipe turns the page once it ends.
+ */
+function followSwipe(down: PointerEvent, scroller: HTMLElement, help: SwipeHelp) {
+  const startX = down.clientX
+  const startY = down.clientY
+  const id = down.pointerId
+  const width = scroller.clientWidth || 1
+  const canFollow =
+    "startViewTransition" in document &&
+    !(typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches)
+  let scrub: ReturnType<typeof scrubPage> | null = null
+  let decided = false
+  let last = { x: startX, t: performance.now() }
+  let speed = 0
+
+  const move = (event: PointerEvent) => {
+    if (event.pointerId !== id) {
+      return
+    }
+    const dx = event.clientX - startX
+    const dy = event.clientY - startY
+    const now = performance.now()
+    speed = (event.clientX - last.x) / Math.max(1, now - last.t)
+    last = { x: event.clientX, t: now }
+    if (!decided) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) {
+        return
+      }
+      decided = true
+      // Up and down is not a page turn.
+      if (Math.abs(dx) < Math.abs(dy) * 1.2) {
+        stop()
+        return
+      }
+      const from = readPageAt(scroller.scrollLeft, width)
+      const target = from + (dx < 0 ? 1 : -1)
+      if (!canFollow || target < 0 || target >= help.pages()) {
+        return
+      }
+      help.turned()
+      scrub = scrubPage(scroller, target * readPageStep(width), dx < 0 ? "forward" : "back", help.flipping)
+    }
+    scrub?.follow(Math.abs(dx) / width)
+  }
+
+  const up = (event: PointerEvent) => {
+    if (event.pointerId !== id) {
+      return
+    }
+    stop()
+    const dx = event.clientX - startX
+    if (scrub) {
+      help.turned()
+      const forward = scrub.direction === "forward"
+      const along = forward ? -dx : dx
+      const flick = (forward ? -speed : speed) > 0.5
+      scrub.release(event.type === "pointerup" && along > 0 && (along > width / 3 || flick))
+    } else if (!canFollow && decided && event.type === "pointerup" && Math.abs(dx) > 40) {
+      help.turned()
+      help.turn(dx < 0 ? 1 : -1)
+    }
+  }
+
+  function stop() {
+    window.removeEventListener("pointermove", move)
+    window.removeEventListener("pointerup", up)
+    window.removeEventListener("pointercancel", up)
+  }
+  // On the window: while the page turns, the turning picture lies over the page and takes the events.
+  window.addEventListener("pointermove", move)
+  window.addEventListener("pointerup", up)
+  window.addEventListener("pointercancel", up)
+}
+
+/**
+ * The page turn of `flipPage`, held still and moved by the finger: `follow` sets how far the finger has gone (0 to
+ * 1 of the page's width), `release` finishes the turn or lays the page back. The animations run linear while
+ * followed (`data-read-scrub`), so the time `leafTime` gives is where the leaf is.
+ */
+function scrubPage(
+  scroller: HTMLElement,
+  left: number,
+  direction: "forward" | "back",
+  flipping: { current: ViewTransition | null },
+) {
+  const from = scroller.scrollLeft
+  const root = document.documentElement
+  flipping.current?.skipTransition()
+  root.dataset.readFlip = direction
+  root.dataset.readScrub = ""
+  let time = 0
+  let animations: Animation[] | null = null
+  let outcome: boolean | null = null
+  const start = (document as Document & { startViewTransition: (update: () => void) => ViewTransition })
+    .startViewTransition
+  const transition = start.call(document, () => {
+    scroller.scrollLeft = left
+  })
+  flipping.current = transition
+  const length = (animation: Animation) => Number(animation.effect?.getTiming().duration) || 0
+
+  const place = () => {
+    animations?.forEach((animation) => {
+      animation.currentTime = time * length(animation)
+    })
+  }
+
+  const finish = (complete: boolean) => {
+    if (!animations || animations.length === 0) {
+      if (!complete) {
+        scroller.scrollLeft = from
+      }
+      transition.skipTransition()
+      return
+    }
+    const remaining = complete ? 1 - time : time
+    const ms = Math.max(120, 340 * remaining)
+    animations.forEach((animation) => {
+      const rate = Math.max(0.2, (length(animation) * remaining) / ms)
+      animation.playbackRate = complete ? rate : -rate
+      animation.play()
+    })
+    if (!complete) {
+      // Laid back: the page under the leaf is the one being read again before the turn ends and shows it.
+      animations[0]!.addEventListener("finish", () => {
+        scroller.scrollLeft = from
+      })
+    }
+  }
+
+  transition.ready
+    .then(() => {
+      animations = document
+        .getAnimations()
+        .filter((animation) => (animation.effect as KeyframeEffect | null)?.pseudoElement?.includes("read-page"))
+      animations.forEach((animation) => animation.pause())
+      place()
+      if (outcome !== null) {
+        finish(outcome)
+      }
+    })
+    .catch(() => undefined)
+  void transition.finished.finally(() => {
+    if (flipping.current === transition) {
+      flipping.current = null
+      delete root.dataset.readFlip
+      delete root.dataset.readScrub
+    }
+  })
+
+  return {
+    direction,
+    follow(progress: number) {
+      if (outcome === null) {
+        time = leafTime(progress, direction)
+        place()
+      }
+    },
+    release(complete: boolean) {
+      outcome = complete
+      if (animations) {
+        finish(complete)
+      }
+    },
+  }
 }
