@@ -7,6 +7,35 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-17
 
+### Core regression pass in Word; new documents drawn and saved in Aptos with Normal's spacing; v0.3.1
+
+- **Regression pass (core work first).** Every fixture opened and saved through Inkspire (73 of 80; the 7 left are
+  broken on purpose and refused) passes the Open XML validator, and Word in the VM draws all 66 that Word can open in
+  both versions exactly like their originals (page-by-page difference 0.000; a check on two different files gives
+  1.07). New local test `tools/corpus/core-edits.test.ts` makes everyday edits with the ribbon's commands (a bold
+  first line, a word made red and italic, Heading 2, bold / italic+underline / Georgia 16 pt blue / highlight,
+  centred and right, bullets, numbering, a 3 x 2 table, a page break) on a blank document and on 12 Word files: all
+  13 saves pass the validator; Word shows every edit, with the same page count as Inkspire; the fidelity audit finds
+  no differences; side by side, the Word files match Word line for line.
+- **Bug found:** a new document showed "Aptos (Body) 12" in the font box but drew its text in a serif (Iowan Old
+  Style / Palatino, the app's look from before it followed Word), and its headings in the app's UI font. Its save
+  had an empty Normal and no font, so Word drew Aptos 12 with Word's own spacing, and Inkspire, reopening the file,
+  drew yet another font and size: three looks for one document.
+- **What changed:**
+  - A document made in the app saves Normal with its size and spacing (12 pt, 9 pt after, 1.65 lines) and names the
+    theme's body font (minorHAnsi, Aptos) as its default font (`docx/project.ts`; before, Normal counted as used only
+    when a paragraph named it).
+  - A new document's body and headings are drawn in Aptos, with Carlito standing in where Aptos is not installed,
+    as for Word files that name it (`index.css`); a Design font scheme still sets its own fonts.
+  - `tools/word-render.py` resumes the VM when Linoffice's idle timer pauses it mid-render (local tool).
+  - Version 0.3.1 with its release notes.
+- **Checked:** the blank document's save in Word and reopened in Inkspire now match line for line; typing in a new
+  document in Chrome draws Aptos/Carlito at 12 pt with 9 pt after. Test: `docx/new-document-styles.test.ts` (fails
+  without the fix); 1643 pass.
+- **Not checked: the desktop app.** The Tauri build could not be driven on a private display: its transparent
+  window stays blank under Xvfb and under a headless KWin (WebKitGTK draws nothing without a GPU there). See the
+  verify list.
+
 ### Draw: pen gallery, Add Pen, Eraser, Lasso Select and Ruler (U30, part 1); v0.3.0
 
 - **What was missing:** the Draw tab had one pen, one highlighter, a width field and colour swatches; no eraser,

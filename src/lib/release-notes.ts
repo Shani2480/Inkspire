@@ -9,6 +9,16 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "0.3.1",
+    date: "2026-11-17",
+    notes: [
+      {
+        title: "New documents look the same everywhere",
+        text: "A new document is now written in Aptos, the font the Home tab names, instead of a serif font. When you save it, its font, size and line spacing go with it, so Word and Inkspire show it just as you typed it.",
+      },
+    ],
+  },
+  {
     version: "0.3.0",
     date: "2026-11-17",
     notes: [

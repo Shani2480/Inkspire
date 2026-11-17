@@ -384,6 +384,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **New documents in Aptos, and core edits (2026-11-17)** — in the desktop app: File > New > Blank document
+      shows Aptos (or its stand-in) at 12 pt; type, make text bold, red, Heading 2, a list and a table; save, reopen,
+      and open the file in Word: the same lines and spacing. Not run in the desktop build: it cannot be driven on a
+      private display here (its transparent window stays blank under Xvfb and a headless KWin).
 - [ ] **Draw tools with a pen or touch (2026-11-17)** — the pen gallery, Eraser, Lasso Select and Ruler with a real
       stylus or finger (checked with a mouse in Chrome only); pressure shows in pen strokes.
 - [ ] **Stock Images in the desktop app** — the dialog finds and inserts photos (the content policy now lists

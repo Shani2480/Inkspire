@@ -1865,15 +1865,9 @@ button.line-menu-row:focus-visible {
   outline: none;
   max-width: 100%;
   overflow-wrap: break-word;
-  font-family: var(
-    --doc-body-font,
-    "Iowan Old Style",
-    "Palatino Linotype",
-    Palatino,
-    Georgia,
-    "Times New Roman",
-    serif
-  );
+  /* A new document's body is the theme's body font, Aptos, as the font box says and Word shows; Carlito stands in
+     (same widths as Calibri, close to Aptos) where Aptos is not installed, as for Word files that name it. */
+  font-family: var(--doc-body-font, "Aptos", "Carlito", sans-serif);
   font-size: 12pt;
   line-height: 1.65;
   color: #1c1c1c;
@@ -1901,7 +1895,8 @@ button.line-menu-row:focus-visible {
 .page-editor h1,
 .page-editor h2,
 .page-editor h3 {
-  font-family: var(--doc-heading-font, var(--font-sans));
+  /* The saved headings name no font of their own, so Word draws them in the body font: so does the page. */
+  font-family: var(--doc-heading-font, var(--doc-body-font, "Aptos", "Carlito", sans-serif));
   color: var(--doc-heading-color, inherit);
   line-height: 1.25;
   font-weight: 650;

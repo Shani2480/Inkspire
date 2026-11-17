@@ -271,12 +271,14 @@ export function editorToWord(
   ]
   const comments = commentsFromEditor(build.comments, source?.comments)
   placeCommentRanges(blocks, build.tags, comments.ids, commentReferenceProps(source))
+  // A document made in the app: every unstyled paragraph is Normal, drawn in the theme's body font (Aptos, as the
+  // font box says), so Normal and that font are written for Word and for reopening to show the same page.
+  const used = usedStyleIds(partBlocks)
+  if (source === null) {
+    used.add("Normal")
+  }
   const styles = ensureEditorStyles(
-    catalogWithStyles(
-      source?.styles ?? { docDefaults: { pPr: {}, rPr: {} }, styles: [] },
-      documentStyles,
-      usedStyleIds(partBlocks),
-    ),
+    catalogWithStyles(source?.styles ?? newDocumentCatalog(), documentStyles, used),
     partBlocks,
     source === null,
   )
@@ -2783,6 +2785,14 @@ function paragraphStyleId(
 }
 
 /** The Word style ids the saved body refers to. */
+/** Styles of a document made in the app before its own are added: the body text in the theme's body font. */
+function newDocumentCatalog(): StyleCatalog {
+  return {
+    docDefaults: { pPr: {}, rPr: { rFonts: { asciiTheme: "minorHAnsi", hAnsiTheme: "minorHAnsi" } } },
+    styles: [],
+  }
+}
+
 function usedStyleIds(blocks: Block[]) {
   const ids = new Set(paragraphsIn(blocks).flatMap((paragraph) => (paragraph.styleId ? [paragraph.styleId] : [])))
   for (const run of runsIn(blocks)) {
