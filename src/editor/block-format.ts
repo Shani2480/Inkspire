@@ -1,6 +1,7 @@
 import { patternImage } from "@/document/docx/shading-pattern"
 import { borderSidesStyle } from "@/document/paragraph-sides"
 import { autoColorRule } from "@/document/docx/word-styles"
+import { ruleLineHeight } from "@/document/line-lead"
 import type { Editor } from "@tiptap/core"
 
 const MM_TO_PX = 96 / 25.4
@@ -240,7 +241,12 @@ export function blockFormatAttributes() {
         // Exact and at-least heights are points; LineHeight alone would render "18" as eighteen lines.
         // Node attributes render after LineHeight's, so this declaration wins.
         const points = rule === "multiple" ? null : pointValue(String(attributes.lineHeight ?? "").replace("pt", ""))
-        return points ? { "data-line-rule": rule, style: `line-height: ${points}pt` } : { "data-line-rule": rule }
+        return points
+          ? {
+              "data-line-rule": rule,
+              style: ruleLineHeight(rule === "exact" ? "exact" : "atLeast", Number(points)).join("; "),
+            }
+          : { "data-line-rule": rule }
       },
     },
     widowControl: flagAttr("widowControl", "data-widow", true, (on) =>

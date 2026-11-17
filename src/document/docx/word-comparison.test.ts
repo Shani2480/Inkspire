@@ -187,3 +187,15 @@ describe("contextual spacing in a table", () => {
     expect(css).not.toMatch(/ :is\(td, th\) > p\[data-word-style="ListParagraph"\]:last-child[,{ ]/)
   })
 })
+
+describe("exact and at-least line spacing", () => {
+  it("keeps an exact line whatever its runs' size, and an at-least line at least the text's own (Word, 2026-11-17)", async () => {
+    const { ruleLineHeight } = await import("@/document/line-lead")
+    // Exact 18 pt: 18 pt apart even with a 20 pt word, runs do not stretch the line.
+    expect(ruleLineHeight("exact", 18)).toEqual(["line-height: 18pt", "--word-run-line: 0"])
+    // At least 12 pt under Aptos 12 pt: Word's lines are 14.64 pt (the font's single line), not 12.
+    expect(ruleLineHeight("atLeast", 12)[0]).toBe("line-height: max(12pt, calc(var(--word-single-line, 1.17) * 1em))")
+    const css = readFileSync(path.resolve(process.cwd(), "src/index.css"), "utf8")
+    expect(css).toContain("line-height: var(--word-run-line);")
+  })
+})

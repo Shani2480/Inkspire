@@ -1,4 +1,4 @@
-import { leadBase, wordDescent } from "@/document/line-lead"
+import { leadBase, ruleLineHeight, wordDescent } from "@/document/line-lead"
 import { patternImage, patternValue } from "@/document/docx/shading-pattern"
 import { decodeXml } from "@/document/docx/xml"
 import {
@@ -484,9 +484,9 @@ function paragraphCss(props: ParagraphProperties, complete: boolean, line: numbe
   if (spacing?.line !== undefined) {
     const rule = spacing.lineRule
     rules.push(
-      rule === "exact" || rule === "atLeast"
-        ? `line-height: ${spacing.line / 20}pt`
-        : `line-height: ${Math.round((spacing.line / 240) * line * 1000) / 1000}`,
+      ...(rule === "exact" || rule === "atLeast"
+        ? ruleLineHeight(rule, spacing.line / 20)
+        : [`line-height: ${Math.round((spacing.line / 240) * line * 1000) / 1000}`, "--word-run-line: initial"]),
     )
   } else if (complete) {
     rules.push(`line-height: ${line}`)

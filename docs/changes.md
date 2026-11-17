@@ -7,6 +7,28 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-17
 
+### "At least" line spacing is at least the text's line; exact lines stay exact with larger runs
+
+- **What was wrong:** an at-least line height was drawn as an exact one: "at least 12 pt" under 12 pt Aptos gave
+  12 pt lines where Word gives 14.64 (the font's single line), so the lines overlapped; a 20 pt word in such a line
+  got 15 pt (Word 24.45). An exact line stretched when a run was larger (18 pt became 21).
+- **Measured in Word (VM):** Aptos 12 pt paragraphs with a 20 pt word, an 8 pt word, a Times New Roman word, a Segoe
+  UI word and a 20 pt paragraph mark, at single, 1.16, double, exactly 18 pt and at least 12 pt. Exact: 18 pt
+  whatever the runs. At least: the larger of the height and each run's own line. A multiple: the tallest run's
+  single line times the multiple, plus how far the highest ascent and lowest descent of the line's fonts reach past
+  that line, the baseline at the highest ascent and all the extra below. The paragraph mark's size does not count.
+- **What changed:** `line-lead.ts` `ruleLineHeight`, used by the editor's paragraph attribute (`editor/block-format.ts`)
+  and Word styles (`word-styles.ts`): exact sets the runs' line height to 0 (`--word-run-line`), at least is
+  `max(height, the font's single line)` with each run at its own; a multiple resets it (`line-height.ts`).
+  `index.css` applies `--word-run-line` to runs without specificity, so a widget's own line height wins.
+- **Checked:** the Word file above: exact and at-least lines within 0.05 pt of Word's in every case (were up to
+  9.5 pt off); single, 1.16 and double unchanged (within 0.06 pt); `combined`, `f05`, `f06` unchanged.
+- **Tests:** `docx/word-comparison.test.ts`.
+- **Open:** a line mixing sizes under a multiple keeps the browser's place: the browser centres the line where Word
+  puts the extra below, 0.6–1.5 pt at 1.16 lines and up to 12 pt at double (CSS cannot give a run's line box its
+  extra on one side without knowing the lines). A run in a taller font (Segoe UI, not installed on the Linux host)
+  does not raise its line (1.7 pt at single).
+
 ### A Symbol bullet's line is as tall as Word's; contextual spacing in tables follows Word
 
 - **What was wrong:** bullet lists were about 1 pt a line shorter than Word's (`f04`: 16.8 pt apart, Word 17.76).

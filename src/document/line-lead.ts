@@ -27,6 +27,20 @@ export function leadBase(rule: LeadRule) {
   return `calc(${SINGLE_BASELINE})`
 }
 
+/**
+ * The line height of an exact or at-least line (Word measured 2026-11-17). Exact: the given height whatever the
+ * text, larger runs neither stretch it nor move it (their line height 0 through --word-run-line). At least: the
+ * height, or the text's own single line where it is taller, and a larger run's line where that is taller still.
+ */
+export function ruleLineHeight(rule: "exact" | "atLeast", points: number) {
+  return rule === "exact"
+    ? [`line-height: ${points}pt`, "--word-run-line: 0"]
+    : [
+        `line-height: max(${points}pt, calc(var(--word-single-line, 1.17) * 1em))`,
+        "--word-run-line: calc(var(--word-single-line, 1.17) * 1em)",
+      ]
+}
+
 const TEXT_BLOCKS = ":is(p, h1, h2, h3, h4, h5, h6)"
 const UNBOXED = ':not([data-border], [data-border-between="1"])'
 

@@ -1918,6 +1918,12 @@ button.line-menu-row:focus-visible {
   --lead-base: max(1lh - var(--word-descent, 0.22) * 1em, 1em * (var(--word-single-line, 1.17) - var(--word-descent, 0.22)));
 }
 
+/* Runs in an exact or at-least line (document/line-lead.ts ruleLineHeight): unset elsewhere, so they inherit. No
+   specificity, so an inline widget's own line height wins. */
+:where(.page-editor :is(p, h1, h2, h3, h4, h5, h6) *) {
+  line-height: var(--word-run-line);
+}
+
 /* Keep imported spacer paragraphs from collapsing to zero height. */
 .page-editor p:has(> br:only-child),
 .page-editor p:empty {

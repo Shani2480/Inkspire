@@ -89,8 +89,11 @@ next to Word's render of Inkspire's save. Saving: Word opens all 72 saves and ea
 Opening: the 13 differences found first are fixed (see `changes.md`, 2026-11-14); mean page difference 0.133 →
 0.080, 20 files closer to Word, 1 further (w13, below). Still different from Word, most visible first:
 
-1. ~~Multiple line spacing~~ — done 2026-11-17 (`document/line-lead.ts`, see `changes.md`). Still different: a
-   line that mixes text sizes (or holds an inline object) keeps the browser's placement, up to about 1 pt off.
+1. ~~Multiple line spacing~~ — done 2026-11-17 (`document/line-lead.ts`, see `changes.md`). ~~At-least lines drawn
+   as exact, exact lines stretched by larger runs~~ — done 2026-11-17 (see `changes.md`). Still different: a line
+   that mixes text sizes under a multiple is centred by the browser where Word puts the extra below (0.6–1.5 pt at
+   1.16 lines, up to 12 pt at double; Word's rule is in `changes.md`); a run in a taller font (Segoe UI) does not
+   raise its line; a line with an inline object keeps the browser's placement.
    Found on the way, already there before: ~~a picture's paragraph is shorter than Word's~~ — done 2026-11-17 (see
    `changes.md`; `f13` and `f21` within 0.6–1.6 pt of Word, were 10–12); ~~bullet lines in `f04` are
    1 pt further apart in Word~~ (done 2026-11-17: Symbol's bullet makes the line taller, see `changes.md`; 17.75 pt,
