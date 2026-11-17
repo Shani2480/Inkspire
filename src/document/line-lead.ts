@@ -9,6 +9,8 @@
  * The paragraph is trimmed to its first line's cap height and its last line's baseline (text-box-trim) and padded
  * back by Word's distances, so its height stays a whole number of lines and only the text moves. The font's single
  * line and descent come from --word-single-line and --word-descent (fractions of the font size), set per style.
+ * A list marker that rises above the text (Symbol's bullet) makes its line taller by the difference, all above the
+ * text and not scaled by a multiple, as in Word (--word-marker-lift, index.css).
  */
 export type LeadRule = "multiple" | "exact" | "atLeast"
 
@@ -36,7 +38,7 @@ const UNBOXED = ':not([data-border], [data-border-between="1"])'
 export function leadStyleSheet() {
   return [
     `.page-editor ${TEXT_BLOCKS} {\n  --lead-base: ${leadBase("multiple")};\n}`,
-    `.page-editor ${TEXT_BLOCKS}:not([data-word-tall]) {\n  text-box-trim: trim-both;\n  text-box-edge: cap alphabetic;\n  padding-top: max(0pt, calc(var(--lead-base) - 1cap));\n  padding-bottom: max(0pt, calc(1lh - var(--lead-base)));\n}`,
+    `.page-editor ${TEXT_BLOCKS}:not([data-word-tall]) {\n  text-box-trim: trim-both;\n  text-box-edge: cap alphabetic;\n  padding-top: max(0pt, calc(var(--lead-base) - 1cap + var(--word-marker-lift, 0pt)));\n  padding-bottom: max(0pt, calc(1lh - var(--lead-base)));\n}`,
     `:root:root .page-editor ${TEXT_BLOCKS}[data-word-lead]${UNBOXED} {\n  --lead-base: ${leadBase("multiple")};\n}`,
     `:root:root .page-editor ${TEXT_BLOCKS}[data-line-rule="exact"]${UNBOXED} {\n  --lead-base: ${leadBase("exact")};\n}`,
     `:root:root .page-editor ${TEXT_BLOCKS}[data-line-rule="at-least"]${UNBOXED} {\n  --lead-base: ${leadBase("atLeast")};\n}`,
@@ -46,6 +48,7 @@ export function leadStyleSheet() {
 /** Word's descent below the baseline in a single line, as a fraction of the font size (measured in Word). */
 const DESCENT: Record<string, number> = {
   aptos: 0.282,
+  symbol: 0.215,
   "aptos display": 0.282,
   calibri: 0.27,
   "calibri light": 0.27,

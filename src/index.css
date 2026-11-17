@@ -1902,7 +1902,7 @@ button.line-menu-row:focus-visible {
 .page-editor :is(p, h1, h2, h3, h4, h5, h6):not([data-word-tall]) {
   text-box-trim: trim-both;
   text-box-edge: cap alphabetic;
-  padding-top: max(0pt, calc(var(--lead-base) - 1cap));
+  padding-top: max(0pt, calc(var(--lead-base) - 1cap + var(--word-marker-lift, 0pt)));
   padding-bottom: max(0pt, calc(1lh - var(--lead-base)));
 }
 
@@ -2072,6 +2072,21 @@ button.line-menu-row:focus-visible {
   text-decoration: none;
   text-indent: 0;
   white-space: pre;
+}
+
+/* A marker whose font rises higher than the text's (Symbol's bullet, ascent 1.005 em) makes the first line taller by
+   the difference, all above the text and not scaled by a multiple line spacing, as Word does (measured 2026-11-17:
+   Aptos 12 pt at 1.16 lines, 17.76 pt with a Symbol bullet, 16.96 without). The marker's ascent is its font's
+   (--word-marker-ascent, indent.ts), else the text's; its size the level's, else the text's. */
+.page-editor li[data-word-marker] > :first-child:not([data-line-rule="exact"], [data-line-rule="at-least"]) {
+  --word-marker-lift: max(
+    0pt,
+    calc(
+      var(--word-marker-size, 1em) *
+        var(--word-marker-ascent, calc(var(--word-single-line, 1.17) - var(--word-descent, 0.22))) -
+        1em * (var(--word-single-line, 1.17) - var(--word-descent, 0.22))
+    )
+  );
 }
 
 /* A list item holding only a picture: the editor opens it with a blank paragraph (a list item starts with one; a save

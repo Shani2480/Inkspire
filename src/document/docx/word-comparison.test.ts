@@ -5,7 +5,7 @@ import { formatPicture, dateFieldResult } from "@/document/field-date"
 import { openDocxBytes, saveDocxBytes } from "@/document/docx/io"
 import { blockFromProperties, propertiesFromBlock } from "@/document/docx/block-format"
 import { openPackage } from "@/document/docx/opc"
-import { documentStyleSheet } from "@/document/docx/word-styles"
+import { documentStyleSheet, singleLine, wordAscent } from "@/document/docx/word-styles"
 import { wordLines } from "@/document/docx/project"
 import { decodeXml } from "@/document/docx/xml"
 import { borderSidesStyle } from "@/document/paragraph-sides"
@@ -154,5 +154,36 @@ describe("a picture alone in a list item", () => {
   it("opens with a blank line in the picture paragraph's style, which carries the bullet", async () => {
     const { view } = await open(path.join(AUTHORED, "combined.docx"))
     expect(view.html).toMatch(/<li[^>]*><p data-word-style="ListParagraph"><\/p><span [^>]*><img /)
+  })
+})
+
+describe("a list line with Symbol's bullet", () => {
+  it("is taller by how far the bullet's font rises above the text's (measured in Word, 2026-11-17)", () => {
+    // Word: Aptos 12 pt at 278/240 lines, 16.96 pt apart without a bullet and 17.76 with Symbol's.
+    expect(singleLine("Aptos") * 12 * (278 / 240)).toBeCloseTo(16.96, 1)
+    const lift = (wordAscent("Symbol")! - wordAscent("Aptos")!) * 12
+    expect(singleLine("Aptos") * 12 * (278 / 240) + lift).toBeCloseTo(17.76, 1)
+    // Wingdings' and Courier New's bullets rise less than the text: no change, as in Word.
+    expect(wordAscent("Courier New")!).toBeLessThan(wordAscent("Aptos")!)
+  })
+
+  it("index.css lifts the first line by the marker's rise", () => {
+    const css = readFileSync(path.resolve(process.cwd(), "src/index.css"), "utf8")
+    expect(css).toContain("--word-marker-lift: max(")
+    expect(css).toContain("var(--word-marker-ascent,")
+  })
+})
+
+describe("contextual spacing in a table", () => {
+  it("compares a cell's paragraphs with the cells beside them, and keeps the space at a row's ends", async () => {
+    // Measured in Word (2026-11-17): combined's last row is 26 pt (a line and List Paragraph's 8 pt after), as the
+    // last cell's paragraph is followed by the row's end mark; within a row the cells' paragraphs are compared.
+    const { word } = await open(path.join(AUTHORED, "combined.docx"))
+    const css = documentStyleSheet(word!)
+    const list = 'p[data-word-style="ListParagraph"]'
+    expect(css).toContain(`:is(td, th):has(+ :is(td, th) > ${list}:first-child) > ${list}:last-child`)
+    expect(css).toContain(`:is(td, th):has(> ${list}:last-child) + :is(td, th) > ${list}:first-child`)
+    // No longer dropped at every cell's foot.
+    expect(css).not.toMatch(/ :is\(td, th\) > p\[data-word-style="ListParagraph"\]:last-child[,{ ]/)
   })
 })

@@ -169,8 +169,9 @@ const SINGLE_LINE: Record<string, number> = {
   calibri: 1.22,
   "calibri light": 1.22,
   carlito: 1.22,
-  aptos: 1.21,
-  "aptos display": 1.21,
+  aptos: 1.22,
+  "aptos display": 1.22,
+  symbol: 1.22,
   cambria: 1.17,
   caladea: 1.17,
   arial: 1.15,
@@ -190,6 +191,12 @@ const TYPICAL_LINE = 1.17
 
 export function singleLine(face: string | undefined) {
   return SINGLE_LINE[(face ?? "").toLowerCase()] ?? TYPICAL_LINE
+}
+
+/** How far a font rises above its baseline in Word's line, as a fraction of its size; undefined for a font not listed. */
+export function wordAscent(face: string | undefined) {
+  const line = SINGLE_LINE[(face ?? "").toLowerCase()]
+  return line === undefined ? undefined : Math.round((line - wordDescent(face)) * 1000) / 1000
 }
 
 const SERIF = /cambria|times|georgia|garamond|book antiqua|palatino|serif/i
@@ -549,16 +556,32 @@ function indentCss(props: ParagraphProperties) {
  */
 function contextualRules(page: string, same: string, fromStyle: boolean) {
   const own = fromStyle ? same : `${same}[data-context-spacing="1"]`
+  // A cell's first and last paragraph, alone or in a list (`p` stands for the paragraph).
+  const firstIn = (p: string) => [`${p}:first-child`, `:is(ul, ol):first-child > li:first-child > ${p}:first-child`]
+  const lastIn = (p: string) => [`${p}:last-child`, `:is(ul, ol):last-child > li:last-child > ${p}:last-child`]
+  const cell = ":is(td, th)"
+  const pairs = (left: string[], right: string[]) => left.flatMap((a) => right.map((b) => [a, b] as const))
   return [
     `${page} ${same} + ${own}, ${page} li:has(> ${same}) + li > ${own} { margin-top: 0 !important; }`,
     `${page} ${own}:has(+ ${same}), ${page} li:has(+ li > ${same}) > ${own} { margin-bottom: 0 !important; }`,
-    // Word leaves out such a paragraph's space at the top and foot of a table cell too.
-    `${page} :is(td, th) > ${own}:first-child, ${page} :is(td, th) > :is(ul, ol):first-child > li:first-child > ${own}:first-child { margin-top: 0 !important; }`,
-    `${page} :is(td, th) > ${own}:last-child, ${page} :is(td, th) > :is(ul, ol):last-child > li:last-child > ${own}:last-child { margin-bottom: 0 !important; }`,
-    // …and before a table whose first cell starts with a paragraph of the same style.
-    ...[`${same}:first-child`, `:is(ul, ol):first-child > li:first-child > ${same}:first-child`].map((first) => {
-      const table = `:is(.tableWrapper, table) tr:first-child > :is(td, th):first-child > ${first}`
+    // In a table Word compares paragraphs in document order, cell after cell, and each row ends with a mark of its
+    // own (measured in Word, 2026-11-17): a cell's paragraph is compared with the cell before or after it in its
+    // row; a row's first cell keeps its space before (after the mark) and its last cell its space after, except
+    // the first row's first cell, compared with the paragraph before the table.
+    pairs(lastIn(same), firstIn(own))
+      .map(([before, first]) => `${page} ${cell}:has(> ${before}) + ${cell} > ${first}`)
+      .join(", ") + " { margin-top: 0 !important; }",
+    pairs(lastIn(own), firstIn(same))
+      .map(([last, after]) => `${page} ${cell}:has(+ ${cell} > ${after}) > ${last}`)
+      .join(", ") + " { margin-bottom: 0 !important; }",
+    // …and before a table whose first cell starts with a paragraph of the same style, either way.
+    ...firstIn(same).map((first) => {
+      const table = `:is(.tableWrapper, table) tr:first-child > ${cell}:first-child > ${first}`
       return `${page} ${own}:has(+ ${table}), ${page} :is(ul, ol):has(+ ${table}) > li:last-child > ${own}:last-child { margin-bottom: 0 !important; }`
+    }),
+    ...firstIn(own).map((first) => {
+      const table = `:is(.tableWrapper, table) tr:first-child > ${cell}:first-child > ${first}`
+      return `${page} ${same} + ${table}, ${page} :is(ul, ol):has(> li:last-child > ${same}:last-child) + ${table} { margin-top: 0 !important; }`
     }),
   ]
 }

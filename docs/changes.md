@@ -7,6 +7,31 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-17
 
+### A Symbol bullet's line is as tall as Word's; contextual spacing in tables follows Word
+
+- **What was wrong:** bullet lists were about 1 pt a line shorter than Word's (`f04`: 16.8 pt apart, Word 17.76).
+  Word makes a line as tall as its tallest font rises, and Symbol's bullet rises 0.067 em above Aptos; Inkspire draws
+  the bullet as "•" in the text's font. Separately, a contextual-spacing paragraph (List Paragraph) lost its space
+  before and after at every table cell's top and foot, so `combined`'s last row was 18.5 pt where Word's is 26 and
+  everything below the table sat 6 pt high (with the bullets, 15 pt by the page's end). Aptos's single line was also
+  1.21 em; Word's is 1.2208.
+- **Measured in Word (VM):** single lines of 15 fonts; bullets in Symbol, Wingdings, Courier New and numbers under
+  Aptos, Calibri, Times New Roman and Arial at single and 1.16 lines. Only Symbol changes the line: all the extra
+  height goes above the text and is not scaled by the multiple. Tables in nine arrangements (merged cells, mixed
+  styles, a style with space before and after): Word compares paragraphs in document order, cell after cell, and
+  each row ends with a mark of its own, so a row's first cell keeps its space before, its last cell its space after,
+  the first row's first cell is compared with the paragraph before the table.
+- **What changed:** `index.css`/`line-lead.ts`: a Word list item's first line is padded by `--word-marker-lift`, how
+  far the marker's font (`--word-marker-ascent`, set in `indent.ts` from `wordAscent`, `word-styles.ts`) rises above
+  the text's at the marker's size; Symbol added to the font tables (ascent 1.005), Aptos 1.22. `word-styles.ts`
+  `contextualRules`: the blanket cell rules replaced by the comparisons above.
+- **Checked:** `f04` lines 17.75 pt apart (Word 17.76); `combined` within 1.8 pt of Word to the page's end (was 15);
+  the nine test tables' rows within 0.25 pt of Word's; `f05` and `f06` unchanged or closer (within 0.6 pt).
+- **Tests:** `docx/word-comparison.test.ts` (Symbol's lift, the table rules).
+- **Open:** Word's row end mark is taken as another style always (a Normal paragraph with contextual spacing in the
+  last cell would lose its space after in Word); a merged cell's continuation paragraph is not in the editor, so its
+  own height in its row is not counted (here the last cell's space after gives the same row).
+
 ### Endnotes go on to the next page as Word's do; a footnote's reference no longer shortens its page
 
 - **What was wrong:** endnotes that did not fit the last page moved there whole and ran on past the page's foot. And

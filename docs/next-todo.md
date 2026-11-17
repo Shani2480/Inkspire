@@ -92,10 +92,12 @@ Opening: the 13 differences found first are fixed (see `changes.md`, 2026-11-14)
 1. ~~Multiple line spacing~~ — done 2026-11-17 (`document/line-lead.ts`, see `changes.md`). Still different: a
    line that mixes text sizes (or holds an inline object) keeps the browser's placement, up to about 1 pt off.
    Found on the way, already there before: ~~a picture's paragraph is shorter than Word's~~ — done 2026-11-17 (see
-   `changes.md`; `f13` and `f21` within 0.6–1.6 pt of Word, were 10–12); bullet lines in `f04` are
-   1 pt further apart in Word; ~~a picture in a list item drops below its bullet~~ (done 2026-11-17, see
-   `changes.md`: `combined` within 1 pt, was 32), and the empty bullet after a table
-   sits higher than Word's (`combined`).
+   `changes.md`; `f13` and `f21` within 0.6–1.6 pt of Word, were 10–12); ~~bullet lines in `f04` are
+   1 pt further apart in Word~~ (done 2026-11-17: Symbol's bullet makes the line taller, see `changes.md`; 17.75 pt,
+   Word 17.76); ~~a picture in a list item drops below its bullet~~ (done 2026-11-17, see
+   `changes.md`: `combined` within 1 pt, was 32), and ~~the empty bullet after a table
+   sits higher than Word's (`combined`)~~ (done 2026-11-17: the table's last row lost its List Paragraph space after;
+   contextual spacing in tables now follows Word, `combined` within 1.8 pt to the page's end).
 2. ~~A TOC's field-end paragraph~~ — done 2026-11-17 (see `changes.md`). Still different: the line is drawn in
    Normal whatever its style; a table inserted in Inkspire closes in its last entry (Word's gallery not checked).
 3. ~~Endnotes: the space above the endnote separator is a little larger than Word's~~ — done 2026-11-17 (see

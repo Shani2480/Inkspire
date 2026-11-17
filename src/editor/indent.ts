@@ -11,6 +11,7 @@ import type { Node as ProseNode, NodeRange, ResolvedPos } from "@tiptap/pm/model
 import { Plugin, PluginKey } from "@tiptap/pm/state"
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view"
 import { holdObserver } from "@/editor/page-grid"
+import { wordAscent } from "@/document/docx/word-styles"
 
 export const INDENT_MAX = 8
 export const INDENT_STEP_PX = 24
@@ -553,6 +554,10 @@ function listMarkers(doc: ProseNode) {
               `--word-hang: ${hang}pt`,
               drawn.font ? `--word-marker-font: ${cssString(drawn.font)}` : "",
               level.size ? `--word-marker-size: ${level.size}pt` : "",
+              // Word's line is as tall as the marker's font rises (Symbol's bullet above most text), index.css.
+              !level.picture && wordAscent(level.font) !== undefined
+                ? `--word-marker-ascent: ${wordAscent(level.font)}`
+                : "",
               level.color ? `--word-marker-color: ${level.color}` : "",
               level.bold !== undefined ? `--word-marker-weight: ${level.bold ? 700 : 400}` : "",
               level.italic ? "--word-marker-style: italic" : "",
