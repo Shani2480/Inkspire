@@ -7,6 +7,26 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-17
 
+### Smooth page curl in long books; plain Read Mode on a phone; less wasted space; new Android icon; v0.9.0
+
+- **Page curl speed:** in the 593-page Urdu novel the curl ran at a few frames a second on the Pixel. A View
+  Transition snapshots the page by laying out and painting the whole document (1,229 columns, ~7,000 elements) at
+  each turn, and its animations restyled the root. `read-curl.ts` now keeps a copy of the read view in a stage beside
+  it (made shortly after Read Mode opens), scrolled to the turning page, and cuts it with a box turned along the fold;
+  the back of the fold, the shadow strip and the dimming are their own layers. Each frame only changes transforms and
+  opacities, so the graphics card moves layers and nothing is laid out again. Between turns the stage stays with its
+  page turned over (hiding and showing it restyled the copy). The status line's text sits in a contained span so its
+  change does not lay out the read view. On the Pixel the turn's frames are now 8–17 ms (a few up to 42 ms); one
+  frame of about a quarter second remains just after a turn (B19).
+- **Read Mode on a phone,** as plain as Word's reading view: the title bar and the status bar (which counted the
+  editor's pages, B12) are hidden, and the close button too (Edit Document and Back leave Read Mode); the read bar is
+  44 px for the finger, the page number line 24 px.
+- **Space on a phone:** the ribbon's line no longer sits on a card with margins, a border and a shadow; the space
+  around the page is 4 px.
+- **Android icon:** it was Tauri's default. A designed adaptive icon: background (blue to violet, lit from the top
+  left), foreground (a page with lines of text and the AI spark) inside the safe zone, and a monochrome layer for
+  themed icons; legacy square and round PNGs for older Android. SVG masters in `src-tauri/icons/android-src`.
+
 ### Long documents open fast; Read Mode's page curls like paper; Android Back asks before quitting; v0.8.0
 
 - **What was wrong:** a 593-page novel took over a minute of blocked work to open on a slow phone (88 s of long tasks

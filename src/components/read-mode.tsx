@@ -1,4 +1,4 @@
-import { canCurl, type Curl, startCurl } from "@/components/read-curl"
+import { canCurl, type Curl, prepareCurl, startCurl, type Turning } from "@/components/read-curl"
 import { MenuButton, RibbonPopover } from "@/components/ribbon/ribbon-button"
 import { documentName, useDocumentStore } from "@/document/store"
 import {
@@ -276,7 +276,7 @@ export function ReadView({ onHeadings }: { onHeadings: (headings: string[], go: 
   const [pages, setPages] = useState(1)
   const [zoomed, setZoomed] = useState<{ src: string; alt: string } | null>(null)
   const lastTurn = useRef(0)
-  const flipping = useRef<ViewTransition | null>(null)
+  const flipping = useRef<Turning | null>(null)
 
   const measure = useCallback(() => {
     const scroller = scrollerRef.current
@@ -327,6 +327,17 @@ export function ReadView({ onHeadings }: { onHeadings: (headings: string[], go: 
     }
     return () => observer.disconnect()
   }, [measure, html, columnWidth])
+
+  // The page turn's copy of the text, made just after the read view first shows (a long book takes a moment), so the
+  // first turn need not wait for it.
+  useEffect(() => {
+    const scroller = scrollerRef.current
+    if (!scroller) {
+      return
+    }
+    const handle = window.setTimeout(() => prepareCurl(scroller), 300)
+    return () => window.clearTimeout(handle)
+  }, [html, columnWidth, pages])
 
   useEffect(() => {
     const headings = Array.from(bodyRef.current?.querySelectorAll<HTMLElement>("h1, h2, h3") ?? [])
@@ -518,7 +529,9 @@ export function ReadView({ onHeadings }: { onHeadings: (headings: string[], go: 
         </button>
       </div>
       <div className="read-status" aria-live="polite">
-        Page {Math.min(page + 1, pages)} of {pages}
+        <span className="read-status-text">
+          Page {Math.min(page + 1, pages)} of {pages}
+        </span>
       </div>
       {zoomed ? (
         <div className="read-zoom" role="dialog" aria-label="Image" onClick={() => setZoomed(null)}>
@@ -534,7 +547,7 @@ function flipPage(
   scroller: HTMLElement,
   left: number,
   direction: "forward" | "back",
-  flipping: { current: ViewTransition | null },
+  flipping: { current: Turning | null },
 ) {
   if (!canCurl()) {
     scroller.scrollLeft = left
@@ -545,7 +558,7 @@ function flipPage(
 
 type SwipeHelp = {
   pages: () => number
-  flipping: { current: ViewTransition | null }
+  flipping: { current: Turning | null }
   turned: () => void
   turn: (direction: 1 | -1) => void
 }

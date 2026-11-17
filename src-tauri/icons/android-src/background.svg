@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108">
+  <!-- Inkspire's launcher background: deep ink blue to violet, lit from the top left. -->
+  <defs>
+    <linearGradient id="ink" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2B4FE0"/>
+      <stop offset="0.55" stop-color="#2436B8"/>
+      <stop offset="1" stop-color="#3A1E9C"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.22" cy="0.12" r="0.75">
+      <stop offset="0" stop-color="#7FB2FF" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#7FB2FF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="108" height="108" fill="url(#ink)"/>
+  <rect width="108" height="108" fill="url(#glow)"/>
+</svg>

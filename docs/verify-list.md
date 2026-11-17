@@ -384,6 +384,11 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **v0.9.0 on the Pixel and the tablet (2026-11-17)** — the new launcher icon (round, squircle, and themed icons
+      on); Read Mode in the Urdu novel: drag and tap turns, smooth, the copy's text matches the page under it, light,
+      dark and sepia; Read Mode on the phone shows only the read bar, the text and the page number; Back from Read
+      Mode to editing; the narrower margins around the page and the ribbon line.
+
 - [ ] **v0.8.0 on the Pixel (2026-11-17)** — open the 593-page novel: time to the first page and whether the app
       stays usable while it lays out; Read Mode: drag a page from low and from high (the curl from the bottom and top
       corner), let go early (falls back), tap the edge, and check the turn is smooth; Back from Read Mode (to editing),

@@ -9,6 +9,28 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "0.9.0",
+    date: "2026-11-17",
+    notes: [
+      {
+        title: "Smooth page turns in long books",
+        text: "The page curl in Read Mode now runs smoothly even in a long book in a complex script, which turned at a few frames a second before.",
+      },
+      {
+        title: "Read Mode keeps to the text",
+        text: "On a phone, Read Mode now shows just the text, a slim bar with Tools, View and Edit Document above it and the page number below, as Word's reading view does. Back returns to editing.",
+      },
+      {
+        title: "More room for the page",
+        text: "On a phone the borders and margins around the page and the ribbon are thinner, so more of the document fits on the screen.",
+      },
+      {
+        title: "A new icon on Android",
+        text: "Inkspire has a new launcher icon: a page with the AI spark, on deep blue. It follows your wallpaper's colours when themed icons are turned on.",
+      },
+    ],
+  },
+  {
     version: "0.8.0",
     date: "2026-11-17",
     notes: [

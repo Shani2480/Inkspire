@@ -44,7 +44,8 @@ Phases 1 and 2 are approved; phase 3 waits for a go-ahead.
       2026-11-17 (`pathPlace`). Left: a real date modified for content links.
 - [x] B11. (2026-11-17, v0.7.0) Read Mode's page turn follows the finger during a swipe (scrub the View Transition's animations), as a
       book app's page curl does; now it turns once the swipe ends.
-- [ ] B12. The status bar's page count in Read Mode says the editor's pages, not Read Mode's.
+- [x] B12. (2026-11-17, v0.9.0) The status bar's page count in Read Mode said the editor's pages: on a phone Read Mode
+      now hides the status bar and the title bar (Word's reading view), its own page number stays under the text.
 - [x] B13. (2026-11-17, v0.8.0) A long book (593 pages) opened slowly and nearly stalled the app: pagination measured
       every line several times and left thousands of live Ranges; headers and footers measured one by one.
 - [x] B14. (2026-11-17, v0.8.0) Read Mode's page turn folds the page over from its corner like paper (e-reader page
@@ -53,6 +54,13 @@ Phases 1 and 2 are approved; phase 3 waits for a go-ahead.
       and Focus for editing, and asks before Inkspire closes (Save and Quit / Quit Without Saving / Cancel).
 - [ ] B16. Read Mode's page curl: the back of the folded part is plain paper; e-readers show the page's text faintly
       through it.
+- [x] B17. (2026-11-17, v0.9.0) Read Mode's page curl ran at a few frames a second in the Urdu novel: the View
+      Transition laid out and painted the whole book each turn. Now a copy of the read view, cut by a box turned along
+      the fold, moves by transforms only (60–120 fps on the Pixel).
+- [x] B18. (2026-11-17, v0.9.0) Android launcher icon was Tauri's default: a designed adaptive icon (page and AI spark,
+      deep blue), with a themed (monochrome) layer; masters in `src-tauri/icons/android-src`.
+- [ ] B19. After a turn in the novel one frame still takes about a quarter second (style and accessibility update,
+      no script); the turn itself is smooth.
 - [ ] B10. An .odt opened on a phone leaves the cursor in its last table, so the table's toolbar covers the top of
       the page: open with the cursor at the start.
 

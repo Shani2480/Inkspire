@@ -6410,64 +6410,73 @@ html[data-theme="dark"] .drawing-canvas::after {
 }
 
 /*
- * Read Mode page turn (`startCurl` in read-curl.ts). The page on screen is taken as a picture and folded over from its
- * corner like paper; the back of the folded part (`.read-fold`, a sheet of the page's paper) lies mirrored across the
- * fold and casts its shadow on the next page, which waits under it. Going back, the page before comes down unfolding.
- * The shapes are set from script on every move; only the read view moves, the rest of the window stays.
+ * Read Mode page turn (`startCurl` in read-curl.ts). The page that turns is a copy of the read view (`.read-curl`),
+ * cut along the fold by a box turned to lie on it (`.read-curl-cut`, the page turned back inside it); the back of the
+ * folded part (`.read-curl-flap`, a sheet of the page's paper) lies mirrored across the fold, and the page underneath,
+ * the read view itself, is shaded until it is uncovered. Only transforms and opacity change while it turns, so the
+ * graphics card moves the layers and nothing is laid out or painted again.
  */
 .read-scroller {
-  view-transition-name: read-page;
-  /* The picture of the page is opaque, so the page under it does not show through its text. */
+  /* The page under the turning one is opaque, so nothing shows through its text. */
   background: var(--read-bg);
   /* Sideways is the page turn (swipe), not a scroll; up and down still reach the window. */
   touch-action: pan-y;
 }
 
-.read-fold {
-  position: fixed;
-  z-index: 1;
+.read-curl {
+  position: absolute;
+  z-index: 4;
+  overflow: hidden;
   pointer-events: none;
-  view-transition-name: read-fold;
+  /* Laid out and drawn ahead and kept between turns, its page turned over and so cut away (`rest`): never hidden
+     and shown, which restyled the book's copy at each end of a turn. */
+  contain: strict;
+}
+
+.read-curl-dim {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  will-change: opacity;
+}
+
+.read-curl-cut,
+.read-curl-page,
+.read-curl-flap {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.read-curl-cut {
+  overflow: hidden;
+}
+
+/* The turning page's edge throws a soft shadow on the page it uncovers: a strip just past the fold. */
+.read-curl-shade {
+  position: absolute;
+  left: -28px;
+  top: 0;
+  width: 28px;
+  transform-origin: 28px 0;
+  background: linear-gradient(to left, rgb(0 0 0 / 0.22), rgb(0 0 0 / 0));
+  will-change: transform;
+}
+
+.read-curl-copy {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: hidden;
+}
+
+.read-curl-flap {
   /* Paper seen from behind: a little darker toward its far edge, light along the fold where it bends. */
   background-image: linear-gradient(to right, rgb(0 0 0 / 0.1), rgb(255 255 255 / 0.12) 55%, rgb(0 0 0 / 0.04));
-}
-
-/* Only the page is taken as a picture, not the whole window. */
-:root[data-read-flip] {
-  view-transition-name: none;
-}
-
-:root[data-read-flip]::view-transition-group(read-page),
-:root[data-read-flip]::view-transition-group(read-fold) {
-  animation: none;
-}
-
-/* The folded part is seen only over the page, never past its edge; its shadow falls on the pages under it. */
-:root[data-read-flip]::view-transition-group(read-fold) {
-  z-index: 2;
-  clip-path: inset(0);
-  filter: drop-shadow(0 0 14px rgb(0 0 0 / 0.35));
-}
-
-:root[data-read-flip]::view-transition-image-pair(read-page) {
-  isolation: isolate;
-}
-
-:root[data-read-flip]::view-transition-old(read-page),
-:root[data-read-flip]::view-transition-new(read-page),
-:root[data-read-flip]::view-transition-new(read-fold) {
-  animation: none;
-  /* The default cross-fade would show both pages at once. */
-  mix-blend-mode: normal;
-}
-
-:root[data-read-flip]::view-transition-new(read-fold) {
-  transform-origin: 0 0;
-}
-
-:root[data-read-flip="forward"]::view-transition-old(read-page),
-:root[data-read-flip="back"]::view-transition-new(read-page) {
-  z-index: 1;
+  box-shadow: 0 0 16px rgb(0 0 0 / 0.3);
 }
 
 /* A phone turns with a swipe or a tap at the edge: the side buttons give their room to the text. */
@@ -6545,10 +6554,21 @@ html[data-theme="dark"] .drawing-canvas::after {
 
 .read-status {
   flex: none;
+  box-sizing: border-box;
+  height: 28px;
+  line-height: 16px;
   padding: 4px 0 8px;
   text-align: center;
   font-size: 11px;
   color: var(--read-edge);
+}
+
+/* A box of its own size: the page number changing at each turn lays out only this line, not the window and the book in
+   it (a quarter of a second a turn in a long book). Inside the status line, since a flex item cannot be such a box. */
+.read-status-text {
+  display: block;
+  height: 16px;
+  contain: strict;
 }
 
 .read-zoom {
@@ -18671,8 +18691,13 @@ html.dark,
   flex: none;
 }
 
-[data-device="phone"] .ribbon-card {
-  margin: 4px 4px 0;
+/* Every pixel to the text on a phone: the ribbon's line lies flush, not on a card with margins and a shadow. */
+[data-device="phone"] .app-ribbon .ribbon-card {
+  margin: 0;
+  padding-right: 0;
+  border-width: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 [data-device="phone"] .ribbon-layout-toggle {
@@ -18680,7 +18705,26 @@ html.dark,
 }
 
 [data-device="phone"] #document-scroll {
-  padding: 8px 8px 16px;
+  padding: 4px 4px 8px;
+}
+
+/*
+ * Read Mode on a phone, as plain as Word's reading view: the read bar above the text and the page number below it,
+ * nothing else. The title bar's commands are for editing, and the status bar counted the editor's pages.
+ */
+[data-device="phone"] .app-shell[data-layout="read"] .titlebar,
+[data-device="phone"] .app-shell[data-layout="read"] .app-statusbar,
+[data-device="phone"] .read-bar [aria-label="Close Read Mode"] {
+  display: none;
+}
+
+[data-device="phone"] .read-bar {
+  height: 44px;
+}
+
+[data-device="phone"] .read-status {
+  height: 24px;
+  padding: 2px 0 6px;
 }
 
 [data-device="phone"] .page-stage {
