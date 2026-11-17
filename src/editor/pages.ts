@@ -50,7 +50,15 @@ declare module "@tiptap/core" {
 import type { Node as ProseNode } from "@tiptap/pm/model"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view"
-import { createNotesBox, notesHeight, notesIn, noteTextsVersion, type NoteRef } from "@/editor/page-notes"
+import {
+  continuationHtml,
+  createNotesBox,
+  notesHeight,
+  notesIn,
+  notesPartHeights,
+  noteTextsVersion,
+  type NoteRef,
+} from "@/editor/page-notes"
 import { labelsForView } from "@/editor/note-labels"
 import { useNoteSettings } from "@/document/note-settings"
 
@@ -110,6 +118,8 @@ type PageBreak = {
   header?: boolean
   /** The page's footnotes, drawn in the gap `top` px below where it starts: at the foot of the page's text. */
   notes?: { refs: NoteRef[]; top: number }
+  /** A break inside the endnotes, before their paragraph at this index: drawn in the end notes (`createEndNotes`). */
+  endSplit?: number
   /**
    * A break inside a table row (Allow row to break across pages): a gap in each cell that goes on, at the line that
    * starts the next page, the first `keep` px of it still on this page (the cell runs on to the page's foot).
@@ -596,7 +606,10 @@ function decorationsFor(
 ) {
   const decorations: Decoration[] = []
   if (notes && (notes.endnotes.length > 0 || notes.footnotes.length > 0)) {
-    const key = `${notes.top}:${notesKey(notes.footnotes)}:${notesKey(notes.endnotes)}:${noteTextsVersion()}`
+    const splits = notes.splits.map(
+      (split) => `${split.at}/${split.height}/${split.notes ? `${split.notes.top}=${notesKey(split.notes.refs)}` : ""}`,
+    )
+    const key = `${notes.top}:${notesKey(notes.footnotes)}:${notesKey(notes.endnotes)}:${splits.join(",")}:${noteTextsVersion()}`
     decorations.push(
       Decoration.widget(Math.min(notes.at, doc.content.size), () => createEndNotes(notes), {
         side: 2,
@@ -629,6 +642,10 @@ function decorationsFor(
     decorations.push(Decoration.node(span.pos, span.pos + span.size, { class: "section-span" }))
   }
   for (const item of breaks) {
+    if (item.endSplit !== undefined) {
+      // Drawn inside the end notes.
+      continue
+    }
     if (item.cells) {
       for (const cell of item.cells) {
         decorations.push(
@@ -767,7 +784,17 @@ function createEndNotes(notes: Layout["notes"]) {
   end.className = "page-end-notes"
   end.contentEditable = "false"
   if (notes.endnotes.length > 0) {
-    end.append(createNotesBox(notes.endnotes, "endnote"))
+    const box = createNotesBox(notes.endnotes, "endnote")
+    // Where they go on to the next page: the page's end (with its footnotes), then the continuation separator.
+    for (const split of [...notes.splits].reverse()) {
+      const next = box.children[split.at]
+      if (next) {
+        const separator = document.createElement("div")
+        separator.innerHTML = continuationHtml("endnote")
+        next.before(createGap(split.height, false, 0, undefined, split.notes), ...separator.childNodes)
+      }
+    }
+    end.append(box)
   }
   if (notes.footnotes.length > 0) {
     const box = createNotesBox(notes.footnotes, "footnote")
@@ -1095,7 +1122,15 @@ type Layout = {
   columnBreaks: number[]
   contentHeight: number
   /** The document's endnotes, and the last page's footnotes: the room they take and how far below the end they go. */
-  notes: { endnotes: NoteRef[]; footnotes: NoteRef[]; room: number; top: number; at: number }
+  notes: {
+    endnotes: NoteRef[]
+    footnotes: NoteRef[]
+    room: number
+    top: number
+    at: number
+    /** Where the endnotes go on to the next page: before their paragraph `at`, after a gap `height` px tall. */
+    splits: { at: number; height: number; notes?: PageBreak["notes"] }[]
+  }
   pageCount: number
   /** Each page's section key and whether it starts its section (see `PaginationStorage`). */
   /** How many columns the editor is drawn in (the most any section has) and their gap (cm). */
@@ -1317,7 +1352,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
    * Ends the page; `next` is the section the next page is in (a section break starts the next one). `fillAt` is where
    * the columns' filler goes when not at the break: before a page break's mark, which is drawn across the columns.
    */
-  const pushBreak = (pos: number, manual: boolean, next = section, fillAt = pos) => {
+  const pushBreak = (pos: number, manual: boolean, next = section, fillAt = pos, again = false) => {
     if (web) {
       return
     }
@@ -1341,7 +1376,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       noteHeight = pageNotes.length > 0 ? footnoteRoom(pageNotes) : 0
       contentHeight -= noteHeight
     }
-    if (breaks.some((item) => item.pos === pos)) {
+    if (!again && breaks.some((item) => item.pos === pos)) {
       used = 0
       spilled = 0
       section = following
@@ -1972,9 +2007,34 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   let endUsed = -1
   /** Endnotes follow the document's last paragraph, on the page it ends, or start the next if they do not fit. */
   const placeEnd = () => {
-    endnoteHeight = endnotes.length > 0 ? notesHeight(view, endnotes, "endnote") : 0
-    if (endnoteHeight > 0) {
-      place(endAt, endnoteHeight)
+    const parts = endnotes.length > 0 ? notesPartHeights(view, endnotes, "endnote") : []
+    if (web || columnCount > 1 || parts.length < 3) {
+      endnoteHeight = endnotes.length > 0 ? notesHeight(view, endnotes, "endnote") : 0
+      if (endnoteHeight > 0) {
+        place(endAt, endnoteHeight)
+      }
+    } else {
+      // As Word does, they go on to the next page between paragraphs, under its continuation separator; the separator
+      // stays with the first. `endnoteHeight` is then all they take, the gaps between pages too.
+      const first = parts[0]! + parts[1]!
+      place(endAt, first)
+      endnoteHeight = first
+      for (let index = 2; index < parts.length; index += 1) {
+        const height = parts[index]!
+        if (used > 0 && used + height > contentHeight + 1) {
+          const count = breaks.length
+          pushBreak(endAt, false, section, endAt, true)
+          const split = breaks[breaks.length - 1]
+          if (breaks.length > count && split) {
+            split.endSplit = index
+            const separator = notesPartHeights(view, [], "endnote", true).reduce((sum, part) => sum + part, 0)
+            used += separator
+            endnoteHeight += split.height + separator
+          }
+        }
+        used += height
+        endnoteHeight += height
+      }
     }
     endUsed = Math.min(Math.max(used, 0), contentHeight)
   }
@@ -2036,6 +2096,9 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     // The last page's footnotes, from where the document's end (its endnotes) starts.
     top: Math.max(0, Math.round(contentHeight - endUsed + endnoteHeight)),
     at: endAt,
+    splits: breaks.flatMap((item) =>
+      item.endSplit === undefined ? [] : [{ at: item.endSplit, height: item.height, notes: item.notes }],
+    ),
   }
   // The last page's columns are filled from the first too, as Word does (only a continuous break balances them).
   const endFiller =
@@ -2691,7 +2754,9 @@ function measureLines(view: EditorView, dom: HTMLElement) {
   let current = walker.nextNode()
   while (current) {
     const text = current as Text
-    if (text.parentElement?.closest(".line-number, .object-band")) {
+    // Raised or lowered text (a note's reference mark, a superscript) sits above or below its line's top: taken for a
+    // line of its own, it made a paragraph with one 2 to 3 px taller than drawn, and each page with a footnote short.
+    if (text.parentElement?.closest(".line-number, .object-band, sup, sub")) {
       current = walker.nextNode()
       continue
     }

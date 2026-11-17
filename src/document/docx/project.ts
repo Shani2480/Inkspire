@@ -122,6 +122,8 @@ export type WordNoteTexts = {
   footnote: Record<string, string>
   endnote: Record<string, string>
   separator: { footnote?: string; endnote?: string }
+  /** The separator at the top of a page notes go on to from the one before (Word's continuation separator). */
+  continuation?: { footnote?: string; endnote?: string }
 }
 
 type Build = InlineBuild & {
@@ -230,6 +232,13 @@ function noteTexts(doc: WordDocument, body: Projection): WordNoteTexts | undefin
     const separator = part.items.find((item) => item.type === "separator")
     if (separator) {
       texts.separator[kind] = wordLines(blocksToHtml(separator.blocks, projectionFor(noteDoc(separator.blocks))))
+    }
+    const continuation = part.items.find((item) => item.type === "continuationSeparator")
+    if (continuation) {
+      texts.continuation = {
+        ...texts.continuation,
+        [kind]: wordLines(blocksToHtml(continuation.blocks, projectionFor(noteDoc(continuation.blocks)))),
+      }
     }
   }
   return any ? texts : undefined

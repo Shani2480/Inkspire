@@ -7,6 +7,22 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-17
 
+### Endnotes go on to the next page as Word's do; a footnote's reference no longer shortens its page
+
+- **What was wrong:** endnotes that did not fit the last page moved there whole and ran on past the page's foot. And
+  a line with a raised or lowered mark (a note's reference) was measured as two lines, 2 to 3 px taller than drawn:
+  each page with a footnote ended that much short (`f08`'s footnote 2.2 pt high).
+- **What changed:** `editor/pages.ts`: the endnotes are placed paragraph by paragraph (`notesPartHeights` in
+  `page-notes.ts`); one that does not fit starts the next page, after the page's end (and its footnotes) and Word's
+  continuation separator, now read from the document (`continuation` in the note texts) or Word's own full-width
+  rule; the separator stays with the first note. `measureLines` leaves superscripts and subscripts out when finding
+  where lines start.
+- **Checked in Word (VM):** an endnote of 70 paragraphs after a page of text: pages split where Word's do (page 2 to
+  line 65, page 3 from 66; page 1 holds one more line because the text above is 3.8 pt higher than Word's, a known
+  font difference), each continued page under the full-width rule, its first line 1.4 pt from Word's. `f08`: the
+  footnote 0.7 pt from the margin (was 2.2). Screenshot looked at.
+- **Tests:** `docx/word-comparison.test.ts` (the continuation separator).
+
 ### A footnote in a table that runs across pages is on its row's page
 
 - **What was wrong:** a table's footnotes were taken as one block's: they went with the table to the page it ended

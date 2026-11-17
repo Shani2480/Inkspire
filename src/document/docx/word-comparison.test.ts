@@ -41,6 +41,12 @@ describe("footnotes and endnotes", () => {
     expect(view.notes?.separator.footnote).toContain("word-note-separator")
   })
 
+  it("carries each kind's continuation separator, a rule across the text for the pages notes go on to", async () => {
+    const { view } = await open(path.join(AUTHORED, "f08_footnote_endnote.docx"))
+    expect(view.notes?.continuation?.endnote).toContain("word-note-separator-wide")
+    expect(view.notes?.continuation?.footnote).toContain("word-note-separator-wide")
+  })
+
   it("gives the separator's paragraph one of Word's lines, as the editor draws a paragraph's spacing", async () => {
     // Word's separator paragraph says line 240 (single): one line of the font, not one font size.
     const { view } = await open(path.join(AUTHORED, "f08_footnote_endnote.docx"))

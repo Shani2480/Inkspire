@@ -20,6 +20,7 @@ export function setWordNoteTexts(next: WordNoteTexts | undefined) {
   texts = next ?? { footnote: {}, endnote: {}, separator: {} }
   version += 1
   heights.clear()
+  partHeights.clear()
 }
 
 /** Changes whenever other note texts are set, for the paginator's signature. */
@@ -68,6 +69,14 @@ export function notesIn(node: ProseNode, offset: number, labels: Map<number, str
 /** Word's own separator: a paragraph holding a rule a third of a page wide. */
 const DEFAULT_SEPARATOR = `<p class="note-separator-line"><span class="word-note-separator"></span></p>`
 
+/** Word's own continuation separator: a rule across the text, at the top of a page notes go on to. */
+const DEFAULT_CONTINUATION = `<p class="note-separator-line"><span class="word-note-separator word-note-separator-wide"></span></p>`
+
+/** The separator a kind's notes go on under at the top of the next page. */
+export function continuationHtml(kind: "footnote" | "endnote") {
+  return texts.continuation?.[kind] || DEFAULT_CONTINUATION
+}
+
 /** The note area's content: the separator, then each note's text. */
 export function notesHtml(refs: NoteRef[], kind: "footnote" | "endnote") {
   if (refs.length === 0) {
@@ -87,6 +96,48 @@ export function createNotesBox(refs: NoteRef[], kind: "footnote" | "endnote") {
 }
 
 const heights = new Map<string, number>()
+const partHeights = new Map<string, number[]>()
+
+/**
+ * The height of each paragraph of the note area for `refs` (its separator first), drawn in the editor at its text
+ * width: where the area may go on to the next page. With `continuation` the continuation separator's alone.
+ */
+export function notesPartHeights(
+  view: EditorView,
+  refs: NoteRef[],
+  kind: "footnote" | "endnote",
+  continuation = false,
+) {
+  const key = `${kind}:${continuation ? "cont" : ""}:${view.dom.offsetWidth}:${refs.map((ref) => `${ref.key}=${ref.label}`).join(",")}`
+  const known = partHeights.get(key)
+  if (known) {
+    return known
+  }
+  const box = createNotesBox(refs, kind)
+  if (continuation) {
+    box.innerHTML = continuationHtml(kind)
+  }
+  box.style.position = "absolute"
+  box.style.visibility = "hidden"
+  box.style.left = "0"
+  box.style.right = "0"
+  const observer = (view as EditorView & { domObserver?: { stop: () => void; start: () => void } }).domObserver
+  observer?.stop()
+  try {
+    view.dom.append(box)
+    const zoom = Math.max(0.01, zoomOf(view))
+    const frame = box.getBoundingClientRect()
+    const bottom = frame.bottom
+    // The first part from the area's own top, so the parts add up to the whole area.
+    const tops = [...box.children].map((child, index) => (index === 0 ? frame.top : child.getBoundingClientRect().top))
+    const parts = tops.map((top, index) => ((tops[index + 1] ?? bottom) - top) / zoom)
+    partHeights.set(key, parts)
+    return parts
+  } finally {
+    box.remove()
+    observer?.start()
+  }
+}
 
 /** How tall the note area for `refs` is, drawn in the editor at its text width. */
 export function notesHeight(view: EditorView, refs: NoteRef[], kind: "footnote" | "endnote") {
