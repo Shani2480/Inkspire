@@ -36,16 +36,16 @@ Phases 1 and 2 are approved; phase 3 waits for a go-ahead.
 
 - [x] B1. (2026-11-17) Print and Save as PDF through Android's print service (`PrintManager` with the WebView's print adapter).
 - [x] B2. (2026-11-17; Email as Attachment is the same share sheet) Share > Email (and Share a copy) through the Android share sheet (`ACTION_SEND`, the declared FileProvider).
-- [x] B3. (2026-11-17, v0.10.0; device check pending) System fonts on Android: the named families and aliases of
+- [x] B3. (2026-11-17, v0.10.0; checked on the Pixel) System fonts on Android: the named families and aliases of
       `/system/etc/font_fallback.xml` / `fonts.xml` (`android_font_names` in `lib.rs`), as there is no `fc-list`.
-- [x] B4. (2026-11-17, v0.10.0; device check pending) Rename a picked document in its place
+- [x] B4. (2026-11-17, v0.10.0; checked on the Pixel) Rename a picked document in its place
       (`DocumentsContract.renameDocument`, `androidRename`); where the place does not rename, it says to use Save As.
       Import/export of customizations already read and write content links.
 - [x] B5. (2026-11-17; `document/odt.ts`; saving .odt and .rtf still needs the desktop) Open .rtf and .odt without pandoc (in JS); .doc says plainly that it needs a desktop.
 - [x] B6. (2026-11-17) "Open with Inkspire" from Files and Gmail: intent filters for .docx, .dotx, .rtf, .odt, .txt, .md.
 - [x] B7. (2026-11-17; Reveal was hidden already, the tools and local model report themselves unsupported) Hide what has no Android counterpart: Reveal in folder, Edit in Cells, the helper-tools download, the
       desktop-only local model.
-- [x] B8. (2026-11-17, v0.10.0; device check pending) Save As goes through MainActivity's picker
+- [x] B8. (2026-11-17, v0.10.0; checked on the Pixel) Save As goes through MainActivity's picker
       (`ACTION_CREATE_DOCUMENT`, `pickAndroidNewDocument`) and keeps read and write access across restarts, as Open.
 - [x] B9. Recent shows where a document is ("Phone storage", "Downloads") rather than its content link (2026-11-17,
       `pathPlace`), and its real date modified (v0.10.0; `modified-dates.ts`: the file's date on the desktop,

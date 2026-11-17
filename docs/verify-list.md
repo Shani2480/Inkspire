@@ -384,14 +384,18 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
-- [ ] **v0.10.0 on the tablet (and the Pixel when back) (2026-11-17)** — Font list shows the system's fonts (sans-serif, serif,
+- [x] **v0.10.0 on the Pixel (2026-11-17)** — checked by the user: the font list shows the system's fonts; Save
+      As, then reopened from Recent after a restart and saved again; rename from the title; Design > Page Borders at
+      full size; a tapped table of contents' Update Table tab; dates in Recent. Left below: the cursor at the top
+      after opening a .docx ending in a table, the picture toolbar in Read Mode, the tablet, and Linux's dates.
+- [ ] **v0.10.0 on the tablet (2026-11-17)** — Font list shows the system's fonts (sans-serif, serif,
       monospace, arial, times …) and they draw; Save As a new .docx in Documents, close Inkspire, reopen it from
       Recent and save again; rename an opened document from the title (in Documents: renamed; from Downloads or a
       mail attachment: the message); open a .docx that ends in a table: the cursor is at the top, no table toolbar;
       select a picture, Read Mode: no picture toolbar over the text; File > Home and Open > Recent show each
       document's date modified (also on Linux: today a time, this year a day and month, before a full date);
       Design > Page Borders fits the phone at full size; tap a table of contents: Update Table under it, tap it.
-- [ ] **v0.9.1 on the Pixel and the tablet (2026-11-17)** — hold a finger on a word: it is selected and Android's
+- [x] **v0.9.1 on the Pixel (2026-11-17, checked with v0.10.0)** — hold a finger on a word: it is selected and Android's
       Cut / Copy / Paste bar shows, not Inkspire's menu; with a mouse on Linux, right-click still opens the menu.
 - [ ] **v0.9.0 on the Pixel and the tablet (2026-11-17)** — the new launcher icon (round, squircle, and themed icons
       on); Read Mode in the Urdu novel: drag and tap turns, smooth, the copy's text matches the page under it, light,
