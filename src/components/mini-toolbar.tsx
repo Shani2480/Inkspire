@@ -34,6 +34,8 @@ import { CellSelection } from "@tiptap/pm/tables"
 import { useEditorState } from "@tiptap/react"
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
+import { Baseline } from "lucide-react"
+import { PopupChip, useTouchPopups } from "@/components/popup-chip"
 
 type MenuName = "font" | "size" | "highlight" | "color"
 
@@ -48,10 +50,11 @@ function bodyLabel(bodyFont: string) {
 
 export function MiniToolbar({ editor }: { editor: Editor }) {
   const show = useEditingOptions((state) => state.miniToolbar)
-  return show ? <MiniToolbarBody editor={editor} /> : null
+  const touch = useTouchPopups()
+  return show && touch !== "off" ? <MiniToolbarBody editor={editor} behindButton={touch === "button"} /> : null
 }
 
-function MiniToolbarBody({ editor }: { editor: Editor }) {
+function MiniToolbarBody({ editor, behindButton }: { editor: Editor; behindButton: boolean }) {
   const marks = useActiveMarks(editor)
   const themeBody = bodyLabel(useDocumentStore((state) => state.pageSetup.bodyFont))
   const styleFont = useStyleFont(marks)
@@ -61,6 +64,8 @@ function MiniToolbarBody({ editor }: { editor: Editor }) {
   const [highlight, setHighlight] = useState("#fff2cc")
   const [color, setColor] = useState("#d13438")
   const rootRef = useRef<HTMLDivElement>(null)
+  // On a touch screen it waits behind a button until that is tapped, once per selection.
+  const [opened, setOpened] = useState(false)
 
   const collapsed = useEditorState({
     editor,
@@ -138,6 +143,12 @@ function MiniToolbarBody({ editor }: { editor: Editor }) {
 
   useEffect(() => {
     if (!point) {
+      setOpened(false)
+    }
+  }, [point])
+
+  useEffect(() => {
+    if (!point) {
       return
     }
     const onPointerDown = (event: PointerEvent) => {
@@ -212,6 +223,21 @@ function MiniToolbarBody({ editor }: { editor: Editor }) {
 
   function toggleMenu(name: MenuName) {
     setMenu((current) => (current === name ? null : name))
+  }
+
+  if (behindButton && !opened) {
+    const bounds = selectionBounds() ?? new DOMRect(point.x, point.y, 0, 0)
+    return createPortal(
+      <div ref={rootRef} className="contents">
+        <PopupChip
+          label="Formatting"
+          icon={<Baseline className="size-5" strokeWidth={1.75} />}
+          anchor={bounds}
+          onOpen={() => setOpened(true)}
+        />
+      </div>,
+      document.body,
+    )
   }
 
   return createPortal(

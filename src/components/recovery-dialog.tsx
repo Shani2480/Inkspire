@@ -115,6 +115,8 @@ export function RecoveryDialog() {
         type="button"
         className="flex w-full items-start gap-2 border-b border-[var(--app-divider)] px-3 py-2.5 text-left hover:bg-[var(--app-hover)]"
         aria-expanded={open}
+        // On a phone a swipe down on the sheet folds it to its heading.
+        data-sheet-close
         onClick={() => setOpen((value) => !value)}
       >
         <FileClock className="mt-0.5 size-4 shrink-0 text-[var(--app-theme-primary,#0f6cbd)]" strokeWidth={2} />

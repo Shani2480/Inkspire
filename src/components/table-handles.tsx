@@ -16,6 +16,8 @@ import type { Editor } from "@tiptap/core"
 import { useEditorState } from "@tiptap/react"
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react"
 import { createPortal } from "react-dom"
+import { Grid2x2 } from "lucide-react"
+import { PopupChip, useTouchPopups } from "@/components/popup-chip"
 
 const GAP_HIT = 12
 const INSERT_CLEARANCE = 16
@@ -131,6 +133,15 @@ export function TableHandles({ editor }: { editor: Editor | null }) {
   const [toolbarLimit, setToolbarLimit] = useState(0)
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth)
   gridRef.current = grid
+  // On a touch screen the table's toolbar waits behind a button until it is tapped, while the cursor stays in the table.
+  const touch = useTouchPopups()
+  const [toolbarOpened, setToolbarOpened] = useState(false)
+  const inTable = grid !== null
+  useEffect(() => {
+    if (!inTable) {
+      setToolbarOpened(false)
+    }
+  }, [inTable])
 
   useLayoutEffect(() => {
     const node = toolbarRef.current
@@ -253,12 +264,28 @@ export function TableHandles({ editor }: { editor: Editor | null }) {
 
   return createPortal(
     <>
-      <TableToolbar
-        editor={editor}
-        barRef={toolbarRef}
-        menusUp={menusUp}
-        style={{ left: toolbarLeft, top: toolbarTop, maxWidth: toolbarLimit || undefined }}
-      />
+      {touch === "show" || (touch === "button" && toolbarOpened) ? (
+        <TableToolbar
+          editor={editor}
+          barRef={toolbarRef}
+          menusUp={menusUp}
+          style={{ left: toolbarLeft, top: toolbarTop, maxWidth: toolbarLimit || undefined }}
+        />
+      ) : touch === "button" ? (
+        <PopupChip
+          label="Table tools"
+          icon={<Grid2x2 className="size-5" strokeWidth={1.75} />}
+          // At the table's top right corner, just above it.
+          anchor={{
+            left: grid.table.right,
+            right: grid.table.right - 8,
+            top: grid.table.top,
+            bottom: grid.table.top - 48,
+          }}
+          below={0}
+          onOpen={() => setToolbarOpened(true)}
+        />
+      ) : null}
       <button
         type="button"
         aria-label="Select table"

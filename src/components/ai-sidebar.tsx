@@ -91,6 +91,7 @@ export function AiSidebar() {
         <button
           type="button"
           className="rounded px-2 py-1 text-[12px] text-[#444] hover:bg-[#f3f3f3] dark:text-[#e1dfdd] dark:hover:bg-white/10"
+          data-sheet-close
           onClick={() => setOpen(false)}
         >
           Close

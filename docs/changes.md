@@ -7,6 +7,37 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-17
 
+### Read Mode fast, with a page turn; phone controls a finger's size; popups behind a button on touch; v0.6.0
+
+- **What was wrong:** Read Mode took 5.2 s to open a 400-paragraph document on a phone-speed CPU and turned at about
+  5 frames a second (one frame of 0.9 s). The document was written out as HTML (`getHTML`) on every render and every
+  transaction (the selector ran `getHTML` and compared by deep equality), each time through a scratch document whose
+  nodes had to be moved over; a turn smooth-scrolled the whole strip of columns. On a phone, the title bar, ribbon,
+  tabs and status bar were 22–36 px with 14 px icons, the Quick Access buttons ran under the document's name, a pane
+  could only be closed by its small button, and selecting text or tapping in a table put a toolbar over the page.
+- **What changed:**
+  - `read-mode.tsx`: the text is written once per change of the document, straight into the page
+    (`DOMSerializer` into this document). A turn jumps the columns to the next page under a View Transition: the old
+    page, as a picture, turns over on its left edge onto the next, shaded (`index.css`, "Read Mode page turn"); back,
+    the page before comes down over it. Reduced motion, or no View Transitions, turns at once. On a phone: swipe or tap
+    near an edge to turn; the side buttons give their room to the text, which gets 16 px margins.
+  - `index.css`: on a phone every control is at least 44 px (title bar 52 px, ribbon row 56 px, tabs and menu rows
+    44 px, status bar 36 px, icons 20–24 px); the title bar keeps Save, Undo and Redo; sheets have a handle.
+  - `lib/sheet-swipe.ts`: a sheet follows a finger dragged down from its top and closes past 30% (or a flick)
+    through the pane's own close button.
+  - `popup-chip.tsx`, `mini-toolbar.tsx`, `table-handles.tsx`: on a touch screen the Mini Toolbar and the table's
+    toolbar wait behind a round button by the selection or the table; File > Options > General "On a touch screen,
+    show the Mini Toolbar and table toolbar": Behind a button (default), Show right away, Never. On a phone the
+    table's toolbar wraps to two rows instead of running off the screen.
+  - Version 0.6.0 with its release notes.
+- **Checked:** in Chrome as a phone (412 x 915) with the CPU slowed 4x: Read Mode opens in 1.8 s (was 5.2 s) and turns
+  at about 53 frames a second (was 5); stills of a slowed turn forward and back show the leaf turning between the bars.
+  The selection button opens the Mini Toolbar, the table button the table's toolbar (two rows, on screen). Navigation
+  as a sheet follows the finger and closes on a swipe down. Title bar: Save, Undo, Redo. Tests: `sheet-swipe.test.ts`;
+  `read-mode.test.tsx` given a real schema.
+- **Open:** on the Pixel itself (next-todo); the page turn does not follow the finger during a swipe (it turns once
+  the swipe ends).
+
 ### Android: print, PDF, share, "Open with Inkspire", .odt without pandoc; v0.5.0
 
 - **What was wrong:** on Android, Print did nothing (the WebView has no print dialog, and `window.print()` returns

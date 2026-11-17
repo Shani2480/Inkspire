@@ -6,6 +6,11 @@ const KEY = "aiword.editing-options"
 export type EditingOptions = {
   /** Show the Mini Toolbar when text is selected. */
   miniToolbar: boolean
+  /**
+   * On a touch screen, how the Mini Toolbar and the table's toolbar appear: behind a small button by the selection
+   * ("button"), at once ("show"), or not at all ("off"); the ribbon has every command either way.
+   */
+  touchPopups: string
   /** Show a command's result on the document while the pointer is over its choice. */
   livePreview: boolean
   /** Spelling: leave out words in capitals, words with digits, and Internet and file addresses. */
@@ -75,6 +80,7 @@ export type EditingOptions = {
 
 export const EDITING_DEFAULTS: EditingOptions = {
   miniToolbar: true,
+  touchPopups: "button",
   livePreview: true,
   ignoreUppercase: true,
   ignoreNumbers: true,
@@ -121,6 +127,12 @@ export const EDITING_DEFAULTS: EditingOptions = {
   draftFontName: "Courier New",
   draftFontSize: 10,
 }
+
+export const TOUCH_POPUP_CHOICES = [
+  { id: "button", label: "Behind a button" },
+  { id: "show", label: "Show right away" },
+  { id: "off", label: "Never" },
+]
 
 export const PASTE_CHOICES = [
   { id: "keep", label: "Keep Source Formatting" },

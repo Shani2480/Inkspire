@@ -1,9 +1,16 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { getSchema } from "@tiptap/core"
+import { DOMParser as ProseParser } from "@tiptap/pm/model"
+import StarterKit from "@tiptap/starter-kit"
 
+const schema = getSchema([StarterKit])
+const source = document.createElement("div")
+source.innerHTML = "<h1>Title</h1><p>Body</p>"
 const editor = {
+  schema,
   getHTML: () => "<h1>Title</h1><p>Body</p>",
-  state: { doc: { textContent: "Title Body" } },
+  state: { doc: ProseParser.fromSchema(schema).parse(source) },
   on: () => undefined,
   off: () => undefined,
 }

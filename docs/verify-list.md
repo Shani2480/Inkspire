@@ -384,6 +384,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **Phone touch (2026-11-17)** — on the Pixel: Read Mode's page turn by swipe and edge tap in a long document
+      (smooth?); select text, tap the round button, format; tap in a table, open its tools; swipe a pane down.
 - [ ] **Android print, share, open with (2026-11-17)** — print a page to a real printer; save a PDF and open it;
       share a document into Gmail and open the attachment; open a .docx from Gmail with "Open with Inkspire" and save
       it back (a one-time grant may not allow saving there: Save As should then be offered).

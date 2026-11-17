@@ -13,6 +13,7 @@ import { useViewStore, type ReadColumnWidth, type ReadLayout, type ReadPageColor
 import { useBodyEditor } from "@/editor/document-editor"
 import { useEditorState } from "@tiptap/react"
 import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Pencil, Search, X } from "lucide-react"
+import { DOMSerializer } from "@tiptap/pm/model"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 
 const WIDTH_CHOICES: { id: ReadColumnWidth; label: string }[] = [
@@ -252,16 +253,30 @@ export function ReadView({ onHeadings }: { onHeadings: (headings: string[], go: 
   const columnWidth = useViewStore((state) => state.readColumnWidth)
   const pageColor = useViewStore((state) => state.readPageColor)
   const setLayoutMode = useViewStore((state) => state.setLayoutMode)
-  const html = useEditorState({
+  // The text is written out once per change of the document, not on every transaction (a selection, a decoration):
+  // writing out a long document is the slowest thing Read Mode does.
+  const doc = useEditorState({
     editor,
-    selector: ({ editor: current }) => current?.getHTML() ?? "",
+    selector: ({ editor: current }) => current?.state.doc ?? null,
+    equalityFn: (a, b) => a === b,
   })
+  // Written straight into this page's DOM: a string, or nodes built in another document and moved over, took seconds
+  // for a long document on a phone.
+  useLayoutEffect(() => {
+    const body = bodyRef.current
+    if (body && editor && doc) {
+      body.replaceChildren(DOMSerializer.fromSchema(editor.schema).serializeFragment(doc.content, { document }))
+    }
+  }, [editor, doc])
+  const html = doc
   const scrollerRef = useRef<HTMLDivElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
   const [page, setPage] = useState(0)
   const [pages, setPages] = useState(1)
   const [zoomed, setZoomed] = useState<{ src: string; alt: string } | null>(null)
   const lastTurn = useRef(0)
+  const flipping = useRef<ViewTransition | null>(null)
+  const swipe = useRef<{ x: number; y: number; id: number } | null>(null)
 
   const measure = useCallback(() => {
     const scroller = scrollerRef.current
@@ -280,7 +295,12 @@ export function ReadView({ onHeadings }: { onHeadings: (headings: string[], go: 
     }
     const last = readPageCount(bodyRef.current?.scrollWidth ?? scroller.scrollWidth, scroller.clientWidth) - 1
     const target = Math.max(0, Math.min(last, next))
-    scroller.scrollTo({ left: target * readPageStep(scroller.clientWidth), behavior: "smooth" })
+    const from = readPageAt(scroller.scrollLeft, scroller.clientWidth)
+    const left = target * readPageStep(scroller.clientWidth)
+    if (target === from) {
+      return
+    }
+    flipPage(scroller, left, target > from ? "forward" : "back", flipping)
   }, [])
 
   const turn = useCallback(
@@ -444,19 +464,50 @@ export function ReadView({ onHeadings }: { onHeadings: (headings: string[], go: 
           aria-label="Document, read only"
           onScroll={measure}
           onWheel={onWheel}
+          onPointerDown={(event) => {
+            if (event.pointerType !== "mouse") {
+              swipe.current = { x: event.clientX, y: event.clientY, id: event.pointerId }
+            }
+          }}
+          onPointerUp={(event) => {
+            const start = swipe.current
+            swipe.current = null
+            if (!start || start.id !== event.pointerId) {
+              return
+            }
+            // A finger's swipe sideways turns the page, as in a book: right to left is the next.
+            const dx = event.clientX - start.x
+            const dy = event.clientY - start.y
+            if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.2) {
+              lastTurn.current = performance.now()
+              turn(dx < 0 ? 1 : -1)
+            }
+          }}
+          onPointerCancel={() => {
+            swipe.current = null
+          }}
           onClick={(event) => {
             const target = event.target as HTMLElement
             if (target instanceof HTMLImageElement) {
               setZoomed({ src: target.currentSrc || target.src, alt: target.alt })
+              return
+            }
+            // A tap near either edge of a touch screen turns the page too; a swipe that just turned it is not a tap.
+            const touch = (event.nativeEvent as PointerEvent).pointerType === "touch"
+            const scroller = scrollerRef.current
+            if (!touch || !scroller || target.closest("a") || performance.now() - lastTurn.current < 400) {
+              return
+            }
+            const box = scroller.getBoundingClientRect()
+            const at = (event.clientX - box.left) / box.width
+            if (at < 0.22) {
+              turn(-1)
+            } else if (at > 0.78) {
+              turn(1)
             }
           }}
         >
-          <div
-            ref={bodyRef}
-            className="read-body page-editor"
-            style={{ columnWidth: colWidth, columnGap: gap }}
-            dangerouslySetInnerHTML={{ __html: html ?? "" }}
-          />
+          <div ref={bodyRef} className="read-body page-editor" style={{ columnWidth: colWidth, columnGap: gap }} />
           {/* The last page is a whole screen even when its columns do not fill it, so it never shows the one before. */}
           <span
             aria-hidden
@@ -484,4 +535,39 @@ export function ReadView({ onHeadings }: { onHeadings: (headings: string[], go: 
       ) : null}
     </div>
   )
+}
+
+/**
+ * Turns to the page at `left`. Where the browser can (View Transitions), the page on screen is lifted off as a picture
+ * and turned over like a sheet of paper onto the next (`index.css`, "Read Mode page turn"), on the graphics card: the
+ * columns underneath jump straight to the new page, so a long document turns as fast as a short one. Without it, or
+ * with reduced motion, the page changes at once.
+ */
+function flipPage(
+  scroller: HTMLElement,
+  left: number,
+  direction: "forward" | "back",
+  flipping: { current: ViewTransition | null },
+) {
+  const start = (document as Document & { startViewTransition?: (update: () => void) => ViewTransition })
+    .startViewTransition
+  const reduce = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches
+  if (!start || reduce) {
+    scroller.scrollLeft = left
+    return
+  }
+  // A turn while one is on its way finishes that one at once.
+  flipping.current?.skipTransition()
+  const root = document.documentElement
+  root.dataset.readFlip = direction
+  const transition = start.call(document, () => {
+    scroller.scrollLeft = left
+  })
+  flipping.current = transition
+  void transition.finished.finally(() => {
+    if (flipping.current === transition) {
+      flipping.current = null
+      delete root.dataset.readFlip
+    }
+  })
 }

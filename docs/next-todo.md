@@ -42,6 +42,9 @@ Phases 1 and 2 are approved; phase 3 waits for a go-ahead.
 - [ ] B8. Save As keeps its access across restarts, as Open's does.
 - [ ] B9. Recent shows where a document is ("Phone storage", "Downloads") rather than its content link. Done
       2026-11-17 (`pathPlace`). Left: a real date modified for content links.
+- [ ] B11. Read Mode's page turn follows the finger during a swipe (scrub the View Transition's animations), as a
+      book app's page curl does; now it turns once the swipe ends.
+- [ ] B12. The status bar's page count in Read Mode says the editor's pages, not Read Mode's.
 - [ ] B10. An .odt opened on a phone leaves the cursor in its last table, so the table's toolbar covers the top of
       the page: open with the cursor at the start.
 

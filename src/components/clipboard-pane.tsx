@@ -57,6 +57,7 @@ export function ClipboardPane() {
         <button
           type="button"
           className="text-[12px] text-[#595959] hover:text-[#242424]"
+          data-sheet-close
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => setOpen(false)}
         >

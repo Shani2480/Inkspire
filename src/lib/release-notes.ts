@@ -9,6 +9,24 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "0.6.0",
+    date: "2026-11-17",
+    notes: [
+      {
+        title: "Read Mode turns pages like a book",
+        text: "Each page now turns over like a sheet of paper. On a phone, swipe or tap near the edge to turn. Read Mode also opens and turns much faster in long documents.",
+      },
+      {
+        title: "Easier to tap on a phone",
+        text: "The buttons, tabs and menus on a phone are bigger. The title bar keeps Save, Undo and Redo. Side panes have a handle: swipe them down to close.",
+      },
+      {
+        title: "Fewer popups on touch screens",
+        text: "Selecting text or tapping in a table no longer covers the page with a toolbar. A small round button appears instead; tap it for the formatting or table tools. File > Options > General lets you show them right away or never.",
+      },
+    ],
+  },
+  {
     version: "0.5.0",
     date: "2026-11-17",
     notes: [

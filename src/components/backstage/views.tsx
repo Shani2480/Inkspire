@@ -48,6 +48,7 @@ import {
   DRAFT_FONT_NAMES,
   DRAFT_FONT_SIZES,
   FIELD_SHADING_CHOICES,
+  TOUCH_POPUP_CHOICES,
   PASTE_CHOICES,
   RECOVERY_CHOICES,
   useEditingOptions,
@@ -1300,6 +1301,19 @@ export function OptionsPages({ initialPage = "general" }: { initialPage?: Option
                 onChange={(event) => useEditingOptions.getState().set({ miniToolbar: event.target.checked })}
               />{" "}
               Show Mini Toolbar on selection
+            </label>
+            <label className="backstage-prop-edit">
+              <span>On a touch screen, show the Mini Toolbar and table toolbar</span>
+              <select
+                value={editing.touchPopups}
+                onChange={(event) => editing.set({ touchPopups: event.target.value })}
+              >
+                {TOUCH_POPUP_CHOICES.map((choice) => (
+                  <option key={choice.id} value={choice.id}>
+                    {choice.label}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="backstage-check">
               <input
