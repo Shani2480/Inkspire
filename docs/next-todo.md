@@ -192,6 +192,8 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
       (Openverse public-domain photos; Images tab only).
 - [ ] U30. Draw: Eraser, Lasso Select, pen gallery and Add Pen, Ink to Shape, Ink Replay, Ruler, ink anywhere on the
       page.
+      Part 1 done 2026-11-17 (pen gallery, Add Pen, Eraser, Lasso Select, Ruler). Left: ink anywhere on the page,
+      Ink to Shape, Ink Replay, Point Eraser. Lower priority now: core Word work is tested first (2026-11-17).
 - [ ] U31. Custom Watermark dialog (picture, font, size, colour, layout, semitransparent); Hyphenation Manual and
       Options.
 - [ ] U32. Equation: Professional / Linear / Normal Text; Header & Footer: Document Info, Header/Footer Position,

@@ -384,6 +384,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **Draw tools with a pen or touch (2026-11-17)** — the pen gallery, Eraser, Lasso Select and Ruler with a real
+      stylus or finger (checked with a mouse in Chrome only); pressure shows in pen strokes.
 - [ ] **Stock Images in the desktop app** — the dialog finds and inserts photos (the content policy now lists
       api.openverse.org, live.staticflickr.com and upload.wikimedia.org; tried only in Chrome).
 - [ ] **Optional fonts in the desktop app (2026-11-16)** — Options > Fonts > Download in the Tauri build (CSP: raw

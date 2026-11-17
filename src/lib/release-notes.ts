@@ -9,6 +9,28 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "0.3.0",
+    date: "2026-11-17",
+    notes: [
+      {
+        title: "Draw like in Word",
+        text: "The Draw tab has Word's pen gallery: pens, a pencil and a highlighter, each with its own colour and thickness. Click a chosen pen again to change it, or use Add Pen for more.",
+      },
+      {
+        title: "Eraser and Lasso Select",
+        text: "Wipe the Eraser over ink to remove strokes. Circle strokes with Lasso Select, then drag them somewhere else or press Delete.",
+      },
+      {
+        title: "Ruler",
+        text: "Draw > Ruler lays a ruler on the drawing canvas. Ink drawn along its edge comes out straight; drag it to move it, and turn it with the mouse wheel.",
+      },
+      {
+        title: "Fixes",
+        text: "A drawing canvas stays white in dark mode, like the page, and drawings saved for Word no longer carry the canvas's frame.",
+      },
+    ],
+  },
+  {
     version: "0.2.0",
     date: "2026-11-17",
     notes: [

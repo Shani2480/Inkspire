@@ -5920,10 +5920,11 @@ body,
   user-select: none;
 }
 
+/* The canvas is part of the page, which stays white in dark mode, as Word's. */
 html.dark .drawing-canvas,
 html[data-theme="dark"] .drawing-canvas {
-  border-color: #3b3a39;
-  background: #292929;
+  border-color: #8a8a8a;
+  background: #fff;
 }
 
 .drawing-canvas.ProseMirror-selectednode {
@@ -5944,6 +5945,213 @@ html[data-theme="dark"] .drawing-canvas {
 
 .drawing-canvas[data-tool="highlighter"] svg {
   cursor: cell;
+}
+
+/* Draw > the pens: Word's gallery of pens, each with its colour and a bar for its thickness. */
+.draw-pens {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 0 2px;
+}
+
+.draw-pen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  width: 30px;
+  min-height: 62px;
+  padding: 4px 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--app-ribbon-text, #242424);
+  cursor: pointer;
+}
+
+.draw-pen:hover {
+  background: var(--app-hover);
+}
+
+.draw-pen.is-active {
+  border-color: var(--app-ribbon-border, #c8c6c4);
+  background: var(--app-active, rgb(0 0 0 / 0.08));
+}
+
+.draw-pen-width {
+  display: block;
+  width: 18px;
+  border-radius: 2px;
+  outline: 1px solid rgb(0 0 0 / 0.15);
+}
+
+.draw-pen-glyph-small svg {
+  width: 12px;
+  height: 20px;
+}
+
+.draw-pen-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 196px;
+}
+
+.draw-pen-menu-heading {
+  padding: 2px 4px 0;
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.draw-pen-sizes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.draw-pen-size {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.draw-pen-size span {
+  display: block;
+  border-radius: 50%;
+  outline: 1px solid rgb(0 0 0 / 0.15);
+}
+
+.draw-pen-size:hover,
+.draw-pen-color:hover {
+  background-color: var(--app-hover);
+}
+
+.draw-pen-size.is-active {
+  border-color: #0f6cbd;
+}
+
+.draw-pen-colors {
+  display: grid;
+  grid-template-columns: repeat(8, 20px);
+  gap: 4px;
+  padding: 0 2px;
+}
+
+.draw-pen-color {
+  width: 20px;
+  height: 20px;
+  border: 1px solid rgb(0 0 0 / 0.25);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.draw-pen-color.is-active {
+  box-shadow:
+    0 0 0 2px var(--app-popover-bg, #fff),
+    0 0 0 3.5px #0f6cbd;
+}
+
+.drawing-canvas[data-tool="pencil"] svg {
+  cursor: crosshair;
+}
+
+/* The eraser's round tip, as Word's. */
+.drawing-canvas[data-tool="eraser"] svg {
+  cursor:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Ccircle cx='8' cy='8' r='6' fill='white' stroke='%23444' stroke-width='1.5'/%3E%3C/svg%3E")
+      8 8,
+    cell;
+}
+
+.drawing-canvas[data-tool="lasso"] svg {
+  cursor: crosshair;
+}
+
+/* Lasso Select: the loop being drawn, and the dashed frame round the strokes it holds (drag inside it to move them). */
+.drawing-canvas .ink-lasso-line {
+  fill: rgb(15 108 189 / 0.06);
+  stroke: #0f6cbd;
+  stroke-dasharray: 4 3;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.drawing-canvas .ink-lasso-frame {
+  fill: none;
+  stroke: #0f6cbd;
+  stroke-dasharray: 4 3;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.drawing-canvas[data-tool="lasso"] .ink-lasso-frame {
+  cursor: move;
+}
+
+.is-print-copy .drawing-canvas .ink-ruler,
+.is-print-copy .drawing-canvas .ink-lasso-line,
+.is-print-copy .drawing-canvas .ink-lasso-frame {
+  display: none;
+}
+
+@media print {
+  .drawing-canvas .ink-ruler,
+  .drawing-canvas .ink-lasso-line,
+  .drawing-canvas .ink-lasso-frame {
+    display: none;
+  }
+}
+
+/* Word's Ruler: a light, see-through rule with ticks; drag it to move it, the mouse wheel turns it. */
+.drawing-canvas .ink-ruler {
+  cursor: grab;
+}
+
+.drawing-canvas .ink-ruler-body {
+  fill: rgb(240 240 240 / 0.85);
+  stroke: #8a8a8a;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.drawing-canvas .ink-ruler-tick {
+  stroke: #605e5c;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.drawing-canvas .ink-ruler-angle {
+  fill: #323130;
+  font:
+    600 11px "Segoe UI",
+    system-ui,
+    sans-serif;
+  text-anchor: middle;
+  user-select: none;
+}
+
+html.dark .drawing-canvas .ink-ruler-body,
+html[data-theme="dark"] .drawing-canvas .ink-ruler-body {
+  fill: rgb(60 60 60 / 0.85);
+  stroke: #8a8886;
+}
+
+html.dark .drawing-canvas .ink-ruler-tick,
+html[data-theme="dark"] .drawing-canvas .ink-ruler-tick {
+  stroke: #c8c6c4;
+}
+
+html.dark .drawing-canvas .ink-ruler-angle,
+html[data-theme="dark"] .drawing-canvas .ink-ruler-angle {
+  fill: #f3f2f1;
 }
 
 .drawing-canvas::after {

@@ -7,6 +7,33 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-17
 
+### Draw: pen gallery, Add Pen, Eraser, Lasso Select and Ruler (U30, part 1); v0.3.0
+
+- **What was missing:** the Draw tab had one pen, one highlighter, a width field and colour swatches; no eraser,
+  lasso or ruler.
+- **What changed:**
+  - **Pens** (`ribbon/draw-pens.tsx`, `editor/drawing.ts`): Word's gallery (a black pen, a red pen, a pencil, a yellow
+    highlighter), each drawn in its colour with a bar for its thickness; a click chooses a pen, a click on the chosen
+    pen opens its menu (Word's thicknesses, 16 colours, Remove Pen); **Add Pen** adds a pen, pencil or highlighter.
+    The pens are remembered. The pencil draws an even, slightly lighter line. "Pen" and "Highlighter" from the object
+    bar and menus still mean the chosen pen of that kind.
+  - **Eraser** removes every stroke the swipe touches (tested along the swipe, not only where the pointer was seen).
+  - **Lasso Select** holds the strokes it circles (nearly all of a stroke inside), in a dashed frame: drag inside to
+    move them, Delete removes them (not the canvas), Esc lets go.
+  - **Ruler** (Stencils): a ruler across the canvas; drag to move it, the mouse wheel turns it a degree a notch (15
+    with Shift), its angle shown; a stroke begun near its edge is laid straight along it, just outside it.
+  - Strokes now keep their points and timing (for Ink to Shape and Ink Replay, part 3); older strokes work from
+    their outline (`editor/ink-geometry.ts`).
+  - **Fixes:** the drawing canvas stays white in dark mode, as the page does; the picture saved for Word leaves out the
+    canvas's frame (dashed, or blue while selected), the Ruler and the lasso (`document/object-pictures.ts`).
+  - **Version 0.3.0** with its release notes; the Flatpak's metainfo lists 0.2.0 and 0.3.0.
+- **Checked:** headless Chrome, light and dark: drawing, the eraser swipe, lasso, move, Delete, the Ruler (a stroke
+  came out level, just above its edge), the pen menu. Word in the VM: the saved canvas shows the pen and pencil ink,
+  without the Ruler or a frame; 0 validator errors. Tests: `editor/ink-geometry.test.ts` (outline, eraser hits,
+  lasso, Ruler, stroke points, the pens); 1641 pass.
+- **Left (U30 parts 2 and 3):** ink anywhere on the page, Ink to Shape, Ink Replay; Point Eraser; Word's own ink
+  (InkML) is not read or written, the canvas goes to Word as a picture.
+
 ### Version 0.2.0, with release notes and What's New after an update
 
 - **What changed:** the version is 0.2.0 (package.json, tauri.conf.json, Cargo.toml; Android's versionCode follows).

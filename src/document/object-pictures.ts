@@ -45,7 +45,7 @@ const SVG_STYLES = [
 ]
 
 type Paint =
-  | { kind: "box"; x: number; y: number; w: number; h: number; style: CSSStyleDeclaration }
+  | { kind: "box"; x: number; y: number; w: number; h: number; style: CSSStyleDeclaration; bare?: boolean }
   | { kind: "text"; x: number; y: number; text: string; font: string; color: string }
   | { kind: "image"; x: number; y: number; w: number; h: number; src: string }
 
@@ -91,6 +91,8 @@ function svgSource(svg: SVGSVGElement, width: number, height: number) {
       target.setAttribute("style", SVG_STYLES.map((name) => `${name}:${style.getPropertyValue(name)}`).join(";"))
     }
   })
+  // The drawing canvas's Ruler and lasso are tools on screen, not part of the drawing.
+  copy.querySelectorAll(".ink-ruler, .ink-lasso-line, .ink-lasso-frame").forEach((element) => element.remove())
   copy.setAttribute("xmlns", "http://www.w3.org/2000/svg")
   copy.setAttribute("width", String(width))
   copy.setAttribute("height", String(height))
@@ -142,7 +144,8 @@ function paintsOf(dom: HTMLElement): { width: number; height: number; paints: Pa
         paints.push({ kind: "image", ...box, src: element.currentSrc || element.src })
         return
       }
-      paints.push({ kind: "box", ...box, style })
+      // A drawing canvas's frame (dashed, or blue while selected) shows where to draw; Word's canvas has none.
+      paints.push({ kind: "box", ...box, style, ...(element.matches(".drawing-canvas") ? { bare: true } : {}) })
       for (const child of element.childNodes) {
         if (child instanceof Element) {
           visit(child)
@@ -189,6 +192,9 @@ function paintBox(context: CanvasRenderingContext2D, paint: Extract<Paint, { kin
     context.beginPath()
     context.roundRect(x, y, w, h, radius)
     context.fill()
+  }
+  if (paint.bare) {
+    return
   }
   const sides = [
     ["Top", x, y, w, Number.parseFloat(style.borderTopWidth)],

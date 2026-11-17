@@ -8,6 +8,7 @@ import {
 } from "@/components/ribbon/line-icons"
 import { SingleLineBar, type LineCommand, type LineGroup } from "@/components/ribbon/single-line"
 import { useViewStore } from "@/document/view"
+import { AddPenMenu, PenGallery } from "@/components/ribbon/draw-pens"
 import { useDocumentEditor } from "@/editor/document-editor"
 import {
   HIGHLIGHTER_COLORS,
@@ -45,6 +46,10 @@ export function DrawTab() {
   })
   const ready = Boolean(editor && canvas)
   const ribbonLayout = useViewStore((state) => state.ribbonLayout)
+  const ruler = useDrawStore((state) => state.ruler)
+  const setRuler = useDrawStore((state) => state.setRuler)
+  // Word's Ruler lies level across the middle of the canvas.
+  const toggleRuler = () => setRuler(ruler ? null : { x: 240, y: 120, angle: 0 })
 
   const insertCanvas = () => {
     editor?.chain().focus().insertDrawingCanvas().run()
@@ -138,6 +143,21 @@ export function DrawTab() {
         active: tool === "highlighter",
         onClick: () => setTool("highlighter"),
       },
+      {
+        id: "lasso",
+        label: "Lasso Select",
+        icon: <LassoIcon />,
+        active: tool === "lasso",
+        onClick: () => setTool("lasso"),
+      },
+      {
+        id: "eraser",
+        label: "Eraser",
+        icon: <EraserIcon />,
+        priority: 1,
+        active: tool === "eraser",
+        onClick: () => setTool("eraser"),
+      },
     ]
     const canvasCommands: LineCommand[] = [
       {
@@ -147,6 +167,19 @@ export function DrawTab() {
         priority: 1,
         disabled: !editor,
         onClick: insertCanvas,
+      },
+      {
+        id: "ruler",
+        label: "Ruler",
+        icon: <RulerIcon />,
+        active: Boolean(ruler),
+        onClick: toggleRuler,
+      },
+      {
+        id: "add-pen",
+        label: "Add Pen",
+        icon: <AddPenIcon />,
+        menu: (close) => <AddPenMenu close={close} />,
       },
       {
         id: "clear",
@@ -185,24 +218,25 @@ export function DrawTab() {
 
   return (
     <div role="toolbar" aria-label="Draw" className="ribbon-home flex items-stretch overflow-x-auto">
-      <RibbonGroup label="Tools">
+      <RibbonGroup label="Drawing Tools">
         <RibbonCommand label="Select" active={tool === "select"} onClick={() => setTool("select")}>
           <SelectIcon />
         </RibbonCommand>
-        <RibbonCommand label="Pen" active={tool === "pen"} onClick={() => setTool("pen")}>
-          <PenIcon />
+        <RibbonCommand label="Lasso Select" active={tool === "lasso"} onClick={() => setTool("lasso")}>
+          <LassoIcon />
         </RibbonCommand>
-        <RibbonCommand label="Highlighter" active={tool === "highlighter"} onClick={() => setTool("highlighter")}>
-          <HighlighterIcon />
+        <RibbonCommand label="Eraser" active={tool === "eraser"} onClick={() => setTool("eraser")}>
+          <EraserIcon />
+        </RibbonCommand>
+        <PenGallery />
+        <RibbonCommand label="Add Pen" menu={(close) => <AddPenMenu close={close} />}>
+          <AddPenIcon />
         </RibbonCommand>
       </RibbonGroup>
-      <RibbonGroup label="Stroke">
-        <label className="draw-width-field flex items-center gap-1 px-1 text-[12px]">
-          Width
-          {widthInput}
-          mm
-        </label>
-        {swatches()}
+      <RibbonGroup label="Stencils">
+        <RibbonCommand label="Ruler" active={Boolean(ruler)} onClick={toggleRuler}>
+          <RulerIcon />
+        </RibbonCommand>
       </RibbonGroup>
       <RibbonGroup label="Canvas">
         <RibbonCommand label="Drawing Canvas" disabled={!editor} onClick={insertCanvas}>
@@ -260,25 +294,6 @@ function SelectIcon() {
   )
 }
 
-function PenIcon() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-      <path d="M17.2 5.2 22.8 10.8 11.4 22.2 5.2 22.8 5.8 16.6Z" fill="#0f6cbd" />
-      <path d="M17.2 5.2 22.8 10.8" stroke="#242424" strokeWidth="1.2" />
-      <path d="M6.2 21.6 9.4 18.4" stroke="#fff" strokeWidth="1" />
-    </svg>
-  )
-}
-
-function HighlighterIcon() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-      <path d="M6 18.5h16" stroke="#ffe600" strokeWidth="5" strokeLinecap="round" />
-      <path d="M16.2 5.4 22.4 11.6 12.2 21.8H6.4V16Z" fill="#f5d000" stroke="#8a6a00" />
-    </svg>
-  )
-}
-
 function CanvasIcon() {
   return (
     <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
@@ -293,6 +308,78 @@ function ClearIcon() {
     <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
       <path d="M8 8h12v12H8z" fill="#f3f3f3" stroke="#8a8a8a" />
       <path d="M10 10 18 18M18 10 10 18" stroke="#d13438" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function LassoIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="24"
+      height="24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      aria-hidden="true"
+    >
+      <ellipse cx="12" cy="9" rx="8" ry="5.5" strokeDasharray="2.5 2" />
+      <path d="M8 14c-1 2 0 4 2 5" />
+      <circle cx="10.5" cy="19.5" r="1.2" fill="currentColor" />
+    </svg>
+  )
+}
+
+function EraserIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="24"
+      height="24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      aria-hidden="true"
+    >
+      <path d="M14.5 4.5l5 5-9 9H6l-2.5-2.5z" />
+      <path d="M9.5 9.5l5 5" />
+      <path d="M10.5 18.5H20" />
+      <path d="M14.5 4.5l5 5-5 5-5-5z" fill="#f4a7b9" stroke="none" opacity="0.8" />
+    </svg>
+  )
+}
+
+function AddPenIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="24"
+      height="24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      aria-hidden="true"
+    >
+      <path d="M9 3l3 6H6z" fill="currentColor" />
+      <rect x="6.5" y="9" width="5" height="12" rx="1" />
+      <path d="M18 12v8M14 16h8" stroke="#0f6cbd" strokeWidth="1.8" />
+    </svg>
+  )
+}
+
+function RulerIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="24"
+      height="24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      aria-hidden="true"
+    >
+      <rect x="2.5" y="8" width="19" height="8" rx="1" transform="rotate(-30 12 12)" />
+      <path d="M7 12.6l-1-1.7M10 10.9l-1.4-2.4M13 9.1l-1-1.7M16 7.4l-1.4-2.4" transform="translate(0.5 1.5)" />
     </svg>
   )
 }
