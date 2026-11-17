@@ -28,6 +28,11 @@ in Word, Chrome or the desktop app.
   desktop app reads the files' dates (`documents_modified`, tested; at most 200, only full paths), Android asks the
   document's place (`InkspireFiles.lastModified`, `COLUMN_LAST_MODIFIED`). `formatModified` writes it as Word's
   lists do: a time for today, day and month this year, the full date before (tested).
+- **Dialogs on a phone (A7):** Borders and Shading was drawn at 62%: the Page Border tab put its style list beside a
+  214 px colour grid. On a phone it stacks (`.page-border-grid`), as do the Borders and Shading tabs of the other
+  Borders and Shading dialog (`.bs-grid`: Setting beside Style, the preview below), so it shows at full size and
+  scrolls down. The local check `tools/dialog-overflow.mjs` now reports any dialog drawn below 85% ("scaled"); Font (83%) and
+  Paragraph (85%) are left as they are.
 - Not built or checked on a device yet (verify list).
 
 ### A long press on text no longer opens the full right-click menu on a touch screen; v0.9.1

@@ -196,7 +196,7 @@ export function PageBorderPanel({
   const [options, setOptions] = useState(false)
 
   return (
-    <div className="grid grid-cols-[180px_1fr] gap-4">
+    <div className="page-border-grid grid grid-cols-[180px_1fr] gap-4">
       <div>
         <p className="mb-1 text-[11px] font-semibold text-neutral-500">Style</p>
         <div className="flex max-h-72 flex-col overflow-auto rounded border border-black/10">

@@ -22,8 +22,10 @@ Phases 1 and 2 are approved; phase 3 waits for a go-ahead.
 - [x] A6. (2026-11-17) Task panes (Recovery, Navigation, Styles, Clipboard, Review…) as sheets over the page on a phone.
 - [ ] A7. File (backstage) and dialogs fit the phone's width without horizontal scroll (`tools/dialog-overflow.mjs`).
       Done 2026-11-17: File's commands as a row across the top; a dialog wider than the window is scaled down to fit
-      (`fitScale`), so nothing scrolls sideways (`dialog-overflow.mjs --phone`: no sideways scroll left). Left: phone
-      forms for the dialogs that come out small (Borders and Shading is drawn at about 70%).
+      (`fitScale`), so nothing scrolls sideways (`dialog-overflow.mjs --phone`: no sideways scroll left). The tool now
+      reports a dialog drawn below 85% ("scaled"). Borders and Shading (Page Borders, was 62%) has a phone layout and
+      shows at full size (next build). Left: Font (83%) and Paragraph (85%) keep Word's layout scaled down; dialogs
+      the phone's ribbon line does not reach in the tool are not measured.
 - [ ] A8. Hover-only controls (the TOC's Update Table tab) show on tap. A long press on text no longer opens Inkspire's
       context menu (v0.9.1, B20): it selects and shows Android's Cut / Copy / Paste bar, the other commands are in the
       ribbon. Left: the TOC tab on tap not checked.

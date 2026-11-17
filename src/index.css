@@ -13454,6 +13454,24 @@ textarea.text-prompt-field {
   grid-template-columns: 1fr 1fr;
 }
 
+/* A phone's window: Setting beside Style, the preview under them, so the dialog fits at full size, not scaled down. */
+[data-device="phone"] .bs-grid {
+  grid-template-columns: 96px minmax(0, 1fr);
+}
+
+[data-device="phone"] .bs-grid > .bs-preview-column {
+  grid-column: 1 / -1;
+}
+
+[data-device="phone"] .bs-shading {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Page Border: the style list over the width, colour and preview, as the colour grid is too wide to sit beside it. */
+[data-device="phone"] .page-border-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .bs-heading {
   margin: 0 0 6px;
   color: var(--dlg-text);
