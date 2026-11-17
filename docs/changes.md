@@ -7,6 +7,17 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-17
 
+### A footnote in a table that runs across pages is on its row's page
+
+- **What was wrong:** a table's footnotes were taken as one block's: they went with the table to the page it ended
+  on (in a 4-page table, a note referenced on page 2 showed on page 4), with room kept for them on every page, and a
+  page break between rows had nowhere to draw notes.
+- **What changed:** `editor/pages.ts` `placeRows`: a table broken across pages keeps room for each row's footnotes
+  as that row is placed, so they end the page the row is on; the gap row between the pages (`createRowGap`) draws the
+  page's footnotes at its foot, as the gap between blocks does.
+- **Checked in Word (VM):** a table of 80 rows with a footnote in row 35: rows 27–52 and the note on page 2 as in
+  Word, the note 0.3 pt from Word's, row 53 starting page 3. Screenshot looked at.
+
 ### A picture alone in a list item sits on its bullet's line
 
 - **What was wrong:** a list item has to start with a paragraph in the editor, so one holding only a picture opens

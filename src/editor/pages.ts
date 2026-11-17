@@ -652,10 +652,10 @@ function decorationsFor(
         columns += Math.max(1, Number(cell.attrs.colspan) || 1)
       })
       decorations.push(
-        Decoration.widget(item.pos, () => createRowGap(height, columns), {
+        Decoration.widget(item.pos, () => createRowGap(height, columns, item.notes), {
           side: -2,
           ignoreSelection: true,
-          key: `row-gap-${item.pos}-${height}-${columns}`,
+          key: `row-gap-${item.pos}-${height}-${columns}-${item.notes ? `${item.notes.top}:${notesKey(item.notes.refs)}:${noteTextsVersion()}` : ""}`,
         }),
       )
       if (item.header) {
@@ -927,13 +927,21 @@ function blockLineRects(dom: HTMLElement) {
 }
 
 /** The page gap between two rows of a table: an empty row as tall as the gap, across every column. */
-function createRowGap(height: number, columns: number) {
+function createRowGap(height: number, columns: number, notes?: PageBreak["notes"]) {
   const row = document.createElement("tr")
   row.className = "page-gap page-gap-row"
   row.contentEditable = "false"
   const cell = document.createElement("td")
   cell.colSpan = Math.max(1, columns)
   cell.style.height = `${height}px`
+  if (notes) {
+    // The page's footnotes at the foot of its text, as in a gap between blocks (`createGap`), here inside the table.
+    const box = createNotesBox(notes.refs, "footnote")
+    box.classList.add("page-gap-notes")
+    box.style.top = `${notes.top}px`
+    cell.style.position = "relative"
+    cell.append(box)
+  }
   row.append(cell)
   return row
 }
@@ -1498,7 +1506,29 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
    * (`splitRow`) breaks inside its cells instead; rows a merged cell spans stay together.
    */
   const placeRows = (rows: RowUnit[], pos: number, top: number, bottom: number, header: number) => {
+    // The table's footnotes go with the rows they are in, on the page each row lands (as Word places them), not all
+    // with the table to wherever it ends: the room kept for them all is given back and kept row by row.
+    const tableNotes = placingNotes
+    if (tableNotes.length > 0) {
+      pageNotes = pageNotes.filter((ref) => !tableNotes.includes(ref))
+      const room = pageNotes.length > 0 ? footnoteRoom(pageNotes) : 0
+      contentHeight += noteHeight - room
+      noteHeight = room
+      placingNotes = []
+    }
     rows.forEach((row, index) => {
+      const rowNode = tableNotes.length > 0 ? view.state.doc.nodeAt(row.pos) : null
+      if (rowNode) {
+        const keys = new Set(notesIn(rowNode, row.pos, noteNumbers).map((ref) => ref.key))
+        const refs = tableNotes.filter((ref) => keys.has(ref.key))
+        placingNotes = refs
+        if (refs.length > 0) {
+          pageNotes = [...pageNotes, ...refs]
+          const room = footnoteRoom(pageNotes)
+          contentHeight -= room - noteHeight
+          noteHeight = room
+        }
+      }
       const pages = breaks.length
       const height = row.height + (index === 0 ? top : 0) + (index === rows.length - 1 ? bottom : 0)
       const collapse = index === 0 ? Math.min(trailing, top) : 0
@@ -1519,6 +1549,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
         used += header
       }
     })
+    placingNotes = []
     trailing = bottom
   }
 

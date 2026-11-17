@@ -1483,6 +1483,7 @@ button.line-menu-row:focus-visible {
 
 /* Footnotes at the page's foot and endnotes after the text (page-notes.ts), drawn in the document's own styles. */
 .page-gap > .page-footnotes,
+.page-gap-row .page-gap-notes,
 .page-end-notes > .page-footnotes {
   position: absolute;
   left: 0;
