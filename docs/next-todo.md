@@ -104,7 +104,8 @@ Opening: the 13 differences found first are fixed (see `changes.md`, 2026-11-14)
    note area's place and height).
 4. Footnotes are not placed on page breaks inside a table or in unequal columns (they move to the next ordinary
    break), and endnotes that do not fit the last page are not split across pages.
-5. The heart preset sits about 2 px off Word's (`f20`).
+5. ~~The heart preset sits about 2 px off Word's~~ — done 2026-11-17 (see `changes.md`): it was every shape placed
+   on the page after the first, 0.4 em low; the heart now within 1–2 px of Word (was 6–8).
 6. Header text is faded while the header is closed, as Word does on screen; Word's PDF draws it in full colour, so the
    comparison shows a difference that is not one (`f07`).
 7. ~~TOC entries sit about 6 px (4.5 pt) lower than Word's~~ — done 2026-11-17 (see `changes.md`): entries are

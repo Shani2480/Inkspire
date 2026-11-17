@@ -1395,7 +1395,7 @@ function frameStyle(node: ProseNode, dom?: HTMLElement) {
   const wrap = objectWrap(node.attrs.wrap)
   const floating = node.type.name === "textBox" || wrap !== "inline"
   if (!floating) {
-    return { position: "static", left: "", top: "", zIndex: "" }
+    return { position: "static", left: "", top: "", zIndex: "", margin: "" }
   }
   const place = dom ? flowPlace(dom, node) : { page: Number(node.attrs.page) || 1, y: Number(node.attrs.y) || 0 }
   const x = Number(node.attrs.x) || 0
@@ -1406,6 +1406,9 @@ function frameStyle(node: ProseNode, dom?: HTMLElement) {
     position: "absolute",
     left: `${Math.round(cell.left + x)}px`,
     top: `${cell.top + place.y}px`,
+    // Exactly at its place: not the room a figure in the line keeps around it (`.insert-figure` in index.css), which
+    // put a shape after the first 0.4 em low (`f20`).
+    margin: "0px",
     zIndex: wrap === "behind" ? String(-1000 + (Number(node.attrs.z) || 0)) : String(20 + (Number(node.attrs.z) || 0)),
     transform: Number(node.attrs.rotate) ? `rotate(${Number(node.attrs.rotate)}deg)` : "",
     clipPath: pageClip(node, x, place.y, own, dom),

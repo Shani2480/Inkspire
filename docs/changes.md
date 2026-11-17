@@ -7,6 +7,17 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-17
 
+### Shapes placed on the page sit exactly at their place
+
+- **What was wrong:** a shape placed on the page (any wrap but In Line with Text) kept the margin a shape in the line
+  of text has (`.insert-figure`, 0.4 em above), so every one after the document's first block drew 6.4 px low: the
+  heart in `f20` 6–8 px below Word's (the frame before it, the editor's first child, had no margin).
+- **What changed:** `editor/objects.ts` `frameStyle`: a placed shape's frame has no margin; one back in the line
+  gets the CSS one again.
+- **Checked in Word (VM):** `f20`: the heart within 1–2 px of Word on each side (the outline's width), the frame as
+  before. Dragging still moves it exactly as far as the pointer (−20, +30 px in emulation).
+- **Tests:** `editor/figure-place.test.ts`.
+
 ### Endnotes start where Word starts them
 
 - **What was wrong:** (1) the note separator's paragraph, shown as Word wrote it rather than through the editor, took
