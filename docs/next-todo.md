@@ -103,8 +103,9 @@ Opening: the 13 differences found first are fixed (see `changes.md`, 2026-11-14)
 5. The heart preset sits about 2 px off Word's (`f20`).
 6. Header text is faded while the header is closed, as Word does on screen; Word's PDF draws it in full colour, so the
    comparison shows a difference that is not one (`f07`).
-7. TOC entries sit about 6 px (4.5 pt) lower than Word's: they are flex rows with their own margins, not drawn with
-   their TOCn style's spacing and Word's line placement (`f12`).
+7. ~~TOC entries sit about 6 px (4.5 pt) lower than Word's~~ — done 2026-11-17 (see `changes.md`): entries are
+   paragraphs in their TOCn style with Word's line placement, the title a Heading 1 (TOC Heading). Checked in Word:
+   `f12` and a three-level table saved by Inkspire within 1–2 pt everywhere (the saved one was about 30 pt off).
 
 Environment notes: Aptos (the Office default font) is not installed on the Linux host, so Inkspire's text uses a
 fallback and widths differ (tab positions too); the VM's background Word draws no 3D models; Word's first start can

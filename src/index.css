@@ -2933,14 +2933,16 @@ button.line-menu-row:focus-visible {
   outline-offset: 1px;
 }
 
+/* No space of its own: its title and entries are paragraphs with their styles' spacing, the last entry's (or the
+   empty paragraph's where the field closes) is the space below it, as in Word. */
 .page-editor .toc-block {
   position: relative;
-  margin: 0 0 0.75em;
+  margin: 0;
 }
 
-/* Word's empty paragraph where the field closes: a Normal line with Normal's space after, in place of the margin. */
-.page-editor .toc-block[data-toc-end-line] {
-  margin-bottom: 0;
+/* An empty table (no headings yet) has no entries to give it space below. */
+.page-editor .toc-block:has(> .toc-empty) {
+  margin-bottom: 0.75em;
 }
 
 /* Word's content control tab, shown on the table of contents the cursor is on or under the pointer. It sits in the
@@ -3008,13 +3010,7 @@ button.line-menu-row:focus-visible {
   outline-offset: 1px;
 }
 
-.page-editor .toc-title {
-  margin: 0 0 0.35em;
-  font-family: var(--font-sans);
-  font-size: 13pt;
-  font-weight: 650;
-  line-height: 1.25;
-}
+/* The title is drawn as a Heading 1 (Word's TOC Heading is based on it), in the page's heading style. */
 
 .page-editor .toc-empty {
   margin: 0;
@@ -3022,72 +3018,95 @@ button.line-menu-row:focus-visible {
   font-style: italic;
 }
 
-.page-editor .toc-entry {
+/* A paragraph in its TOCn style (spacing and line from the style sheet, the line placed as Word does), laid out as a row:
+   text, leader, page number. A flex row is not trimmed to its text as a paragraph's lines are (line-lead.ts), so its
+   items are: each is cut to the cap height and the baseline, and the paragraph's padding puts the line where Word
+   does. Built-in TOC styles add 5 pt after (Word's TOC 1 to 9) when the document has none of its own. */
+.page-editor p.toc-entry {
   display: flex;
   align-items: baseline;
   gap: 0.45em;
-  margin: 0.12em 0;
 }
 
-.page-editor .toc-entry[data-level="2"] {
-  padding-left: 1.25em;
+.page-editor p:where(.toc-entry) {
+  margin: 0 0 5pt;
 }
 
-.page-editor .toc-entry[data-level="3"] {
-  padding-left: 2.5em;
+.page-editor p.toc-entry > .toc-label,
+.page-editor p.toc-entry > .toc-page {
+  text-box-trim: trim-both;
+  text-box-edge: cap alphabetic;
 }
 
-.page-editor .toc-entry[data-level="4"] {
-  padding-left: 3.75em;
+/* Word's built-in TOC 2 to 9, as a save writes them (docx/project.ts): 11 pt (220 twips) a level. Kept weaker than
+   the style sheet's rules and as strong as the page's own `p` rule (`:where`), so a document's TOCn style, with its
+   indent and spacing, wins. */
+.page-editor p:where(.toc-entry[data-level="2"]) {
+  margin-left: 11pt;
 }
 
-.page-editor .toc-entry[data-level="5"] {
-  padding-left: 5em;
+.page-editor p:where(.toc-entry[data-level="3"]) {
+  margin-left: 22pt;
 }
 
-.page-editor .toc-entry[data-level="6"] {
-  padding-left: 6.25em;
+.page-editor p:where(.toc-entry[data-level="4"]) {
+  margin-left: 33pt;
 }
 
-.page-editor .toc-entry[data-level="7"] {
-  padding-left: 7.5em;
+.page-editor p:where(.toc-entry[data-level="5"]) {
+  margin-left: 44pt;
 }
 
-.page-editor .toc-entry[data-level="8"] {
-  padding-left: 8.75em;
+.page-editor p:where(.toc-entry[data-level="6"]) {
+  margin-left: 55pt;
 }
 
-.page-editor .toc-entry[data-level="9"] {
-  padding-left: 10em;
+.page-editor p:where(.toc-entry[data-level="7"]) {
+  margin-left: 66pt;
 }
 
+.page-editor p:where(.toc-entry[data-level="8"]) {
+  margin-left: 77pt;
+}
+
+.page-editor p:where(.toc-entry[data-level="9"]) {
+  margin-left: 88pt;
+}
+
+/* Cut short with an ellipsis across, never cut top or bottom: its box is trimmed to the cap height and the baseline. */
 .page-editor .toc-label {
-  overflow: hidden;
+  overflow-x: clip;
+  overflow-y: visible;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* The leader as Word draws it: the text's own dots (hyphens, underscore) along the baseline, in the text's colour. */
+/* The leader as Word draws it: the text's own dots (hyphens, underscore) along the baseline, in the text's colour. Its
+   box runs from half an em above the baseline (the row's foot, as its text is trimmed there) to a quarter below. */
 .page-editor .toc-leader {
   flex: 1 1 auto;
-  align-self: stretch;
+  align-self: flex-end;
+  height: 0.75em;
+  margin-bottom: -0.25em;
+  /* Word's dots run from the text right up to the page number. */
+  margin-right: -0.4em;
   margin-left: -0.2em;
   background-image: radial-gradient(circle, currentColor 0.05em, transparent 0.07em);
   background-repeat: repeat-x;
-  background-position: left bottom 0.24em;
+  background-position: left bottom 0.175em;
   background-size: 0.27em 0.27em;
 }
 
 .page-editor .toc-block[data-leader="hyphen"] .toc-leader {
   background-image: linear-gradient(to right, currentColor 55%, transparent 55%);
   background-size: 0.4em 0.06em;
-  background-position: left bottom 0.42em;
+  background-position: left bottom 0.47em;
 }
 
 .page-editor .toc-block[data-leader="underscore"] .toc-leader {
   background-image: linear-gradient(currentColor, currentColor);
   background-size: 100% 0.06em;
-  background-position: left bottom 0.12em;
+  background-position: left bottom 0.15em;
 }
 
 .page-editor .toc-block[data-leader="none"] .toc-leader {

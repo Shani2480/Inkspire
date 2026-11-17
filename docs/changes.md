@@ -7,6 +7,28 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-17
 
+### Tables of contents are spaced and placed as Word draws them
+
+- **What was wrong:** the entries were flex rows with their own margins (0.12 em) and the page's line height, the
+  title a 13 pt line of Inkspire's own, the box 0.75 em below, and each level indented 1.25 em on top of the TOCn
+  style's own indent. In `f12` the entry sat 4.1 pt below Word's; a three-level table saved by Inkspire was about
+  30 pt off by the paragraph after it (entries 3.7 pt a line too close, the title 22 pt short, levels 4 pt a level
+  too far in).
+- **What changed:**
+  - `editor/toc.ts`: each entry is a `p.toc-entry` with `data-word-style` TOC1 … TOC9 (or TableofFigures), so the
+    document's style sheet gives it its style's font, spacing, indent and line; the title is an `h1` (Word's TOC
+    Heading is based on Heading 1). The model, saving, navigation and Read Mode are unchanged.
+  - `index.css`: the row stays a flex row; its text and page number are trimmed to the cap height and baseline, so
+    the paragraph's Word line placement (`line-lead.ts`) applies as to any paragraph. Fallbacks as a save writes the
+    built-in styles (5 pt after, 11 pt a level), weaker than a document's own styles. The box has no margin of its
+    own. The leader runs on the baseline up to the page number; the label clips only across (ellipsis), not its
+    descenders.
+- **Checked in Word (VM):** `f12`: the entry 138.7 pt (Word 139.2, was 143.3), the text after it within 1.1 pt (was
+  2.5). A three-level table saved by Inkspire: title, entries and indents within 0.5–1.2 pt of Word (indents 72 /
+  83 / 94 pt, Word 72 / 83.1 / 94), the paragraph after it 1.3 pt (was about 30). A two-level `f12` with Word's
+  TOC 2 style: indent 84 pt as Word (was 99). Screenshots compared: same look, dots up to the number.
+- **Tests:** `editor/toc-view.test.ts` (entries as paragraphs in their styles).
+
 ### Android: system fonts, Save As keeps access, rename in place; dates in Recent; the cursor starts at the top; phone dialogs and the TOC tab; no picture toolbar in Read Mode; v0.10.0
 
 - **System fonts (B3):** Android has no `fc-list`, so the font list had only Inkspire's own fonts. `list_system_fonts`

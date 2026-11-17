@@ -488,8 +488,11 @@ function renderToc(dom: HTMLElement, node: ProseNode) {
   tab.textContent = "Update Table…"
   dom.append(tab)
   if (heading) {
-    const title = document.createElement("div")
+    // Word's TOC Heading is based on Heading 1: drawn as one, it takes that style's font, spacing and line. (Only the
+    // page draws it so; the document's headings, the navigation and Read Mode come from the model, where it is not.)
+    const title = document.createElement("h1")
     title.className = "toc-title"
+    title.dataset.wordStyle = "TOCHeading"
     title.textContent = heading
     dom.append(title)
   }
@@ -503,9 +506,13 @@ function renderToc(dom: HTMLElement, node: ProseNode) {
     appendEndLine(dom, node)
     return
   }
+  // Each entry is a paragraph in its Word style (TOC 1 … TOC 9, or Table of Figures), so it takes that style's font,
+  // spacing and line height, and its line sits where Word puts it (document/line-lead.ts), as the other paragraphs.
+  const figures = figureTable(String(node.attrs.instruction ?? ""))
   entries.forEach((entry, index) => {
-    const row = document.createElement("div")
+    const row = document.createElement("p")
     row.className = "toc-entry"
+    row.dataset.wordStyle = figures ? "TableofFigures" : `TOC${Math.min(9, Math.max(1, entry.level))}`
     row.dataset.level = String(entry.level)
     row.dataset.index = String(index)
     if (options.hyperlinks) {
