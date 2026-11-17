@@ -346,6 +346,44 @@ async fn open_window(_app: tauri::AppHandle, _request: String) -> Result<String,
     Err("Separate windows are not available on this device.".into())
 }
 
+/// Android has no `fc-list`: its font families, and the aliases the web view also knows them by (arial, times …),
+/// are named in the system's font configuration.
+#[cfg(target_os = "android")]
+#[tauri::command]
+fn list_system_fonts() -> Result<Vec<String>, String> {
+    let mut names = std::collections::BTreeSet::new();
+    for file in [
+        "/system/etc/font_fallback.xml",
+        "/system/etc/fonts.xml",
+        "/product/etc/fonts_customization.xml",
+    ] {
+        if let Ok(text) = std::fs::read_to_string(file) {
+            names.extend(android_font_names(&text));
+        }
+    }
+    if names.is_empty() {
+        return Err("Could not read system fonts.".into());
+    }
+    Ok(names.into_iter().collect())
+}
+
+/// The named `<family>`s and `<alias>`es of an Android font configuration; the unnamed families are fallbacks for
+/// other scripts, chosen by the system, not by name.
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+fn android_font_names(xml: &str) -> Vec<String> {
+    let pattern =
+        regex::Regex::new(r#"<(?:family|alias)\b[^>]*?\bname="([^"]+)""#).expect("valid pattern");
+    let mut names = std::collections::BTreeSet::new();
+    for found in pattern.captures_iter(xml) {
+        let name = found[1].trim();
+        if !name.is_empty() && name.len() <= 80 {
+            names.insert(name.to_string());
+        }
+    }
+    names.into_iter().collect()
+}
+
+#[cfg(not(target_os = "android"))]
 #[tauri::command]
 fn list_system_fonts() -> Result<Vec<String>, String> {
     let output = std::process::Command::new("fc-list")
@@ -968,12 +1006,28 @@ mod legacy_tests {
 #[cfg(test)]
 mod tests {
     use super::{
-        assert_local_document_path, assert_settings_path, assert_user_document_path, document_body,
-        export_format, font_families, import_format, is_local_document_extension,
-        is_recipient_list_extension, percent_decode, typst_project_root,
+        android_font_names, assert_local_document_path, assert_settings_path,
+        assert_user_document_path, document_body, export_format, font_families, import_format,
+        is_local_document_extension, is_recipient_list_extension, percent_decode,
+        typst_project_root,
     };
     use super::{existing_file_path, file_uri, gecos_name};
     use std::path::Path;
+
+    #[test]
+    fn android_font_names_are_the_named_families_and_aliases() {
+        let xml = r#"<familyset>
+            <family name="sans-serif"><font weight="400">Roboto-Regular.ttf</font></family>
+            <alias name="arial" to="sans-serif" />
+            <family lang="und-Arab" variant="elegant"><font>NotoNaskhArabic-Regular.ttf</font></family>
+            <family name="serif"><font>NotoSerif-Regular.ttf</font></family>
+            <alias name="times" to="serif" />
+        </familyset>"#;
+        assert_eq!(
+            android_font_names(xml),
+            vec!["arial", "sans-serif", "serif", "times"]
+        );
+    }
 
     #[test]
     fn font_list_splits_families() {

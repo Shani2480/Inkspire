@@ -24,22 +24,26 @@ Phases 1 and 2 are approved; phase 3 waits for a go-ahead.
       Done 2026-11-17: File's commands as a row across the top; a dialog wider than the window is scaled down to fit
       (`fitScale`), so nothing scrolls sideways (`dialog-overflow.mjs --phone`: no sideways scroll left). Left: phone
       forms for the dialogs that come out small (Borders and Shading is drawn at about 70%).
-- [ ] A8. Long press opens Inkspire's context menu; hover-only controls (the TOC's Update Table tab) show on tap.
-      Long press works on the Pixel (2026-11-17). Left: the menu acts on the word the cursor was on before, not the one
-      pressed; Android's selection handles cover the menu's search box; the TOC tab on tap not checked.
+- [ ] A8. Hover-only controls (the TOC's Update Table tab) show on tap. A long press on text no longer opens Inkspire's
+      context menu (v0.9.1, B20): it selects and shows Android's Cut / Copy / Paste bar, the other commands are in the
+      ribbon. Left: the TOC tab on tap not checked.
 - [ ] A9. Checked on the Pixel and on the tablet (OnePlus Pad): open, type, format, insert a table and picture, save.
 
 ### Phase 2 — features that fail on Android
 
 - [x] B1. (2026-11-17) Print and Save as PDF through Android's print service (`PrintManager` with the WebView's print adapter).
 - [x] B2. (2026-11-17; Email as Attachment is the same share sheet) Share > Email (and Share a copy) through the Android share sheet (`ACTION_SEND`, the declared FileProvider).
-- [ ] B3. System fonts from `/system/fonts` (no `fc-list`).
-- [ ] B4. Rename a document and import/export ribbon customizations with content links (`DocumentsContract`).
+- [x] B3. (2026-11-17, next build; device check pending) System fonts on Android: the named families and aliases of
+      `/system/etc/font_fallback.xml` / `fonts.xml` (`android_font_names` in `lib.rs`), as there is no `fc-list`.
+- [x] B4. (2026-11-17, next build; device check pending) Rename a picked document in its place
+      (`DocumentsContract.renameDocument`, `androidRename`); where the place does not rename, it says to use Save As.
+      Import/export of customizations already read and write content links.
 - [x] B5. (2026-11-17; `document/odt.ts`; saving .odt and .rtf still needs the desktop) Open .rtf and .odt without pandoc (in JS); .doc says plainly that it needs a desktop.
 - [x] B6. (2026-11-17) "Open with Inkspire" from Files and Gmail: intent filters for .docx, .dotx, .rtf, .odt, .txt, .md.
 - [x] B7. (2026-11-17; Reveal was hidden already, the tools and local model report themselves unsupported) Hide what has no Android counterpart: Reveal in folder, Edit in Cells, the helper-tools download, the
       desktop-only local model.
-- [ ] B8. Save As keeps its access across restarts, as Open's does.
+- [x] B8. (2026-11-17, next build; device check pending) Save As goes through MainActivity's picker
+      (`ACTION_CREATE_DOCUMENT`, `pickAndroidNewDocument`) and keeps read and write access across restarts, as Open.
 - [ ] B9. Recent shows where a document is ("Phone storage", "Downloads") rather than its content link. Done
       2026-11-17 (`pathPlace`). Left: a real date modified for content links.
 - [x] B11. (2026-11-17, v0.7.0) Read Mode's page turn follows the finger during a swipe (scrub the View Transition's animations), as a
@@ -63,8 +67,9 @@ Phases 1 and 2 are approved; phase 3 waits for a go-ahead.
       on a touch screen it now leaves the system's selection bar.
 - [ ] B19. After a turn in the novel one frame still takes about a quarter second (style and accessibility update,
       no script); the turn itself is smooth.
-- [ ] B10. An .odt opened on a phone leaves the cursor in its last table, so the table's toolbar covers the top of
-      the page: open with the cursor at the start.
+- [x] B10. (2026-11-17, next build) An opened document left the cursor at its end (in a last table, whose toolbar
+      covered the page on a phone): the cursor now starts at the top, as in Word (`applyEditorHtml`).
+- [x] B21. (2026-11-17, next build) A picture left selected showed its toolbar over Read Mode: hidden while reading.
 
 ### Phase 3 — later (not started)
 

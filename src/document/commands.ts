@@ -64,7 +64,7 @@ import {
 import { openExternal } from "@/document/help"
 import { isAndroid, isTauriRuntime } from "@/lib/platform"
 import { androidPrint, androidServices, androidShare } from "@/lib/android-bridge"
-import { EditorState } from "@tiptap/pm/state"
+import { EditorState, Selection } from "@tiptap/pm/state"
 import { generateJSON } from "@tiptap/core"
 import type { PageSetup } from "@/document/page-setup"
 import { invoke } from "@tauri-apps/api/core"
@@ -342,6 +342,9 @@ function applyEditorHtml(
     ...(exactWhitespace ? { parseOptions: { preserveWhitespace: "full" as const } } : {}),
   })
   restoreObjects(editor)
+  // The cursor starts at the top of the document, as in Word, not where the content was put in (its end): a document
+  // ending in a table showed the table's toolbar over the first page on a phone.
+  editor.view.dispatch(editor.state.tr.setSelection(Selection.atStart(editor.state.doc)).setMeta("addToHistory", false))
   useDocumentStore.getState().markOpened(path, editor.getHTML(), { ...emptyChrome(), ...chrome }, fileName, props)
   // However the file arrived (dropped, recent list, opened from the system), show it rather than the File menu.
   useBackstage.getState().closeBackstage()

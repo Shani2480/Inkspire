@@ -186,7 +186,9 @@ export function ObjectBar({ editor }: { editor: Editor }) {
     return () => window.removeEventListener("keydown", onKey)
   }, [editor, pos, dismissed])
 
-  const hidden = !selected || busy || dismissed === pos
+  // Read Mode covers the editor: the bar of a picture left selected there would float over the text being read.
+  const reading = useViewStore((state) => state.layoutMode === "read")
+  const hidden = !selected || busy || dismissed === pos || reading
 
   useLayoutEffect(() => {
     if (hidden || !selected) {

@@ -12,6 +12,7 @@ import android.print.PrintDocumentAdapter
 import android.print.PrintDocumentInfo
 import android.print.PrintManager
 import android.util.Base64
+import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.view.View
 import android.webkit.JavascriptInterface
@@ -43,6 +44,26 @@ class MainActivity : TauriActivity() {
           )
         } catch (error: SecurityException) {
           // A provider that offers no lasting access: the document still opens for this session.
+        }
+      }
+      val picked = if (uri == null) "null" else JSONObject.quote(uri.toString())
+      webView?.post { webView?.evaluateJavascript("window.__inkspirePicked && window.__inkspirePicked($picked)", null) }
+    }
+
+  // Save As makes the new document through the same picker and keeps read and write access to it across restarts,
+  // so it can be saved again and reopened from Recent later. (The dialog plugin's save picker gives this session's
+  // access only.)
+  private val createDocument =
+    registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+      val uri = if (result.resultCode == RESULT_OK) result.data?.data else null
+      if (uri != null) {
+        try {
+          contentResolver.takePersistableUriPermission(
+            uri,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+          )
+        } catch (error: SecurityException) {
+          // A provider that offers no lasting access: the document is still saved for this session.
         }
       }
       val picked = if (uri == null) "null" else JSONObject.quote(uri.toString())
@@ -194,6 +215,16 @@ class MainActivity : TauriActivity() {
   fun pickDocument(mimeTypes: Array<String>) {
     runOnUiThread { openDocument.launch(mimeTypes) }
   }
+
+  fun pickNewDocument(name: String, mimeType: String) {
+    val intent =
+      Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+        addCategory(Intent.CATEGORY_OPENABLE)
+        type = mimeType
+        putExtra(Intent.EXTRA_TITLE, name)
+      }
+    runOnUiThread { createDocument.launch(intent) }
+  }
 }
 
 /** What the page asks of Android's files: `window.InkspireFiles` (src/lib/paths.ts and src/lib/file-io.ts). */
@@ -219,6 +250,34 @@ class AndroidFiles(private val activity: MainActivity) {
     val types = Array(list.length()) { list.getString(it) }
     activity.pickDocument(if (types.isEmpty()) arrayOf("*/*") else types)
   }
+
+  /**
+   * Renames a picked document in its place (the file manager's provider); the new content link, or null where that
+   * place does not rename (a photo or download library, an e-mail attachment).
+   */
+  @JavascriptInterface
+  fun renameDocument(uri: String, name: String): String? =
+    try {
+      val renamed = DocumentsContract.renameDocument(activity.contentResolver, Uri.parse(uri), name)
+      if (renamed != null) {
+        try {
+          activity.contentResolver.takePersistableUriPermission(
+            renamed,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+          )
+        } catch (error: SecurityException) {
+          // Access to the old link carries over to the new one, or lasts this session.
+        }
+      }
+      renamed?.toString()
+    } catch (error: Exception) {
+      null
+    }
+
+  /** Shows the picker to save a new document under `name`; its content link comes back to `__inkspirePicked`. */
+  @JavascriptInterface
+  fun createDocument(name: String, mimeType: String) =
+    activity.pickNewDocument(name, mimeType.ifEmpty { "application/octet-stream" })
 
   /** Prints the page (Inkspire has laid out its print pages first); `__inkspirePrinted` is called when done. */
   @JavascriptInterface

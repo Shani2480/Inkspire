@@ -1,4 +1,5 @@
 import { useBackstage } from "@/document/backstage"
+import { androidRename } from "@/lib/android-bridge"
 import { documentName, saveStateLabel, useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
 import { isAndroid, isTauriRuntime } from "@/lib/platform"
@@ -120,6 +121,16 @@ function NameFlyout({
     if (!path || !isTauriRuntime()) {
       useDocumentStore.getState().renamed(null, `${next}${ext}`)
       onClose()
+      return
+    }
+    const android = androidRename(path, `${next}${ext}`)
+    if (android !== undefined) {
+      if (android) {
+        useDocumentStore.getState().renamed(android, `${next}${ext}`)
+        onClose()
+      } else {
+        setError("This place doesn't let Inkspire rename the document. Use Save As to save it under the new name.")
+      }
       return
     }
     const separator = path.includes("\\") && !path.includes("/") ? "\\" : "/"

@@ -44,7 +44,19 @@ function acceptFromFilters(filters: FileFilter[]) {
   return accept
 }
 
-type AndroidPicker = { openDocument(mimeTypesJson: string): void }
+type AndroidPicker = { openDocument(mimeTypesJson: string): void; createDocument(name: string, mimeType: string): void }
+
+/** The page waits for the picker's answer, which MainActivity hands to `__inkspirePicked`. */
+function awaitPicked(show: () => void): Promise<string | null> {
+  return new Promise((resolve) => {
+    const host = globalThis as { __inkspirePicked?: (uri: string | null) => void }
+    host.__inkspirePicked = (uri) => {
+      delete host.__inkspirePicked
+      resolve(uri)
+    }
+    show()
+  })
+}
 
 /**
  * Android's document picker, through MainActivity: it grants read and write access that lasts, where the dialog
@@ -57,14 +69,23 @@ function pickAndroidDocument(filters: FileFilter[]): Promise<string | null> | nu
   }
   const mimeTypes = [...new Set(filters.flatMap((filter) => filter.extensions.map((ext) => ACCEPT_MAP[ext] ?? "")))]
   const openDocument = files.openDocument.bind(files)
-  return new Promise((resolve) => {
-    const host = globalThis as { __inkspirePicked?: (uri: string | null) => void }
-    host.__inkspirePicked = (uri) => {
-      delete host.__inkspirePicked
-      resolve(uri)
-    }
-    openDocument(JSON.stringify(mimeTypes.filter(Boolean)))
-  })
+  return awaitPicked(() => openDocument(JSON.stringify(mimeTypes.filter(Boolean))))
+}
+
+/**
+ * Android's picker for a new document, through MainActivity: it keeps read and write access to the file across
+ * restarts, as Open does, where the dialog plugin's save picker gives this session's access only.
+ */
+export function pickAndroidNewDocument(filters: FileFilter[], defaultPath: string): Promise<string | null> | null {
+  const files = (globalThis as { InkspireFiles?: Partial<AndroidPicker> }).InkspireFiles
+  if (!files?.createDocument) {
+    return null
+  }
+  const name = defaultPath.split(/[/\\]/).pop() || defaultPath
+  const ext = extOf(name) || filters[0]?.extensions[0] || ""
+  const mimeType = ACCEPT_MAP[ext] ?? "application/octet-stream"
+  const createDocument = files.createDocument.bind(files)
+  return awaitPicked(() => createDocument(name, mimeType))
 }
 
 export async function pickOpenPath(filters: FileFilter[], title = "Open"): Promise<string | null> {
@@ -104,6 +125,10 @@ export async function pickSavePath(
   defaultPath: string,
   title = "Save As",
 ): Promise<string | null> {
+  const android = pickAndroidNewDocument(filters, defaultPath)
+  if (android) {
+    return android
+  }
   if (isTauriRuntime()) {
     const selected = await tauriSave({ title, filters, defaultPath })
     return selected ?? null

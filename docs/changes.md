@@ -7,6 +7,25 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-17
 
+### Android: system fonts, Save As keeps access, rename in place; the cursor starts at the top; no picture toolbar in Read Mode (next build)
+
+- **System fonts (B3):** Android has no `fc-list`, so the font list had only Inkspire's own fonts. `list_system_fonts`
+  on Android reads the named families and aliases (`sans-serif`, `serif`, `arial`, `times` …) of
+  `/system/etc/font_fallback.xml` (Android 15), `fonts.xml` and `/product/etc/fonts_customization.xml`
+  (`android_font_names`, tested); the unnamed families are fallbacks for other scripts.
+- **Save As (B8):** the dialog plugin's save picker gave this session's access only, so a document saved under a
+  new name could not be saved again after a restart. MainActivity now shows `ACTION_CREATE_DOCUMENT` itself and takes
+  lasting read and write access (`pickAndroidNewDocument`, tested), as Open does.
+- **Rename (B4):** renaming from the title used a file path; for a content link it now renames in place with
+  `DocumentsContract.renameDocument` (`androidRename`, tested) and keeps access to the new link; where the place does
+  not rename (a media library, a mail attachment) it says to use Save As.
+- **Cursor after opening (B10):** `setContent` left the cursor at the document's end, inside a last table, whose
+  toolbar covered the page on a phone; it now starts at the top, as in Word (checked in emulation: position 1 of 83,
+  was 77, in the table).
+- **Read Mode (B21):** a picture left selected kept its toolbar floating over the text being read; hidden in Read
+  Mode.
+- Not built or checked on a device yet (verify list).
+
 ### A long press on text no longer opens the full right-click menu on a touch screen; v0.9.1
 
 - **What was wrong:** on the Pixel, a long press to select text fired `contextmenu`, so Inkspire's whole right-click

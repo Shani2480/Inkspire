@@ -8,6 +8,7 @@ type AndroidServices = {
   share(name: string, mimeType: string, base64: string): void
   ready(): void
   quit(): void
+  renameDocument(uri: string, name: string): string | null
 }
 
 export function androidServices(): Partial<AndroidServices> | null {
@@ -36,6 +37,18 @@ export function androidShare(name: string, mimeType: string, bytes: Uint8Array) 
   }
   services.share(name, mimeType, toBase64(bytes))
   return true
+}
+
+/**
+ * Renames a document picked on Android (a content link) in its place. The new link; null where that place does not
+ * rename; undefined off Android.
+ */
+export function androidRename(uri: string, name: string): string | null | undefined {
+  const services = androidServices()
+  if (!services?.renameDocument || !uri.startsWith("content:")) {
+    return undefined
+  }
+  return services.renameDocument(uri, name) || null
 }
 
 /** Opens what other apps send ("Open with Inkspire"), the one that started the app first. */
