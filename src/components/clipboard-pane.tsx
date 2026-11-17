@@ -50,7 +50,7 @@ export function ClipboardPane() {
   return (
     <aside
       aria-label="Clipboard"
-      className="flex h-full min-h-0 w-[248px] shrink-0 flex-col border-r border-[#d0d0d0] bg-white"
+      className="clipboard-pane flex h-full min-h-0 w-[248px] shrink-0 flex-col border-r border-[#d0d0d0] bg-white"
     >
       <div className="flex items-center justify-between border-b border-[#e6e6e6] px-3 py-2">
         <h2 className="text-[13px] font-semibold text-[#242424]">Clipboard</h2>

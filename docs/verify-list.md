@@ -384,6 +384,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **Phone layout (2026-11-17)** — on the Pixel: open a real .docx from Files, edit a table and a picture by
+      touch, open Insert > Pictures and a dialog with the keyboard up; turn the phone sideways (landscape phone layout
+      not checked).
 - [ ] **TOC end line (2026-11-17)** — open `f12_fields_toc.docx` in the desktop app: an empty line below the table
       of contents, as in Word; update the table (Update Table…) and save: Word still shows the line (checked in
       Chrome and the unit tests only).

@@ -15189,6 +15189,12 @@ textarea.tp-input {
     min-height: 32px;
   }
 
+  /* Three small buttons stacked in a group (Cut, Copy, Format Painter) share the group's height: taller ones run
+     into its label. They are wide, so they stay easy to hit. */
+  [data-ribbon-layout] button.ribbon-mini {
+    min-height: 25px;
+  }
+
   /* No hover on a touch screen: a selected object shows its move bar without one. */
   .object-frame .object-handle {
     cursor: default;
@@ -18561,4 +18567,161 @@ html.dark,
   /* 1px over, so a rounded gap leaves no notch where the sides meet the next paragraph's lines. */
   bottom: calc(-1 * var(--para-join-gap, 0px) - 1px);
   border-bottom: 0 none;
+}
+
+/*
+ * Phone (src/lib/device.ts): Word mobile's layout. The page takes the width, the ribbon's single line and its tabs
+ * sit at the bottom above the keyboard, the status bar just over them.
+ */
+[data-device="phone"] .app-ribbon-shell {
+  order: 2;
+  border-top: 1px solid var(--app-ribbon-border);
+}
+
+[data-device="phone"] .app-statusbar {
+  order: 1;
+}
+
+[data-device="phone"] .app-ribbon {
+  flex-direction: column-reverse;
+}
+
+[data-device="phone"] .app-ribbon > div:first-child {
+  padding-inline: 4px;
+}
+
+/* The tabs scroll sideways under the finger, as Word mobile's do. */
+[data-device="phone"] .app-ribbon [role="tablist"] {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+[data-device="phone"] .app-ribbon [role="tablist"] > * {
+  flex: none;
+}
+
+[data-device="phone"] .ribbon-card {
+  margin: 4px 4px 0;
+}
+
+[data-device="phone"] .ribbon-layout-toggle {
+  display: none;
+}
+
+[data-device="phone"] #document-scroll {
+  padding: 8px 8px 16px;
+}
+
+[data-device="phone"] .page-stage {
+  margin-top: 0;
+}
+
+[data-device="phone"] .app-ribbon .ribbon-card [role="toolbar"].ribbon-line {
+  height: 48px;
+  min-height: 48px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+/* More options stays at the row's right end while the row scrolls under it. */
+[data-device="phone"] .ribbon-line .line-more {
+  position: sticky;
+  right: 0;
+  flex: none;
+  margin-left: auto;
+  background: var(--app-ribbon-card);
+  box-shadow: -8px 0 8px -4px var(--app-ribbon-card);
+}
+
+/* Light/dark is in File > Options and View on a phone; the tab row needs the room. */
+[data-device="phone"] .app-ribbon .ribbon-color-mode {
+  display: none;
+}
+
+/* File on a phone: its commands as a row across the top that scrolls sideways, the page under it. */
+[data-device="phone"] .backstage {
+  flex-direction: column;
+}
+
+[data-device="phone"] .backstage-nav {
+  width: auto;
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
+  padding: 4px 4px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+[data-device="phone"] .backstage-nav-group {
+  flex-direction: row;
+  flex: none;
+}
+
+[data-device="phone"] .backstage-nav-footer {
+  margin-top: 0;
+}
+
+[data-device="phone"] .backstage-nav-divider {
+  width: 1px;
+  height: 24px;
+  margin: 0 6px;
+}
+
+[data-device="phone"] .backstage-nav-item {
+  height: 40px;
+  flex: none;
+  gap: 6px;
+  padding: 0 12px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+[data-device="phone"] .backstage-nav-item.is-active::before {
+  top: auto;
+  right: 10px;
+  bottom: 2px;
+  left: 10px;
+  width: auto;
+  height: 3px;
+  border-radius: 2px 2px 0 0;
+}
+
+[data-device="phone"] .backstage-back {
+  flex: none;
+}
+
+[data-device="phone"] .backstage-pane {
+  padding: 16px 16px 32px;
+}
+
+/* Task panes on a phone: a sheet over the lower part of the screen, as Word mobile's panes, not a column beside a
+   page that has no room for one. */
+[data-device="phone"]
+  :is(
+    .clipboard-pane,
+    .recovery-rail,
+    .comments-sidebar,
+    .ai-pane,
+    .nav-pane,
+    .selection-pane,
+    .styles-pane,
+    .format-pane,
+    .smartart-pane
+  ) {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 55;
+  width: auto !important;
+  max-width: none !important;
+  height: min(62vh, 560px) !important;
+  border: 1px solid var(--app-divider);
+  border-bottom: 0;
+  border-radius: 12px 12px 0 0;
+  background: var(--app-ribbon-card, #fff);
+  box-shadow: 0 -8px 24px rgb(0 0 0 / 0.18);
+  overflow: hidden;
 }

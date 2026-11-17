@@ -9,6 +9,24 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "0.4.0",
+    date: "2026-11-17",
+    notes: [
+      {
+        title: "Inkspire on a phone",
+        text: "On an Android phone the page now fits the screen, and the commands sit at the bottom above the keyboard, as in Word on a phone: swipe the row for more, and the tabs under it for the others. Side panes open as sheets from the bottom, and the File screen and dialogs fit the screen.",
+      },
+      {
+        title: "Tapping the page",
+        text: "On a touch screen, a tap in the margin or below the text puts the cursor in the nearest line, ready to type. A long press opens the menu with Cut, Copy, Paste and more.",
+      },
+      {
+        title: "Tablets",
+        text: "The Clipboard and Editing names no longer run into the buttons above them on a touch screen.",
+      },
+    ],
+  },
+  {
     version: "0.3.3",
     date: "2026-11-17",
     notes: [

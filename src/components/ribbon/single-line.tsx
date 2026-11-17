@@ -1,6 +1,7 @@
 import { useTabLineGroups } from "@/components/ribbon/custom-groups"
 import { fitLine } from "@/components/ribbon/line-fit"
 import { RibbonButton, RibbonPopover, RibbonSplit } from "@/components/ribbon/ribbon-button"
+import { useDevice } from "@/lib/device"
 import { cn } from "@/lib/utils"
 import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react"
 import { Fragment, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react"
@@ -58,9 +59,16 @@ export function SingleLineBar({
   const commands = groups.flatMap((group, index) => group.commands.map((command) => ({ command, group: index })))
   const [shown, setShown] = useState<Set<string> | null>(null)
   const signature = commands.map(({ command }) => command.id).join(" ")
+  // A phone's row scrolls under the finger with every command on it, as Word mobile's toolbar does; More options
+  // keeps the rest of the classic tab.
+  const phone = useDevice() === "phone"
 
   useLayoutEffect(() => {
     const bar = barRef.current
+    if (phone) {
+      setShown(null)
+      return
+    }
     if (!bar) {
       return
     }
@@ -99,7 +107,7 @@ export function SingleLineBar({
     bar.querySelectorAll("[data-line-item]").forEach((item) => resize.observe(item))
     return () => resize.disconnect()
     // The commands are rebuilt every render; their ids say when the row itself changed.
-  }, [signature])
+  }, [signature, phone])
 
   const isShown = (command: LineCommand) => shown === null || shown.has(command.id)
   const hidden = [

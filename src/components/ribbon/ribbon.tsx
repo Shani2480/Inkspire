@@ -522,7 +522,7 @@ export function Ribbon() {
               </TabsTrigger>
             ) : null}
           </TabsList>
-          <div className="mb-0.5 flex shrink-0 items-center">
+          <div className="ribbon-color-mode mb-0.5 flex shrink-0 items-center">
             <ColorModeToggle />
           </div>
         </div>

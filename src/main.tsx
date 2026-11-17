@@ -4,7 +4,9 @@ import App from "./App"
 import "./index.css"
 import { suppressBrowserContextMenu } from "./lib/context-menu-guard"
 import { installEntrances } from "./document/entrances"
+import { installDevice } from "./lib/device"
 
+installDevice()
 suppressBrowserContextMenu()
 installEntrances()
 

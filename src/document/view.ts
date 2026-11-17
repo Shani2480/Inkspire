@@ -1,4 +1,5 @@
 import { isAndroid } from "@/lib/platform"
+import { isPhone } from "@/lib/device"
 import type { PageView } from "@/document/page-grid"
 import { DEFAULT_THEME_BACKGROUND, THEME_OPTIONS } from "@/document/theme"
 import { create } from "zustand"
@@ -28,8 +29,14 @@ function readThemeBackground(): string {
   }
 }
 
-/** The ribbon until one is chosen: the single line on Android, as Word's tablet app shows it, the classic one elsewhere. */
+/**
+ * The ribbon until one is chosen: the single line on Android, as Word's tablet app shows it, the classic one elsewhere.
+ * A phone always has the single line (at the bottom, as Word mobile's toolbar): the full ribbon does not fit.
+ */
 export function readRibbonLayout(): RibbonLayout {
+  if (isPhone()) {
+    return "single"
+  }
   const fallback: RibbonLayout = isAndroid ? "single" : "classic"
   try {
     const stored = localStorage.getItem(RIBBON_LAYOUT_KEY)
@@ -152,14 +159,16 @@ applyColorMode(initialColorMode)
 
 export const useViewStore = create<ViewState>((set, get) => ({
   zoom: 1,
-  zoomMode: "manual",
+  // A phone shows the page across its width (Word mobile's print layout); elsewhere 100%.
+  zoomMode: isPhone() ? "width" : "manual",
   findOpen: false,
   editingChrome: false,
   chromeTarget: { part: "header", page: 0 },
   findTab: "find",
   showFormattingMarks: false,
   spellCheck: true,
-  showRuler: true,
+  // Word mobile has no rulers; they would take a fifth of a phone's width.
+  showRuler: !isPhone(),
   showGridlines: false,
   autoSave: true,
   colorMode: initialColorMode,
@@ -208,6 +217,9 @@ export const useViewStore = create<ViewState>((set, get) => ({
     }),
   toggleRibbonLayout: () => get().setRibbonLayout(get().ribbonLayout === "single" ? "classic" : "single"),
   setRibbonLayout: (ribbonLayout) => {
+    if (isPhone() && ribbonLayout !== "single") {
+      return
+    }
     storeRibbonLayout(ribbonLayout)
     set({ ribbonLayout })
   },
@@ -225,8 +237,13 @@ export const useViewStore = create<ViewState>((set, get) => ({
       immersive: layoutMode === "read" ? false : state.immersive,
       movement: layoutMode === "print" ? state.movement : "vertical",
       pageView: layoutMode === "print" ? state.pageView : 1,
-      // Fit-to-page zooms measure a sheet; the other layouts have none, so they start at 100%.
-      ...(layoutMode === "print" ? {} : { zoomMode: "manual" as const, zoom: 1 }),
+      // Fit-to-page zooms measure a sheet; the other layouts have none, so they start at 100%. Back on the pages, a
+      // phone fits them to its width again.
+      ...(layoutMode === "print"
+        ? isPhone() && state.layoutMode !== "print"
+          ? { zoomMode: "width" as const }
+          : {}
+        : { zoomMode: "manual" as const, zoom: 1 }),
     })),
   setWebWidth: (webWidth) => set({ webWidth }),
   setReadColumnWidth: (readColumnWidth) => set({ readColumnWidth }),

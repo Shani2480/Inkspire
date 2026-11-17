@@ -21,6 +21,16 @@ import { useHelp } from "@/document/help"
 
 export type DialogTab = { id: string; label: string; letter: string }
 
+/**
+ * How much a dialog laid out for `width` x `height` is scaled to fit the window with 8 px to spare on each side: 1 on
+ * a desktop, less on a phone. Its controls keep Word's layout; nothing scrolls sideways.
+ */
+export function fitScale(width: number, height = 0) {
+  const across = (window.innerWidth - 16) / width
+  const down = height > 0 ? (window.innerHeight - 16) / height : 1
+  return Math.min(1, across, down)
+}
+
 export function WordDialog({
   title,
   width,
@@ -56,9 +66,11 @@ export function WordDialog({
   children: ReactNode
   overlay?: ReactNode
 }) {
+  // A window narrower or lower than the dialog (a phone's) shows it whole, scaled down to fit.
+  const scale = fitScale(width, height)
   const [place, setPlace] = useState(() => ({
-    x: Math.max(8, Math.round((window.innerWidth - width) / 2)),
-    y: Math.max(8, Math.round((window.innerHeight - height) / 2)),
+    x: Math.max(8, Math.round((window.innerWidth - width * scale) / 2)),
+    y: Math.max(8, Math.round((window.innerHeight - height * scale) / 2)),
   }))
   const [showKeys, setShowKeys] = useState(false)
   const dialogRef = useRef<HTMLDivElement>(null)
@@ -140,7 +152,11 @@ export function WordDialog({
         aria-modal="true"
         aria-labelledby={`${prefix}-title`}
         className={`word-dialog${showKeys ? " show-keys" : ""}`}
-        style={{ left: place.x, top: place.y, width, height }}
+        style={
+          scale < 1
+            ? { left: place.x / scale, top: place.y / scale, width, height, zoom: scale }
+            : { left: place.x, top: place.y, width, height }
+        }
         onBlur={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
             setShowKeys(false)
@@ -281,12 +297,21 @@ export function DialogFrame({
   closeRef.current = onClose
   const id = `${title.toLowerCase().replace(/\W+/g, "-")}-dialog-title`
   const frameWidth = Math.min(width, window.innerWidth - 16)
+  // Narrowed to the window (a phone's), a dialog whose content then runs out sideways shows whole, scaled down.
+  const [scale, setScale] = useState(1)
 
   useLayoutEffect(() => {
+    const dialog = dialogRef.current
+    const body = dialog?.querySelector<HTMLElement>(".word-dialog-body")
+    const overflows =
+      frameWidth < width && body !== null && body !== undefined && body.scrollWidth > body.clientWidth + 1
+    const fitted = overflows ? fitScale(width) : 1
+    setScale(fitted)
     // Centred on the height it opens with; later changes of content grow it downwards, so it never jumps.
-    const height = dialogRef.current?.offsetHeight ?? 0
+    const height = (dialog?.offsetHeight ?? 0) * (overflows ? fitted * (width / frameWidth) : 1)
+    const shown = overflows ? width * fitted : frameWidth
     setPlace({
-      x: Math.max(8, Math.round((window.innerWidth - frameWidth) / 2)),
+      x: Math.max(8, Math.round((window.innerWidth - shown) / 2)),
       y: Math.max(8, Math.round((window.innerHeight - height) / 2.4)),
     })
     // Only when it opens.
@@ -323,15 +348,26 @@ export function DialogFrame({
         aria-modal="true"
         aria-labelledby={id}
         className="word-dialog is-plain"
-        style={{
-          left: place?.x ?? 0,
-          top: place?.y ?? 0,
-          width: frameWidth,
-          height,
-          // Content that grows after it opens scrolls inside the body instead of running off the screen.
-          maxHeight: `calc(100vh - ${place?.y ?? 0}px - 8px)`,
-          visibility: place ? undefined : "hidden",
-        }}
+        style={
+          scale < 1
+            ? {
+                left: (place?.x ?? 0) / scale,
+                top: (place?.y ?? 0) / scale,
+                width,
+                height,
+                zoom: scale,
+                maxHeight: `calc((100vh - ${place?.y ?? 0}px - 8px) / ${scale})`,
+              }
+            : {
+                left: place?.x ?? 0,
+                top: place?.y ?? 0,
+                width: frameWidth,
+                height,
+                // Content that grows after it opens scrolls inside the body instead of running off the screen.
+                maxHeight: `calc(100vh - ${place?.y ?? 0}px - 8px)`,
+                visibility: place ? undefined : "hidden",
+              }
+        }
       >
         <TitleBar id={id} title={title} onPointerDown={startDrag} onClose={onClose} />
         {tabs ? (

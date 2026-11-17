@@ -1,3 +1,5 @@
+import { isPhone } from "@/lib/device"
+import { placeCaretFromTap } from "@/editor/tap-caret"
 import { useEditingOptions } from "@/document/editing-options"
 import { formattingMarkClasses } from "@/editor/formatting-marks"
 import { ChartPartLayer, ChartSideButtons } from "@/components/chart-overlay"
@@ -225,7 +227,8 @@ export function PageCanvas() {
         fitRows * metrics.height +
         Math.max(0, fitRows - 1) * PAGE_GAP +
         (pageView > 1 && zoomMode === "pages" ? metrics.marginTop + metrics.marginBottom : 0)
-      const floor = pageView > 1 && zoomMode === "pages" ? 0.1 : 0.5
+      // A phone fits a whole page across its width, which takes less than half size.
+      const floor = (pageView > 1 && zoomMode === "pages") || isPhone() ? 0.1 : 0.5
       const raw =
         zoomMode === "width"
           ? widthZoom
@@ -439,6 +442,13 @@ export function PageCanvas() {
         <article
           ref={pageRef}
           onMouseDown={clearFloatingSelection}
+          onClick={(event) => {
+            // A finger's tap in the margin or below the text puts the cursor in the nearest line.
+            const pointer = (event.nativeEvent as PointerEvent).pointerType
+            if (pointer === "touch" && !editingChrome) {
+              placeCaretFromTap(editor, event)
+            }
+          }}
           lang={pageSetup.language || "en"}
           className={`page-canvas absolute top-0 left-0${markClasses ? ` ${markClasses}` : ""}${editingChrome ? " is-chrome-editing" : ""}`}
           onDoubleClick={(event) => {

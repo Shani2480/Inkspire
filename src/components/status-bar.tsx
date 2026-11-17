@@ -17,15 +17,28 @@ import { useEditorState } from "@tiptap/react"
 import type { Editor } from "@tiptap/core"
 import { BookOpen, Check, Focus, Minus, Monitor, Plus, Printer } from "lucide-react"
 import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useDevice } from "@/lib/device"
 
 type Dialog = "count" | "zoom" | "language" | null
 
-const ITEM = "rounded px-1.5 py-0.5 hover:bg-black/5 dark:hover:bg-white/10"
+const ITEM = "whitespace-nowrap rounded px-1.5 py-0.5 hover:bg-black/5 dark:hover:bg-white/10"
 
 /**
  * Word's status bar. A click on the page number opens Go To, on the word count Word Count, on the language the
  * Language dialog, on the zoom percentage the Zoom dialog; right-click opens Customize Status Bar.
  */
+const PHONE_HIDDEN = {
+  section: false,
+  characters: false,
+  language: false,
+  track: false,
+  caps: false,
+  overtype: false,
+  accessibility: false,
+  focus: false,
+  slider: false,
+} as const
+
 export function StatusBar() {
   const editor = useBodyEditor()
   const isDirty = useDocumentStore((state) => state.isDirty)
@@ -41,7 +54,11 @@ export function StatusBar() {
   const spellCheck = useViewStore((state) => state.spellCheck)
   const tracking = useReviewStore((state) => state.tracking)
   const locked = useReviewStore(trackingLocked)
-  const shown = useStatusBar((state) => state.shown)
+  const chosen = useStatusBar((state) => state.shown)
+  // A phone's width holds the page, the words, the views and the zoom; the rest stays in Customize Status Bar's list
+  // and in the ribbon (Review > Language, Accessibility; View > Focus).
+  const phone = useDevice() === "phone"
+  const shown = phone ? { ...chosen, ...PHONE_HIDDEN } : chosen
   const extras = useStatusBar((state) => state.countExtras)
   const [dialog, setDialog] = useState<Dialog>(null)
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
@@ -246,7 +263,7 @@ export function StatusBar() {
                   : "size-1.5 rounded-full bg-[#107C10]"
             }
           />
-          <span>{saveLabel}</span>
+          {phone ? null : <span>{saveLabel}</span>}
         </span>
 
         {shown.views ? (

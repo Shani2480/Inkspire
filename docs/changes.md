@@ -7,6 +7,36 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-17
 
+### Android joins main; Word mobile's layout on a phone; v0.4.0
+
+- **What was wrong:** the Android port lived on the `android` branch, 41 commits behind main. On a phone (the Pixel)
+  the page was drawn at 100% on a 527 px screen, so most of what showed was margin. A tap there did nothing; the
+  editor only took a tap on its own lines, so it looked as if the phone could not type. The full ribbon's group
+  labels (Clipboard, Editing) ran into the buttons on any touch screen, the status bar wrapped, and side panes took
+  240 px of the width.
+- **What changed:**
+  - `android` merged with main and main fast-forwarded to it: one branch builds desktop and Android (conflicts in
+    `commands.ts` and `index.css`, both sides kept).
+  - `lib/device.ts`: a touch screen whose short side is under 600 css px is a phone (`data-device` on the root).
+  - On a phone: Page Width zoom (down to 10%) and no rulers (`view.ts`, `page-canvas.tsx`); the single-line ribbon
+    always, at the bottom with the tabs under it, its row scrolling sideways with every command
+    (`single-line.tsx`, `index.css`); a compact status bar (`status-bar.tsx`); task panes as sheets from the bottom;
+    File's commands as a row across the top.
+  - Every touch screen: a tap in the margin or below the text puts the cursor in the nearest line
+    (`editor/tap-caret.ts`); the three stacked small buttons in a ribbon group keep to the group's height.
+  - Dialogs wider or taller than the window are scaled down to fit (`fitScale` in `word-dialog.tsx`).
+  - `tools/dialog-overflow.mjs --phone` runs the overflow check as a phone.
+  - Version 0.4.0 with its release notes.
+- **Checked:** on the Pixel (release APK): a blank document fits the screen at 62%, a tap in the margin brings up
+  the keyboard and the text lands on the page, the ribbon and tabs sit above the keyboard, Recovery opens as a sheet,
+  a long press opens the context menu. On the OnePlus Pad: the full ribbon, typing after a tap. In Chrome as a phone
+  (412 x 915): margin taps, Web Layout reflow, Print Layout back at Page Width, Navigation as a sheet, File, the
+  Paragraph and Borders and Shading dialogs; `dialog-overflow.mjs --phone`: no dialog scrolls sideways or sits off
+  screen. Tests: `lib/device.test.ts`; 1659 pass.
+- **Open:** next-todo "Android phone and tablet" A7–A9 and phase 2 (Print, Share, fonts, rename, .odt/.rtf, Open
+  with). The Recent list on Android shows the content link where a folder belongs. Two lint errors in
+  `merge-sources.ts` and the formatting of `index.css` were already there.
+
 ### A table of contents keeps Word's empty line where its field closes; v0.3.3
 
 - **What was wrong:** Word usually closes a TOC field in a paragraph of its own after the entries, and draws that

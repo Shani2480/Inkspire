@@ -84,7 +84,7 @@ export function AiSidebar() {
   return (
     <aside
       aria-label="AI"
-      className="flex min-h-0 w-80 shrink-0 flex-col border-l border-[#d0d0d0] bg-white dark:border-[#3b3a39] dark:bg-[#292929]"
+      className="ai-pane flex min-h-0 w-80 shrink-0 flex-col border-l border-[#d0d0d0] bg-white dark:border-[#3b3a39] dark:bg-[#292929]"
     >
       <div className="flex items-center justify-between border-b border-[#e5e5e5] px-3 py-2">
         <h2 className="text-sm font-semibold text-[#242424] dark:text-[#f3f2f1]">AI</h2>

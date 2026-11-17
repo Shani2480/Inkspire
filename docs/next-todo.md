@@ -4,17 +4,47 @@ The next work is the **Next** list below. Do not start a later phase until it is
 
 Where a simpler version already exists, the note says so. The item is still open until it matches the control written here. Names, groups, and dialog fields are the ones visible in `screenshots/`. A dropdown whose menu is closed in those shots stays a dropdown with that label. Do not add menu entries that are not on screen.
 
-## Android tablet (branch `android`, 2026-10-28)
+## Android phone and tablet (2026-11-17)
 
-- Release APK: done (signed, built by `release.yml` from this branch). An AAB for Google Play if it goes there.
-- Save As on Android uses the dialog plugin's `ACTION_CREATE_DOCUMENT`; check its access lasts across restarts
-  as Open's now does.
-- PDF without Typst: Android's print service (`window.print()` in the WebView does nothing; a print adapter in
-  `MainActivity`).
-- Touch editing: long-press selection handles and the Android text toolbar over the editor, dragging pictures and
-  shapes with a finger, Edit Wrap Points and crop handles at finger size. (Pinch zooms the document: done.)
-- A phone layout (out of scope for the tablet build).
-- Test on a real tablet with Gboard and a hardware keyboard (shortcuts, IME composition in tables and headers).
+The Android port is on main since 2026-11-17 (`isAndroid`, `src/lib/platform.ts`); one branch builds desktop and
+Android. Android only for now (no iOS). The phone gets Word mobile's layout; the tablet keeps the full ribbon.
+Phases 1 and 2 are approved; phase 3 waits for a go-ahead.
+
+### Phase 1 — phone and tablet layout and touch
+
+- [x] A1. (2026-11-17) Phone detection: a touch screen whose short side is under 600 css px (`data-device="phone"` on the root);
+      tablets and desktops unchanged.
+- [x] A2. (2026-11-17) The page fits the screen width on a phone (Page Width until zoomed by hand); rulers off; narrow gutters.
+- [x] A3. (2026-11-17) A tap in the page's margin or below the text puts the cursor in the nearest line (touch only).
+- [x] A4. (2026-11-17) Ribbon at the bottom on a phone, as Word mobile: the single line (every other command in its More menu),
+      the tabs as a swipeable row under it, above the keyboard; the layout toggle hidden.
+- [x] A5. (2026-11-17; the title bar fits as it is) Title bar and status bar compact on a phone: no wrapped text; page, words, views and zoom stay.
+- [x] A6. (2026-11-17) Task panes (Recovery, Navigation, Styles, Clipboard, Review…) as sheets over the page on a phone.
+- [ ] A7. File (backstage) and dialogs fit the phone's width without horizontal scroll (`tools/dialog-overflow.mjs`).
+      Done 2026-11-17: File's commands as a row across the top; a dialog wider than the window is scaled down to fit
+      (`fitScale`), so nothing scrolls sideways (`dialog-overflow.mjs --phone`: no sideways scroll left). Left: phone
+      forms for the dialogs that come out small (Borders and Shading is drawn at about 70%).
+- [ ] A8. Long press opens Inkspire's context menu; hover-only controls (the TOC's Update Table tab) show on tap.
+      Long press works on the Pixel (2026-11-17). Left: the menu acts on the word the cursor was on before, not the one
+      pressed; Android's selection handles cover the menu's search box; the TOC tab on tap not checked.
+- [ ] A9. Checked on the Pixel and on the tablet (OnePlus Pad): open, type, format, insert a table and picture, save.
+
+### Phase 2 — features that fail on Android
+
+- [ ] B1. Print and Save as PDF through Android's print service (`PrintManager` with the WebView's print adapter).
+- [ ] B2. Share > Email (and Share a copy) through the Android share sheet (`ACTION_SEND`, the declared FileProvider).
+- [ ] B3. System fonts from `/system/fonts` (no `fc-list`).
+- [ ] B4. Rename a document and import/export ribbon customizations with content links (`DocumentsContract`).
+- [ ] B5. Open .rtf and .odt without pandoc (in JS); .doc says plainly that it needs a desktop.
+- [ ] B6. "Open with Inkspire" from Files and Gmail: intent filters for .docx, .dotx, .rtf, .odt, .txt, .md.
+- [ ] B7. Hide what has no Android counterpart: Reveal in folder, Edit in Cells, the helper-tools download, the
+      desktop-only local model.
+- [ ] B8. Save As keeps its access across restarts, as Open's does.
+
+### Phase 3 — later (not started)
+
+Save .odt/.rtf and PDF without pandoc/Typst; .doc on a device; an opt-in on-device model (NPU, else CPU/GPU); AI
+keys in the Android Keystore; touch drag-to-reorder in the panes; an AAB for Google Play; a hardware-keyboard pass.
 
 ## Next — open items
 
