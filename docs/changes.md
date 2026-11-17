@@ -7,6 +7,21 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-17
 
+### A picture alone in a list item sits on its bullet's line
+
+- **What was wrong:** a list item has to start with a paragraph in the editor, so one holding only a picture opens
+  with a blank line before it (a save leaves it out). That line, with the bullet, was drawn above the picture, in
+  Normal with Normal's 8 pt after: the picture a line below its bullet, the text after it 32 pt lower than Word's
+  (`combined`).
+- **What changed:** `docx/project.ts`: the blank line takes the picture paragraph's style (so a List Paragraph's
+  contextual spacing applies). `index.css`: such an item lays the blank line over the picture's, its baseline (and
+  so the bullet) on the picture's foot, as Word draws it; below that the picture's line decides. Typing on the blank
+  line turns it back into a line of its own above the picture.
+- **Checked in Word (VM):** `combined`: the text before to the text after the picture 43.1 pt (Word 44.1, was 75.9),
+  the bullet at the picture's foot. Screenshots compared.
+- **Tests:** `docx/word-comparison.test.ts` (the blank line's style), `docx/cover-layout.test.ts` (saved as one
+  numbered paragraph with the picture).
+
 ### Shapes placed on the page sit exactly at their place
 
 - **What was wrong:** a shape placed on the page (any wrap but In Line with Text) kept the margin a shape in the line

@@ -2073,6 +2073,33 @@ button.line-menu-row:focus-visible {
   white-space: pre;
 }
 
+/* A list item holding only a picture: the editor opens it with a blank paragraph (a list item starts with one; a save
+   leaves it out). Word draws the picture on the bullet's line, the bullet on its baseline at the picture's foot: the
+   blank line, which carries the bullet, is laid over the picture's, at its foot. */
+.page-editor
+  li:has(> p:first-child > br.ProseMirror-trailingBreak:only-child):has(> p:first-child + .page-image:last-child) {
+  display: grid;
+  /* The blank line's baseline on the picture's foot (a picture's baseline is its bottom edge). */
+  align-items: last baseline;
+  justify-items: start;
+}
+
+.page-editor
+  li:has(> p:first-child > br.ProseMirror-trailingBreak:only-child):has(> p:first-child + .page-image:last-child)
+  > * {
+  grid-area: 1 / 1;
+}
+
+:root:root
+  .page-editor
+  li:has(> p:first-child > br.ProseMirror-trailingBreak:only-child):has(> p:first-child + .page-image:last-child)
+  > p:first-child {
+  justify-self: stretch;
+  /* Below its baseline the picture's line decides (its extra height and space after), as in Word. Important over
+     contextual spacing's (word-styles.ts), which is too. */
+  margin-bottom: -2em !important;
+}
+
 /* A picture bullet (w:lvlPicBulletId): its picture a font size high, in the marker's place. */
 .page-editor li[data-word-picture] > :first-child::before {
   background-image: var(--word-picture);

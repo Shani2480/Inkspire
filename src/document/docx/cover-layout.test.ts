@@ -202,3 +202,14 @@ describe("the room Word gives a picture alone in its paragraph", () => {
     expect(lineRoom("", 32)).toEqual({ top: 0, bottom: 0 })
   })
 })
+
+describe("a picture alone in a list item", () => {
+  it("saves as one numbered paragraph with the picture: the blank line it opens with is left out", async () => {
+    const bytes = new Uint8Array(readFileSync(path.join(AUTHORED, "combined.docx")))
+    const { xml } = await openAndSave(bytes, (editor) => editor.commands.insertContentAt(1, "x"))
+    const items = xml.match(/<w:p\b(?:(?!<\/w:p>).)*<w:numPr>(?:(?!<\/w:p>).)*<\/w:p>/gs) ?? []
+    const picture = items.findIndex((item) => item.includes("<w:drawing>"))
+    expect(picture).toBeGreaterThan(0)
+    expect(items[picture - 1]).toContain("footnote")
+  })
+})

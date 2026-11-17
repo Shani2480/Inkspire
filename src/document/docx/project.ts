@@ -955,7 +955,11 @@ function listItemHtml(paragraph: Paragraph, numId: number, items: Paragraph[], c
     hang !== undefined ? ` data-word-own-hang="${Math.round(hang * 100) / 100}"` : ""
   }`
   // A list item has to open with a paragraph; without a blank one the picture would be pushed out of the list.
-  const opening = picturesOnly(paragraph, ctx.doc) ? "<p></p>" : ""
+  // In the picture's paragraph style, so it is spaced as that paragraph (a List Paragraph's contextual spacing); it
+  // has no key, so a save still leaves it out.
+  const opening = picturesOnly(paragraph, ctx.doc)
+    ? `<p${paragraph.styleId ? ` data-word-style="${escapeAttribute(paragraph.styleId)}"` : ""}></p>`
+    : ""
   return `<li${attributes}>${opening}${paragraphHtml(paragraph, ctx)}</li>`
 }
 

@@ -143,3 +143,10 @@ describe("values Word does not allow", () => {
     expect(xml).not.toContain('w:val="sideways"')
   })
 })
+
+describe("a picture alone in a list item", () => {
+  it("opens with a blank line in the picture paragraph's style, which carries the bullet", async () => {
+    const { view } = await open(path.join(AUTHORED, "combined.docx"))
+    expect(view.html).toMatch(/<li[^>]*><p data-word-style="ListParagraph"><\/p><span [^>]*><img /)
+  })
+})
