@@ -64,3 +64,47 @@ export function sniffExtension(bytes: Uint8Array) {
   }
   return "txt"
 }
+
+const PLACES: Record<string, string> = {
+  "com.android.providers.downloads.documents": "Downloads",
+  "com.android.providers.media.documents": "Phone storage",
+  media: "Phone storage",
+  "com.google.android.apps.docs.storage": "Google Drive",
+  "com.google.android.apps.docs.storage.legacy": "Google Drive",
+  "com.microsoft.skydrive.content.StorageAccessProvider": "OneDrive",
+  "com.dropbox.android.FileCache": "Dropbox",
+}
+
+/**
+ * Where a document is, in words: its folder on a computer, and on Android the place the content link points to
+ * ("Phone storage › Documents › Letters", "Downloads", "Google Drive") instead of the link itself.
+ */
+export function pathPlace(path: string) {
+  if (!isContentUri(path)) {
+    const cut = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"))
+    return cut > 0 ? path.slice(0, cut) : path
+  }
+  let url: URL
+  try {
+    url = new URL(path)
+  } catch {
+    return "On this device"
+  }
+  const authority = url.host
+  if (authority === "com.android.externalstorage.documents") {
+    // …/document/primary%3ADocuments%2FLetters%2Fletter.docx: the volume, then the folders.
+    const id = decodeURIComponent(url.pathname.split("/").pop() ?? "")
+    const [volume, rest = ""] = id.split(":")
+    const folders = rest.split("/").slice(0, -1).filter(Boolean)
+    return [volume === "primary" ? "Phone storage" : "SD card", ...folders].join(" › ")
+  }
+  if (authority.startsWith("com.google.android.gm")) {
+    return "Gmail attachment"
+  }
+  return PLACES[authority] ?? "Shared from another app"
+}
+
+/** A document's path as Recent lists it: the full path on a computer, the place in words on Android. */
+export function shownPath(path: string) {
+  return isContentUri(path) ? pathPlace(path) : path
+}

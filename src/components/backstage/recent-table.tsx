@@ -1,3 +1,4 @@
+import { shownPath } from "@/lib/paths"
 import { openRecentDocument } from "@/document/commands"
 import { useBackstage } from "@/document/backstage"
 import { documentName, useDocumentStore } from "@/document/store"
@@ -91,8 +92,8 @@ export function RecentTable({
                   <FileText className="size-4 shrink-0 opacity-70" strokeWidth={1.75} />
                   <span className="min-w-0">
                     <span className="block truncate">{documentName(path)}</span>
-                    <span className="backstage-table-path block truncate" title={path}>
-                      {path}
+                    <span className="backstage-table-path block truncate" title={shownPath(path)}>
+                      {shownPath(path)}
                     </span>
                   </span>
                 </button>

@@ -22,6 +22,7 @@ import { documentWithObjectPictures, restoreObjects } from "@/document/object-pi
 import { clearWordDocument, currentWordDocument, rememberWordDocument } from "@/document/docx/session"
 import { setWordNoteTexts } from "@/editor/page-notes"
 import { htmlToMarkdown, markdownToHtml } from "@/document/markdown"
+import { odtToHtml } from "@/document/odt"
 import { rtfToHtml } from "@/document/rtf"
 import {
   bindRecoverySession,
@@ -60,7 +61,8 @@ import {
   type OpenedFile,
 } from "@/lib/file-io"
 import { openExternal } from "@/document/help"
-import { isTauriRuntime } from "@/lib/platform"
+import { isAndroid, isTauriRuntime } from "@/lib/platform"
+import { androidPrint, androidServices, androidShare } from "@/lib/android-bridge"
 import { EditorState } from "@tiptap/pm/state"
 import { generateJSON } from "@tiptap/core"
 import type { PageSetup } from "@/document/page-setup"
@@ -363,10 +365,10 @@ export async function readFileHtml(file: OpenedFile) {
     const opened = await (await docxIo()).openDocxBytes(bytes, file.name || file.path || "document.docx")
     return opened.view.html
   }
-  if (ext === "odt" || (ext === "rtf" && isTauriRuntime() && file.path)) {
-    if (!isTauriRuntime() || !file.path) {
-      throw new Error("Reading .odt requires the desktop app.")
-    }
+  if (ext === "odt" && !usesPandoc(file)) {
+    return odtToHtml(file.bytes)
+  }
+  if ((ext === "odt" || ext === "rtf") && usesPandoc(file)) {
     return invokeWithTools<string>("import_document", { path: file.path })
   }
   const raw = file.text ?? new TextDecoder().decode(file.bytes)
@@ -387,6 +389,14 @@ export async function readFileHtml(file: OpenedFile) {
     .split(/\r?\n/)
     .map((line) => `<p>${line}</p>`)
     .join("")
+}
+
+/**
+ * Whether .odt and .rtf go through pandoc (the desktop app, with a file path) or Inkspire's own readers (the
+ * browser, and Android, where pandoc does not run and a document is a content link).
+ */
+function usesPandoc(file: OpenedFile): file is OpenedFile & { path: string } {
+  return isTauriRuntime() && !isAndroid && Boolean(file.path)
 }
 
 async function loadOpenedFile(file: OpenedFile, knownPassword?: string | null) {
@@ -423,7 +433,7 @@ async function loadOpenedFile(file: OpenedFile, knownPassword?: string | null) {
   if (ext === "doc" || ext === "dot") {
     // Word 97–2003: converted to .docx by LibreOffice on the desktop. Like Word's Convert, the result is a new
     // .docx beside nothing yet, so Save asks where to put it rather than writing over the old file.
-    if (!isTauriRuntime() || !file.path) {
+    if (!isTauriRuntime() || isAndroid || !file.path) {
       throw new Error("Opening a Word 97–2003 file requires the desktop app.")
     }
     const converted = new Uint8Array(await invoke<ArrayBuffer>("convert_legacy_document", { path: file.path }))
@@ -462,15 +472,14 @@ async function loadOpenedFile(file: OpenedFile, knownPassword?: string | null) {
     return
   }
   if (ext === "odt") {
-    if (!isTauriRuntime() || !file.path) {
-      throw new Error("Opening .odt requires the desktop app.")
-    }
-    const html = await invokeWithTools<string>("import_document", { path: file.path })
+    const html = usesPandoc(file)
+      ? await invokeWithTools<string>("import_document", { path: file.path })
+      : await odtToHtml(file.bytes)
     applyEditorHtml(html, emptyChrome(), file.path, file.name)
     return
   }
   if (ext === "rtf") {
-    if (isTauriRuntime() && file.path) {
+    if (usesPandoc(file)) {
       const html = await invokeWithTools<string>("import_document", { path: file.path })
       applyEditorHtml(html, emptyChrome(), file.path, file.name)
       return
@@ -745,7 +754,12 @@ async function openAsNewDocument(options: {
     fileName: options.fileName,
   })
   const file: OpenedFile = { name: options.fileName, path: null, bytes: saved.bytes }
-  if (openWindow({ kind: "handoff", handoff: { kind: "file", file, ...(options.print ? { then: "print" as const } : {}) } })) {
+  if (
+    openWindow({
+      kind: "handoff",
+      handoff: { kind: "file", file, ...(options.print ? { then: "print" as const } : {}) },
+    })
+  ) {
     return
   }
   // The browser blocked the new tab: the document opens here, after offering to save this one.
@@ -802,9 +816,17 @@ export function saveDocumentAs() {
  * that is not possible (the web, Windows) a message with the title is opened and the user attaches the file from
  * Save As.
  */
+const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
 export async function emailDocument() {
   const props = useDocumentStore.getState().documentProps
   const subject = props.title || fileStem(useDocumentStore.getState().currentFilePath)
+  // On Android the share sheet sends it by mail, chat or to another app.
+  if (androidServices()?.share) {
+    const fileName = `${fileStem(useDocumentStore.getState().currentFilePath)}.docx`
+    androidShare(fileName, DOCX_MIME, await currentDocxBytes(fileName))
+    return "attached" as const
+  }
   if (isTauriRuntime()) {
     try {
       const editor = getDocumentEditor()
@@ -962,15 +984,25 @@ export function printDocument() {
   if (page) {
     document.body.append(page)
   }
-  window.addEventListener(
-    "afterprint",
-    () => {
-      page?.remove()
-      unstage()
-    },
-    { once: true },
-  )
+  if (!androidServices()?.print) {
+    window.addEventListener(
+      "afterprint",
+      () => {
+        page?.remove()
+        unstage()
+      },
+      { once: true },
+    )
+  }
   useDocumentStore.getState().setDocumentProps({ lastPrintedAt: new Date().toISOString() })
+  const done = () => {
+    page?.remove()
+    unstage()
+  }
+  // Android's WebView has no print dialog of its own: the system's print service prints the same pages.
+  if (androidPrint(documentName(currentFilePath), done)) {
+    return
+  }
   window.print()
 }
 
@@ -1056,6 +1088,11 @@ export function exportDocument(format: ExportFormat) {
 }
 
 async function exportAs(format: string): Promise<boolean> {
+  // Android saves a PDF from its print dialog (Save as PDF), which also chooses the folder.
+  if (format === "pdf" && androidServices()?.print) {
+    printDocument()
+    return true
+  }
   const current = useDocumentStore.getState().currentFilePath
   const selected = await pickSavePath(
     [{ name: format.toUpperCase(), extensions: [format] }],
@@ -1257,7 +1294,7 @@ async function writeDocument(path: string, forceExt?: string, operation: FileOpe
       // The signatures the file had were for the file as it was; this save left them out.
       useFileProtection.setState({ signatures: 0 })
     } else if (ext === "odt" || ext === "pdf" || ext === "rtf") {
-      if (!isTauriRuntime()) {
+      if (!isTauriRuntime() || isAndroid) {
         throw new Error(`Saving .${ext} requires the desktop app.`)
       }
       await invokeWithTools<void>("export_document", {

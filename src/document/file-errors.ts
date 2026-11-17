@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import { pathBaseName } from "@/lib/paths"
+import { isAndroid } from "@/lib/platform"
 
 /** What went wrong, in the terms the dialog explains it in. */
 export type FileProblemKind =
@@ -226,7 +227,7 @@ export function describeFileProblem(error: unknown, context: Context): FileProbl
     case "desktop-only":
       return problem(
         "This needs the desktop app",
-        `Inkspire in the browser can't ${verb} "${fileName}" in this format. Use the desktop app, or choose another format.`,
+        `Inkspire ${isAndroid ? "on Android" : "in the browser"} can't ${verb} "${fileName}" in this format. Use the desktop app, or choose another format.`,
         opening ? ["open-other", "close"] : ["save-as", "close"],
       )
     default:

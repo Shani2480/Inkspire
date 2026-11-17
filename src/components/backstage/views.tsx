@@ -1,3 +1,4 @@
+import { shownPath } from "@/lib/paths"
 import { AddInsManager } from "@/components/addins"
 import { openCustomize } from "@/components/customize-dialog"
 import { ShortcutSettings } from "@/components/backstage/shortcut-settings"
@@ -340,7 +341,7 @@ function OpenFileSection({
                 <FileText className="size-4 shrink-0 opacity-70" />
                 <span className="min-w-0">
                   <span className="block truncate font-medium">{documentName(path)}</span>
-                  <span className="block truncate text-[11px] opacity-60">{path}</span>
+                  <span className="block truncate text-[11px] opacity-60">{shownPath(path)}</span>
                 </span>
               </button>
               <span className="backstage-table-date">—</span>
@@ -1152,20 +1153,22 @@ export function ShareView() {
       <h1 className="backstage-greeting">Share</h1>
       <div className="backstage-card">
         <p className="backstage-muted mb-3">
-          Invite links are not wired yet. Send a copy of this document to share it with others.
+          {isAndroid
+            ? "Send a copy of this document (.docx) by mail, in a chat or to another app."
+            : "Invite links are not wired yet. Send a copy of this document to share it with others."}
         </p>
         <button
           type="button"
           className="backstage-primary-btn"
           onClick={() => {
             closeBackstage()
-            void saveDocumentAs()
+            void (isAndroid ? emailDocument() : saveDocumentAs())
           }}
         >
           Send a copy
         </button>
       </div>
-      <div className="backstage-card">
+      <div className="backstage-card" hidden={isAndroid}>
         <p className="backstage-muted mb-3">
           Open your mail program with this document as a Word attachment (.docx).
           {isTauriRuntime() ? "" : " In the browser the message opens without it; attach the saved file yourself."}

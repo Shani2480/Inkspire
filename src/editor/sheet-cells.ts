@@ -2,7 +2,7 @@ import { readSheetWorkbook, sheetWorkbook } from "@/document/docx/sheet-object"
 import { encodeBase64 } from "@/document/docx/inlines"
 import { useFileError } from "@/document/file-errors"
 import { useDocumentStore } from "@/document/store"
-import { isTauriRuntime } from "@/lib/platform"
+import { isAndroid, isTauriRuntime } from "@/lib/platform"
 import { parseGrid } from "@/editor/sheet-grid"
 import type { Editor } from "@tiptap/core"
 import type { Node as ProseNode } from "@tiptap/pm/model"
@@ -20,8 +20,9 @@ const POLL_MS = 1000
 /** The sheets being edited in Cells, by their edit copy's path. */
 const watching = new Map<string, () => void>()
 
+/** Cells is a desktop app: Android has no companion to open the worksheet in. */
 export function canEditInCells() {
-  return isTauriRuntime()
+  return isTauriRuntime() && !isAndroid
 }
 
 type Invoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>

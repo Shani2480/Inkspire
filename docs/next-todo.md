@@ -31,15 +31,19 @@ Phases 1 and 2 are approved; phase 3 waits for a go-ahead.
 
 ### Phase 2 — features that fail on Android
 
-- [ ] B1. Print and Save as PDF through Android's print service (`PrintManager` with the WebView's print adapter).
-- [ ] B2. Share > Email (and Share a copy) through the Android share sheet (`ACTION_SEND`, the declared FileProvider).
+- [x] B1. (2026-11-17) Print and Save as PDF through Android's print service (`PrintManager` with the WebView's print adapter).
+- [x] B2. (2026-11-17; Email as Attachment is the same share sheet) Share > Email (and Share a copy) through the Android share sheet (`ACTION_SEND`, the declared FileProvider).
 - [ ] B3. System fonts from `/system/fonts` (no `fc-list`).
 - [ ] B4. Rename a document and import/export ribbon customizations with content links (`DocumentsContract`).
-- [ ] B5. Open .rtf and .odt without pandoc (in JS); .doc says plainly that it needs a desktop.
-- [ ] B6. "Open with Inkspire" from Files and Gmail: intent filters for .docx, .dotx, .rtf, .odt, .txt, .md.
-- [ ] B7. Hide what has no Android counterpart: Reveal in folder, Edit in Cells, the helper-tools download, the
+- [x] B5. (2026-11-17; `document/odt.ts`; saving .odt and .rtf still needs the desktop) Open .rtf and .odt without pandoc (in JS); .doc says plainly that it needs a desktop.
+- [x] B6. (2026-11-17) "Open with Inkspire" from Files and Gmail: intent filters for .docx, .dotx, .rtf, .odt, .txt, .md.
+- [x] B7. (2026-11-17; Reveal was hidden already, the tools and local model report themselves unsupported) Hide what has no Android counterpart: Reveal in folder, Edit in Cells, the helper-tools download, the
       desktop-only local model.
 - [ ] B8. Save As keeps its access across restarts, as Open's does.
+- [ ] B9. Recent shows where a document is ("Phone storage", "Downloads") rather than its content link. Done
+      2026-11-17 (`pathPlace`). Left: a real date modified for content links.
+- [ ] B10. An .odt opened on a phone leaves the cursor in its last table, so the table's toolbar covers the top of
+      the page: open with the cursor at the start.
 
 ### Phase 3 — later (not started)
 

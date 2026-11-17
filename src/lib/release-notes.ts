@@ -9,6 +9,28 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "0.5.0",
+    date: "2026-11-17",
+    notes: [
+      {
+        title: "Print and PDF on Android",
+        text: "File > Print opens Android's print screen, which prints to your printer or saves the document as a PDF. Export > PDF goes there too.",
+      },
+      {
+        title: "Share on Android",
+        text: "File > Share > Send a copy sends the document as a Word file by mail, in a chat or to another app, through Android's share menu.",
+      },
+      {
+        title: "Open with Inkspire",
+        text: "Word, OpenDocument, RTF, text and Markdown files open in Inkspire straight from Files, Gmail and other apps. OpenDocument (.odt) files now open on Android and in the browser too.",
+      },
+      {
+        title: "Clearer lists",
+        text: "Recent shows where a document is (Phone storage › Documents, Downloads, Google Drive) instead of a long link. Commands Android can't run, such as Edit in Cells, are no longer offered there.",
+      },
+    ],
+  },
+  {
     version: "0.4.0",
     date: "2026-11-17",
     notes: [

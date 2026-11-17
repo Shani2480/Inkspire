@@ -384,6 +384,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **Android print, share, open with (2026-11-17)** — print a page to a real printer; save a PDF and open it;
+      share a document into Gmail and open the attachment; open a .docx from Gmail with "Open with Inkspire" and save
+      it back (a one-time grant may not allow saving there: Save As should then be offered).
 - [ ] **Phone layout (2026-11-17)** — on the Pixel: open a real .docx from Files, edit a table and a picture by
       touch, open Insert > Pictures and a dialog with the keyboard up; turn the phone sideways (landscape phone layout
       not checked).

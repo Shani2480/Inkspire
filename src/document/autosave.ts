@@ -1,4 +1,5 @@
-import { confirmCloseDocument, openWindowRequest } from "@/document/commands"
+import { listenForAndroidOpen } from "@/lib/android-bridge"
+import { confirmCloseDocument, openWindowRequest, openRecentDocument } from "@/document/commands"
 import { keepRecoveryAlive, writeRecoveryDraft } from "@/document/recovery"
 import { useEditingOptions } from "@/document/editing-options"
 import { documentName, useDocumentStore } from "@/document/store"
@@ -142,5 +143,7 @@ export function useDocumentWindow(ready: boolean) {
     if (request) {
       void openWindowRequest(request)
     }
+    // Android: a document sent from Files or Gmail ("Open with Inkspire"), now and while the app runs.
+    listenForAndroidOpen((uri) => openRecentDocument(uri))
   }, [ready])
 }

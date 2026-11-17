@@ -7,6 +7,33 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-17
 
+### Android: print, PDF, share, "Open with Inkspire", .odt without pandoc; v0.5.0
+
+- **What was wrong:** on Android, Print did nothing (the WebView has no print dialog, and `window.print()` returns
+  silently), Export > PDF and opening .odt failed with "requires the desktop app", Share > Send a copy only offered
+  Save As, other apps could not open a document in Inkspire, Recent listed the raw `content://` link as the folder,
+  and Edit in Cells was offered with no Cells to open.
+- **What changed:**
+  - `MainActivity.kt`: `InkspireFiles.print` prints the staged print pages through `PrintManager` and tells the page
+    when the dialog is done (`__inkspirePrinted`); `share` writes a copy to the cache and opens the share sheet
+    through the FileProvider; VIEW/EDIT intents (manifest filters for .docx, .dotx, .docm, .odt, .rtf, .txt, .md,
+    .html) are kept until the page says it is `ready`, then handed to `__inkspireOpen`.
+  - `lib/android-bridge.ts`: the page's side of those calls. `printDocument`, `emailDocument`, Export > PDF and the
+    Share screen use them on Android; `autosave.ts` opens what other apps send once the editor is ready.
+  - `document/odt.ts`: OpenDocument text read in JS (headings, paragraphs, alignment, bold/italic/underline/strike,
+    colour and size, lists, tables with spans, links, breaks, tabs, spaces, pictures), used off the desktop; .odt and
+    .rtf go to pandoc only in the desktop app. .doc and saving .odt/.rtf say "Inkspire on Android can't…".
+  - `lib/paths.ts`: `pathPlace` and `shownPath` name a content link's place for Recent.
+  - `sheet-cells.ts`: no Edit in Cells on Android.
+  - Version 0.5.0 with its release notes.
+- **Checked:** on the Pixel (APK): File > Print opens Android's print screen; with Save as PDF the preview shows only
+  the page and its text, and Cancel puts the editor back (no print pages left). Share > Send a copy opens the share
+  sheet with "Document1.docx". A demo .odt sent with a VIEW intent asks to save the changed document first, then opens
+  with its heading, bold word and table; Recent lists it under "Phone storage". Tests: `odt.test.ts`, `pathPlace` in
+  `paths.test.ts`; 1665 pass.
+- **Open:** next-todo B3 (system fonts), B4 (rename with content links), B8, B10; printing to a real printer and
+  sharing into a chosen app not tried (the phone's printer was offline).
+
 ### Android joins main; Word mobile's layout on a phone; v0.4.0
 
 - **What was wrong:** the Android port lived on the `android` branch, 41 commits behind main. On a phone (the Pixel)

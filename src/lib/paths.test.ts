@@ -39,3 +39,23 @@ describe("sniffExtension", () => {
     expect(sniffExtension(bytes("plain words"))).toBe("txt")
   })
 })
+
+describe("where a document is", () => {
+  it("names a computer's folder", async () => {
+    const { pathPlace } = await import("@/lib/paths")
+    expect(pathPlace("/home/alex/Documents/letter.docx")).toBe("/home/alex/Documents")
+    expect(pathPlace("C:\\Users\\alex\\letter.docx")).toBe("C:\\Users\\alex")
+  })
+
+  it("names Android's places instead of the content link", async () => {
+    const { pathPlace } = await import("@/lib/paths")
+    expect(
+      pathPlace("content://com.android.externalstorage.documents/document/primary%3ADocuments%2FLetters%2Fletter.docx"),
+    ).toBe("Phone storage › Documents › Letters")
+    expect(pathPlace("content://com.android.providers.downloads.documents/document/msf%3A1000000018")).toBe("Downloads")
+    expect(pathPlace("content://com.google.android.gm.sapi/alex/message_attachment_external/1/2")).toBe(
+      "Gmail attachment",
+    )
+    expect(pathPlace("content://org.example.files/doc/7")).toBe("Shared from another app")
+  })
+})
