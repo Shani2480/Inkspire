@@ -7,6 +7,16 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-17
 
+### A long press on text no longer opens the full right-click menu on a touch screen; v0.9.1
+
+- **What was wrong:** on the Pixel, a long press to select text fired `contextmenu`, so Inkspire's whole right-click
+  menu (Cut … New Comment) covered most of the screen each time.
+- **What changed:** `fromTouch` (`popup-chip.tsx`) tells a touch long press from a right-click (the event's
+  `pointerType`, else the last pointer down); the text context menu ignores a touch one, so Android's own Cut / Copy
+  / Paste bar shows; the app-wide guard against the webview's own menu lets it through too. A mouse or pen
+  right-click opens the menu as before; pictures and objects keep theirs.
+- **Tests:** `popup-chip.test.ts`.
+
 ### Smooth page curl in long books; plain Read Mode on a phone; less wasted space; new Android icon; v0.9.0
 
 - **Page curl speed:** in the 593-page Urdu novel the curl ran at a few frames a second on the Pixel. A View

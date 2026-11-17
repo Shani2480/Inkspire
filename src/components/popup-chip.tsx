@@ -27,6 +27,21 @@ export function useTouchPopups(): "button" | "show" | "off" {
   return choice === "off" || choice === "show" ? choice : "button"
 }
 
+let lastPointer = ""
+if (typeof window !== "undefined") {
+  window.addEventListener("pointerdown", (event) => (lastPointer = event.pointerType), { capture: true, passive: true })
+}
+
+/**
+ * Whether a `contextmenu` event came from a long press on a touch screen rather than a right-click. There the full
+ * right-click menu covered most of a phone's screen each time text was selected; the system's own small Cut / Copy /
+ * Paste bar shows instead, and the commands stay in the ribbon.
+ */
+export function fromTouch(event: MouseEvent) {
+  const type = "pointerType" in event ? (event as PointerEvent).pointerType : ""
+  return (type || lastPointer) === "touch"
+}
+
 /**
  * The small round button that stands for a popup on a touch screen, by what it belongs to: a tap opens the popup.
  * Placed below `anchor` (clear of Android's selection handles and menu, which sit at and above the selection), kept

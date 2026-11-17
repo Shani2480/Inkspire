@@ -1,4 +1,5 @@
 import { openLinkDialog } from "@/components/link-dialog"
+import { fromTouch } from "@/components/popup-chip"
 import { openEditCitation, openEditSource } from "@/components/source-dialogs"
 import { citationAt, citationToText, updateCitationsAndBibliography } from "@/editor/bibliography"
 import { NodeSelection } from "@tiptap/pm/state"
@@ -72,6 +73,9 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
     const onContext = (event: MouseEvent) => {
       const target = event.target
       if (event.defaultPrevented || !(target instanceof Element) || !editor.view.dom.contains(target)) {
+        return
+      }
+      if (fromTouch(event)) {
         return
       }
       if (target.closest(".page-image, .image-frame, .object-frame, input, textarea, button, label")) {

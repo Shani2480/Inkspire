@@ -1,3 +1,5 @@
+import { fromTouch } from "@/components/popup-chip"
+
 /** True for a native text field, whose own Cut / Copy / Paste menu keeps it editable with the mouse (21.33). */
 export function isNativeTextField(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) {
@@ -15,12 +17,13 @@ export function isNativeTextField(target: EventTarget | null): boolean {
 
 /**
  * Keeps the webview's own right-click menu ("Inspect", "Reload", "Back" …) from appearing. It runs after the app's
- * own menus, which call `preventDefault` themselves, so it only blocks a spot where the app has no menu.
+ * own menus, which call `preventDefault` themselves, so it only blocks a spot where the app has no menu. A long press
+ * on a touch screen is let through: there it brings up the system's small Cut / Copy / Paste bar over the selection.
  * Returns the function that removes it.
  */
 export function suppressBrowserContextMenu(target: Window = window): () => void {
   const onContext = (event: MouseEvent) => {
-    if (event.defaultPrevented || isNativeTextField(event.target)) {
+    if (event.defaultPrevented || isNativeTextField(event.target) || fromTouch(event)) {
       return
     }
     event.preventDefault()

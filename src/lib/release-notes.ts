@@ -9,6 +9,16 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "0.9.1",
+    date: "2026-11-17",
+    notes: [
+      {
+        title: "Selecting text no longer covers the page",
+        text: "On a phone or tablet, holding your finger on text selects it and shows the system's small Cut, Copy and Paste bar, instead of the full right-click menu that covered most of the screen. A mouse's right-click still opens the full menu.",
+      },
+    ],
+  },
+  {
     version: "0.9.0",
     date: "2026-11-17",
     notes: [

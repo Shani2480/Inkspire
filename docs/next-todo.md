@@ -59,6 +59,8 @@ Phases 1 and 2 are approved; phase 3 waits for a go-ahead.
       the fold, moves by transforms only (60–120 fps on the Pixel).
 - [x] B18. (2026-11-17, v0.9.0) Android launcher icon was Tauri's default: a designed adaptive icon (page and AI spark,
       deep blue), with a themed (monochrome) layer; masters in `src-tauri/icons/android-src`.
+- [x] B20. (2026-11-17, v0.9.1) A long press on text opened the full right-click menu over most of a phone's screen;
+      on a touch screen it now leaves the system's selection bar.
 - [ ] B19. After a turn in the novel one frame still takes about a quarter second (style and accessibility update,
       no script); the turn itself is smooth.
 - [ ] B10. An .odt opened on a phone leaves the cursor in its last table, so the table's toolbar covers the top of

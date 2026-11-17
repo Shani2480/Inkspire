@@ -43,6 +43,15 @@ describe("no browser context menu (21.33)", () => {
     expect(rightClick(box).defaultPrevented).toBe(true)
   })
 
+  it("lets a long press on a touch screen through, for the system's Cut / Copy / Paste bar", () => {
+    const remove = suppressBrowserContextMenu()
+    const text = document.body.appendChild(document.createElement("p"))
+    const press = new PointerEvent("contextmenu", { pointerType: "touch", bubbles: true, cancelable: true })
+    text.dispatchEvent(press)
+    expect(press.defaultPrevented).toBe(false)
+    remove()
+  })
+
   it("stops blocking once removed", () => {
     suppressBrowserContextMenu()()
     const bar = document.body.appendChild(document.createElement("div"))
