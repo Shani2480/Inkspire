@@ -6,6 +6,7 @@ import { openDocxBytes, saveDocxBytes } from "@/document/docx/io"
 import { blockFromProperties, propertiesFromBlock } from "@/document/docx/block-format"
 import { openPackage } from "@/document/docx/opc"
 import { documentStyleSheet } from "@/document/docx/word-styles"
+import { wordLines } from "@/document/docx/project"
 import { decodeXml } from "@/document/docx/xml"
 import { borderSidesStyle } from "@/document/paragraph-sides"
 import { NOTE_MARK } from "@/document/note-numbering"
@@ -38,6 +39,17 @@ describe("footnotes and endnotes", () => {
     expect(view.notes?.footnote["1"]).toContain(`data-word-rstyle="FootnoteReference">${NOTE_MARK}<`)
     expect(view.notes?.endnote["1"]).toContain(`data-word-rstyle="EndnoteReference">${NOTE_MARK}<`)
     expect(view.notes?.separator.footnote).toContain("word-note-separator")
+  })
+
+  it("gives the separator's paragraph one of Word's lines, as the editor draws a paragraph's spacing", async () => {
+    // Word's separator paragraph says line 240 (single): one line of the font, not one font size.
+    const { view } = await open(path.join(AUTHORED, "f08_footnote_endnote.docx"))
+    expect(view.notes?.separator.endnote).toMatch(
+      /<p data-word-lead="" style="[^"]*line-height: calc\(var\(--word-single-line, 1\) \* 1\)/,
+    )
+    expect(wordLines('<p style="line-height: 1.5; margin-bottom: 0pt">x</p><p style="line-height: 18pt">y</p>')).toBe(
+      '<p data-word-lead="" style="line-height: calc(var(--word-single-line, 1) * 1.5); margin-bottom: 0pt">x</p><p style="line-height: 18pt">y</p>',
+    )
   })
 
   it("draws a superscript character style raised and smaller", async () => {

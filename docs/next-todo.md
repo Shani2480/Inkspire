@@ -98,7 +98,10 @@ Opening: the 13 differences found first are fixed (see `changes.md`, 2026-11-14)
    sits higher than Word's (`combined`).
 2. ~~A TOC's field-end paragraph~~ — done 2026-11-17 (see `changes.md`). Still different: the line is drawn in
    Normal whatever its style; a table inserted in Inkspire closes in its last entry (Word's gallery not checked).
-3. Endnotes: the space above the endnote separator is a little larger than Word's (`combined`).
+3. ~~Endnotes: the space above the endnote separator is a little larger than Word's~~ — done 2026-11-17 (see
+   `changes.md`): `f08` and `combined` within about 1 pt of Word (`combined` was 24 pt). Still different: the last
+   page's footnotes sit up to 2 pt off Word's (`f08` 2.2 pt high, `combined` 1.5 pt low; the paginator rounds the
+   note area's place and height).
 4. Footnotes are not placed on page breaks inside a table or in unequal columns (they move to the next ordinary
    break), and endnotes that do not fit the last page are not split across pages.
 5. The heart preset sits about 2 px off Word's (`f20`).

@@ -598,7 +598,7 @@ function decorationsFor(
   if (notes && (notes.endnotes.length > 0 || notes.footnotes.length > 0)) {
     const key = `${notes.top}:${notesKey(notes.footnotes)}:${notesKey(notes.endnotes)}:${noteTextsVersion()}`
     decorations.push(
-      Decoration.widget(doc.content.size, () => createEndNotes(notes), {
+      Decoration.widget(Math.min(notes.at, doc.content.size), () => createEndNotes(notes), {
         side: 2,
         ignoreSelection: true,
         key: `end-notes-${key}`,
@@ -741,6 +741,27 @@ function decorationsFor(
 }
 
 /** The document's end: its endnotes in the flow, and the last page's footnotes at the page's foot below. */
+/**
+ * Where the editor's own empty paragraph after a final list, table or other block starts (the trailing node, kept so
+ * there is a line to type on below it), or null. Word has no such line and a save leaves it out
+ * (`dropEditorTrailingParagraph`): the document's end, and its endnotes, come before it.
+ */
+export function editorTrailingParagraph(doc: ProseNode) {
+  const last = doc.lastChild
+  const before = doc.childCount > 1 ? doc.child(doc.childCount - 2) : null
+  if (
+    !last ||
+    !before ||
+    last.type.name !== "paragraph" ||
+    last.content.size > 0 ||
+    last.attrs.docxKey ||
+    before.isTextblock
+  ) {
+    return null
+  }
+  return doc.content.size - last.nodeSize
+}
+
 function createEndNotes(notes: Layout["notes"]) {
   const end = document.createElement("div")
   end.className = "page-end-notes"
@@ -1066,7 +1087,7 @@ type Layout = {
   columnBreaks: number[]
   contentHeight: number
   /** The document's endnotes, and the last page's footnotes: the room they take and how far below the end they go. */
-  notes: { endnotes: NoteRef[]; footnotes: NoteRef[]; room: number; top: number }
+  notes: { endnotes: NoteRef[]; footnotes: NoteRef[]; room: number; top: number; at: number }
   pageCount: number
   /** Each page's section key and whether it starts its section (see `PaginationStorage`). */
   /** How many columns the editor is drawn in (the most any section has) and their gap (cm). */
@@ -1914,7 +1935,22 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   }
 
   const begun: { pos: number; node: ProseNode; page: number; column: number; atTop: boolean; section: number }[] = []
+  // The document's end as Word has it: before the editor's own empty paragraph after a final list or table.
+  const endAt = editorTrailingParagraph(view.state.doc) ?? view.state.doc.content.size
+  let endnoteHeight = 0
+  let endUsed = -1
+  /** Endnotes follow the document's last paragraph, on the page it ends, or start the next if they do not fit. */
+  const placeEnd = () => {
+    endnoteHeight = endnotes.length > 0 ? notesHeight(view, endnotes, "endnote") : 0
+    if (endnoteHeight > 0) {
+      place(endAt, endnoteHeight)
+    }
+    endUsed = Math.min(Math.max(used, 0), contentHeight)
+  }
   view.state.doc.forEach((node, offset, index) => {
+    if (offset === endAt) {
+      placeEnd()
+    }
     track.starting = null
     track.top = offset
     const refs = notesIn(node, offset, noteNumbers)
@@ -1957,10 +1993,8 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     }
   }
 
-  // Endnotes follow the document's last paragraph, on the page it ends, or start the next if they do not fit.
-  const endnoteHeight = endnotes.length > 0 ? notesHeight(view, endnotes, "endnote") : 0
-  if (endnoteHeight > 0) {
-    place(view.state.doc.content.size, endnoteHeight)
+  if (endUsed < 0) {
+    placeEnd()
   }
   const sectionBoxes = unequal ? [] : sectionCells(view, sectionMetrics, columns.counts)
   const lastUsed = Math.min(Math.max(used, 0), contentHeight)
@@ -1969,7 +2003,8 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     footnotes: pageNotes,
     room: noteHeight,
     // The last page's footnotes, from where the document's end (its endnotes) starts.
-    top: Math.max(0, Math.round(contentHeight - lastUsed + endnoteHeight)),
+    top: Math.max(0, Math.round(contentHeight - endUsed + endnoteHeight)),
+    at: endAt,
   }
   // The last page's columns are filled from the first too, as Word does (only a continuous break balances them).
   const endFiller =

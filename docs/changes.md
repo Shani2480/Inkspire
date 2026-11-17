@@ -7,6 +7,21 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-17
 
+### Endnotes start where Word starts them
+
+- **What was wrong:** (1) the note separator's paragraph, shown as Word wrote it rather than through the editor, took
+  `line-height: 1` as one font size, not one of Word's lines: 12 pt instead of 14.65 in a 12 pt Aptos document, so
+  the notes under it came 2.7 pt too high (`f08`). (2) After a final list or table the endnotes came after the
+  editor's own empty paragraph (kept so there is a line to type on; a save leaves it out), a line lower than Word's:
+  24 pt in `combined`.
+- **What changed:** `docx/project.ts` `wordLines`: the notes' and separators' line spacing is written as the editor
+  writes a paragraph's (in lines of the font, with Word's line placement). `editor/pages.ts`: the document's end, its
+  endnotes and the last page's footnotes are placed before that empty paragraph (`editorTrailingParagraph`), which
+  is drawn below them.
+- **Checked in Word (VM):** `f08`: the endnote within 0.6 pt of Word (was 3.2), its separator 0.7 pt. `combined`: last
+  line to separator 33.1 pt (Word 32.0, was 57.9), to the endnote 38.9 (Word 39.8). Screenshots compared.
+- **Tests:** `docx/word-comparison.test.ts` (the separator's line), `editor/pages.test.ts` (the trailing paragraph).
+
 ### A picture alone in its paragraph gets the room Word gives it
 
 - **What was wrong:** the editor draws a paragraph holding only a picture as the picture, without the paragraph:

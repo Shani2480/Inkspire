@@ -218,19 +218,36 @@ function noteTexts(doc: WordDocument, body: Projection): WordNoteTexts | undefin
       const note = part.items.find((item) => item.id === id && !item.type)
       if (note) {
         // The note's number is drawn where the page shows it, in the document's number format (NOTE_MARK).
-        texts[kind][String(id)] = blocksToHtml(note.blocks, {
-          ...projectionFor(noteDoc(note.blocks)),
-          noteMark: body.noteCustom[kind].has(id) ? label : NOTE_MARK,
-        })
+        texts[kind][String(id)] = wordLines(
+          blocksToHtml(note.blocks, {
+            ...projectionFor(noteDoc(note.blocks)),
+            noteMark: body.noteCustom[kind].has(id) ? label : NOTE_MARK,
+          }),
+        )
         any = true
       }
     }
     const separator = part.items.find((item) => item.type === "separator")
     if (separator) {
-      texts.separator[kind] = blocksToHtml(separator.blocks, projectionFor(noteDoc(separator.blocks)))
+      texts.separator[kind] = wordLines(blocksToHtml(separator.blocks, projectionFor(noteDoc(separator.blocks))))
     }
   }
   return any ? texts : undefined
+}
+
+/**
+ * Line spacing in lines of the font, as the editor draws a paragraph's (`editor/line-height.ts`): the note area shows
+ * this HTML as it is, not through the editor, where `line-height: 1` would be one font size, not one of Word's lines
+ * (the separator's line came out 2.7 pt short of Word's in a 12 pt Aptos document).
+ */
+export function wordLines(html: string) {
+  return html.replace(/<(p|h[1-6])\b([^>]*?) style="([^"]*)"/g, (whole, tag: string, before: string, style: string) => {
+    const lines = style.replace(
+      /(^|;\s*)line-height: (\d*\.?\d+)(?=;|$)/,
+      "$1line-height: calc(var(--word-single-line, 1) * $2)",
+    )
+    return lines === style ? whole : `<${tag}${before} data-word-lead="" style="${lines}"`
+  })
 }
 
 export function editorToWord(

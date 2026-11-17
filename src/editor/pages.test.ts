@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   balancedHeight,
   columnFiller,
+  editorTrailingParagraph,
   firstContentDiff,
   mustMoveToNextPage,
   pageCountForBlockHeights,
@@ -225,5 +226,30 @@ describe("balancedHeight", () => {
 
   it("is no more than the page's room", () => {
     expect(balancedHeight(Array(100).fill(20), 2, 600)).toBe(600)
+  })
+})
+
+describe("editorTrailingParagraph", () => {
+  const keyed = new Schema({
+    nodes: {
+      doc: { content: "block+" },
+      paragraph: { content: "text*", group: "block", attrs: { docxKey: { default: null } }, toDOM: () => ["p", 0] },
+      rule: { group: "block", toDOM: () => ["hr"] },
+      text: { group: "inline" },
+    },
+  })
+  const p = (text = "", docxKey: string | null = null) =>
+    keyed.node("paragraph", { docxKey }, text ? [keyed.text(text)] : [])
+  const rule = () => keyed.node("rule")
+
+  it("finds the editor's own empty paragraph after a final block that is not a paragraph", () => {
+    const doc = keyed.node("doc", null, [p("text"), rule(), p()])
+    expect(editorTrailingParagraph(doc)).toBe(doc.content.size - 2)
+  })
+
+  it("leaves Word's own last paragraph, one with text, and one after a paragraph", () => {
+    expect(editorTrailingParagraph(keyed.node("doc", null, [rule(), p("", "k1")]))).toBeNull()
+    expect(editorTrailingParagraph(keyed.node("doc", null, [rule(), p("end")]))).toBeNull()
+    expect(editorTrailingParagraph(keyed.node("doc", null, [p("text"), p()]))).toBeNull()
   })
 })
