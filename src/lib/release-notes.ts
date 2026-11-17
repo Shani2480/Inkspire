@@ -9,6 +9,24 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "0.8.0",
+    date: "2026-11-17",
+    notes: [
+      {
+        title: "Long documents open much faster",
+        text: "A book of several hundred pages now opens in a fraction of the time it took, and the app no longer seems to freeze while it lays the pages out.",
+      },
+      {
+        title: "Pages curl like paper",
+        text: "In Read Mode the page now folds over from its corner as you turn it, the back of the page and its shadow showing, as on an e-reader. Take it high or low and it curls from the top or bottom corner; a tap at the edge turns it the same way.",
+      },
+      {
+        title: "Back goes back",
+        text: "On Android, Back now closes the menu, dialog, pane or File view on top, and leaves Read Mode for editing, instead of closing the app. When Back would close Inkspire it asks first, and offers to save a document that has changes.",
+      },
+    ],
+  },
+  {
     version: "0.7.0",
     date: "2026-11-17",
     notes: [

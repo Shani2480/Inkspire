@@ -196,6 +196,9 @@ function paginationPlugin(storage: PaginationStorage) {
   let seen: ProseNode | null = null
   let dirtyFrom = 0
   let forceFull = true
+  // The editor's size once the layout's own page gaps and padding were drawn: the resize that causes needs no new
+  // measures, unlike one from a font or picture loading (see the ResizeObserver below).
+  let ownSize = ""
   const measureCache = new Map<number, MeasureCacheEntry>()
   let placedDoc: ProseNode | null = null
   let placing = false
@@ -384,6 +387,7 @@ function paginationPlugin(storage: PaginationStorage) {
                     } satisfies PaginationSnapshot)
                     .setMeta("addToHistory", false),
                 )
+                ownSize = `${view.dom.offsetWidth}x${view.dom.offsetHeight}`
               } else {
                 retries = 0
                 if (!stableNow) {
@@ -398,6 +402,7 @@ function paginationPlugin(storage: PaginationStorage) {
                 cutSplitRows(view)
                 view.dom.dataset.pageGridKey = `${pageView}|${Math.round(metrics.width)}|${Math.round(metrics.height)}|${applied}`
                 view.dom.dataset.pageGridGaps = String(expected)
+                ownSize = `${view.dom.offsetWidth}x${view.dom.offsetHeight}`
                 placedDoc = view.state.doc
                 if (pageView > 1) {
                   const token = pageView
@@ -462,10 +467,16 @@ function paginationPlugin(storage: PaginationStorage) {
       let wasHidden = false
       const observer = new ResizeObserver(() => {
         const hidden = view.dom.offsetParent === null
-        if (wasHidden && !hidden) {
+        const shown = wasHidden && !hidden
+        if (shown) {
           applied = ""
         }
         wasHidden = hidden
+        // The layout's own gaps made this size: the lines measured are still right. In a long document measuring them
+        // all again each time made opening it take several full layouts.
+        if (!shown && `${view.dom.offsetWidth}x${view.dom.offsetHeight}` === ownSize) {
+          return
+        }
         forceFull = true
         measureCache.clear()
         schedule()
@@ -866,13 +877,15 @@ function blockLineRects(dom: HTMLElement) {
     }
     if (text.data.length > 0) {
       sawText = true
-      const range = document.createRange()
+      const range = (measuring ??= document.createRange())
       range.selectNodeContents(text)
       for (const rect of range.getClientRects()) {
         if (rect.width >= 1 && rect.height >= 1) {
           rects.push(rect)
         }
       }
+      range.setStart(document, 0)
+      range.collapse(true)
     }
     current = walker.nextNode()
   }
@@ -2662,7 +2675,11 @@ function measureLines(view: EditorView, dom: HTMLElement) {
 
 function lineStarts(text: Text) {
   const starts: number[] = []
+  // Where the text's last character sits: no line starts after a line at its height.
+  const lastTop = charRect(text, text.length - 1)?.top ?? null
+  const guesses = lineGuesses(text)
   let index = 0
+  let length = 0
   while (index < text.length) {
     const origin = charRect(text, index)
     if (!origin) {
@@ -2670,27 +2687,85 @@ function lineStarts(text: Text) {
       continue
     }
     starts.push(index)
-    const next = nextLineIndex(text, index, origin.top)
-    if (next === null || next <= index) {
+    if (lastTop === null || lastTop <= origin.top + 1) {
       break
     }
+    const next = nextLineIndex(text, index, origin.top, guesses[starts.length] ?? index + length)
+    if (next <= index) {
+      break
+    }
+    length = next - index
     index = next
   }
   return starts
 }
 
-function nextLineIndex(text: Text, from: number, originTop: number) {
-  const end = charRect(text, text.length - 1)
-  if (!end || end.top <= originTop + 1) {
-    return null
+/**
+ * Where each line of a text probably starts, from the widths of its lines (one measurement of the whole text): the
+ * characters are about of a width, so a line's share of the width is about its share of the characters.
+ */
+function lineGuesses(text: Text) {
+  const range = (measuring ??= document.createRange())
+  range.selectNodeContents(text)
+  const rects = Array.from(range.getClientRects()).filter((rect) => rect.height > 0 && rect.width > 0)
+  range.setStart(document, 0)
+  range.collapse(true)
+  const lines: { top: number; height: number; width: number }[] = []
+  for (const rect of rects) {
+    const line = lines.find((item) => Math.abs(item.top - rect.top) < Math.min(item.height, rect.height) / 2)
+    if (line) {
+      line.width += rect.width
+    } else {
+      lines.push({ top: rect.top, height: rect.height, width: rect.width })
+    }
   }
+  lines.sort((a, b) => a.top - b.top)
+  const total = lines.reduce((sum, line) => sum + line.width, 0)
+  const guesses: number[] = []
+  let before = 0
+  for (const line of lines) {
+    guesses.push(total > 0 ? Math.round((text.length * before) / total) : 0)
+    before += line.width
+  }
+  return guesses
+}
 
+/**
+ * The index of the first character below the line that starts at `from` (whose top is `originTop`), where the text
+ * goes on below it. Looked for around `guess`, in steps that double, then halved down: a good guess takes two or three
+ * measurements, a bad one about as many as a plain binary search.
+ */
+function nextLineIndex(text: Text, from: number, originTop: number, guess: number) {
+  const below = (index: number) => {
+    const rect = charRect(text, index)
+    return Boolean(rect && rect.top > originTop + 1)
+  }
+  // The answer is in [lo, hi]; the last character is below the line.
   let lo = from + 1
   let hi = text.length - 1
+  const start = Math.min(hi, Math.max(lo, guess))
+  if (below(start)) {
+    hi = start
+    for (let step = 1; hi - step >= lo; step *= 2) {
+      if (!below(hi - step)) {
+        lo = hi - step + 1
+        break
+      }
+      hi -= step
+    }
+  } else {
+    lo = start + 1
+    for (let step = 1; lo + step - 1 < hi; step *= 2) {
+      if (below(lo + step - 1)) {
+        hi = lo + step - 1
+        break
+      }
+      lo += step
+    }
+  }
   while (lo < hi) {
     const mid = (lo + hi) >> 1
-    const rect = charRect(text, mid)
-    if (rect && rect.top > originTop + 1) {
+    if (below(mid)) {
       hi = mid
     } else {
       lo = mid + 1
@@ -2699,8 +2774,15 @@ function nextLineIndex(text: Text, from: number, originTop: number) {
   return lo
 }
 
+/**
+ * One Range for every character measured. A Range is live: until it is collected, each change to the document has to
+ * update it, and the thousands a long document's lines made turned taking the page breaks out (ProseMirror's
+ * `removeChild`) into seconds. Collapsed back after each use.
+ */
+let measuring: Range | null = null
+
 function charRect(text: Text, index: number) {
-  const range = document.createRange()
+  const range = (measuring ??= document.createRange())
   const end = Math.min(text.length, index + 1)
   if (end <= index) {
     return null
@@ -2708,6 +2790,9 @@ function charRect(text: Text, index: number) {
   range.setStart(text, index)
   range.setEnd(text, end)
   const rect = range.getClientRects()[0]
+  // Left pointing at the document, it would follow every change made to it.
+  range.setStart(document, 0)
+  range.collapse(true)
   if (!rect || rect.height <= 0) {
     return null
   }

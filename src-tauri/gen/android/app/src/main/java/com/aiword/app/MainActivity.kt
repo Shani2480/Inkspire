@@ -16,6 +16,7 @@ import android.provider.OpenableColumns
 import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.SystemBarStyle
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -66,6 +67,28 @@ class MainActivity : TauriActivity() {
       view.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, keyboard.bottom))
       WindowInsetsCompat.CONSUMED
     }
+    // Back goes to the page first: it closes a menu, dialog, pane or the File view, leaves Read Mode, and asks before
+    // Inkspire closes (src/lib/android-back.ts). Added after the WebView's own handler, so it comes first.
+    onBackPressedDispatcher.addCallback(
+      this,
+      object : OnBackPressedCallback(true) {
+        override fun handleOnBackPressed() {
+          val view = webView
+          if (view == null) {
+            finish()
+            return
+          }
+          view.evaluateJavascript("window.__inkspireBack ? (window.__inkspireBack(), true) : false") { handled ->
+            if (handled != "true") finish()
+          }
+        }
+      },
+    )
+  }
+
+  /** Closes Inkspire, once the page has asked (and saved where the user chose to). */
+  fun quit() {
+    runOnUiThread { finish() }
   }
 
   // A document opened from another app (Files, Gmail: "Open with Inkspire") before the page was ready to take it.
@@ -209,4 +232,8 @@ class AndroidFiles(private val activity: MainActivity) {
   /** The page is ready to open a document another app sent; one waiting since the start comes now. */
   @JavascriptInterface
   fun ready() = activity.deliverOpened()
+
+  /** Closes the app: the page has asked the user first. */
+  @JavascriptInterface
+  fun quit() = activity.quit()
 }

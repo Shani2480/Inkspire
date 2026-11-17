@@ -6410,9 +6410,10 @@ html[data-theme="dark"] .drawing-canvas::after {
 }
 
 /*
- * Read Mode page turn (`flipPage` in read-mode.tsx). The page on screen is taken as a picture and turned over on its
- * left edge, like a leaf of a book, darkening as it lifts; the next page waits under it in the shadow it casts. Going
- * back, the page before comes down over the one being read. Only the read view moves: the rest of the window stays.
+ * Read Mode page turn (`startCurl` in read-curl.ts). The page on screen is taken as a picture and folded over from its
+ * corner like paper; the back of the folded part (`.read-fold`, a sheet of the page's paper) lies mirrored across the
+ * fold and casts its shadow on the next page, which waits under it. Going back, the page before comes down unfolding.
+ * The shapes are set from script on every move; only the read view moves, the rest of the window stays.
  */
 .read-scroller {
   view-transition-name: read-page;
@@ -6422,78 +6423,51 @@ html[data-theme="dark"] .drawing-canvas::after {
   touch-action: pan-y;
 }
 
+.read-fold {
+  position: fixed;
+  z-index: 1;
+  pointer-events: none;
+  view-transition-name: read-fold;
+  /* Paper seen from behind: a little darker toward its far edge, light along the fold where it bends. */
+  background-image: linear-gradient(to right, rgb(0 0 0 / 0.1), rgb(255 255 255 / 0.12) 55%, rgb(0 0 0 / 0.04));
+}
+
 /* Only the page is taken as a picture, not the whole window. */
 :root[data-read-flip] {
   view-transition-name: none;
 }
 
-:root[data-read-flip]::view-transition-group(read-page) {
+:root[data-read-flip]::view-transition-group(read-page),
+:root[data-read-flip]::view-transition-group(read-fold) {
   animation: none;
-  /* The leaf lifts toward the reader but stays between the bars above and below the page. */
-  clip-path: inset(0 -100vw);
+}
+
+/* The folded part is seen only over the page, never past its edge; its shadow falls on the pages under it. */
+:root[data-read-flip]::view-transition-group(read-fold) {
+  z-index: 2;
+  clip-path: inset(0);
+  filter: drop-shadow(0 0 14px rgb(0 0 0 / 0.35));
 }
 
 :root[data-read-flip]::view-transition-image-pair(read-page) {
-  perspective: 2200px;
   isolation: isolate;
 }
 
 :root[data-read-flip]::view-transition-old(read-page),
-:root[data-read-flip]::view-transition-new(read-page) {
-  transform-origin: left center;
-  backface-visibility: hidden;
+:root[data-read-flip]::view-transition-new(read-page),
+:root[data-read-flip]::view-transition-new(read-fold) {
+  animation: none;
   /* The default cross-fade would show both pages at once. */
   mix-blend-mode: normal;
 }
 
-:root[data-read-flip="forward"]::view-transition-old(read-page) {
-  z-index: 1;
-  animation: read-leaf-lift 620ms cubic-bezier(0.5, 0.05, 0.35, 1) both;
+:root[data-read-flip]::view-transition-new(read-fold) {
+  transform-origin: 0 0;
 }
 
-:root[data-read-flip="forward"]::view-transition-new(read-page) {
-  animation: read-leaf-shade 620ms cubic-bezier(0.3, 0, 0.3, 1) both;
-}
-
+:root[data-read-flip="forward"]::view-transition-old(read-page),
 :root[data-read-flip="back"]::view-transition-new(read-page) {
   z-index: 1;
-  animation: read-leaf-lift 560ms cubic-bezier(0.3, 0, 0.25, 1) reverse both;
-}
-
-:root[data-read-flip="back"]::view-transition-old(read-page) {
-  animation: read-leaf-shade 560ms cubic-bezier(0.3, 0, 0.3, 1) reverse both;
-}
-
-/* Following a finger (`scrubPage`): the leaf moves as the finger does, not on a curve of its own. */
-:root[data-read-scrub]::view-transition-old(read-page),
-:root[data-read-scrub]::view-transition-new(read-page) {
-  animation-timing-function: linear;
-}
-
-@keyframes read-leaf-lift {
-  0% {
-    transform: rotateY(0deg);
-    filter: brightness(1);
-    box-shadow: 0 0 0 rgb(0 0 0 / 0);
-  }
-  45% {
-    filter: brightness(0.93);
-    box-shadow: 18px 0 40px rgb(0 0 0 / 0.22);
-  }
-  100% {
-    transform: rotateY(-92deg);
-    filter: brightness(0.7);
-    box-shadow: 30px 0 60px rgb(0 0 0 / 0.3);
-  }
-}
-
-@keyframes read-leaf-shade {
-  0% {
-    filter: brightness(0.8);
-  }
-  100% {
-    filter: brightness(1);
-  }
 }
 
 /* A phone turns with a swipe or a tap at the edge: the side buttons give their room to the text. */

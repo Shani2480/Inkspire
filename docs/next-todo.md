@@ -45,6 +45,14 @@ Phases 1 and 2 are approved; phase 3 waits for a go-ahead.
 - [x] B11. (2026-11-17, v0.7.0) Read Mode's page turn follows the finger during a swipe (scrub the View Transition's animations), as a
       book app's page curl does; now it turns once the swipe ends.
 - [ ] B12. The status bar's page count in Read Mode says the editor's pages, not Read Mode's.
+- [x] B13. (2026-11-17, v0.8.0) A long book (593 pages) opened slowly and nearly stalled the app: pagination measured
+      every line several times and left thousands of live Ranges; headers and footers measured one by one.
+- [x] B14. (2026-11-17, v0.8.0) Read Mode's page turn folds the page over from its corner like paper (e-reader page
+      curl), under the finger and on taps and keys.
+- [x] B15. (2026-11-17, v0.8.0) Android Back closes what is on top (menu, dialog, pane, File view), leaves Read Mode
+      and Focus for editing, and asks before Inkspire closes (Save and Quit / Quit Without Saving / Cancel).
+- [ ] B16. Read Mode's page curl: the back of the folded part is plain paper; e-readers show the page's text faintly
+      through it.
 - [ ] B10. An .odt opened on a phone leaves the cursor in its last table, so the table's toolbar covers the top of
       the page: open with the cursor at the start.
 

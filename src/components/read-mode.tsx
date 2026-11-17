@@ -1,8 +1,8 @@
+import { canCurl, type Curl, startCurl } from "@/components/read-curl"
 import { MenuButton, RibbonPopover } from "@/components/ribbon/ribbon-button"
 import { documentName, useDocumentStore } from "@/document/store"
 import {
   findInPieces,
-  leafTime,
   READ_COLUMN_GAP,
   READ_COLUMN_WIDTHS,
   readPageAt,
@@ -529,40 +529,18 @@ export function ReadView({ onHeadings }: { onHeadings: (headings: string[], go: 
   )
 }
 
-/**
- * Turns to the page at `left`. Where the browser can (View Transitions), the page on screen is lifted off as a picture
- * and turned over like a sheet of paper onto the next (`index.css`, "Read Mode page turn"), on the graphics card: the
- * columns underneath jump straight to the new page, so a long document turns as fast as a short one. Without it, or
- * with reduced motion, the page changes at once.
- */
+/** Turns to the page at `left`: folded over like paper where the browser can (`startCurl`), otherwise at once. */
 function flipPage(
   scroller: HTMLElement,
   left: number,
   direction: "forward" | "back",
   flipping: { current: ViewTransition | null },
 ) {
-  const start = (document as Document & { startViewTransition?: (update: () => void) => ViewTransition })
-    .startViewTransition
-  const reduce = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches
-  if (!start || reduce) {
+  if (!canCurl()) {
     scroller.scrollLeft = left
     return
   }
-  // A turn while one is on its way finishes that one at once.
-  flipping.current?.skipTransition()
-  const root = document.documentElement
-  root.dataset.readFlip = direction
-  delete root.dataset.readScrub
-  const transition = start.call(document, () => {
-    scroller.scrollLeft = left
-  })
-  flipping.current = transition
-  void transition.finished.finally(() => {
-    if (flipping.current === transition) {
-      flipping.current = null
-      delete root.dataset.readFlip
-    }
-  })
+  startCurl(scroller, left, direction, flipping).release(true)
 }
 
 type SwipeHelp = {
@@ -573,7 +551,7 @@ type SwipeHelp = {
 }
 
 /**
- * A finger on the page: dragged sideways, the page turns with it, its edge under the finger (`leafTime`); let go past
+ * A finger on the page: dragged sideways, the page folds over with it, the fold under the finger (`startCurl`); let go past
  * a third of the page, or flicked, it turns the rest of the way, otherwise it falls back. Where the page turn cannot
  * follow a finger (no View Transitions, reduced motion), the swipe turns the page once it ends.
  */
@@ -582,10 +560,8 @@ function followSwipe(down: PointerEvent, scroller: HTMLElement, help: SwipeHelp)
   const startY = down.clientY
   const id = down.pointerId
   const width = scroller.clientWidth || 1
-  const canFollow =
-    "startViewTransition" in document &&
-    !(typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches)
-  let scrub: ReturnType<typeof scrubPage> | null = null
+  const canFollow = canCurl()
+  let scrub: Curl | null = null
   let decided = false
   let last = { x: startX, t: performance.now() }
   let speed = 0
@@ -615,9 +591,10 @@ function followSwipe(down: PointerEvent, scroller: HTMLElement, help: SwipeHelp)
         return
       }
       help.turned()
-      scrub = scrubPage(scroller, target * readPageStep(width), dx < 0 ? "forward" : "back", help.flipping)
+      const grip = startY - scroller.getBoundingClientRect().top
+      scrub = startCurl(scroller, target * readPageStep(width), dx < 0 ? "forward" : "back", help.flipping, grip)
     }
-    scrub?.follow(Math.abs(dx) / width)
+    scrub?.follow(dx, dy)
   }
 
   const up = (event: PointerEvent) => {
@@ -647,97 +624,4 @@ function followSwipe(down: PointerEvent, scroller: HTMLElement, help: SwipeHelp)
   window.addEventListener("pointermove", move)
   window.addEventListener("pointerup", up)
   window.addEventListener("pointercancel", up)
-}
-
-/**
- * The page turn of `flipPage`, held still and moved by the finger: `follow` sets how far the finger has gone (0 to
- * 1 of the page's width), `release` finishes the turn or lays the page back. The animations run linear while
- * followed (`data-read-scrub`), so the time `leafTime` gives is where the leaf is.
- */
-function scrubPage(
-  scroller: HTMLElement,
-  left: number,
-  direction: "forward" | "back",
-  flipping: { current: ViewTransition | null },
-) {
-  const from = scroller.scrollLeft
-  const root = document.documentElement
-  flipping.current?.skipTransition()
-  root.dataset.readFlip = direction
-  root.dataset.readScrub = ""
-  let time = 0
-  let animations: Animation[] | null = null
-  let outcome: boolean | null = null
-  const start = (document as Document & { startViewTransition: (update: () => void) => ViewTransition })
-    .startViewTransition
-  const transition = start.call(document, () => {
-    scroller.scrollLeft = left
-  })
-  flipping.current = transition
-  const length = (animation: Animation) => Number(animation.effect?.getTiming().duration) || 0
-
-  const place = () => {
-    animations?.forEach((animation) => {
-      animation.currentTime = time * length(animation)
-    })
-  }
-
-  const finish = (complete: boolean) => {
-    if (!animations || animations.length === 0) {
-      if (!complete) {
-        scroller.scrollLeft = from
-      }
-      transition.skipTransition()
-      return
-    }
-    const remaining = complete ? 1 - time : time
-    const ms = Math.max(120, 340 * remaining)
-    animations.forEach((animation) => {
-      const rate = Math.max(0.2, (length(animation) * remaining) / ms)
-      animation.playbackRate = complete ? rate : -rate
-      animation.play()
-    })
-    if (!complete) {
-      // Laid back: the page under the leaf is the one being read again before the turn ends and shows it.
-      animations[0]!.addEventListener("finish", () => {
-        scroller.scrollLeft = from
-      })
-    }
-  }
-
-  transition.ready
-    .then(() => {
-      animations = document
-        .getAnimations()
-        .filter((animation) => (animation.effect as KeyframeEffect | null)?.pseudoElement?.includes("read-page"))
-      animations.forEach((animation) => animation.pause())
-      place()
-      if (outcome !== null) {
-        finish(outcome)
-      }
-    })
-    .catch(() => undefined)
-  void transition.finished.finally(() => {
-    if (flipping.current === transition) {
-      flipping.current = null
-      delete root.dataset.readFlip
-      delete root.dataset.readScrub
-    }
-  })
-
-  return {
-    direction,
-    follow(progress: number) {
-      if (outcome === null) {
-        time = leafTime(progress, direction)
-        place()
-      }
-    },
-    release(complete: boolean) {
-      outcome = complete
-      if (animations) {
-        finish(complete)
-      }
-    },
-  }
 }

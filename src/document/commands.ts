@@ -35,6 +35,7 @@ import {
 } from "@/document/recovery"
 import { describeFileProblem, useFileError, type FileOperation } from "@/document/file-errors"
 import { playDocumentEntrance } from "@/document/motion"
+import { useQuitPrompt } from "@/document/quit-prompt"
 import { useSavePrompt } from "@/document/save-prompt"
 import { useMacroPrompt } from "@/document/macro-prompt"
 import { protectionForSave, useFileProtection } from "@/document/file-protection"
@@ -805,6 +806,27 @@ export async function confirmCloseDocument() {
     return true
   }
   return saveCurrent()
+}
+
+/**
+ * Android's Back on the last screen: says Inkspire will close and closes it when the user agrees, saving first when
+ * asked to (an unsaved document gets Save and Quit, Quit Without Saving and Cancel).
+ */
+export async function quitApp() {
+  flushPendingEdit()
+  const { isDirty } = useDocumentStore.getState()
+  const choice = await useQuitPrompt.getState().ask(isDirty)
+  if (choice === "cancel") {
+    return false
+  }
+  if (choice === "save" && !(await saveCurrent())) {
+    return false
+  }
+  if (choice === "quit" && isDirty && useViewStore.getState().autoSave) {
+    await writeRecoveryDraft().catch(() => undefined)
+  }
+  androidServices()?.quit?.()
+  return true
 }
 
 export function saveDocumentAs() {

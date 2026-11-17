@@ -22,19 +22,121 @@ export function readPageAt(scrollLeft: number, viewWidth: number, gap = READ_COL
   return Math.max(0, Math.round(scrollLeft / readPageStep(viewWidth, gap)))
 }
 
-/** How far the turning leaf goes: from flat to on its edge and a little past (`read-leaf-lift` in index.css). */
-export const LEAF_TURN_DEGREES = 92
+export type Point = { x: number; y: number }
+
+/** Corners of a polygon passed to `clip-path`: always this many, so one shape can move smoothly into the next. */
+const SHAPE_POINTS = 6
 
 /**
- * Where a page turn that follows a finger stands (0 to 1 of its animation), for a finger that has gone `progress` of
- * the page's width: the leaf turns on the left edge, so its far edge is width x cos(angle) from there, and the angle
- * is chosen to keep that edge under the finger. Forward the leaf lifts from flat; back it comes down from on edge.
+ * A page `w` x `h` folded over like a sheet of paper: its `corner` (a right-hand corner) drawn to `to`, the fold
+ * running between them, square to the line joining them (every point of the folded part lands as far from the fold
+ * on the other side). `top` is the part of the page still lying flat, `flap` the part folded over (in the page's
+ * own coordinates) and `matrix` the CSS matrix that mirrors it across the fold onto where it lies; `turned` is how far
+ * the page has gone over, 0 to 1.
  */
-export function leafTime(progress: number, direction: "forward" | "back") {
-  const p = Math.min(1, Math.max(0, progress))
-  const full = (LEAF_TURN_DEGREES * Math.PI) / 180
-  const time = direction === "forward" ? Math.acos(1 - p) / full : 1 - Math.acos(p) / full
-  return Math.min(1, Math.max(0, time))
+export function foldShapes(w: number, h: number, corner: Point, to: Point) {
+  const page = [
+    { x: 0, y: 0 },
+    { x: w, y: 0 },
+    { x: w, y: h },
+    { x: 0, y: h },
+  ]
+  const dx = to.x - corner.x
+  const dy = to.y - corner.y
+  const length = Math.hypot(dx, dy)
+  const turned = Math.min(1, Math.max(0, (corner.x - to.x) / (2 * w)))
+  if (length < 0.5) {
+    // Nothing folded yet: a fold at the corner's own edge, so the shapes go on smoothly from here.
+    return {
+      top: fill(page, corner),
+      flap: fill([], corner),
+      matrix: [-1, 0, 0, 1, 2 * corner.x, 0],
+      mirror: { x: corner.x, y: corner.y, angle: Math.PI },
+      turned,
+    }
+  }
+  const n = { x: dx / length, y: dy / length }
+  const middle = { x: (to.x + corner.x) / 2, y: (to.y + corner.y) / 2 }
+  const reach = middle.x * n.x + middle.y * n.y
+  const side = (point: Point) => point.x * n.x + point.y * n.y - reach
+  const matrix = [
+    1 - 2 * n.x * n.x,
+    -2 * n.x * n.y,
+    -2 * n.x * n.y,
+    1 - 2 * n.y * n.y,
+    2 * reach * n.x,
+    2 * reach * n.y,
+  ]
+  return {
+    top: fill(clipPolygon(page, side), middle),
+    flap: fill(
+      clipPolygon(page, (point) => -side(point)),
+      middle,
+    ),
+    matrix,
+    // The same mirror as CSS transforms that move smoothly from one fold to the next (a matrix that mirrors does
+    // not): about the fold's middle, flipped along the direction the corner went (an angle from 0 to 2 pi).
+    mirror: { x: middle.x, y: middle.y, angle: (Math.atan2(n.y, n.x) + 2 * Math.PI) % (2 * Math.PI) },
+    turned,
+  }
+}
+
+/** The part of a convex polygon where `side` is not negative. */
+function clipPolygon(points: Point[], side: (point: Point) => number) {
+  const kept: Point[] = []
+  points.forEach((a, index) => {
+    const b = points[(index + 1) % points.length]!
+    const sa = side(a)
+    const sb = side(b)
+    if (sa >= 0) {
+      kept.push(a)
+    }
+    if (sa >= 0 !== sb >= 0) {
+      const t = sa / (sa - sb)
+      kept.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t })
+    }
+  })
+  return kept
+}
+
+function fill(points: Point[], empty: Point) {
+  const filled = points.length > 0 ? [...points] : [empty]
+  while (filled.length < SHAPE_POINTS) {
+    filled.push(filled[filled.length - 1]!)
+  }
+  return filled
+}
+
+/**
+ * Where a page's corner can go: the page is bound at its left edge, so the corner stays within a page's width of
+ * the spine at its own height and within the diagonal of the other end, as paper does.
+ */
+export function onSpine(point: Point, corner: Point, w: number, h: number): Point {
+  const keep = (at: Point, from: Point, radius: number) => {
+    const distance = Math.hypot(at.x - from.x, at.y - from.y)
+    return distance <= radius
+      ? at
+      : { x: from.x + ((at.x - from.x) * radius) / distance, y: from.y + ((at.y - from.y) * radius) / distance }
+  }
+  const near = { x: 0, y: corner.y }
+  const far = { x: 0, y: h - corner.y }
+  return keep(keep(point, near, w), far, Math.hypot(w, h))
+}
+
+/**
+ * The corner's way from `from` to `to`, `steps` + 1 points: straight across, lifted toward the page's middle by
+ * `lift` of its height halfway (as a page taken by its corner rises while it turns), kept on the spine.
+ */
+export function curlPath(from: Point, to: Point, corner: Point, w: number, h: number, lift: number, steps = 32) {
+  const up = corner.y > h / 2 ? -1 : 1
+  return Array.from({ length: steps + 1 }, (_, index) => {
+    const s = index / steps
+    const point = {
+      x: from.x + (to.x - from.x) * s,
+      y: from.y + (to.y - from.y) * s + up * lift * h * Math.sin(Math.PI * s),
+    }
+    return onSpine(point, corner, w, h)
+  })
 }
 
 export const READ_COLUMN_WIDTHS = { narrow: 340, default: 460, wide: 620 } as const

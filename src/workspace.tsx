@@ -79,6 +79,7 @@ import { ListNumberingHost } from "@/components/list-numbering-dialogs"
 import { FirstRunSetup } from "@/components/first-run-setup"
 import { StyleDialogs } from "@/components/style-dialogs"
 import { showEditedStyles, useStyleStore } from "@/document/styles"
+import { QuitDialog } from "@/components/quit-dialog"
 import { SaveChangesDialog } from "@/components/save-changes-dialog"
 import { MacroPromptDialog } from "@/components/macro-prompt-dialog"
 import { ProtectDocumentDialogs } from "@/components/protect-document-dialogs"
@@ -370,6 +371,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
       <SetDefaultDialogHost />
       <FormatDialogHost />
       <SaveChangesDialog />
+      <QuitDialog />
       <MacroPromptDialog />
       <ProtectDocumentDialogs />
       <ProofingDialogs />

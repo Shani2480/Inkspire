@@ -7,6 +7,7 @@ type AndroidServices = {
   print(jobName: string): void
   share(name: string, mimeType: string, base64: string): void
   ready(): void
+  quit(): void
 }
 
 export function androidServices(): Partial<AndroidServices> | null {

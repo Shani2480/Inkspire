@@ -3,7 +3,7 @@ import { EditorContent } from "@tiptap/react"
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react"
 import { chromeHasContent, chromeOnPage } from "@/document/chrome-html"
 import { useActiveChromeEditor } from "@/document/chrome-editing"
-import { reportChromeReach } from "@/document/chrome-extent"
+import { forgetChrome, measureChrome, reportChromeReach } from "@/document/chrome-extent"
 import { pageMetrics } from "@/document/page-setup"
 import type { ChromeSlot, SectionChrome } from "@/document/sections"
 import { useDocumentStore } from "@/document/store"
@@ -230,25 +230,31 @@ export function ChromeBox({
     if (!element) {
       return
     }
-    const report = () => {
-      // From the box's top to the page's top margin, which pictures placed relative to the margin are measured from.
-      const margin = (marginTop ?? useDocumentStore.getState().pageSetup.marginTop) * MM_TO_PX
-      element.style.setProperty("--chrome-margin", `${Math.round(margin - element.offsetTop)}px`)
-      const sheet = element.offsetParent as HTMLElement | null
-      // An empty header or footer takes no room, as on a cover page whose section has none (Word).
-      if (!sheet || useViewStore.getState().layoutMode === "web" || (!live && !filled)) {
-        reportChromeReach(id, kind, null, section)
-        return
-      }
-      const reach =
-        kind === "header" ? element.offsetTop + element.offsetHeight : sheet.offsetHeight - element.offsetTop
-      reportChromeReach(id, kind, reach, section)
-    }
+    // Measured with every other box in one pass (`measureChrome`): a long document has two boxes on each of hundreds
+    // of pages, and each measuring on its own, after another had changed a style, laid the whole document out again.
+    const report = () =>
+      measureChrome(element, () => {
+        // From the box's top to the page's top margin, which pictures placed relative to the margin are measured from.
+        const margin = (marginTop ?? useDocumentStore.getState().pageSetup.marginTop) * MM_TO_PX
+        const top = element.offsetTop
+        const sheet = element.offsetParent as HTMLElement | null
+        // An empty header or footer takes no room, as on a cover page whose section has none (Word).
+        const empty = !sheet || useViewStore.getState().layoutMode === "web" || (!live && !filled)
+        const reach = empty ? null : kind === "header" ? top + element.offsetHeight : sheet.offsetHeight - top
+        return () => {
+          const offset = `${Math.round(margin - top)}px`
+          if (element.style.getPropertyValue("--chrome-margin") !== offset) {
+            element.style.setProperty("--chrome-margin", offset)
+          }
+          return { id, kind, reach, section }
+        }
+      })
     report()
     const observer = new ResizeObserver(report)
     observer.observe(element)
     return () => {
       observer.disconnect()
+      forgetChrome(element)
       reportChromeReach(id, kind, null, section)
     }
   }, [id, kind, live, filled, editor, pageSetup.marginTop, marginTop, section])

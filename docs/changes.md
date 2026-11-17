@@ -7,6 +7,49 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-17
 
+### Long documents open fast; Read Mode's page curls like paper; Android Back asks before quitting; v0.8.0
+
+- **What was wrong:** a 593-page novel took over a minute of blocked work to open on a slow phone (88 s of long tasks
+  with the CPU slowed four times in emulation), so the app looked frozen. The profile showed:
+  - ProseMirror's `removeChild` spent 28 s. Each line measured made a Range that stayed live, and every change to
+    the document then had to update thousands of them.
+  - Every line was measured five times. The pagination's ResizeObserver cleared all measures when the layout's own
+    page gaps resized the editor.
+  - Each of the 1,186 header and footer boxes measured itself on its own. Each one forced a layout after another had
+    written a style.
+
+  Separately, Read Mode's page turn swung the page around on its edge. It did not fold like paper as on an e-reader.
+  On Android, Back in Read Mode closed the app, and Back anywhere closed it without asking.
+- **What changed:**
+  - `pages.ts`:
+    - One Range is reused for all line measuring, and collapsed after each use.
+    - Line starts are found from a guess based on line widths, then a galloping search. The page breaks for the
+      novel are identical.
+    - A resize the layout itself caused no longer throws the measures away.
+  - Range lookups dropped from 427,000 to 109,000, and measuring passes from five to two.
+  - `chrome-extent.ts` (`measureChrome`, `flushChrome`): header and footer boxes are read in one frame, then written,
+    then published once.
+  - Result: 17 s of long tasks instead of 88 s (four-times-slowed CPU).
+  - `read-curl.ts` (new) and `read-pages.ts` (`foldShapes`, `onSpine`, `curlPath`):
+    - The page is clipped along the fold line, the perpendicular bisector between its corner and where the corner
+      was drawn to.
+    - A `.read-fold` paper sheet is mirrored across the fold as the page's back, with a drop shadow.
+    - The fold moves with the finger. Taps and keys play the same path frame by frame from script; as separate
+      animations, the compositor ran the flap ahead of the page's cut.
+    - The leaf's rotateY keyframes are gone.
+  - Android Back:
+    - `MainActivity.kt` sends Back to `__inkspireBack`.
+    - `android-back.ts` (`backStep`) closes, in order: a menu or dialog (Esc), a pane sheet, the File view, then
+      Read Mode or Focus. Otherwise it calls `quitApp` (`commands.ts`).
+    - `quitApp` shows `QuitDialog`: Save and Quit / Quit Without Saving / Cancel, or Quit / Cancel when nothing is
+      unsaved. It then calls `InkspireFiles.quit()`.
+- **Checked:**
+  - Emulation (phone, headless Chrome) on the novel: same page breaks.
+  - Page curl with a drag from low, falling back, dragging back, and a tap: all land on the right page, frames look
+    right. 56 fps at a four-times-slowed CPU.
+  - Back from Read Mode, the editor (the quit prompt), the prompt itself and the File view.
+  - Unit tests for the fold geometry and Back order.
+
 ### Read Mode's page turn follows the finger; phone status bar fits again; v0.7.0
 
 - **What was wrong:** a swipe in Read Mode turned the page only once it ended, so the page did not move with the

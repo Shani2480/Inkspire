@@ -19,11 +19,52 @@ const reaches = new Map<string, { kind: "header" | "footer"; reach: number; sect
 
 /** A box's reach (`null` when it is gone); the store changes only when the tallest of its kind does. */
 export function reportChromeReach(id: string, kind: "header" | "footer", reach: number | null, section = "") {
+  note(id, kind, reach, section)
+  publish()
+}
+
+function note(id: string, kind: "header" | "footer", reach: number | null, section: string) {
   if (reach === null) {
     reaches.delete(id)
   } else {
     reaches.set(id, { kind, reach: Math.ceil(reach), section })
   }
+}
+
+type ChromeReport = { id: string; kind: "header" | "footer"; reach: number | null; section: string }
+
+/** Boxes waiting to be measured: a read (layout only) that returns the write (styles) and what it reports. */
+const waiting = new Map<HTMLElement, () => () => ChromeReport>()
+let frame = 0
+
+/**
+ * Measures a header or footer box with all the others that asked in the same frame: every box is read first, then
+ * every box's style is written and the reaches published once, so the document is laid out once, not once a box.
+ */
+export function measureChrome(element: HTMLElement, read: () => () => ChromeReport) {
+  waiting.set(element, read)
+  if (!frame) {
+    frame = requestAnimationFrame(flushChrome)
+  }
+}
+
+export function forgetChrome(element: HTMLElement) {
+  waiting.delete(element)
+}
+
+export function flushChrome() {
+  frame = 0
+  const reads = [...waiting.values()]
+  waiting.clear()
+  const writes = reads.map((read) => read())
+  for (const write of writes) {
+    const { id, kind, reach, section } = write()
+    note(id, kind, reach, section)
+  }
+  publish()
+}
+
+function publish() {
   const all: Record<string, Reach> = {}
   for (const item of reaches.values()) {
     const entry = (all[item.section] ??= { header: 0, footer: 0 })

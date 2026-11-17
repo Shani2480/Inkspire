@@ -384,6 +384,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **v0.8.0 on the Pixel (2026-11-17)** — open the 593-page novel: time to the first page and whether the app
+      stays usable while it lays out; Read Mode: drag a page from low and from high (the curl from the bottom and top
+      corner), let go early (falls back), tap the edge, and check the turn is smooth; Back from Read Mode (to editing),
+      from a pane, a menu, the File view, and from the editor (the quit prompt: Save and Quit saves, Cancel stays).
 - [ ] **Phone touch (2026-11-17)** — on the Pixel: Read Mode's page turn by swipe and edge tap in a long document
       (smooth?); select text, tap the round button, format; tap in a table, open its tools; swipe a pane down.
 - [ ] **Android print, share, open with (2026-11-17)** — print a page to a real printer; save a PDF and open it;
