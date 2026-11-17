@@ -16,7 +16,7 @@ import { parseListIndent } from "@/editor/lists"
 import { chromeHasContent, chromeHasPageField } from "@/document/chrome-html"
 import { chromeJson } from "@/document/chrome-json"
 import { bordersOf, editedShading, sidePensOf, wordShadingValue } from "@/document/docx/cell-edits"
-import { cellCss, tableLookTokens, tableVariables, themeFontsOf } from "@/document/docx/word-styles"
+import { cellCss, pictureLineSpace, tableLookTokens, tableVariables, themeFontsOf } from "@/document/docx/word-styles"
 import { floatValue } from "@/editor/table-float"
 import { presetAttrs, presetOf } from "@/editor/table-props"
 import {
@@ -1162,10 +1162,15 @@ function paragraphInnerHtml(paragraph: Paragraph, ctx: Projection) {
     // The editor's images are blocks; a <p> around one would open as an extra empty paragraph. They take the
     // paragraph's alignment instead.
     const align = pictureAlign(paragraph, ctx.doc.styles.styles)
+    // And the room the paragraph gives it: its spacing and the extra height of its line.
+    const space = pictureLineSpace(ctx.doc, paragraph)
+    const room = space.before || space.after || space.extra || space.least
+    const attrs = [
+      align === "center" || align === "right" ? `style="text-align: ${align}"` : "",
+      room ? `data-line-space="${space.before} ${space.after} ${space.extra} ${space.least}"` : "",
+    ].filter(Boolean)
     const html = inlinesHtml(paragraph.inlines, ctx)
-    return align === "center" || align === "right"
-      ? html.replace(/<img (?![^>]*data-wrap=)/g, `<img style="text-align: ${align}" `)
-      : html
+    return attrs.length ? html.replace(/<img (?![^>]*data-wrap=)/g, `<img ${attrs.join(" ")} `) : html
   }
   const tag = headingTag(paragraph.styleId)
   const outline = tag === "p" ? outlineLevelOf(paragraph, ctx.doc) : null

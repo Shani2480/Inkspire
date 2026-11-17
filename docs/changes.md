@@ -7,6 +7,21 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-17
 
+### A picture alone in its paragraph gets the room Word gives it
+
+- **What was wrong:** the editor draws a paragraph holding only a picture as the picture, without the paragraph:
+  its space before and after and its line's extra height were lost, so the text after it sat 10–12 pt higher than
+  in Word (`f13`, `f21`).
+- **What changed:** opening works out that room from the paragraph and its style (`pictureLineSpace` in
+  `docx/word-styles.ts`): space before and after (none with contextual spacing, as in a List Paragraph), the extra
+  height multiple spacing gives the line (the extra share of a text line in the paragraph's font), an at-least
+  height. The picture keeps it (`lineSpace`, shown only; a save writes the paragraph it came from) and the page draws
+  it as margins (`lineRoom` in `editor/objects.ts`). Exact spacing is left out (Word cuts the picture to the line).
+- **Checked in Word (VM):** `f13` with lines of 1, 1.16 and 2 and a picture of 24 and 48 pt: the text after it
+  within 0.2–0.6 pt of Word (was 4–29 pt); `f21` 1.6 pt (was 11.9). `combined` moves 2.3 pt with its picture's line,
+  as in Word; its list-item picture is still about 30 pt off for another reason (`next-todo`).
+- **Tests:** `docx/cover-layout.test.ts` (the room read from `f13` and kept off the save; the margins).
+
 ### Tables of contents are spaced and placed as Word draws them
 
 - **What was wrong:** the entries were flex rows with their own margins (0.12 em) and the page's line height, the

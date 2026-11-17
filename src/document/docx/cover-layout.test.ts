@@ -6,6 +6,7 @@ import { openDocxBytes, saveDocxBytes } from "@/document/docx/io"
 import { findPart, openPackage, writePackage } from "@/document/docx/opc"
 import { decodeXml } from "@/document/docx/xml"
 import { createExtensions } from "@/editor/extensions"
+import { lineRoom } from "@/editor/objects"
 
 const AUTHORED = path.resolve(process.cwd(), "tests/docx-fixtures/authored")
 
@@ -179,5 +180,25 @@ describe("a Table of Contents control without Word's gallery", () => {
     expect(html).toContain("data-toc=")
     expect(html).toContain("Why")
     expect(xml).toContain(control)
+  })
+})
+
+describe("the room Word gives a picture alone in its paragraph", () => {
+  it("opens with the paragraph's space before and after and its line's extra height, and saves as it was", async () => {
+    // f13: Normal is 8 pt after at 1.16 lines (278) of 12 pt Aptos: the picture's line is 2.3 pt taller than it.
+    const bytes = new Uint8Array(readFileSync(path.join(AUTHORED, "f13_inline_image.docx")))
+    const { editor, xml } = await openAndSave(bytes)
+    const image = editor.state.doc.child(1)
+    expect(image.type.name).toBe("image")
+    const [before, after, extra, least] = String(image.attrs.lineSpace).split(" ").map(Number)
+    expect([before, after, least]).toEqual([0, 8, 0])
+    expect(extra).toBeCloseTo(2.3, 0)
+    expect(xml).not.toContain("data-line-space")
+  })
+
+  it("gives the margins: the extra height and the space after below, an at-least line over the picture", () => {
+    expect(lineRoom("0 8 2.25 0", 32)).toEqual({ top: 0, bottom: 13.67 })
+    expect(lineRoom("6 0 0 36", 32)).toEqual({ top: 8, bottom: 16 })
+    expect(lineRoom("", 32)).toEqual({ top: 0, bottom: 0 })
   })
 })

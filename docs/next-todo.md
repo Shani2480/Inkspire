@@ -91,9 +91,10 @@ Opening: the 13 differences found first are fixed (see `changes.md`, 2026-11-14)
 
 1. ~~Multiple line spacing~~ — done 2026-11-17 (`document/line-lead.ts`, see `changes.md`). Still different: a
    line that mixes text sizes (or holds an inline object) keeps the browser's placement, up to about 1 pt off.
-   Found on the way, already there before: a picture's paragraph is shorter than Word's (Word gives it its line
-   spacing and space after; the text after it sits about 10 pt higher in Inkspire, `f13`); bullet lines in `f04` are
-   1 pt further apart in Word; a picture in a list item drops below its bullet, and the empty bullet after a table
+   Found on the way, already there before: ~~a picture's paragraph is shorter than Word's~~ — done 2026-11-17 (see
+   `changes.md`; `f13` and `f21` within 0.6–1.6 pt of Word, were 10–12); bullet lines in `f04` are
+   1 pt further apart in Word; a picture in a list item drops below its bullet (the editor's list item needs a
+   paragraph before the picture: an empty Normal line, 8 pt after, about 30 pt in `combined`), and the empty bullet after a table
    sits higher than Word's (`combined`).
 2. ~~A TOC's field-end paragraph~~ — done 2026-11-17 (see `changes.md`). Still different: the line is drawn in
    Normal whatever its style; a table inserted in Inkspire closes in its last entry (Word's gallery not checked).

@@ -296,6 +296,18 @@ function parseImageDimension(element: HTMLElement, name: "width" | "height") {
   return null
 }
 
+/**
+ * The margins (px) that give an in-line picture its paragraph's room in Word (`lineSpace`: before, after, the line's
+ * extra height, an at-least line height, in pt): its line's extra height goes below it, on the baseline the picture
+ * stands on, then the space after.
+ */
+export function lineRoom(lineSpace: string, height: number) {
+  const [before = 0, after = 0, extra = 0, least = 0] = lineSpace.split(" ").map((value) => Number(value) || 0)
+  const px = (pt: number) => (pt * 4) / 3
+  const taller = Math.max(px(extra), px(least) - height, 0)
+  return { top: Math.round(px(before) * 100) / 100, bottom: Math.round((taller + px(after)) * 100) / 100 }
+}
+
 export const PositionedImage = Image.extend({
   addAttributes() {
     return {
@@ -324,6 +336,13 @@ export const PositionedImage = Image.extend({
       },
       ...pictureCropAttributes(),
       ...pictureFormatAttributes(),
+      // The room Word's paragraph around a picture alone gives it (pt): before, after, the line's extra height and
+      // an at-least line height ("" for none). Only shown; a save keeps the paragraph it came from.
+      lineSpace: {
+        default: "",
+        parseHTML: (element) => element.getAttribute("data-line-space") || "",
+        renderHTML: (attributes) => (attributes.lineSpace ? { "data-line-space": String(attributes.lineSpace) } : {}),
+      },
       // The app's own object (a shape, chart, 3D model…) this picture stands for in a .docx, as base64 JSON.
       objectNode: {
         default: "",
@@ -1288,8 +1307,9 @@ function paintImage(dom: HTMLElement, node: ProseNode) {
     dom.style.marginRight = align === "center" ? "auto" : ""
     // A turned picture in line keeps the lines above and below clear of its corners, as in Word.
     const turnedBy = width > 0 && height > 0 ? Math.max(0, -rotatedBounds(width, height, rotate).dy) : 0
-    dom.style.marginTop = turnedBy ? `${Math.round(turnedBy)}px` : ""
-    dom.style.marginBottom = turnedBy ? `${Math.round(turnedBy)}px` : ""
+    const room = lineRoom(String(node.attrs.lineSpace ?? ""), height > 0 ? height : dom.offsetHeight)
+    dom.style.marginTop = turnedBy || room.top ? `${Math.round(turnedBy) + room.top}px` : ""
+    dom.style.marginBottom = turnedBy || room.bottom ? `${Math.round(turnedBy) + room.bottom}px` : ""
     if (width > 0) {
       image.setAttribute("width", String(width))
     }

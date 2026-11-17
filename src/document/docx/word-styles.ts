@@ -370,6 +370,40 @@ export function resolvedStyle(doc: WordDocument, id: string) {
   return resolveStyle(id, styles, { pPr: defaultsOf(doc.styles).pPr, rPr: defaultsOf(doc.styles).rPr })
 }
 
+/**
+ * The room Word gives a paragraph holding only a picture, which the editor draws as the picture alone: the space
+ * before and after (pt), and how much taller than the picture its line is (pt). With multiple spacing that is the
+ * extra share of a text line in the paragraph's font (a 24 pt picture at 1.16 lines of 12 pt Aptos is 26.3 pt tall in
+ * Word); at least, the line's height over the picture's (`least`, decided once the picture's height is known).
+ * Exact spacing is left out: Word cuts the picture to the line, which the editor does not.
+ */
+export function pictureLineSpace(
+  doc: WordDocument,
+  paragraph: { styleId?: string; pPr: ParagraphProperties; markRPr?: RunProperties },
+  themeFonts?: ThemeFonts,
+) {
+  const styles = new Map(doc.styles.styles.map((style) => [style.id, style]))
+  const normal = doc.styles.styles.find((style) => style.type === "paragraph" && style.default)
+  const start = { pPr: defaultsOf(doc.styles).pPr, rPr: defaultsOf(doc.styles).rPr }
+  const id = paragraph.styleId && styles.has(paragraph.styleId) ? paragraph.styleId : normal?.id
+  const style = id ? resolveStyle(id, styles, start) : start
+  const spacing = { ...style.pPr.spacing, ...paragraph.pPr.spacing }
+  // Space between paragraphs of one style left out (a List Paragraph's): taken as next to its own style, as a
+  // picture in a list is.
+  const contextual = (paragraph.pPr.contextualSpacing ?? style.pPr.contextualSpacing) === true
+  const rPr = mergeRun(style.rPr, paragraph.markRPr ?? {})
+  const size = (rPr.sz ?? 20) / 2
+  const line = singleLine(fontOf(rPr.rFonts, themeFonts ?? themeFontsOf(doc))) * size
+  const rule = spacing.lineRule
+  const round = (value: number) => Math.round(value * 100) / 100
+  return {
+    before: contextual ? 0 : round((spacing.before ?? 0) / 20),
+    after: contextual ? 0 : round((spacing.after ?? 0) / 20),
+    extra: !rule || rule === "auto" ? round(Math.max(0, ((spacing.line ?? 240) / 240 - 1) * line)) : 0,
+    least: rule === "atLeast" ? round((spacing.line ?? 0) / 20) : 0,
+  }
+}
+
 function resolveStyle(id: string, styles: Map<string, Style>, start: Resolved): Resolved {
   const chain: Style[] = []
   const seen = new Set<string>()
