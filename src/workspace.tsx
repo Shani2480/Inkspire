@@ -8,6 +8,8 @@ import { TableStylesDialog } from "@/components/table-design-menus"
 import { TextPromptHost } from "@/components/text-prompt"
 import { ChartTypeDialog, SelectDataDialog } from "@/components/chart-menus"
 import { HelpDialogs } from "@/components/help-dialogs"
+import { useHelp } from "@/document/help"
+import { updatedSinceLastRun } from "@/lib/release-notes"
 import { OptionsDialog } from "@/components/options-dialog"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { AiSidebar } from "@/components/ai-sidebar"
@@ -116,6 +118,12 @@ function DocumentShell({ onReady }: WorkspaceProps) {
   useDocumentWindow(Boolean(editor))
 
   useEffect(() => installPaginationProfileCommand(() => getDocumentEditor()), [])
+  // What's New, once, on the first start after an update.
+  useEffect(() => {
+    if (updatedSinceLastRun()) {
+      useHelp.getState().openHelp("whats-new")
+    }
+  }, [])
   useEffect(() => {
     showEditedStyles(useStyleStore.getState().styles)
     return useStyleStore.subscribe((state, previous) => {

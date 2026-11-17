@@ -5,6 +5,7 @@ import { ISSUES_URL, PROJECT_URL, newIssueUrl, openExternal, useHelp } from "@/d
 import { commandShortcut, formattingMarksShortcut, isMacPlatform, isTauriRuntime } from "@/lib/platform"
 import { useState } from "react"
 import { version } from "../../package.json"
+import { RELEASES } from "@/lib/release-notes"
 
 /** The windows the Help tab opens. Mounted once, beside the other app dialogs. */
 export function HelpDialogs() {
@@ -368,36 +369,26 @@ function ShortcutsDialog({ onClose }: { onClose: () => void }) {
   )
 }
 
-/** Recent changes, newest first. */
-const WHATS_NEW = [
-  {
-    title: "Single line ribbon",
-    text: "A compact one-row ribbon, as in Word for the web, for Home, Insert, Layout, References, Review, View and Help. Choose it from the arrow at the bottom right of the ribbon.",
-  },
-  {
-    title: "Tables of contents that work like Word's",
-    text: "Built-in and custom tables, Update Table, and tables that stay intact in .docx files.",
-  },
-  {
-    title: "Dark mode everywhere",
-    text: "Menus, dialogs, panes and the chart sheet now follow dark mode, while the page stays white.",
-  },
-  {
-    title: "Safer AutoSave",
-    text: "AutoSave keeps a recovery copy, and Inkspire asks to save before closing a changed document.",
-  },
-  {
-    title: "Headers, footers and page breaks",
-    text: "Edit headers and footers as Word does, add page breaks with Ctrl+Enter, and see the editor's own pages in the print preview.",
-  },
-]
-
 function WhatsNewDialog({ onClose }: { onClose: () => void }) {
+  const [shown, setShown] = useState(RELEASES[0]!.version)
+  const release = RELEASES.find((item) => item.version === shown) ?? RELEASES[0]!
   return (
-    <DialogFrame title="What's New" width={460} onClose={onClose}>
-      <p className="mt-3 text-xs opacity-70">Inkspire {version}</p>
+    <DialogFrame title="What's New" width={480} onClose={onClose}>
+      <div className="help-news-version">
+        <span>
+          Inkspire {release.version}
+          {release.version === version ? " (this version)" : ""} · {release.date}
+        </span>
+        <select aria-label="Version" value={shown} onChange={(event) => setShown(event.target.value)}>
+          {RELEASES.map((item) => (
+            <option key={item.version} value={item.version}>
+              {item.version}
+            </option>
+          ))}
+        </select>
+      </div>
       <ul className="help-news">
-        {WHATS_NEW.map((item) => (
+        {release.notes.map((item) => (
           <li key={item.title}>
             <strong>{item.title}</strong>
             <span>{item.text}</span>

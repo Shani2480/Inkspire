@@ -5,6 +5,19 @@ wrong or missing, what changed, where (files, tests), how it was checked, and wh
 story of each feature stays in `next-todo.md` under its section; `verify-list.md` holds what still needs a check
 in Word, Chrome or the desktop app.
 
+## 2026-11-17
+
+### Version 0.2.0, with release notes and What's New after an update
+
+- **What changed:** the version is 0.2.0 (package.json, tauri.conf.json, Cargo.toml; Android's versionCode follows).
+  Each version's notes, in plain words, live in `lib/release-notes.ts`; Help > What's New shows the newest, with a
+  list to show an earlier version's, and opens by itself once on the first start after an update (not on a first
+  start). The old unversioned What's New list became 0.1.6's notes.
+- **Checked:** Chrome, light and dark: What's New opens once after an earlier version ran, fits without scrolling,
+  and stays closed on the next start. Tests: `lib/release-notes.test.ts` (the newest notes are this version's, newest
+  first; one version in package.json, tauri.conf.json and Cargo.toml; shown once after an update).
+- **From now on:** raise the version and add its notes with every build (patch for fixes, minor for features).
+
 ## 2026-11-16
 
 ### Stock Images (U29), and pictures' alt text saved for Word

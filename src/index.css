@@ -10965,6 +10965,26 @@ html.dark .asset-library .asset-library-icon {
   opacity: 0.8;
 }
 
+/* What's New: the version shown, and a list to show an earlier one's notes. */
+.help-news-version {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.help-news-version select {
+  padding: 2px 4px;
+  border: 1px solid var(--app-popover-border);
+  border-radius: 3px;
+  background: var(--app-popover-bg);
+  color: inherit;
+  font-size: 12px;
+}
+
 .help-news {
   display: flex;
   flex-direction: column;
