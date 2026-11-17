@@ -21,6 +21,15 @@ export function DocumentEditorProvider({ children }: { children: ReactNode }) {
     extensions,
     content: "<p></p>",
     autofocus: "start",
+    // Made after the first render, not during it. A first render made during the render is destroyed 1 ms later
+    // unless the provider has mounted by then (TipTap's scheduleDestroy), and the app's first render, split into
+    // chunks by React, can take longer: components then start with a destroyed editor and the first that reads
+    // its view throws, taking the whole window down.
+    immediatelyRender: false,
+    // Typing follows Word's AutoFormat As You Type (`autocorrect.ts`), not Markdown: "# " stays text, "**" stays
+    // asterisks. "---" then Enter still draws a line, as Word's border lines do.
+    enableInputRules: ["horizontalRule"],
+    enablePasteRules: ["link"],
     editorProps: {
       attributes: {
         class: "page-editor break-words",

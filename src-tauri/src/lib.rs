@@ -1,4 +1,5 @@
 mod ai;
+mod cells_link;
 mod local_ai;
 mod office;
 mod pinch;
@@ -31,6 +32,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             import_document,
             export_document,
+            convert_legacy_document,
             read_document,
             write_document,
             read_settings_file,
@@ -53,7 +55,10 @@ pub fn run() {
             tools::tools_remove,
             email_document,
             reveal_document,
-            system_defaults
+            system_defaults,
+            cells_link::edit_in_cells,
+            cells_link::edit_copy_modified,
+            cells_link::read_edit_copy
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
@@ -493,7 +498,7 @@ fn push_metadata_arg(args: &mut Vec<String>, key: &str, value: Option<&str>) {
 /// so every user file goes through these two commands and their path checks.
 #[tauri::command]
 fn read_document(path: String) -> Result<tauri::ipc::Response, String> {
-    let path = assert_local_document_path(&path)?;
+    let path = assert_openable_document_path(&path)?;
     if !path.is_file() {
         return Err("The selected file could not be found.".into());
     }
@@ -627,11 +632,153 @@ fn assert_local_document_path(path: &str) -> Result<PathBuf, String> {
     }
 }
 
+fn is_recipient_list_extension(ext: &str) -> bool {
+    matches!(ext, "csv" | "tsv" | "xlsx" | "xlsm" | "vcf")
+}
+
 fn is_local_document_extension(ext: &str) -> bool {
     matches!(
         ext,
-        "html" | "htm" | "txt" | "md" | "rtf" | "docx" | "odt" | "pdf"
+        "html"
+            | "htm"
+            | "txt"
+            | "md"
+            | "rtf"
+            | "docx"
+            | "docm"
+            | "dotx"
+            | "dotm"
+            | "odt"
+            | "pdf"
+            | "thmx"
     )
+}
+
+/// A file the person picked to open: the documents Inkspire saves, Word 97–2003 files, which it only reads
+/// (converted, see `convert_legacy_document`), and Mailings' recipient lists (text, Excel, vCard), only read.
+fn assert_openable_document_path(path: &str) -> Result<PathBuf, String> {
+    let checked = assert_user_document_path(path)?;
+    match file_extension(checked.to_string_lossy().as_ref()).as_deref() {
+        Some("doc") | Some("dot") => Ok(checked),
+        Some(ext) if is_recipient_list_extension(ext) => Ok(checked),
+        _ => assert_local_document_path(path),
+    }
+}
+
+/// LibreOffice's program, which converts Word 97–2003 files: on the PATH, or where its installers put it.
+fn libreoffice_program() -> Option<PathBuf> {
+    let names: &[&str] = if cfg!(windows) {
+        &["soffice.exe"]
+    } else {
+        &["soffice", "libreoffice"]
+    };
+    if let Some(paths) = std::env::var_os("PATH") {
+        for dir in std::env::split_paths(&paths) {
+            for name in names {
+                let candidate = dir.join(name);
+                if candidate.is_file() {
+                    return Some(candidate);
+                }
+            }
+        }
+    }
+    let fixed: &[&str] = if cfg!(windows) {
+        &[
+            r"C:\Program Files\LibreOffice\program\soffice.exe",
+            r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+        ]
+    } else if cfg!(target_os = "macos") {
+        &["/Applications/LibreOffice.app/Contents/MacOS/soffice"]
+    } else {
+        &[
+            "/usr/lib/libreoffice/program/soffice",
+            "/opt/libreoffice/program/soffice",
+        ]
+    };
+    fixed.iter().map(PathBuf::from).find(|path| path.is_file())
+}
+
+/// A folder as a `file://` URL, as LibreOffice's `-env:UserInstallation` takes it.
+fn file_url(path: &Path) -> String {
+    let text = path.to_string_lossy().replace('\\', "/");
+    let mut encoded = String::new();
+    for byte in text.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'/' | b'-' | b'_' | b'.' | b'~' | b':' => {
+                encoded.push(byte as char)
+            }
+            _ => encoded.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    if encoded.starts_with('/') {
+        format!("file://{encoded}")
+    } else {
+        format!("file:///{encoded}")
+    }
+}
+
+/// Removes the conversion's private folder (its LibreOffice profile and the converted file) when done.
+struct TempDir(PathBuf);
+
+impl Drop for TempDir {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+/// A Word 97–2003 document (.doc, .dot) as .docx bytes, converted by LibreOffice in a folder of its own and with a
+/// profile of its own, so a LibreOffice the person has open is not disturbed. Fails with `LEGACY_CONVERTER_MISSING`
+/// when LibreOffice is not installed.
+#[tauri::command]
+async fn convert_legacy_document(path: String) -> Result<tauri::ipc::Response, String> {
+    let source = assert_openable_document_path(&path)?;
+    if !source.is_file() {
+        return Err("The selected file could not be found.".into());
+    }
+    let program = libreoffice_program().ok_or("LEGACY_CONVERTER_MISSING")?;
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+    let dir =
+        TempDir(std::env::temp_dir().join(format!("inkspire-doc-{nanos}-{}", std::process::id())));
+    std::fs::create_dir_all(&dir.0)
+        .map_err(|err| format!("Could not convert the document: {err}"))?;
+    let profile = file_url(&dir.0.join("profile"));
+    let out_dir = dir.0.clone();
+    let input = source.clone();
+    let output = tokio::task::spawn_blocking(move || {
+        std::process::Command::new(program)
+            .arg(format!("-env:UserInstallation={profile}"))
+            .args([
+                "--headless",
+                "--norestore",
+                "--nologo",
+                "--convert-to",
+                "docx:MS Word 2007 XML",
+                "--outdir",
+            ])
+            .arg(&out_dir)
+            .arg(&input)
+            .output()
+    })
+    .await
+    .map_err(|err| err.to_string())?
+    .map_err(|err| format!("LibreOffice could not be started: {err}"))?;
+    let stem = source
+        .file_stem()
+        .map(|stem| stem.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let converted = dir.0.join(format!("{stem}.docx"));
+    if !output.status.success() || !converted.is_file() {
+        return Err(format!(
+            "LibreOffice could not convert this document. {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    let bytes = std::fs::read(&converted)
+        .map_err(|err| format!("Could not read the converted document: {err}"))?;
+    Ok(tauri::ipc::Response::new(bytes))
 }
 
 struct PandocRun {
@@ -796,11 +943,34 @@ impl Drop for TempHtml {
 }
 
 #[cfg(test)]
+mod legacy_tests {
+    use super::{assert_openable_document_path, file_url, is_local_document_extension};
+    use std::path::Path;
+
+    #[test]
+    fn word_templates_and_macro_files_are_documents_and_doc_is_only_opened() {
+        for ext in ["docm", "dotx", "dotm"] {
+            assert!(is_local_document_extension(ext));
+        }
+        assert!(!is_local_document_extension("doc"));
+        assert!(assert_openable_document_path("/home/alex/Old report.doc").is_ok());
+    }
+
+    #[test]
+    fn profile_folders_become_file_urls() {
+        assert_eq!(
+            file_url(Path::new("/tmp/a b/profile")),
+            "file:///tmp/a%20b/profile"
+        );
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::{
         assert_local_document_path, assert_settings_path, assert_user_document_path, document_body,
-        export_format, font_families, import_format, is_local_document_extension, percent_decode,
-        typst_project_root,
+        export_format, font_families, import_format, is_local_document_extension,
+        is_recipient_list_extension, percent_decode, typst_project_root,
     };
     use super::{existing_file_path, file_uri, gecos_name};
     use std::path::Path;
@@ -866,6 +1036,11 @@ mod tests {
             assert!(is_local_document_extension(ext), "{ext}");
         }
         assert!(!is_local_document_extension("exe"));
+        assert!(is_recipient_list_extension("csv") && is_recipient_list_extension("vcf"));
+        assert!(
+            !is_local_document_extension("csv"),
+            "recipient lists are read, never written"
+        );
         assert!(!is_local_document_extension("sh"));
 
         assert!(assert_local_document_path("/home/user/notes.HTM").is_ok());

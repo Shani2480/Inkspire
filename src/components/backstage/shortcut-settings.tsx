@@ -3,9 +3,8 @@ import { SHORTCUTS, comboFromEvent, keysOf, useShortcuts, type ShortcutDef } fro
 import { useEffect, useState } from "react"
 
 /** Keys the application itself uses, so a command cannot be moved onto them. */
-const RESERVED = new Set([
+export const RESERVED = new Set([
   "Mod+S",
-  "Mod+Shift+S",
   "Mod+O",
   "Mod+N",
   "Mod+P",
@@ -23,10 +22,14 @@ const RESERVED = new Set([
   "Mod+0",
   "Mod+-",
   "F1",
+  "F12",
+  "Mod+F1",
+  "Mod+F2",
+  "Mod+F4",
 ])
 
 export function showCombo(combo: string) {
-  return combo.replace("Mod", isMacPlatform ? "Cmd" : "Ctrl")
+  return combo.replace("Mod", isMacPlatform ? "Cmd" : "Ctrl").replace(/Arrow(Up|Down|Left|Right)/, "$1")
 }
 
 const GROUPS: ShortcutDef["group"][] = ["Text", "Paragraph", "Insert", "Tools"]

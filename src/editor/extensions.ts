@@ -1,4 +1,5 @@
 import Color from "@tiptap/extension-color"
+import { WordField } from "@/editor/word-field"
 import FontFamily from "@tiptap/extension-font-family"
 import Highlight from "@tiptap/extension-highlight"
 import { PositionedImage, TextBox } from "@/editor/objects"
@@ -6,8 +7,13 @@ import { FramedTable, ShadedTableCell, ShadedTableHeader, SizedTableRow, StyledT
 import TextAlign from "@tiptap/extension-text-align"
 import { FontSize, TextStyle } from "@tiptap/extension-text-style"
 import { WordLineHeight } from "@/editor/line-height"
+import { WordLead } from "@/editor/word-lead"
 import StarterKit from "@tiptap/starter-kit"
+import { ParagraphBoxGroups } from "@/editor/paragraph-box-groups"
+import { DropCapWidth } from "@/editor/drop-cap-width"
 import { CharacterStyle, StyledUnderline, SubscriptMark, SuperscriptMark, TextBoxMark } from "@/editor/character-format"
+import { ProofingMark } from "@/editor/proofing"
+import { ListNumbering } from "@/editor/list-numbering"
 import { FormatPainter } from "@/editor/home-actions"
 import { StyledBulletList, StyledOrderedList } from "@/editor/lists"
 import { BlankPage } from "@/editor/blank-page"
@@ -46,6 +52,7 @@ import {
 } from "@/editor/insert-blocks"
 import { ShortcutKeymap } from "@/editor/shortcut-keymap"
 import { EditingBehavior } from "@/editor/editing-behavior"
+import { SmartEditing } from "@/editor/smart-editing"
 import { DocumentTheme } from "@/editor/document-theme"
 import { SectionBreak } from "@/editor/section-break"
 import { SheetBlock } from "@/editor/sheet-block"
@@ -57,7 +64,14 @@ import { Spellcheck } from "@/editor/spellcheck"
 import { TripleClickSelectAll } from "@/editor/triple-click-select"
 import { TellMeFlash } from "@/tell-me/flash"
 import { ThreeDModel } from "@/editor/three-d-model"
-import { Deletion, Insertion, TrackChanges } from "@/editor/track-changes"
+import { Deletion, FormatChange, Insertion, TrackChanges } from "@/editor/track-changes"
+import { Protection } from "@/editor/protection"
+import { NoteLabels } from "@/editor/note-labels"
+import { Bibliography } from "@/editor/bibliography"
+import { AutoCorrect, useAutoCorrect } from "@/editor/autocorrect"
+import { SearchHighlight } from "@/editor/search-highlight"
+import { WordKeys } from "@/editor/word-keys"
+import { OutlineView } from "@/editor/outline-view"
 
 export function createExtensions() {
   return [
@@ -71,14 +85,21 @@ export function createExtensions() {
       link: {
         openOnClick: false,
         autolink: true,
+        // AutoFormat As You Type > Internet and network paths with hyperlinks.
+        shouldAutoLink: () => useAutoCorrect.getState().options.autoLinks,
       },
     }),
     IndentedParagraph.configure(),
     IndentedHeading.configure(),
     IndentedListItem.configure(),
     IndentKeymap.configure(),
+    AutoCorrect,
+    SearchHighlight,
+    WordKeys,
+    OutlineView,
     ShortcutKeymap.configure(),
     EditingBehavior.configure(),
+    SmartEditing.configure(),
     DocxSource.configure(),
     DocxRun.configure(),
     WordInline.configure(),
@@ -87,10 +108,14 @@ export function createExtensions() {
     TabStops.configure(),
     StyledBulletList.configure(),
     StyledOrderedList.configure(),
+    ListNumbering.configure(),
     StyledUnderline.configure(),
+    ParagraphBoxGroups,
+    DropCapWidth,
     SubscriptMark.configure(),
     SuperscriptMark.configure(),
     TextBoxMark.configure(),
+    ProofingMark.configure(),
     CharacterStyle.configure(),
     FormatPainter.configure(),
     TextStyle.configure(),
@@ -100,6 +125,7 @@ export function createExtensions() {
     WordLineHeight.configure({
       types: ["paragraph", "heading"],
     }),
+    WordLead,
     TextAlign.configure({
       // A picture in line takes its Word paragraph's alignment (the editor has no paragraph around it).
       types: ["heading", "paragraph", "textBox", "image"],
@@ -151,7 +177,9 @@ export function createExtensions() {
     SignatureLine.configure(),
     Note.configure(),
     FigureTable.configure(),
+    WordField,
     DocumentIndex.configure(),
+    Bibliography,
     AuthoritiesTable.configure(),
     SmartArt.configure(),
     ThreeDModel.configure(),
@@ -160,7 +188,10 @@ export function createExtensions() {
     insertBlockCommands.configure(),
     Insertion.configure(),
     Deletion.configure(),
+    FormatChange.configure(),
     TrackChanges.configure(),
+    Protection,
+    NoteLabels,
   ]
 }
 

@@ -23,7 +23,7 @@ import type { ColumnWidth } from "@/document/column-widths"
 import type { ChromeSlot, SectionChrome } from "@/document/sections"
 
 const CHROME_MARK =
-  /^<!-- aiword-(header|footer|first-header|first-footer|even-header|even-footer|first|oddeven|page|columns|colgap|colline|colwidths|lines|watermark|border|borderwidth|borderline|borderplace|pagecolor|pagenum|hyphens|language|fonts|spacing|headerstyle|footerstyle|colors|effects|pagenumbers|sections):([^\n>]*) -->\n?/
+  /^<!-- aiword-(header|footer|first-header|first-footer|even-header|even-footer|first|oddeven|page|columns|colgap|colline|colwidths|lines|watermark|border|borderwidth|borderline|borderplace|pagecolor|pagenum|hyphens|language|fonts|spacing|headerstyle|footerstyle|colors|theme-colors|font-scheme|theme|style-set|effects|pagenumbers|sections):([^\n>]*) -->\n?/
 
 export type DocumentChrome = {
   /** The header and footer of each kind of page, as editor HTML. */
@@ -107,6 +107,10 @@ export function packDocument(html: string, chrome: DocumentChrome) {
       ? `<!-- aiword-fonts:${encodeURIComponent(chrome.pageSetup.bodyFont)}|${encodeURIComponent(chrome.pageSetup.headingFont)} -->`
       : "",
     chrome.pageSetup.colorScheme ? `<!-- aiword-colors:${encodeURIComponent(chrome.pageSetup.colorScheme)} -->` : "",
+    chrome.pageSetup.themeColors ? `<!-- aiword-theme-colors:${chrome.pageSetup.themeColors} -->` : "",
+    chrome.pageSetup.fontScheme ? `<!-- aiword-font-scheme:${encodeURIComponent(chrome.pageSetup.fontScheme)} -->` : "",
+    chrome.pageSetup.themeName ? `<!-- aiword-theme:${encodeURIComponent(chrome.pageSetup.themeName)} -->` : "",
+    chrome.pageSetup.styleSet ? `<!-- aiword-style-set:${encodeURIComponent(chrome.pageSetup.styleSet)} -->` : "",
     chrome.pageSetup.effects ? `<!-- aiword-effects:${chrome.pageSetup.effects} -->` : "",
     chrome.pageSetup.spacing === "default" ? "" : `<!-- aiword-spacing:${chrome.pageSetup.spacing} -->`,
     chrome.pageSetup.pageNumberStart === null && chrome.pageSetup.pageNumberFormat === "decimal"
@@ -329,7 +333,18 @@ export function unpackDocument(raw: string) {
       const [body, heading] = value.split("|")
       chrome.pageSetup = { ...chrome.pageSetup, bodyFont: body ?? "", headingFont: heading ?? "" }
     } else if (match[1] === "colors") {
-      chrome.pageSetup = { ...chrome.pageSetup, colorScheme: knownColorScheme(value) }
+      chrome.pageSetup = { ...chrome.pageSetup, ...knownColorScheme(value, chrome.pageSetup.themeColors) }
+    } else if (match[1] === "theme-colors") {
+      chrome.pageSetup = {
+        ...chrome.pageSetup,
+        themeColors: /^(#[0-9a-fA-F]{6},){11}#[0-9a-fA-F]{6}$/.test(value) ? value : "",
+      }
+    } else if (match[1] === "font-scheme") {
+      chrome.pageSetup = { ...chrome.pageSetup, fontScheme: value }
+    } else if (match[1] === "theme") {
+      chrome.pageSetup = { ...chrome.pageSetup, themeName: value }
+    } else if (match[1] === "style-set") {
+      chrome.pageSetup = { ...chrome.pageSetup, styleSet: value }
     } else if (match[1] === "effects") {
       chrome.pageSetup = { ...chrome.pageSetup, effects: effectPreset(value) }
     } else if (match[1] === "spacing") {

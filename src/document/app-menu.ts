@@ -19,6 +19,7 @@ import { notePointer, zoomGesture } from "@/document/zoom-gesture"
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow"
 import { isMacPlatform, isTauriRuntime } from "@/lib/platform"
 import { useEffect } from "react"
+import { openNavigationSearch, selectedSearchText } from "@/document/nav-search"
 
 export function useDocumentCommands() {
   const recentFiles = useDocumentStore((state) => state.recentFiles)
@@ -38,6 +39,22 @@ export function useDocumentCommands() {
       if (event.key === "F1" && (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey) {
         event.preventDefault()
         useViewStore.getState().toggleRibbonLayout()
+        return
+      }
+
+      // Word's F12 is Save As, and Ctrl+F2 the print preview (File > Print).
+      if (event.key === "F12" && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
+        event.preventDefault()
+        if (!useBackstage.getState().closed) {
+          saveDocumentAs()
+        }
+        return
+      }
+      if (event.key === "F2" && (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey) {
+        event.preventDefault()
+        if (!useBackstage.getState().closed) {
+          useBackstage.getState().openBackstage("print")
+        }
         return
       }
 
@@ -81,13 +98,10 @@ export function useDocumentCommands() {
         return
       }
 
-      if (key === "s") {
+      // Ctrl+Shift+S is Word's Apply Styles box (the editor's shortcut list); Save As is F12.
+      if (key === "s" && !event.shiftKey) {
         event.preventDefault()
-        if (event.shiftKey) {
-          saveDocumentAs()
-        } else {
-          saveDocument()
-        }
+        saveDocument()
         return
       }
 
@@ -105,7 +119,8 @@ export function useDocumentCommands() {
         if (view.layoutMode === "read" && view.readLayout === "columns") {
           useReadFind.getState().show()
         } else {
-          view.openFind(false)
+          // Word's Ctrl+F goes to the Navigation pane's search box, with the selected text in it.
+          openNavigationSearch(selectedSearchText())
         }
         return
       }
@@ -285,7 +300,7 @@ async function installApplicationMenu() {
       {
         id: "save-as",
         text: "Save As…",
-        accelerator: "CmdOrCtrl+Shift+S",
+        accelerator: "F12",
         action: () => saveDocumentAs(),
       },
       {

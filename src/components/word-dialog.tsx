@@ -422,7 +422,7 @@ export function Section({ title, children }: { title: string; children: ReactNod
 
 /** A label whose shortcut letter is underlined while Alt is held. */
 export function Keyed({ text, letter }: { text: string; letter: string }) {
-  const at = text.indexOf(letter)
+  const at = letter ? text.indexOf(letter) : -1
   if (at < 0) {
     return <>{text}</>
   }
@@ -491,6 +491,8 @@ export function SpinField({
   max = Number.POSITIVE_INFINITY,
   snap,
   disabled = false,
+  autoText,
+  keepValue = false,
   onChange,
 }: {
   id: string
@@ -501,11 +503,15 @@ export function SpinField({
   max?: number
   snap?: number
   disabled?: boolean
+  /** The box can be empty, shown as this word (Word's "Auto"): typing it, clearing the box or stepping below `min`. */
+  autoText?: string
+  /** Disabled, it still shows its value (Convert Text to Table's row count), instead of going blank. */
+  keepValue?: boolean
   onChange: (value: string) => void
 }) {
   const format = (raw: string) => {
     if (raw === "" || !Number.isFinite(Number(raw))) {
-      return ""
+      return autoText ?? ""
     }
     const shown = trimNumber(Number(raw))
     return unit ? `${shown} ${unit}` : shown
@@ -529,6 +535,11 @@ export function SpinField({
 
   const commit = () => {
     setEditing(false)
+    if (autoText !== undefined && (text.trim() === "" || text.trim().toLowerCase() === autoText.toLowerCase())) {
+      setText(autoText)
+      onChange("")
+      return
+    }
     const number = parseFloat(text.replace(",", "."))
     if (!Number.isFinite(number)) {
       setText(format(value))
@@ -542,6 +553,12 @@ export function SpinField({
   const stepBy = (direction: 1 | -1) => {
     const typed = parseFloat(text.replace(",", "."))
     const base = Number.isFinite(typed) ? typed : Number(value) || 0
+    if (autoText !== undefined && direction < 0 && (value === "" || base - step < min)) {
+      setEditing(false)
+      setText(autoText)
+      onChange("")
+      return
+    }
     const index = direction > 0 ? Math.floor(base / step + 1e-6) + 1 : Math.ceil(base / step - 1e-6) - 1
     const next = settle(index * step)
     setEditing(false)
@@ -553,7 +570,7 @@ export function SpinField({
     <span className={`word-dialog-spin${disabled ? " is-disabled" : ""}`}>
       <input
         id={id}
-        value={disabled ? "" : text}
+        value={disabled && !keepValue ? "" : text}
         disabled={disabled}
         onChange={(event) => {
           setEditing(true)

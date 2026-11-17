@@ -1,7 +1,8 @@
 import { blockFormatAttributes } from "@/editor/block-format"
 import { restoreSelection } from "@/editor/selection-memory"
 import { insertAlignedTab, tabStopsAttribute } from "@/editor/tab-stops"
-import { cssString, parseWordLevels, WordNumbering } from "@/editor/word-markers"
+import { appListLevels, cssString, parseWordLevels, WordNumbering } from "@/editor/word-markers"
+import { parseListIndent } from "@/editor/lists"
 import { Extension, type Editor } from "@tiptap/core"
 import Heading from "@tiptap/extension-heading"
 import { ListItem } from "@tiptap/extension-list"
@@ -13,7 +14,8 @@ import { holdObserver } from "@/editor/page-grid"
 
 export const INDENT_MAX = 8
 export const INDENT_STEP_PX = 24
-const LIST_INDENT_STEP = "1.75em"
+/** The app's own lists step 0.5" a level, as Word's lists do (and as they are saved, `appListDefinition`). */
+const LIST_INDENT_STEP = "36pt"
 
 const BULLET_MARKERS = ["disc", "circle", "square"]
 const ORDERED_MARKERS = ["decimal", "lower-alpha", "lower-roman"]
@@ -49,15 +51,22 @@ function listIndentAttribute() {
   return {
     default: 0,
     parseHTML: (element: HTMLElement) => clampIndent(element.getAttribute("data-indent")),
-    renderHTML: (attributes: { indent?: number }) => {
+    renderHTML: (attributes: { indent?: number; wordShift?: number | null }) => {
       const indent = clampIndent(attributes.indent)
-      if (indent <= 0) {
+      const shift = wordPoints(attributes.wordShift)
+      if (indent <= 0 && !shift) {
         return {}
       }
+      // A list from Word steps by its own levels' indent; an item with its own left indent moves by the difference.
+      const margin = [
+        indent > 0 ? `${indent} * var(--list-indent-step, ${LIST_INDENT_STEP})` : "",
+        shift ? `${shift}pt` : "",
+      ]
+        .filter(Boolean)
+        .join(" + ")
       return {
-        "data-indent": String(indent),
-        // A list from Word steps by its own levels' indent.
-        style: `margin-left: calc(${indent} * var(--list-indent-step, ${LIST_INDENT_STEP}))`,
+        ...(indent > 0 ? { "data-indent": String(indent) } : {}),
+        style: `margin-left: calc(${margin})`,
       }
     },
   }
@@ -85,11 +94,35 @@ export const IndentedHeading = Heading.extend({
   },
 })
 
+/** A finite number of points from an attribute, or null. */
+function wordPoints(value: unknown) {
+  const number = typeof value === "number" ? value : typeof value === "string" && value ? Number(value) : NaN
+  return Number.isFinite(number) && Math.abs(number) < 2000 ? number : null
+}
+
 export const IndentedListItem = ListItem.extend({
   addAttributes() {
     return {
       ...(this.parent?.() ?? {}),
       indent: listIndentAttribute(),
+      /** An item from Word whose own left indent differs from its level's, in pt (drawn by `indent`). */
+      wordShift: {
+        default: null,
+        parseHTML: (element: HTMLElement) => wordPoints(element.getAttribute("data-word-shift")),
+        renderHTML: (attributes: { wordShift?: number | null }) => {
+          const shift = wordPoints(attributes.wordShift)
+          return shift ? { "data-word-shift": String(shift) } : {}
+        },
+      },
+      /** An item from Word with its own hanging (or first-line, negative) indent for its marker, in pt. */
+      wordOwnHang: {
+        default: null,
+        parseHTML: (element: HTMLElement) => wordPoints(element.getAttribute("data-word-own-hang")),
+        renderHTML: (attributes: { wordOwnHang?: number | null }) => {
+          const hang = wordPoints(attributes.wordOwnHang)
+          return hang !== null ? { "data-word-own-hang": String(hang) } : {}
+        },
+      },
     }
   },
 
@@ -393,8 +426,14 @@ export function fitWordMarkers(view: EditorView) {
         : context.measureText(item.dataset.wordText ?? "").width
     const hang = (Number(item.dataset.wordHang) || 0) * PT
     const tab = (Number(item.dataset.wordTab) || 36) * PT
-    // Where the item's text starts, from the margin.
-    const left = (first.getBoundingClientRect().left - origin.left) / scale
+    // Where the item's text starts, from the margin, or in a table cell from the cell's text edge (Word measures a
+    // cell's tab stops from there).
+    const cell = item.closest<HTMLElement>("td, th")
+    const from = cell
+      ? cell.getBoundingClientRect().left +
+        (cell.clientLeft + (parseFloat(getComputedStyle(cell).paddingLeft) || 0)) * scale
+      : origin.left
+    const left = (first.getBoundingClientRect().left - from) / scale
     const start = left - hang
     const justify = item.dataset.wordJustify
     const shift = justify === "right" ? -width : justify === "center" ? -width / 2 : 0
@@ -457,7 +496,22 @@ function listMarkers(doc: ProseNode) {
       const ownScheme = typeof node.attrs.scheme === "string" && node.attrs.scheme ? node.attrs.scheme : scheme
       const ownMarker = typeof node.attrs.marker === "string" && node.attrs.marker ? node.attrs.marker : null
       // A list from Word numbers its items by Word's levels, unless a marker has been picked for it since.
-      const levels = ownMarker ? [] : parseWordLevels(node.attrs.wordLevels)
+      const adjusted = parseListIndent(node.attrs.listIndent)
+      let levels = ownMarker ? [] : parseWordLevels(node.attrs.wordLevels)
+      if (adjusted) {
+        // Adjust List Indents: the first level's marker sits where it was put, with the text at its own indent.
+        if (levels.length === 0) {
+          levels = appListLevels(nextKind, ownMarker)
+        }
+        levels = [
+          {
+            ...levels[0],
+            hang: Math.max(0, adjusted.text - adjusted.number),
+            suffix: adjusted.follow === "tab" ? undefined : adjusted.follow,
+          },
+          ...levels.slice(1),
+        ]
+      }
       const start = Number(node.attrs.start)
       const ownWord =
         levels.length > 0
@@ -477,12 +531,14 @@ function listMarkers(doc: ProseNode) {
       const drawn = word.next(depth + clampIndent(node.attrs.indent))
       if (drawn) {
         const { level } = drawn
+        const ownHang = wordPoints(node.attrs.wordOwnHang)
+        const hang = ownHang ?? level.hang
         decorations.push(
           Decoration.node(pos, pos + node.nodeSize, {
             "data-word-marker": "",
             // What `fitWordMarkers` needs to place the text after the marker as Word's tab does.
             "data-word-text": drawn.text,
-            "data-word-hang": String(level.hang),
+            "data-word-hang": String(hang),
             "data-word-tab": String(word.tab),
             ...(level.justify ? { "data-word-justify": level.justify } : {}),
             ...(level.suffix ? { "data-word-suffix": level.suffix } : {}),
@@ -494,7 +550,7 @@ function listMarkers(doc: ProseNode) {
               level.picture
                 ? `--word-picture-width: ${level.pictureRatio ?? 1}em`
                 : `--word-marker: ${cssString(drawn.text)}`,
-              `--word-hang: ${level.hang}pt`,
+              `--word-hang: ${hang}pt`,
               drawn.font ? `--word-marker-font: ${cssString(drawn.font)}` : "",
               level.size ? `--word-marker-size: ${level.size}pt` : "",
               level.color ? `--word-marker-color: ${level.color}` : "",

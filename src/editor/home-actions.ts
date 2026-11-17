@@ -1,7 +1,11 @@
+import { useEditingOptions } from "@/document/editing-options"
+import { pasteClipAs, readClipboard, type PasteFormat } from "@/editor/paste-special"
 import { useClipboard } from "@/document/clipboard"
 import { currentWordDocument } from "@/document/docx/session"
 import { findStyle, wordIdForNamedStyle, type StyleDef } from "@/document/styles"
 import { updateBlocks } from "@/editor/block-format"
+import { applyBorders, DEFAULT_PEN, type BorderKind } from "@/editor/table-tools"
+import { CellSelection, cellAround } from "@tiptap/pm/tables"
 import { chainWithSelection, restoreSelection } from "@/editor/selection-memory"
 import { Extension, type Editor } from "@tiptap/core"
 import type { Mark } from "@tiptap/pm/model"
@@ -27,6 +31,7 @@ const BLOCK_KEYS = [
   "shading",
   "border",
   "borderPen",
+  "borderSides",
   "borderShadow",
   "borderFrame",
   "borderSpace",
@@ -208,37 +213,26 @@ export function cutSelection(editor: Editor) {
   document.execCommand("cut")
 }
 
-export async function pasteFromClipboard(editor: Editor, mode: "source" | "merge" | "text") {
-  restoreSelection(editor)
-  editor.commands.focus()
-  try {
-    if (mode === "source") {
-      const items = await navigator.clipboard.read()
-      for (const item of items) {
-        if (item.types.includes("text/html")) {
-          const html = await (await item.getType("text/html")).text()
-          chainWithSelection(editor).insertContent(html).run()
-          return
-        }
-      }
-    }
-    const text = await navigator.clipboard.readText()
-    if (!text) {
-      return
-    }
-    if (mode === "text") {
-      chainWithSelection(editor)
-        .command(({ tr }) => {
-          tr.insertText(text)
-          return true
-        })
-        .run()
-      return
-    }
-    chainWithSelection(editor).insertContent(text).run()
-  } catch {
-    // The browser refused the clipboard read. Leave the document unchanged.
+/**
+ * Paste, or one of Paste Options: Keep Source Formatting, Merge Formatting, Picture, Keep Text Only. "default" is
+ * the Paste button and Ctrl+V's choice in Options > Advanced (within the document, or from other programs).
+ */
+export async function pasteFromClipboard(editor: Editor, mode: "default" | "source" | "merge" | "text" | "picture") {
+  const clip = await readClipboard()
+  if (!clip) {
+    return false
   }
+  let choice: PasteFormat | "merge" =
+    mode === "source" ? "html" : mode === "default" ? "html" : mode === "text" ? "text" : mode
+  if (mode === "default") {
+    const options = useEditingOptions.getState()
+    const option = clip.html?.includes("data-pm-slice") ? options.pasteSameDocument : options.pasteOtherPrograms
+    choice = option === "merge" ? "merge" : option === "text" ? "text" : "html"
+  }
+  if (choice === "html" && !clip.html) {
+    choice = clip.image && !clip.text ? "picture" : "text"
+  }
+  return pasteClipAs(editor, clip, choice)
 }
 
 export function clearFormatting(editor: Editor) {
@@ -249,6 +243,7 @@ export function clearFormatting(editor: Editor) {
     shading: null,
     border: null,
     borderPen: null,
+    borderSides: null,
     borderShadow: false,
     borderFrame: false,
     borderSpace: null,
@@ -459,73 +454,6 @@ export function clearList(editor: Editor) {
   }
 }
 
-export function readNumberStart(editor: Editor) {
-  const { $from } = editor.state.selection
-  for (let depth = $from.depth; depth > 0; depth -= 1) {
-    const node = $from.node(depth)
-    if (node.type.name === "orderedList") {
-      const start = Number(node.attrs.start)
-      return Number.isFinite(start) && start > 0 ? start : 1
-    }
-  }
-  return 1
-}
-
-export function setNumberStart(editor: Editor, start: number) {
-  restoreSelection(editor)
-  const value = Math.max(1, Math.floor(start) || 1)
-  if (!editor.isActive("orderedList")) {
-    applyNumbering(editor, "decimal")
-  }
-  editor
-    .chain()
-    .focus()
-    .command(({ tr }) => {
-      const { $from } = tr.selection
-      for (let depth = $from.depth; depth > 0; depth -= 1) {
-        if ($from.node(depth).type.name === "orderedList") {
-          tr.setNodeMarkup($from.before(depth), undefined, { ...$from.node(depth).attrs, start: value })
-          return true
-        }
-      }
-      return false
-    })
-    .run()
-}
-
-export function continueNumbering(editor: Editor) {
-  restoreSelection(editor)
-  if (!editor.isActive("orderedList")) {
-    applyNumbering(editor, "decimal")
-  }
-  const { state } = editor
-  const { $from } = state.selection
-  let currentPos = -1
-  for (let depth = $from.depth; depth > 0; depth -= 1) {
-    if ($from.node(depth).type.name === "orderedList") {
-      currentPos = $from.before(depth)
-      break
-    }
-  }
-  let next = 1
-  if (currentPos > 0) {
-    state.doc.nodesBetween(0, currentPos, (node) => {
-      if (node.type.name !== "orderedList") {
-        return
-      }
-      const start = Number(node.attrs.start) || 1
-      let count = 0
-      node.forEach((child) => {
-        if (child.type.name === "listItem") {
-          count += 1
-        }
-      })
-      next = start + count
-    })
-  }
-  setNumberStart(editor, next)
-}
-
 export function pasteStored(editor: Editor, item: { text: string; html: string }) {
   restoreSelection(editor)
   if (item.html.trim()) {
@@ -545,9 +473,83 @@ export function setShading(editor: Editor, color: string | null) {
   updateBlocks(editor, { shading: color })
 }
 
-export function setBlockBorder(editor: Editor, next: "bottom" | "top" | "left" | "right" | "all" | "none") {
+const BOX = ["top", "right", "bottom", "left"] as const
+
+/** The box sides a paragraph's `border` value draws ("all", or sides joined by commas). */
+function boxSides(value: unknown) {
+  if (value === "all") {
+    return new Set<string>(BOX)
+  }
+  return new Set(
+    typeof value === "string" ? value.split(",").filter((side) => (BOX as readonly string[]).includes(side)) : [],
+  )
+}
+
+function boxValue(sides: Set<string>) {
+  const drawn = BOX.filter((side) => sides.has(side))
+  return drawn.length === 4 ? "all" : drawn.length > 0 ? drawn.join(",") : null
+}
+
+/** Kinds that only a table has (cells side by side, diagonals across a cell). */
+export const TABLE_ONLY_BORDERS: BorderKind[] = ["insideV", "diagDown", "diagUp"]
+
+/**
+ * Home > Borders, as Word's: in a table, the selected cells' borders (with the default pen); elsewhere the
+ * paragraphs' (U27). For paragraphs a side toggles, Outside toggles the box, Inside and Inside Horizontal toggle
+ * the line between paragraphs (w:between), All draws both, and No Border takes every line off.
+ */
+export function setBlockBorder(editor: Editor, kind: BorderKind) {
   restoreSelection(editor)
-  updateBlocks(editor, { border: next === "none" ? null : next })
+  if (cellAround(editor.state.selection.$from) || editor.state.selection instanceof CellSelection) {
+    applyBorders(editor, kind, DEFAULT_PEN)
+    return
+  }
+  if (TABLE_ONLY_BORDERS.includes(kind)) {
+    return
+  }
+  const attrs = editor.state.selection.$from.parent.attrs
+  const sides = boxSides(attrs.border)
+  const between = attrs.borderBetween === true
+  if (kind === "none") {
+    updateBlocks(editor, { border: null, borderBetween: false })
+  } else if (kind === "all") {
+    updateBlocks(editor, { border: "all", borderBetween: true })
+  } else if (kind === "outside") {
+    updateBlocks(editor, { border: sides.size === 4 ? null : "all" })
+  } else if (kind === "inside" || kind === "insideH") {
+    updateBlocks(editor, { borderBetween: !between })
+  } else {
+    const next = new Set(sides)
+    if (next.has(kind)) {
+      next.delete(kind)
+    } else {
+      next.add(kind)
+    }
+    updateBlocks(editor, { border: boxValue(next) })
+  }
+}
+
+/** Whether a Borders menu row is on for the paragraph the selection starts in (sides, box, between). */
+export function paragraphBorderOn(kind: BorderKind, border: unknown, between: boolean) {
+  const sides = boxSides(border)
+  switch (kind) {
+    case "none":
+      return sides.size === 0 && !between
+    case "all":
+      return sides.size === 4 && between
+    case "outside":
+      return sides.size === 4
+    case "inside":
+    case "insideH":
+      return between
+    case "top":
+    case "right":
+    case "bottom":
+    case "left":
+      return sides.has(kind)
+    default:
+      return false
+  }
 }
 
 export function sortBlocks(editor: Editor, direction: "asc" | "desc") {

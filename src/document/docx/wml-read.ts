@@ -1,3 +1,4 @@
+import type { NoteProps } from "@/document/note-numbering"
 import { elementChildren, snapshot, type ElementSource } from "@/document/docx/element-source"
 import { isStrictMarkup, transitionalMarkup, transitionalUriOf } from "@/document/docx/strict"
 import { filterMarkup, REL_NS, WORD_NS, XML_NS, type MarkupAttribute } from "@/document/docx/mce"
@@ -103,6 +104,8 @@ import {
   type OpcPart,
 } from "@/document/docx/opc"
 import { decodeXml } from "@/document/docx/xml"
+import { objectSizePt } from "@/document/docx/sheet-object"
+import type { DocumentProtection } from "@/document/review"
 
 const REL_TYPES = [
   "http://schemas.openxmlformats.org/officeDocument/2006/relationships/",
@@ -144,7 +147,7 @@ type Piece =
   | { type: "bookmarkStart"; id: number; name: string }
   | { type: "bookmarkEnd"; id: number }
   | { type: "simpleField"; instr: string; inlines: Inline[] }
-  | { type: "hyperlink"; relId?: string; anchor?: string; history?: boolean; inlines: Inline[] }
+  | { type: "hyperlink"; relId?: string; anchor?: string; tooltip?: string; history?: boolean; inlines: Inline[] }
   | { type: "commentRangeStart"; id: number }
   | { type: "commentRangeEnd"; id: number }
   | { type: "ins"; id: number; author?: string; date?: string; inlines: Inline[] }
@@ -159,6 +162,7 @@ const PRESERVED_MARKUP = new Map<string, RawKind>([
   ["AlternateContent", "drawing"],
   ["drawing", "drawing"],
   ["pict", "drawing"],
+  ["object", "drawing"],
   ["sdt", "sdt"],
   ["oMathPara", "math"],
   ["oMath", "math"],
@@ -306,7 +310,25 @@ export function readDocument(pkg: OpcPackage): WordDocument {
   attachGlossary(pkg, doc)
   attachPreserved(pkg, doc)
   bindHyperlinks(pkg, doc)
+  attachSettingsLinks(pkg, doc)
   return doc
+}
+
+/**
+ * The settings part's external links (an attached template, a mail merge data source): settings.xml refers to them
+ * by r:id, so they go back out with it or Word calls the file corrupt.
+ */
+function attachSettingsLinks(pkg: OpcPackage, doc: WordDocument) {
+  const settings = relationshipsFor(pkg, pkg.mainPartName).find((item) =>
+    REL_TYPES.some((base) => item.type === `${base}settings`),
+  )
+  if (!settings?.partName) {
+    return
+  }
+  const external = relationshipsFor(pkg, settings.partName).filter((item) => item.targetMode === "External")
+  if (external.length > 0) {
+    doc.settings.relationships = external
+  }
 }
 
 export function readWordXml(input: {
@@ -395,10 +417,28 @@ function parseDocument(xml: string) {
   return document
 }
 
+/** Word's paragraph defaults where a file has none (what it writes into w:pPrDefault when it saves such a file). */
+const WORD_PARAGRAPH_DEFAULTS: ParagraphProperties = { spacing: { after: 160, line: 278, lineRule: "auto" } }
+
+/** Word's defaults for a document without a styles part: its theme's body font at 12 pt, and its paragraph spacing. */
+const WORD_DEFAULTS: StyleCatalog["docDefaults"] = {
+  pPr: WORD_PARAGRAPH_DEFAULTS,
+  rPr: {
+    rFonts: {
+      asciiTheme: "minorHAnsi",
+      hAnsiTheme: "minorHAnsi",
+      eastAsiaTheme: "minorEastAsia",
+      csTheme: "minorBidi",
+    },
+    sz: 24,
+  },
+}
+
 function readStyles(xml: string | undefined, notes: WordNote[]): StyleCatalog {
   const catalog: StyleCatalog = { docDefaults: { pPr: {}, rPr: {} }, styles: [] }
   if (xml === undefined) {
     notes.push({ code: "missing-styles", message: "The document has no styles part." })
+    catalog.wordDefaults = WORD_DEFAULTS
     return catalog
   }
   let root: MarkupNode
@@ -409,15 +449,23 @@ function readStyles(xml: string | undefined, notes: WordNote[]): StyleCatalog {
       code: "broken-styles",
       message: error instanceof Error ? error.message : "styles.xml is not usable.",
     })
+    catalog.wordDefaults = WORD_DEFAULTS
     return catalog
   }
   const defaults = wordChild(root, "docDefaults")
+  if (!wordChild(defaults, "pPrDefault")) {
+    // Word spaces paragraphs as its own Normal template does when the file sets no paragraph defaults.
+    catalog.wordDefaults = { pPr: WORD_PARAGRAPH_DEFAULTS, rPr: {} }
+  }
   if (defaults) {
     const rPr = wordChild(wordChild(defaults, "rPrDefault"), "rPr")
     const pPr = wordChild(wordChild(defaults, "pPrDefault"), "pPr")
     const paragraph = pPr ? readParagraphFormatting(pPr) : undefined
     catalog.docDefaults.rPr = rPr ? readRunProperties(rPr) : (paragraph?.markRPr ?? {})
     catalog.docDefaults.pPr = paragraph?.pPr ?? {}
+  }
+  if (catalog.wordDefaults) {
+    catalog.wordDefaults = { pPr: catalog.wordDefaults.pPr, rPr: catalog.docDefaults.rPr }
   }
   for (const node of wordChildren(root, "style")) {
     const style = readStyle(node)
@@ -542,8 +590,35 @@ function readSettings(xml: string | undefined, notes: WordNote[]): Settings {
       settings[name] = readOnOff(flag) ?? true
     }
   }
+  const track = wordChild(root, "trackRevisions")
+  if (track) {
+    settings.trackRevisions = readOnOff(track) ?? true
+  }
+  const protection = readProtection(wordChild(root, "documentProtection"))
+  if (protection) {
+    settings.protection = protection
+  }
+  for (const name of ["hideSpellingErrors", "hideGrammaticalErrors"] as const) {
+    const flag = wordChild(root, name)
+    if (flag) {
+      settings[name] = readOnOff(flag) ?? true
+    }
+  }
+  const writeProtection = wordChild(root, "writeProtection")
+  if (writeProtection) {
+    const recommended = attr(writeProtection, "recommended")
+    settings.readOnlyRecommended = recommended === "1" || recommended === "true" || recommended === "on"
+  }
   const footnotePr = readNotePr(wordChild(root, "footnotePr"), "footnote")
   const endnotePr = readNotePr(wordChild(root, "endnotePr"), "endnote")
+  const footnoteProps = readNoteProps(wordChild(root, "footnotePr"))
+  const endnoteProps = readNoteProps(wordChild(root, "endnotePr"))
+  if (footnoteProps) {
+    settings.footnoteProps = footnoteProps
+  }
+  if (endnoteProps) {
+    settings.endnoteProps = endnoteProps
+  }
   if (footnotePr) {
     settings.footnotePr = footnotePr
   }
@@ -690,6 +765,7 @@ function readPieces(node: MarkupNode, notes: WordNote[], raw: RawCursor = NO_RAW
         type: "hyperlink",
         relId: attr(child, "id", REL_NS),
         anchor: attr(child, "anchor"),
+        tooltip: attr(child, "tooltip"),
         history,
         inlines: piecesToInlines(readPieces(child, notes, raw)),
       })
@@ -767,11 +843,24 @@ function readRunContent(child: MarkupNode, raw: RawCursor = NO_RAW): RunContent 
   if (child.local === "drawing" || child.local === "pict") {
     return drawingContent(child, raw)
   }
+  if (child.local === "object" && child.uri === WORD_NS) {
+    return embeddedObjectContent(child, raw)
+  }
   if (child.local === "t" || child.local === "delText") {
     const text = applySpace(child.text, preservesSpace(child))
     return text ? { kind: child.local === "delText" ? "delText" : "text", text } : undefined
   }
-  if (child.local === "footnoteReference" || child.local === "endnoteReference" || child.local === "commentReference") {
+  if (child.local === "footnoteReference" || child.local === "endnoteReference") {
+    const id = readInt(attr(child, "id"))
+    if (id === undefined) {
+      return undefined
+    }
+    const custom = attr(child, "customMarkFollows")
+    return custom === "1" || custom === "true" || custom === "on"
+      ? { kind: child.local, id, customMarkFollows: true }
+      : { kind: child.local, id }
+  }
+  if (child.local === "commentReference") {
     const id = readInt(attr(child, "id"))
     return id === undefined ? undefined : { kind: child.local, id }
   }
@@ -826,6 +915,28 @@ function rawRunText(node: MarkupNode) {
   }
 }
 
+/**
+ * An embedded object (w:object: an Excel worksheet, a Word document…), written back as it was. It shows as its
+ * picture (v:imagedata); an Excel worksheet opens as the editor's sheet (`docx/sheet-object.ts`).
+ */
+function embeddedObjectContent(node: MarkupNode, raw: RawCursor): RunContent {
+  const xml = raw.take("drawing") ?? ""
+  const content: Extract<RunContent, { kind: "drawing" }> = { kind: "drawing", xml, text: "", floating: false }
+  const imagedata = descendant(node, "imagedata")
+  const relId = imagedata ? attr(imagedata, "id", REL_NS) : undefined
+  if (relId) {
+    content.relId = relId
+  }
+  const size = objectSizePt(xml)
+  if (size.width) {
+    content.cx = Math.round(size.width * 12700)
+  }
+  if (size.height) {
+    content.cy = Math.round(size.height * 12700)
+  }
+  return content
+}
+
 function drawingContent(node: MarkupNode, raw: RawCursor): RunContent {
   const extent = descendant(node, "extent")
   const properties = descendant(node, "docPr")
@@ -849,6 +960,10 @@ function drawingContent(node: MarkupNode, raw: RawCursor): RunContent {
   }
   if (name) {
     content.name = name
+  }
+  const description = anyAttr(properties, "descr")
+  if (description) {
+    content.description = description
   }
   if (cx !== undefined) {
     content.cx = cx
@@ -1020,6 +1135,7 @@ function piecesToInlines(pieces: Piece[]): Inline[] {
         kind: "hyperlink",
         relId: piece.relId,
         anchor: piece.anchor,
+        ...(piece.tooltip ? { tooltip: piece.tooltip } : {}),
         history: piece.history,
         inlines: piece.inlines,
       }
@@ -1279,6 +1395,10 @@ function readTable(node: MarkupNode, notes: WordNote[], raw: RawCursor = NO_RAW)
     if (margins) {
       row.cellMargins = margins
     }
+    const exceptionBorders = readBorders(wordChild(exceptions, "tblBorders"))
+    if (exceptionBorders) {
+      row.exceptionBorders = exceptionBorders
+    }
     if (header) {
       row.header = readOnOff(header) ?? true
     }
@@ -1387,7 +1507,11 @@ function readParagraphBorders(node: MarkupNode | undefined) {
       borders[side] = border
     }
   }
-  return borders.top || borders.left || borders.bottom || borders.right ? borders : undefined
+  const between = readBorder(wordChild(node, "between"))
+  if (between) {
+    borders.between = between
+  }
+  return borders.top || borders.left || borders.bottom || borders.right || borders.between ? borders : undefined
 }
 
 function readBorder(node: MarkupNode | undefined): Border | undefined {
@@ -1410,6 +1534,10 @@ function readBorder(node: MarkupNode | undefined): Border | undefined {
   }
   if (color) {
     border.color = color
+  }
+  const colorTheme = readThemeRef(node, "themeColor", "themeTint", "themeShade")
+  if (colorTheme) {
+    border.colorTheme = colorTheme
   }
   if (isOn(attr(node, "shadow"))) {
     border.shadow = true
@@ -1533,7 +1661,26 @@ function readShading(node: MarkupNode | undefined) {
   if (fill) {
     shading.fill = fill
   }
+  const colorTheme = readThemeRef(node, "themeColor", "themeTint", "themeShade")
+  if (colorTheme) {
+    shading.colorTheme = colorTheme
+  }
+  const fillTheme = readThemeRef(node, "themeFill", "themeFillTint", "themeFillShade")
+  if (fillTheme) {
+    shading.fillTheme = fillTheme
+  }
   return shading
+}
+
+/** A theme colour reference on a border or shading (w:themeColor with its tint and shade, or the fill's). */
+function readThemeRef(node: MarkupNode, nameAttr: string, tintAttr: string, shadeAttr: string) {
+  const name = attr(node, nameAttr)
+  if (!name) {
+    return undefined
+  }
+  const tint = attr(node, tintAttr)
+  const shade = attr(node, shadeAttr)
+  return { name, ...(tint ? { tint } : {}), ...(shade ? { shade } : {}) }
 }
 
 /** w:tblpPr: where a table text wraps around sits. */
@@ -1615,6 +1762,14 @@ function readSectionModel(node: MarkupNode): SectionProps {
   }
   if (references.length > 0) {
     section.references = references
+  }
+  const footnoteProps = readNoteProps(wordChild(node, "footnotePr"))
+  const endnoteProps = readNoteProps(wordChild(node, "endnotePr"))
+  if (footnoteProps) {
+    section.footnoteProps = footnoteProps
+  }
+  if (endnoteProps) {
+    section.endnoteProps = endnoteProps
   }
   const type = oneOf(childVal(node, "type"), SECTION_TYPES)
   if (type) {
@@ -1734,6 +1889,16 @@ function readParagraphFormatting(node: MarkupNode) {
   assignOnOff(pPr, "keepNext", wordChild(node, "keepNext"))
   assignOnOff(pPr, "keepLines", wordChild(node, "keepLines"))
   assignOnOff(pPr, "contextualSpacing", wordChild(node, "contextualSpacing"))
+  const frame = wordChild(node, "framePr")
+  const dropCap = frame ? attr(frame, "dropCap") : undefined
+  if (frame && (dropCap === "drop" || dropCap === "margin")) {
+    const lines = Number.parseInt(attr(frame, "lines") ?? "", 10)
+    const hSpace = Number.parseInt(attr(frame, "hSpace") ?? "", 10)
+    pPr.dropCap = { kind: dropCap, lines: Number.isFinite(lines) && lines > 0 ? Math.min(10, lines) : 3 }
+    if (Number.isFinite(hSpace) && hSpace > 0) {
+      pPr.dropCap.hSpace = hSpace
+    }
+  }
   assignOnOff(pPr, "pageBreakBefore", wordChild(node, "pageBreakBefore"))
   assignOnOff(pPr, "widowControl", wordChild(node, "widowControl"))
   assignOnOff(pPr, "suppressLineNumbers", wordChild(node, "suppressLineNumbers"))
@@ -1910,6 +2075,13 @@ function readRunModel(node: MarkupNode): RunProperties {
   const color = readColor(childVal(node, "color"))
   if (color) {
     props.color = color
+    const colorNode = wordChild(node, "color")
+    const themeColor = colorNode ? attr(colorNode, "themeColor") : undefined
+    if (themeColor) {
+      const tint = colorNode ? attr(colorNode, "themeTint") : undefined
+      const shade = colorNode ? attr(colorNode, "themeShade") : undefined
+      props.colorTheme = { name: themeColor, ...(tint ? { tint } : {}), ...(shade ? { shade } : {}) }
+    }
   }
   assignInt(props, "spacing", childVal(node, "spacing"))
   assignInt(props, "w", childVal(node, "w"))
@@ -1969,6 +2141,31 @@ function readPropertyChange(node: MarkupNode | undefined) {
     ...(author ? { author } : {}),
     ...(date ? { date } : {}),
   }
+}
+
+/** w:footnotePr / w:endnotePr's position and numbering (CT_FtnProps / CT_EdnProps). */
+function readNoteProps(node: MarkupNode | undefined): NoteProps | undefined {
+  if (!node) {
+    return undefined
+  }
+  const props: NoteProps = {}
+  const pos = childVal(node, "pos")
+  if (pos === "pageBottom" || pos === "beneathText" || pos === "sectEnd" || pos === "docEnd") {
+    props.pos = pos
+  }
+  const numFmt = childVal(node, "numFmt")
+  if (numFmt) {
+    props.numFmt = numFmt
+  }
+  const numStart = readInt(childVal(node, "numStart"))
+  if (numStart !== undefined) {
+    props.numStart = numStart
+  }
+  const numRestart = childVal(node, "numRestart")
+  if (numRestart === "continuous" || numRestart === "eachSect" || numRestart === "eachPage") {
+    props.numRestart = numRestart
+  }
+  return Object.keys(props).length > 0 ? props : undefined
 }
 
 function readNotePr(node: MarkupNode | undefined, local: "footnote" | "endnote") {
@@ -2380,8 +2577,28 @@ function elementSource(node: MarkupNode | undefined, model: unknown): ElementSou
   if (!xml || strictSource?.strict) {
     return undefined
   }
-  const children = elementChildren(xml)
+  // A child whose value the schema does not allow (w:sz="abc", w:jc="sideways") is not kept: the model left it out, and
+  // written back it would leave a file Word refuses to open.
+  const children = elementChildren(xml).filter(allowedValue)
   return children.length > 0 ? { children, model: snapshot(model) } : undefined
+}
+
+/** Property elements whose w:val is a whole number (half-points, percent, a level). */
+const NUMBER_VALUES = new Set(["w:sz", "w:szCs", "w:kern", "w:position", "w:w", "w:outlineLvl"])
+const JUSTIFY_VALUES = new Set<string>([...JC_VALUES, "start", "end", "left", "right"])
+
+function allowedValue(child: { name: string; xml: string }) {
+  const value = /\bw:val="([^"]*)"/.exec(child.xml)?.[1]
+  if (value === undefined) {
+    return true
+  }
+  if (NUMBER_VALUES.has(child.name)) {
+    return /^-?\d+$/.test(value.trim())
+  }
+  if (child.name === "w:jc") {
+    return JUSTIFY_VALUES.has(value)
+  }
+  return true
 }
 
 /** Inline markers Word may put between paragraphs; they belong to the paragraph next to them. */
@@ -2443,8 +2660,9 @@ function readBlockChildren(node: MarkupNode, notes: WordNote[], raw: RawCursor =
         blocks.push(...inner)
         continue
       }
-      if (content && isTocControl(child)) {
-        // Read for the editor's table of contents; the control itself is written back as read.
+      if (content) {
+        // Read for the editor's table of contents, and to show any other control's content as Word draws it (its
+        // runs' styles, such as Placeholder Text); the control itself is written back as read.
         control.blocks = readBlocks(content, [])
       }
       blocks.push(control)
@@ -2976,6 +3194,38 @@ function assignBool<T extends object>(target: T, key: keyof T, value: string | u
   if (bit !== undefined) {
     target[key] = bit as T[keyof T]
   }
+}
+
+const PROTECTION_EDITS = ["none", "readOnly", "comments", "trackedChanges", "forms"] as const
+
+/** w:documentProtection: what may be edited, whether enforced, and the password's hash (either of Word's forms). */
+function readProtection(node: MarkupNode | undefined): DocumentProtection | null {
+  if (!node) {
+    return null
+  }
+  const edit = attr(node, "edit")
+  if (!PROTECTION_EDITS.includes(edit as (typeof PROTECTION_EDITS)[number])) {
+    return null
+  }
+  const on = (value: string | undefined) => value === "1" || value === "true" || value === "on"
+  const protection: DocumentProtection = {
+    edit: edit as DocumentProtection["edit"],
+    enforced: on(attr(node, "enforcement")),
+    formatting: on(attr(node, "formatting")),
+    source: JSON.stringify(Object.fromEntries((node.attributes ?? []).map((item) => [item.local, item.value]))),
+  }
+  const hash = attr(node, "hashValue") ?? attr(node, "hash")
+  const salt = attr(node, "saltValue") ?? attr(node, "salt")
+  if (hash && salt) {
+    protection.password = {
+      // Word 2007–2019 write the legacy cryptAlgorithmSid form, which hashes a key derived from the password.
+      algorithm: attr(node, "algorithmName") ?? `legacy-sid-${attr(node, "cryptAlgorithmSid") ?? "4"}`,
+      hash,
+      salt,
+      spinCount: Number(attr(node, "spinCount") ?? attr(node, "cryptSpinCount") ?? 0),
+    }
+  }
+  return protection
 }
 
 function readOnOff(node: MarkupNode | undefined) {

@@ -7,7 +7,8 @@ let matches = 3
 const replace = vi.fn(() => {
   matches = 0
 })
-vi.mock("@/editor/find", () => ({
+vi.mock("@/editor/find", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/editor/find")>()),
   findTextRanges: () => Array.from({ length: matches }, (_, index) => ({ from: index, to: index + 1 })),
   replaceTextRanges: (...args: unknown[]) => replace(...args),
 }))

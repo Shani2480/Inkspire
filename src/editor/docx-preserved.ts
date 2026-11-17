@@ -1,3 +1,4 @@
+import { currentNoteLabels, watchNoteLabel } from "@/editor/note-labels"
 import { Mark, Node, mergeAttributes } from "@tiptap/core"
 import { paintField, preservedFieldCode } from "@/editor/field-codes"
 
@@ -68,7 +69,7 @@ export const WordInline = Node.create({
   },
 
   addNodeView() {
-    return ({ node }) => {
+    return ({ node, editor, getPos }) => {
       const tag = node.attrs.role === "note" ? "sup" : "span"
       const dom = document.createElement(tag)
       dom.setAttribute("data-word-inline", "")
@@ -89,18 +90,29 @@ export const WordInline = Node.create({
         if (role === "field") {
           // The result in a span of its own, and the code beside it, for Show field codes (Alt+F9).
           paintField(dom, text, preservedFieldCode(payload))
+        } else if (role === "note") {
+          // A note's number in the document's options, as the app numbers its own notes alongside.
+          const pos = getPos()
+          const label = (typeof pos === "number" ? currentNoteLabels(editor).get(pos) : undefined) ?? text
+          if (dom.textContent !== label) {
+            dom.textContent = label
+          }
         } else if (dom.textContent !== text) {
           dom.textContent = text
         }
       }
+      let latest = node
       paint(node)
+      const stop = node.attrs.role === "note" ? watchNoteLabel(() => paint(latest)) : undefined
       return {
         dom,
+        destroy: stop,
         ignoreMutation: () => true,
         update(current) {
           if (current.type.name !== "wordInline" || (current.attrs.role === "note") !== (tag === "sup")) {
             return false
           }
+          latest = current
           paint(current)
           return true
         },
@@ -108,6 +120,26 @@ export const WordInline = Node.create({
     }
   },
 })
+
+/** Markup a Word block shows, without anything that could run or navigate. */
+function shownMarkup(html: string) {
+  const template = document.createElement("template")
+  template.innerHTML = html
+  template.content
+    .querySelectorAll("script, style, iframe, object, embed, link, meta, form")
+    .forEach((node) => node.remove())
+  template.content.querySelectorAll("*").forEach((element) => {
+    for (const attribute of [...element.attributes]) {
+      if (
+        /^on/i.test(attribute.name) ||
+        ((attribute.name === "href" || attribute.name === "src") && !/^(#|data:image\/)/i.test(attribute.value))
+      ) {
+        element.removeAttribute(attribute.name)
+      }
+    }
+  })
+  return template.content
+}
 
 /** A block content control or display equation from a Word document. */
 export const WordBlock = Node.create({
@@ -117,7 +149,40 @@ export const WordBlock = Node.create({
   selectable: true,
 
   addAttributes() {
-    return preservedAttributes()
+    return {
+      ...preservedAttributes(),
+      /** The control's content drawn as the body's paragraphs are (its styles, Placeholder Text); display only. */
+      shown: {
+        default: "",
+        parseHTML: (element: HTMLElement) => element.getAttribute("data-shown") ?? "",
+        renderHTML: (attributes: { shown?: string }) => (attributes.shown ? { "data-shown": attributes.shown } : {}),
+      },
+    }
+  },
+
+  addNodeView() {
+    return ({ node, HTMLAttributes }) => {
+      const dom = document.createElement("div")
+      for (const [name, value] of Object.entries(
+        mergeAttributes(HTMLAttributes, { "data-word-block": "", class: "word-block" }),
+      )) {
+        if (typeof value === "string" && name !== "data-shown" && name !== "data-payload") {
+          dom.setAttribute(name, value)
+        }
+      }
+      dom.contentEditable = "false"
+      const shown = String(node.attrs.shown ?? "")
+      if (shown) {
+        dom.append(shownMarkup(shown))
+      } else {
+        for (const line of String(node.attrs.text ?? "").split("\n")) {
+          const paragraph = document.createElement("p")
+          paragraph.textContent = line
+          dom.append(paragraph)
+        }
+      }
+      return { dom, ignoreMutation: () => true }
+    }
   },
 
   parseHTML() {
@@ -144,6 +209,9 @@ export const WordBlock = Node.create({
  */
 export const DocxRun = Mark.create({
   name: "docxRun",
+  // Outside the formatting marks (text style 101, bold 100): the character style it carries is drawn on its span,
+  // so the run's direct formatting, on spans inside it, wins as in Word. Links (1000) stay outside it.
+  priority: 200,
   inclusive: true,
   spanning: true,
 
@@ -154,6 +222,15 @@ export const DocxRun = Mark.create({
         parseHTML: (element: HTMLElement) => element.getAttribute("data-docx-run"),
         renderHTML: (attributes: { key?: string | null }) =>
           attributes.key ? { "data-docx-run": attributes.key } : {},
+      },
+      /**
+       * Toggles its styles give that the Word run turns off ("b i"), drawn by index.css. Never saved: the run's own
+       * properties keep them.
+       */
+      off: {
+        default: null as string | null,
+        parseHTML: (element: HTMLElement) => element.getAttribute("data-run-off"),
+        renderHTML: (attributes: { off?: string | null }) => (attributes.off ? { "data-run-off": attributes.off } : {}),
       },
       /** The Word character style, shown by the document stylesheet. */
       rstyle: {

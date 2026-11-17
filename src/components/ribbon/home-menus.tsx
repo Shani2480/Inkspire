@@ -1,3 +1,5 @@
+import { openDefaultPaste, openPasteSpecial } from "@/components/paste-special-dialog"
+import { useStylePanes } from "@/document/style-panes"
 import { applyFontColor, applyFontFamily, applyHighlight, applyUnderline, setShapeText } from "@/editor/shape-text"
 import { openBordersAndShading } from "@/components/borders-shading-dialog"
 import { ColorMenu } from "@/components/color-menu"
@@ -5,7 +7,9 @@ import { FontMenuList } from "@/components/font-menu"
 import { requestFormatDialog } from "@/components/format-dialogs"
 import { FONT_FAMILIES, FONT_SIZES, LINE_SPACINGS } from "@/components/ribbon/options"
 import { MenuButton } from "@/components/ribbon/ribbon-button"
+import { useSelectObjects } from "@/components/select-objects-mode"
 import { useViewStore } from "@/document/view"
+import { openNavigationSearch, selectedSearchText } from "@/document/nav-search"
 import { changeCase, setLineSpacing, type CaseKind } from "@/editor/actions"
 import { useStyleDialogs } from "@/components/style-dialogs"
 import { useStyleStore, type StyleDef } from "@/document/styles"
@@ -16,12 +20,20 @@ import {
   pasteFromClipboard,
   selectSimilarFormatting,
   setBlockBorder,
+  paragraphBorderOn,
+  TABLE_ONLY_BORDERS,
+  insertHorizontalLine,
   setShading,
 } from "@/editor/home-actions"
 import { chainWithSelection } from "@/editor/selection-memory"
 import type { useActiveMarks } from "@/editor/use-active-marks"
 import type { Editor } from "@tiptap/core"
-import { useMemo, type CSSProperties } from "react"
+import { RIBBON_UNDERLINES, underlineKind } from "@/document/underlines"
+import { useTableDraw } from "@/editor/table-draw"
+import { toggleGridlines, tableLayoutState } from "@/editor/table-layout"
+import type { BorderKind } from "@/editor/table-tools"
+import { CellSelection, cellAround } from "@tiptap/pm/tables"
+import { useMemo, useState, type CSSProperties } from "react"
 
 /** The Home tab's menus, shared by the classic and the single line ribbon. */
 
@@ -34,24 +46,23 @@ const CASE_OPTIONS: { id: CaseKind; label: string }[] = [
   { id: "title", label: "Capitalize Each Word" },
 ]
 
-const UNDERLINES = [
-  { id: "solid", label: "Underline" },
-  { id: "double", label: "Double underline" },
-  { id: "dotted", label: "Dotted underline" },
-  { id: "dashed", label: "Dashed underline" },
-  { id: "wavy", label: "Wave underline" },
-]
-
-export const BORDERS = [
+/** Home > Borders' rows, in Word's order (U27). */
+export const BORDERS: { id: BorderKind; label: string }[] = [
   { id: "bottom", label: "Bottom Border" },
   { id: "top", label: "Top Border" },
   { id: "left", label: "Left Border" },
   { id: "right", label: "Right Border" },
-  { id: "all", label: "All Borders" },
   { id: "none", label: "No Border" },
-] as const
+  { id: "all", label: "All Borders" },
+  { id: "outside", label: "Outside Borders" },
+  { id: "inside", label: "Inside Borders" },
+  { id: "insideH", label: "Inside Horizontal Border" },
+  { id: "insideV", label: "Inside Vertical Border" },
+  { id: "diagDown", label: "Diagonal Down Border" },
+  { id: "diagUp", label: "Diagonal Up Border" },
+]
 
-export type BorderId = (typeof BORDERS)[number]["id"]
+export type BorderId = BorderKind
 
 export type GalleryStyle = {
   id: string
@@ -180,7 +191,7 @@ export function themeBodyLabel(bodyFont: string) {
 }
 
 export function PasteMenu({ editor, close }: { editor: Editor | null; close: () => void }) {
-  const paste = (mode: "source" | "merge" | "text") => {
+  const paste = (mode: "source" | "merge" | "picture" | "text") => {
     if (editor) {
       void pasteFromClipboard(editor, mode)
     }
@@ -189,13 +200,33 @@ export function PasteMenu({ editor, close }: { editor: Editor | null; close: () 
 
   return (
     <div className="flex w-52 flex-col">
+      <div className="break-menu-heading">Paste Options:</div>
       <MenuButton onClick={() => paste("source")}>Keep Source Formatting</MenuButton>
       <MenuButton onClick={() => paste("merge")}>Merge Formatting</MenuButton>
+      <MenuButton onClick={() => paste("picture")}>Picture</MenuButton>
       <MenuButton onClick={() => paste("text")}>
         <span className="mr-2 inline-flex size-4 items-center justify-center text-[12px] font-normal text-[var(--app-ribbon-text)]">
           A
         </span>
         Keep Text Only
+      </MenuButton>
+      <div className="my-1 border-t border-[var(--app-popover-border)]" />
+      <MenuButton
+        disabled={!editor}
+        onClick={() => {
+          close()
+          void openPasteSpecial(editor)
+        }}
+      >
+        Paste Special…
+      </MenuButton>
+      <MenuButton
+        onClick={() => {
+          close()
+          openDefaultPaste()
+        }}
+      >
+        Set Default Paste…
       </MenuButton>
     </div>
   )
@@ -234,7 +265,7 @@ export function FontNameMenu({
 
 export function FontSizeMenu({ editor, marks, close }: { editor: Editor | null; marks: Marks; close: () => void }) {
   return (
-    <div className="flex max-h-64 w-20 flex-col overflow-auto">
+    <div className="flex max-h-[calc(100vh-10rem)] w-20 flex-col overflow-auto">
       {FONT_SIZES.map((size) => (
         <MenuButton
           key={size}
@@ -273,10 +304,24 @@ export function CaseMenu({ editor, close }: { editor: Editor | null; close: () =
   )
 }
 
+/**
+ * Home > Underline's menu, as Word's: the common lines drawn as they look, More Underlines… (the Font dialog) and
+ * Underline Color as a flyout.
+ */
 export function UnderlineMenu({ editor, marks, close }: { editor: Editor | null; marks: Marks; close: () => void }) {
+  const [colors, setColors] = useState(false)
+  const setColor = (color: string) => {
+    if (editor) {
+      // A colour on text not yet underlined underlines it, as in Word.
+      chainWithSelection(editor)
+        .setMark("underline", { style: marks.underlineStyle || "solid", color: color || null })
+        .run()
+    }
+    close()
+  }
   return (
-    <div className="flex w-44 flex-col">
-      {UNDERLINES.map((style) => (
+    <div className="underline-menu relative flex w-56 flex-col">
+      {RIBBON_UNDERLINES.map((style) => (
         <MenuButton
           key={style.id}
           selected={marks.underlineStyle === style.id}
@@ -287,28 +332,51 @@ export function UnderlineMenu({ editor, marks, close }: { editor: Editor | null;
             close()
           }}
         >
-          <span
-            style={{
-              textDecoration: "underline",
-              textDecorationStyle: style.id as CSSProperties["textDecorationStyle"],
-            }}
-          >
+          <span className="underline-menu-sample" style={sampleStyle(style.id)}>
             {style.label}
           </span>
         </MenuButton>
       ))}
+      <div className="my-1 border-t border-[var(--app-popover-border)]" />
       <MenuButton
         onClick={() => {
-          if (editor) {
-            applyUnderline(editor, "")
-          }
           close()
+          requestFormatDialog("font")
         }}
       >
-        No underline
+        More Underlines…
       </MenuButton>
+      <MenuButton selected={colors} onClick={() => setColors(!colors)}>
+        <span className="flex flex-1 items-center gap-2">
+          <span className="underline-menu-swatch" style={{ background: marks.underlineColor || "currentColor" }} />
+          Underline Color
+        </span>
+        <span aria-hidden className="ml-auto opacity-70">
+          ›
+        </span>
+      </MenuButton>
+      {colors ? (
+        <div className="underline-menu-flyout app-popup" role="group" aria-label="Underline Color">
+          <ColorMenu
+            active={marks.underlineColor}
+            clearLabel="Automatic"
+            onClear={() => setColor("")}
+            onSelect={(color) => setColor(color)}
+          />
+        </div>
+      ) : null}
     </div>
   )
+}
+
+function sampleStyle(id: string): CSSProperties {
+  const kind = underlineKind(id)
+  return {
+    textDecorationLine: "underline",
+    textDecorationStyle: kind.css,
+    textDecorationThickness: kind.heavy ? "2px" : undefined,
+    textUnderlineOffset: kind.css === "wavy" ? "3px" : undefined,
+  }
 }
 
 export function HighlightMenu({
@@ -448,6 +516,11 @@ export function ShadingMenu({
   )
 }
 
+/**
+ * Home > Borders, as Word's list: each row with its picture. In a table the rows set the selected cells' borders;
+ * elsewhere the paragraphs', where Inside Vertical and the diagonals do not apply. Then Horizontal Line, Draw Table,
+ * View Gridlines (a table's) and Borders and Shading….
+ */
 export function BordersMenu({
   editor,
   marks,
@@ -459,18 +532,19 @@ export function BordersMenu({
   onPick: (border: BorderId) => void
   close: () => void
 }) {
+  const inTable = Boolean(
+    editor && (cellAround(editor.state.selection.$from) || editor.state.selection instanceof CellSelection),
+  )
+  const gridlines = editor && inTable ? tableLayoutState(editor)?.gridlines !== false : false
   return (
-    <div className="w-[188px] p-1">
-      <div className="grid grid-cols-3 gap-1">
-        {BORDERS.map((border) => (
-          <button
+    <div className="borders-menu flex w-60 flex-col">
+      {BORDERS.map((border) => {
+        const off = !inTable && TABLE_ONLY_BORDERS.includes(border.id)
+        return (
+          <MenuButton
             key={border.id}
-            type="button"
-            aria-label={border.label}
-            aria-pressed={marks.border === border.id || (border.id === "none" && !marks.border)}
-            title={border.label}
-            className="flex h-12 items-center justify-center rounded border border-[#e1e1e1] bg-white aria-pressed:border-[var(--app-theme-primary)] aria-pressed:bg-[var(--app-theme-light)]"
-            onMouseDown={(event) => event.preventDefault()}
+            disabled={!editor || off}
+            selected={!inTable && paragraphBorderOn(border.id, marks.border, marks.borderBetween)}
             onClick={() => {
               onPick(border.id)
               if (editor) {
@@ -479,12 +553,49 @@ export function BordersMenu({
               close()
             }}
           >
-            <BorderSample id={border.id} />
-          </button>
-        ))}
-      </div>
+            <span className="flex items-center gap-2">
+              <BorderSample id={border.id} />
+              {border.label}
+            </span>
+          </MenuButton>
+        )
+      })}
       <div className="my-1 border-t border-[var(--app-popover-border)]" />
       <MenuButton
+        disabled={!editor}
+        onClick={() => {
+          if (editor) {
+            insertHorizontalLine(editor)
+          }
+          close()
+        }}
+      >
+        Horizontal Line
+      </MenuButton>
+      <MenuButton
+        disabled={!editor}
+        onClick={() => {
+          useTableDraw.getState().toggle("draw")
+          editor?.view.focus()
+          close()
+        }}
+      >
+        Draw Table
+      </MenuButton>
+      <MenuButton
+        disabled={!inTable}
+        selected={gridlines}
+        onClick={() => {
+          if (editor) {
+            toggleGridlines(editor)
+          }
+          close()
+        }}
+      >
+        View Gridlines
+      </MenuButton>
+      <MenuButton
+        disabled={!editor}
         onClick={() => {
           if (editor) {
             openBordersAndShading(editor)
@@ -498,18 +609,43 @@ export function BordersMenu({
   )
 }
 
+/** Word's Borders menu pictures, on the 16 grid: the box and its middle lines dotted, the row's lines drawn. */
+const BORDER_LINES: Record<string, string[]> = {
+  top: ["M2.5 2.5h11"],
+  bottom: ["M2.5 13.5h11"],
+  left: ["M2.5 2.5v11"],
+  right: ["M13.5 2.5v11"],
+  none: [],
+  all: ["M2.5 2.5h11v11h-11z", "M2.5 8h11", "M8 2.5v11"],
+  outside: ["M2.5 2.5h11v11h-11z"],
+  inside: ["M2.5 8h11", "M8 2.5v11"],
+  insideH: ["M2.5 8h11"],
+  insideV: ["M8 2.5v11"],
+  diagDown: ["M2.5 2.5l11 11"],
+  diagUp: ["M2.5 13.5l11-11"],
+}
+
 function BorderSample({ id }: { id: string }) {
-  const side = (edge: string) => (id === "all" || id === edge ? "1.5px solid #242424" : "1px solid #e1e1e1")
   return (
-    <span
-      className="block h-7 w-9 bg-white"
-      style={{
-        borderTop: side("top"),
-        borderRight: side("right"),
-        borderBottom: side("bottom"),
-        borderLeft: side("left"),
-      }}
-    />
+    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden className="shrink-0">
+      <path
+        d="M2.5 2.5h11v11h-11zM2.5 8h11M8 2.5v11"
+        fill="none"
+        stroke="var(--icon-muted-color, #9a9a9a)"
+        strokeWidth="1"
+        strokeDasharray="1 1"
+      />
+      {(BORDER_LINES[id] ?? []).map((d) => (
+        <path
+          key={d}
+          d={d}
+          fill="none"
+          stroke="var(--icon-base-color, #242424)"
+          strokeWidth="1.5"
+          strokeLinecap="square"
+        />
+      ))}
+    </svg>
   )
 }
 
@@ -528,7 +664,7 @@ export function StylesMenu({
   const styles = useGalleryStyles()
   return (
     <div className="flex w-60 flex-col">
-      <div className="flex max-h-72 flex-col overflow-auto">
+      <div className="flex max-h-[calc(100vh-12rem)] flex-col overflow-auto">
         {styles.map((style) => (
           <MenuButton
             key={style.id}
@@ -564,10 +700,10 @@ export function StylesMenu({
       <MenuButton
         onClick={() => {
           close()
-          useStyleDialogs.getState().openManage()
+          useStylePanes.getState().toggleApplyBox(true)
         }}
       >
-        Manage Styles…
+        Apply Styles…
       </MenuButton>
     </div>
   )
@@ -581,8 +717,8 @@ export function FindMenu({ close }: { close: () => void }) {
     <div className="flex w-48 flex-col">
       <MenuButton
         onClick={() => {
-          openFind(false)
           close()
+          openNavigationSearch(selectedSearchText())
         }}
       >
         Find
@@ -607,7 +743,10 @@ export function FindMenu({ close }: { close: () => void }) {
   )
 }
 
+/** Home > Select, as Word's: Select All, Select Objects, Select Text with Similar Formatting, Selection Pane. */
 export function SelectMenu({ editor, close }: { editor: Editor | null; close: () => void }) {
+  const selectingObjects = useSelectObjects((state) => state.on)
+  const paneOpen = useViewStore((state) => state.selectionPane)
   return (
     <div className="flex w-64 flex-col">
       <MenuButton
@@ -627,6 +766,24 @@ export function SelectMenu({ editor, close }: { editor: Editor | null; close: ()
         }}
       >
         Select Text with Similar Formatting
+      </MenuButton>
+      <MenuButton
+        selected={selectingObjects}
+        onClick={() => {
+          useSelectObjects.getState().set(!selectingObjects)
+          close()
+        }}
+      >
+        Select Objects
+      </MenuButton>
+      <MenuButton
+        selected={paneOpen}
+        onClick={() => {
+          useViewStore.getState().toggleSelectionPane()
+          close()
+        }}
+      >
+        Selection Pane…
       </MenuButton>
     </div>
   )

@@ -110,7 +110,10 @@ describe("tables", () => {
     const table = `:root .page-editor table[data-word-table-style="Grid1"]`
     expect(css).toContain(`${table} { --wb-top: 1pt solid #4472C4; --wb-insideH: 0.5pt solid #B4C6E7`)
     expect(css).toContain(`${table}:where([data-word-look~="firstRow"]) :where(tr:first-child > td) {`)
-    expect(css).toMatch(/firstRow"\]\) :where\(tr:first-child > td\) \{ background-color: #4472C4; \}/)
+    // A dark fill also turns the cell's automatic text white, as in Word.
+    expect(css).toMatch(
+      /firstRow"\]\) :where\(tr:first-child > td\) \{ background-color: #4472C4; --word-auto-color: #ffffff; \}/,
+    )
     expect(css).toMatch(/firstRow"\]\) :where\(tr:first-child > td p\) \{ color: #FFFFFF; font-weight: bold; \}/)
     expect(css).toContain(`:where(tr:nth-child(even) > td) { background-color: #D9E2F3; }`)
     // The table style's paragraph spacing reaches paragraphs in the default style.

@@ -71,6 +71,9 @@ export function useChromePart(
       extensions: getChromeExtensions(),
       content: latest.current.html || "<p></p>",
       editable: false,
+      // As in the body: Word's AutoFormat As You Type, not Markdown's typing rules.
+      enableInputRules: ["horizontalRule"],
+      enablePasteRules: ["link"],
       editorProps: {
         attributes: { class: "page-editor chrome-editor", spellcheck: "false", "aria-label": latest.current.label },
       },

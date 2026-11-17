@@ -1,29 +1,123 @@
 import { useReviewStore } from "@/document/review"
 import { Extension, Mark, type Editor } from "@tiptap/core"
 import { isHistoryTransaction } from "@tiptap/pm/history"
-import type { Node as ProseNode, Schema, Slice } from "@tiptap/pm/model"
+import type { Mark as ProseMark, Node as ProseNode, Schema, Slice } from "@tiptap/pm/model"
 import { Plugin } from "@tiptap/pm/state"
 import { TextSelection, type Transaction } from "@tiptap/pm/state"
-import { ReplaceStep } from "@tiptap/pm/transform"
+import { AddMarkStep, RemoveMarkStep, ReplaceStep } from "@tiptap/pm/transform"
+import { useUserSettings } from "@/document/user-settings"
 
 export const TRACK_META = "track-changes"
 
 export type TrackedChange = {
   id: string
-  kind: "insertion" | "deletion"
+  kind: "insertion" | "deletion" | "format"
   author: string
   time: string
   from: number
   to: number
   text: string
+  /** A formatting change as Word's balloon says it: "Formatted: Bold, Italic". */
+  description?: string
+}
+
+/** Marks that are character formatting (what Word's w:rPrChange records); the rest are links, comments, anchors. */
+export const FORMATTING_MARKS = [
+  "textStyle",
+  "bold",
+  "code",
+  "italic",
+  "strike",
+  "underline",
+  "subscript",
+  "superscript",
+  "textBorder",
+  "highlight",
+]
+
+export type SavedMark = { type: string; attrs?: Record<string, unknown> }
+
+/** The formatting a text node has, in a stable order, as the formatChange mark records it. */
+export function formattingOf(marks: readonly ProseMark[]): SavedMark[] {
+  return marks
+    .filter((mark) => FORMATTING_MARKS.includes(mark.type.name))
+    .map((mark) => {
+      const attrs = Object.fromEntries(Object.entries(mark.attrs).filter(([, value]) => value != null && value !== ""))
+      return Object.keys(attrs).length > 0 ? { type: mark.type.name, attrs } : { type: mark.type.name }
+    })
+    .sort((left, right) => left.type.localeCompare(right.type))
+}
+
+export function readSavedMarks(value: unknown): SavedMark[] {
+  try {
+    const parsed = JSON.parse(String(value || "[]")) as unknown
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is SavedMark => typeof (item as SavedMark)?.type === "string")
+      : []
+  } catch {
+    return []
+  }
+}
+
+const sameFormatting = (left: SavedMark[], right: SavedMark[]) => JSON.stringify(left) === JSON.stringify(right)
+
+const MARK_NAMES: Record<string, string> = {
+  bold: "Bold",
+  italic: "Italic",
+  underline: "Underline",
+  strike: "Strikethrough",
+  subscript: "Subscript",
+  superscript: "Superscript",
+  highlight: "Highlight",
+  code: "Font",
+  textBorder: "Border",
+}
+
+/** Word's balloon text for a formatting change: what was added, and "Not Bold" for what was taken off. */
+export function describeFormatting(before: SavedMark[], after: SavedMark[]) {
+  const parts: string[] = []
+  const names = (list: SavedMark[]) => new Set(list.map((mark) => mark.type))
+  const was = names(before)
+  const now = names(after)
+  for (const mark of after) {
+    if (mark.type === "textStyle") {
+      const old = before.find((item) => item.type === "textStyle")?.attrs ?? {}
+      for (const [key, value] of Object.entries(mark.attrs ?? {})) {
+        if (old[key] !== value) {
+          parts.push(textStyleLabel(key, value))
+        }
+      }
+    } else if (!was.has(mark.type)) {
+      parts.push(MARK_NAMES[mark.type] ?? mark.type)
+    }
+  }
+  for (const mark of before) {
+    if (mark.type !== "textStyle" && !now.has(mark.type)) {
+      parts.push(`Not ${MARK_NAMES[mark.type] ?? mark.type}`)
+    }
+  }
+  return parts.length > 0 ? `Formatted: ${parts.join(", ")}` : "Formatted"
+}
+
+function textStyleLabel(key: string, value: unknown) {
+  if (key === "fontSize") {
+    return `Font size: ${String(value).replace(/pt$/, "")} pt`
+  }
+  if (key === "fontFamily") {
+    return `Font: ${String(value).split(",")[0]?.replace(/["']/g, "")}`
+  }
+  if (key === "color") {
+    return "Font color"
+  }
+  return key
 }
 
 export function ignoreTracking(tr: Transaction) {
   return tr.setMeta(TRACK_META, "ignore")
 }
 
-function trackAttributes(kind: "insertion" | "deletion") {
-  const data = kind === "insertion" ? "data-insertion" : "data-deletion"
+function trackAttributes(kind: "insertion" | "deletion" | "format") {
+  const data = kind === "insertion" ? "data-insertion" : kind === "deletion" ? "data-deletion" : "data-format-change"
   return {
     id: {
       default: "",
@@ -64,6 +158,36 @@ export const Insertion = Mark.create({
   },
 })
 
+/** A formatting change while tracking: the text's formatting before it, so Reject can put it back. */
+export const FormatChange = Mark.create({
+  name: "formatChange",
+  inclusive: false,
+  keepOnSplit: false,
+  addAttributes() {
+    return {
+      ...trackAttributes("format"),
+      before: {
+        default: "[]",
+        parseHTML: (element: HTMLElement) => element.getAttribute("data-before") ?? "[]",
+        renderHTML: (attributes: { before?: string }) => ({ "data-before": attributes.before ?? "[]" }),
+      },
+      /** The w:rPrChange it was read from, saved as it was while the change is the same. */
+      source: {
+        default: "",
+        parseHTML: (element: HTMLElement) => element.getAttribute("data-source") ?? "",
+        renderHTML: (attributes: { source?: string }) =>
+          attributes.source ? { "data-source": attributes.source } : {},
+      },
+    }
+  },
+  parseHTML() {
+    return [{ tag: "span[data-format-change]" }]
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ["span", { ...HTMLAttributes, class: "track-format" }, 0]
+  },
+})
+
 export const Deletion = Mark.create({
   name: "deletion",
   inclusive: false,
@@ -87,18 +211,22 @@ export function listChanges(doc: ProseNode) {
       return
     }
     for (const mark of node.marks) {
-      if (mark.type.name !== "insertion" && mark.type.name !== "deletion") {
+      if (mark.type.name !== "insertion" && mark.type.name !== "deletion" && mark.type.name !== "formatChange") {
         continue
       }
+      const kind = mark.type.name === "formatChange" ? "format" : (mark.type.name as "insertion" | "deletion")
       const end = pos + node.nodeSize
       const last = changes[changes.length - 1]
-      if (last && last.id === mark.attrs.id && last.kind === mark.type.name && last.to === pos) {
+      if (last && last.id === mark.attrs.id && last.kind === kind && last.to === pos) {
         last.to = end
         continue
       }
       changes.push({
         id: String(mark.attrs.id || `${mark.type.name}-${pos}`),
-        kind: mark.type.name,
+        kind,
+        ...(kind === "format"
+          ? { description: describeFormatting(readSavedMarks(mark.attrs.before), formattingOf(node.marks)) }
+          : {}),
         author: String(mark.attrs.author || "Me"),
         time: String(mark.attrs.time ?? ""),
         from: pos,
@@ -158,6 +286,12 @@ function settleChanges(editor: Editor, action: "accept" | "reject", ids?: string
           tr.delete(change.from, change.to)
         }
       }
+      const formats = editor.schema.marks.formatChange
+      for (const change of changes.filter((item) => item.kind === "format")) {
+        if (formats) {
+          settleFormat(tr, change, action, formats)
+        }
+      }
       const marks = changes.filter((change) =>
         action === "accept" ? change.kind === "insertion" : change.kind === "deletion",
       )
@@ -169,6 +303,45 @@ function settleChanges(editor: Editor, action: "accept" | "reject", ids?: string
       return true
     })
     .run()
+}
+
+/** Accept keeps the new formatting; Reject puts back what each piece of text had before. */
+function settleFormat(
+  tr: Transaction,
+  change: TrackedChange,
+  action: "accept" | "reject",
+  formats: NonNullable<Schema["marks"][string]>,
+) {
+  const from = tr.mapping.map(change.from)
+  const to = tr.mapping.map(change.to)
+  if (action === "reject") {
+    const pieces: { from: number; to: number; before: SavedMark[] }[] = []
+    tr.doc.nodesBetween(from, to, (node, pos) => {
+      const mark = node.isText ? node.marks.find((item) => item.type === formats) : undefined
+      if (mark) {
+        pieces.push({
+          from: Math.max(from, pos),
+          to: Math.min(to, pos + node.nodeSize),
+          before: readSavedMarks(mark.attrs.before),
+        })
+      }
+    })
+    for (const piece of pieces) {
+      for (const name of FORMATTING_MARKS) {
+        const type = tr.doc.type.schema.marks[name]
+        if (type) {
+          tr.removeMark(piece.from, piece.to, type)
+        }
+      }
+      for (const saved of piece.before) {
+        const type = tr.doc.type.schema.marks[saved.type]
+        if (type) {
+          tr.addMark(piece.from, piece.to, type.create(saved.attrs ?? {}))
+        }
+      }
+    }
+  }
+  tr.removeMark(from, to, formats)
 }
 
 /**
@@ -223,6 +396,9 @@ export const TrackChanges = Extension.create({
             let changed = false
             for (const transaction of fresh) {
               if (rewriteTransaction(transaction, tr, newState.schema)) {
+                changed = true
+              }
+              if (trackFormatting(transaction, tr, newState.schema)) {
                 changed = true
               }
             }
@@ -302,6 +478,62 @@ function rewriteTransaction(transaction: Transaction, tr: Transaction, schema: S
   return changed
 }
 
+/**
+ * Formatting added or taken off while tracking: each piece of text gets a formatChange mark holding the formatting
+ * it had before (the first change's, so Reject goes all the way back); text whose formatting is back where it
+ * started loses the mark. Text the author inserted while tracking is not marked: it is new as a whole.
+ */
+function trackFormatting(transaction: Transaction, tr: Transaction, schema: Schema) {
+  const formats = schema.marks.formatChange
+  if (!formats) {
+    return false
+  }
+  let changed = false
+  transaction.steps.forEach((step, index) => {
+    if (!(step instanceof AddMarkStep || step instanceof RemoveMarkStep)) {
+      return
+    }
+    if (!FORMATTING_MARKS.includes(step.mark.type.name)) {
+      return
+    }
+    const before = transaction.docs[index]!
+    const after = transaction.mapping.slice(index + 1)
+    before.nodesBetween(step.from, step.to, (node, pos) => {
+      if (!node.isText) {
+        return
+      }
+      const start = Math.max(step.from, pos)
+      const end = Math.min(step.to, pos + node.nodeSize)
+      const from = tr.mapping.map(after.map(start, 1))
+      const to = tr.mapping.map(after.map(end, -1))
+      if (from >= to || node.marks.some((mark) => mark.type.name === "insertion")) {
+        return
+      }
+      tr.doc.nodesBetween(from, to, (current, at) => {
+        if (!current.isText) {
+          return
+        }
+        const a = Math.max(from, at)
+        const b = Math.min(to, at + current.nodeSize)
+        const existing = current.marks.find((mark) => mark.type === formats)
+        const original = existing ? readSavedMarks(existing.attrs.before) : formattingOf(node.marks)
+        if (sameFormatting(original, formattingOf(current.marks))) {
+          if (existing) {
+            tr.removeMark(a, b, formats)
+            changed = true
+          }
+          return
+        }
+        if (!existing) {
+          tr.addMark(a, b, formats.create({ ...freshAttrs(), before: JSON.stringify(original) }))
+          changed = true
+        }
+      })
+    })
+  })
+  return changed
+}
+
 function markAttrs(previous: ProseNode | null, kind: "insertion" | "deletion") {
   const mark = previous?.marks.find((item) => item.type.name === kind)
   if (mark?.attrs.id) {
@@ -310,10 +542,15 @@ function markAttrs(previous: ProseNode | null, kind: "insertion" | "deletion") {
   return freshAttrs()
 }
 
+/** The reviewer's name: the user name from setup (File > Options), as Word stamps its changes. */
+export function reviewerName() {
+  return useUserSettings.getState().author?.trim() || "Me"
+}
+
 function freshAttrs() {
   return {
     id: crypto.randomUUID(),
-    author: "Me",
+    author: reviewerName(),
     time: new Date().toISOString(),
   }
 }

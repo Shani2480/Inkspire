@@ -31,12 +31,19 @@ export function RecoveryDialog() {
     const onRefresh = () => {
       void refresh()
     }
+    // File > Info > Manage Document > Recover Unsaved Documents: the pane opens out.
+    const onShow = () => {
+      setOpen(true)
+      void refresh()
+    }
     window.addEventListener("focus", onRefresh)
     window.addEventListener("aiword-recovery-changed", onRefresh)
+    window.addEventListener("aiword-recovery-show", onShow)
     return () => {
       cancelled = true
       window.removeEventListener("focus", onRefresh)
       window.removeEventListener("aiword-recovery-changed", onRefresh)
+      window.removeEventListener("aiword-recovery-show", onShow)
     }
   }, [refresh])
 

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-read-edit-copy"
+description = "Enables the read_edit_copy command without any pre-configured scope."
+commands.allow = ["read_edit_copy"]
+
+[[permission]]
+identifier = "deny-read-edit-copy"
+description = "Denies the read_edit_copy command without any pre-configured scope."
+commands.deny = ["read_edit_copy"]

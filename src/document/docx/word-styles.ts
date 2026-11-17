@@ -1,12 +1,17 @@
+import { leadBase, wordDescent } from "@/document/line-lead"
 import { patternImage, patternValue } from "@/document/docx/shading-pattern"
 import { decodeXml } from "@/document/docx/xml"
 import {
+  defaultsOf,
+  mergeFonts,
   paragraphsIn,
+  resolveRunProperties,
   type Border,
   type CellMargins,
   type ParagraphProperties,
   type RunProperties,
   type Shading,
+  type ThemeColorRef,
   type Style,
   type Table,
   type TableBorders,
@@ -23,15 +28,123 @@ export type ThemeFonts = {
   minorEastAsia: string
   majorBidi: string
   minorBidi: string
+  /** The theme's colour scheme by slot (dk1, lt1, dk2, lt2, accent1–6, hlink, folHlink), #rrggbb. */
+  colors: Record<string, string>
 }
 
+/** Word's Office theme colours, used when a document has no theme part. */
+export const OFFICE_THEME_COLORS: Record<string, string> = {
+  dk1: "#000000",
+  lt1: "#ffffff",
+  dk2: "#0e2841",
+  lt2: "#e8e8e8",
+  accent1: "#156082",
+  accent2: "#e97132",
+  accent3: "#196b24",
+  accent4: "#0f9ed5",
+  accent5: "#a02b93",
+  accent6: "#4ea72e",
+  hlink: "#467886",
+  folHlink: "#96607d",
+}
+
+/** The colour-scheme slot each of w:color's theme colour names reads. */
+const THEME_SLOTS: Record<string, string> = {
+  dark1: "dk1",
+  text1: "dk1",
+  light1: "lt1",
+  background1: "lt1",
+  dark2: "dk2",
+  text2: "dk2",
+  light2: "lt2",
+  background2: "lt2",
+  hyperlink: "hlink",
+  followedHyperlink: "folHlink",
+}
+
+/**
+ * A theme colour as Word draws it: the scheme's colour with its luminance scaled (shade) or moved toward white
+ * (tint) in HSL, e.g. accent1 #4472C4 with shade BF is #2F5496.
+ */
+export function themeColor(
+  name: string,
+  colors: Record<string, string>,
+  tint?: string,
+  shade?: string,
+): string | undefined {
+  const base = colors[THEME_SLOTS[name] ?? name]
+  if (!base) {
+    return undefined
+  }
+  if (!tint && !shade) {
+    return base
+  }
+  const [h, s, l] = toHsl(base)
+  let light = l
+  if (shade) {
+    light = l * (parseInt(shade, 16) / 255)
+  }
+  if (tint) {
+    const t = parseInt(tint, 16) / 255
+    light = light * t + (1 - t)
+  }
+  return fromHsl(h, s, Math.max(0, Math.min(1, light)))
+}
+
+function toHsl(hex: string): [number, number, number] {
+  const value = parseInt(hex.replace("#", ""), 16)
+  const r = ((value >> 16) & 255) / 255
+  const g = ((value >> 8) & 255) / 255
+  const b = (value & 255) / 255
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const l = (max + min) / 2
+  if (max === min) {
+    return [0, 0, l]
+  }
+  const d = max - min
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+  const h = max === r ? (g - b) / d + (g < b ? 6 : 0) : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+  return [h / 6, s, l]
+}
+
+function fromHsl(h: number, s: number, l: number) {
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s
+  const p = 2 * l - q
+  const channel = (t: number) => {
+    const x = t < 0 ? t + 1 : t > 1 ? t - 1 : t
+    const v = x < 1 / 6 ? p + (q - p) * 6 * x : x < 1 / 2 ? q : x < 2 / 3 ? p + (q - p) * (2 / 3 - x) * 6 : p
+    return Math.floor(v * 255 + 1e-6)
+      .toString(16)
+      .padStart(2, "0")
+  }
+  return `#${s === 0 ? channel(l).repeat(3) : channel(h + 1 / 3) + channel(h) + channel(h - 1 / 3)}`
+}
+
+/** The colour scheme of a theme part (theme1.xml), by slot. */
+export function themeColorsOf(xml: string): Record<string, string> {
+  const scheme = /<(?:\w+:)?clrScheme\b[\s\S]*?<\/(?:\w+:)?clrScheme>/.exec(xml)?.[0]
+  if (!scheme) {
+    return { ...OFFICE_THEME_COLORS }
+  }
+  const colors: Record<string, string> = {}
+  for (const slot of Object.keys(OFFICE_THEME_COLORS)) {
+    const block = new RegExp(`<(?:\\w+:)?${slot}>([\\s\\S]*?)</(?:\\w+:)?${slot}>`).exec(scheme)?.[1] ?? ""
+    const value = /lastClr="([0-9A-Fa-f]{6})"/.exec(block)?.[1] ?? /val="([0-9A-Fa-f]{6})"/.exec(block)?.[1]
+    colors[slot] = value ? `#${value.toLowerCase()}` : OFFICE_THEME_COLORS[slot]!
+  }
+  return colors
+}
+
+/** Without a theme part, Word draws theme fonts from its own Office theme. */
 const NO_THEME: ThemeFonts = {
-  majorLatin: "",
-  minorLatin: "",
+  majorLatin: "Aptos Display",
+  minorLatin: "Aptos",
   majorEastAsia: "",
   minorEastAsia: "",
   majorBidi: "",
   minorBidi: "",
+  colors: OFFICE_THEME_COLORS,
 }
 
 /**
@@ -99,6 +212,7 @@ export function themeFontsOf(doc: WordDocument): ThemeFonts {
     minorEastAsia: face("minorFont", "ea"),
     majorBidi: face("majorFont", "cs"),
     minorBidi: face("minorFont", "cs"),
+    colors: themeColorsOf(xml),
   }
 }
 
@@ -150,15 +264,110 @@ function mergeRun(base: RunProperties, next: RunProperties): RunProperties {
   return {
     ...base,
     ...next,
-    rFonts: base.rFonts || next.rFonts ? { ...base.rFonts, ...next.rFonts } : undefined,
+    rFonts: mergeFonts(base.rFonts, next.rFonts),
   }
+}
+
+/**
+ * Word draws text of automatic colour white on dark shading and black elsewhere. A dark fill (a cell's, a
+ * paragraph's) sets the colour its automatic text inherits; "" for a light or unknown fill.
+ */
+export function autoColorRule(fill: string | null | undefined) {
+  const value = (fill ?? "").trim()
+  const hex = /^#?([0-9a-f]{6})$/i.exec(value)?.[1]
+  const rgb = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)$/i.exec(value)
+  const channels = hex
+    ? [0, 2, 4].map((at) => Number.parseInt(hex.slice(at, at + 2), 16))
+    : rgb && (rgb[4] === undefined || Number(rgb[4]) > 0.5)
+      ? [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])]
+      : null
+  if (!channels) {
+    return ""
+  }
+  const [red, green, blue] = channels as [number, number, number]
+  return 0.299 * red + 0.587 * green + 0.114 * blue < 128 ? "--word-auto-color: #ffffff" : ""
+}
+
+/** Toggles (and a colour) a run can switch off against its styles, as `data-run-off` tokens (index.css draws them). */
+const OFF_TOKENS = ["b", "i", "caps", "smallCaps", "u", "strike", "color"] as const
+export type RunOffToken = (typeof OFF_TOKENS)[number]
+
+const shownCache = new WeakMap<WordDocument, Map<string, { para: RunProperties; char: RunProperties }>>()
+
+/** The paragraph style a paragraph without its own takes (Word's default paragraph style). */
+export function defaultParagraphStyleId(doc: WordDocument) {
+  return doc.styles.styles.find((style) => style.type === "paragraph" && style.default)?.id ?? "Normal"
+}
+
+/**
+ * What the document stylesheet shows a run as, before its direct formatting: its paragraph style's run properties
+ * (inherited) and its character style's (on the run's own span, so they win).
+ */
+function shownByStyles(doc: WordDocument, paragraphStyleId: string, rStyle: string | undefined) {
+  let cache = shownCache.get(doc)
+  if (!cache) {
+    cache = new Map()
+    shownCache.set(doc, cache)
+  }
+  const key = `${paragraphStyleId}\u0000${rStyle ?? ""}`
+  const known = cache.get(key)
+  if (known) {
+    return known
+  }
+  const styles = new Map(doc.styles.styles.map((style) => [style.id, style]))
+  const defaults: Resolved = { pPr: defaultsOf(doc.styles).pPr, rPr: defaultsOf(doc.styles).rPr }
+  const para = resolveStyle(paragraphStyleId, styles, defaults).rPr
+  const char = rStyle ? resolveStyle(rStyle, styles, { pPr: {}, rPr: {} }).rPr : {}
+  const shown = { para, char }
+  cache.set(key, shown)
+  return shown
+}
+
+/**
+ * The toggles the stylesheet would show on a run that Word draws without: a run that turns off its style's bold
+ * or italic (`<w:b w:val="0"/>` in a bold heading), or a character style's bold over a bold paragraph style, which
+ * Word's toggle rule cancels (17.7.3). Underline and strike only from a character style: a decoration drawn on the
+ * paragraph cannot be taken off a part of it.
+ */
+export function runOffTokens(doc: WordDocument, paragraphStyleId: string | undefined, rPr: RunProperties) {
+  const pStyle = paragraphStyleId ?? defaultParagraphStyleId(doc)
+  const { para, char } = shownByStyles(doc, pStyle, rPr.rStyle)
+  const effective = resolveRunProperties({
+    styles: doc.styles,
+    paragraphStyleId: pStyle,
+    characterStyleId: rPr.rStyle,
+    direct: rPr,
+  })
+  const underlined = (props: RunProperties) => (props.u ? props.u.value !== "none" : undefined)
+  const struck = (props: RunProperties) =>
+    props.strike === undefined && props.dstrike === undefined ? undefined : Boolean(props.strike || props.dstrike)
+  const shown: Record<RunOffToken, boolean> = {
+    b: (char.b ?? para.b) === true,
+    i: (char.i ?? para.i) === true,
+    caps: (char.caps ?? para.caps) === true,
+    smallCaps: (char.smallCaps ?? para.smallCaps) === true,
+    u: underlined(char) === true,
+    strike: struck(char) === true,
+    // A colour from a style that the run sets back to automatic.
+    color: Boolean((char.color ?? para.color) && (char.color ?? para.color) !== "auto"),
+  }
+  const drawn: Record<RunOffToken, boolean> = {
+    b: effective.b === true,
+    i: effective.i === true,
+    caps: effective.caps === true,
+    smallCaps: effective.smallCaps === true,
+    u: underlined(effective) === true,
+    strike: struck(effective) === true,
+    color: Boolean(effective.color && effective.color !== "auto"),
+  }
+  return OFF_TOKENS.filter((token) => shown[token] && !drawn[token])
 }
 
 /** A style with everything it inherits through basedOn, starting from `start`. */
 /** A style's properties with those it is based on (and the document defaults) under them. */
 export function resolvedStyle(doc: WordDocument, id: string) {
   const styles = new Map(doc.styles.styles.map((style) => [style.id, style]))
-  return resolveStyle(id, styles, { pPr: doc.styles.docDefaults.pPr, rPr: doc.styles.docDefaults.rPr })
+  return resolveStyle(id, styles, { pPr: defaultsOf(doc.styles).pPr, rPr: defaultsOf(doc.styles).rPr })
 }
 
 function resolveStyle(id: string, styles: Map<string, Style>, start: Resolved): Resolved {
@@ -186,10 +395,13 @@ function runCss(props: RunProperties, theme: ThemeFonts, complete: boolean) {
     // Word's size when nothing sets one.
     rules.push("font-size: 10pt")
   }
+  const fromTheme =
+    props.colorTheme && themeColor(props.colorTheme.name, theme.colors, props.colorTheme.tint, props.colorTheme.shade)
   if (props.color && props.color !== "auto") {
-    rules.push(`color: #${props.color}`)
+    rules.push(`color: ${fromTheme ?? `#${props.color}`}`)
   } else if (complete) {
-    rules.push("color: #000000")
+    // Automatic colour: black, or white on dark shading (`autoColorRule`).
+    rules.push("color: var(--word-auto-color, #000000)")
   }
   if (props.b !== undefined || complete) {
     rules.push(`font-weight: ${props.b ? "bold" : "normal"}`)
@@ -210,11 +422,16 @@ function runCss(props: RunProperties, theme: ThemeFonts, complete: boolean) {
   if (lines.length > 0) {
     rules.push(`text-decoration: ${lines.join(" ")}`)
   }
+  // Superscript and subscript (the Footnote Reference style): raised or lowered, at about two thirds the size.
+  if (props.vertAlign === "superscript" || props.vertAlign === "subscript") {
+    rules.push(`vertical-align: ${props.vertAlign === "superscript" ? "super" : "sub"}`)
+    rules.push(`font-size: ${props.sz ? `${Math.round((props.sz / 2) * 0.65 * 100) / 100}pt` : "0.65em"}`)
+  }
   return rules
 }
 
 /** Spacing and alignment. Indents only outside lists, which the editor indents itself. */
-function paragraphCss(props: ParagraphProperties, complete: boolean, line: number) {
+function paragraphCss(props: ParagraphProperties, complete: boolean, line: number, colors?: Record<string, string>) {
   const rules: string[] = []
   const spacing = props.spacing
   if (spacing?.before !== undefined || complete) {
@@ -233,6 +450,22 @@ function paragraphCss(props: ParagraphProperties, complete: boolean, line: numbe
   } else if (complete) {
     rules.push(`line-height: ${line}`)
   }
+  // Word's place for the text in a taller line; not on a paragraph with a top or bottom line, which pads itself.
+  const ruled = [props.borders?.top, props.borders?.bottom].some(
+    (border) => border && border.value !== "none" && border.value !== "nil",
+  )
+  if (ruled) {
+    // The box pads itself: no trim, and no room for the text's place on the sides without a line.
+    rules.push("text-box-trim: none")
+    for (const side of ["top", "bottom"] as const) {
+      const border = props.borders?.[side]
+      if (!border || border.value === "none" || border.value === "nil") {
+        rules.push(`padding-${side}: 0`)
+      }
+    }
+  } else if (spacing?.lineRule === "exact" || spacing?.lineRule === "atLeast") {
+    rules.push(`--lead-base: ${leadBase(spacing.lineRule)}`)
+  }
   if (props.jc) {
     const align = { both: "justify", distribute: "justify", center: "center", right: "right", end: "right" }[
       props.jc as string
@@ -240,6 +473,17 @@ function paragraphCss(props: ParagraphProperties, complete: boolean, line: numbe
     rules.push(`text-align: ${align ?? "left"}`)
   } else if (complete) {
     rules.push("text-align: left")
+  }
+  // A style's lines and fill (the rule under a Lines Style Set's headings), with the room Word leaves to the text.
+  for (const side of ["top", "bottom", "left", "right"] as const) {
+    const border = props.borders?.[side]
+    if (border && border.value !== "none" && border.value !== "nil") {
+      rules.push(`border-${side}: ${borderCss(border, colors)}`, `padding-${side}: ${border.space ?? 0}pt`)
+    }
+  }
+  const fill = props.shading ? shadingColor(props.shading, colors) : null
+  if (fill) {
+    rules.push(`background-color: ${fill}`)
   }
   return rules
 }
@@ -274,6 +518,14 @@ function contextualRules(page: string, same: string, fromStyle: boolean) {
   return [
     `${page} ${same} + ${own}, ${page} li:has(> ${same}) + li > ${own} { margin-top: 0 !important; }`,
     `${page} ${own}:has(+ ${same}), ${page} li:has(+ li > ${same}) > ${own} { margin-bottom: 0 !important; }`,
+    // Word leaves out such a paragraph's space at the top and foot of a table cell too.
+    `${page} :is(td, th) > ${own}:first-child, ${page} :is(td, th) > :is(ul, ol):first-child > li:first-child > ${own}:first-child { margin-top: 0 !important; }`,
+    `${page} :is(td, th) > ${own}:last-child, ${page} :is(td, th) > :is(ul, ol):last-child > li:last-child > ${own}:last-child { margin-bottom: 0 !important; }`,
+    // …and before a table whose first cell starts with a paragraph of the same style.
+    ...[`${same}:first-child`, `:is(ul, ol):first-child > li:first-child > ${same}:first-child`].map((first) => {
+      const table = `:is(.tableWrapper, table) tr:first-child > :is(td, th):first-child > ${first}`
+      return `${page} ${own}:has(+ ${table}), ${page} :is(ul, ol):has(+ ${table}) > li:last-child > ${own}:last-child { margin-bottom: 0 !important; }`
+    }),
   ]
 }
 
@@ -290,21 +542,25 @@ function cssString(value: string) {
  * on the page, each paragraph style on paragraphs carrying its id (data-word-style), heading styles on h1–h6,
  * and character styles on runs carrying theirs (data-word-rstyle). Direct formatting stays inline and wins.
  */
-export function documentStyleSheet(doc: WordDocument): string {
-  const theme = themeFontsOf(doc)
+export function documentStyleSheet(doc: WordDocument, themeFonts?: ThemeFonts): string {
+  const theme = themeFonts ?? themeFontsOf(doc)
   const styles = new Map(doc.styles.styles.map((style) => [style.id, style]))
-  const defaults: Resolved = { pPr: doc.styles.docDefaults.pPr, rPr: doc.styles.docDefaults.rPr }
+  const defaults: Resolved = { pPr: defaultsOf(doc.styles).pPr, rPr: defaultsOf(doc.styles).rPr }
   const normal = doc.styles.styles.find((style) => style.type === "paragraph" && style.default) ?? styles.get("Normal")
   const base = normal ? resolveStyle(normal.id, styles, defaults) : defaults
   // :root raises specificity above the app stylesheet's .page-editor rules whatever order they load in.
   const page = ":root .page-editor"
   const line = singleLine(fontOf(base.rPr.rFonts, theme))
   const css = [
-    rule(page, [...runCss(base.rPr, theme, true), `--word-single-line: ${line}`]),
-    rule(`${page} p, ${page} li > p`, paragraphCss(base.pPr, true, line)),
+    rule(page, [
+      ...runCss(base.rPr, theme, true),
+      `--word-single-line: ${line}`,
+      `--word-descent: ${wordDescent(fontOf(base.rPr.rFonts, theme))}`,
+    ]),
+    rule(`${page} p, ${page} li > p`, paragraphCss(base.pPr, true, line, theme.colors)),
     rule(`${page} :is(h1, h2, h3, h4, h5, h6)`, [
       ...runCss(base.rPr, theme, true),
-      ...paragraphCss(base.pPr, true, line),
+      ...paragraphCss(base.pPr, true, line, theme.colors),
     ]),
   ]
   // Rules only for styles that need them: :has() selectors cost style recalculation on every edit.
@@ -326,8 +582,15 @@ export function documentStyleSheet(doc: WordDocument): string {
     }
     if (style.type === "paragraph" && style.id !== normal?.id) {
       const resolved = resolveStyle(style.id, styles, defaults)
-      const own = singleLine(fontOf(resolved.rPr.rFonts, theme))
-      const declarations = [...runCss(resolved.rPr, theme, true), ...paragraphCss(resolved.pPr, true, own)]
+      const face = fontOf(resolved.rPr.rFonts, theme)
+      const own = singleLine(face)
+      const declarations = [
+        ...runCss(resolved.rPr, theme, true),
+        // A multiple of lines is of this style's font, as in Word.
+        `--word-single-line: ${own}`,
+        `--word-descent: ${wordDescent(face)}`,
+        ...paragraphCss(resolved.pPr, true, own, theme.colors),
+      ]
       const heading = /^Heading([1-6])$/i.exec(style.id)?.[1]
       const selector = heading ? `${page} h${heading}` : `${page} p[data-word-style="${cssString(style.id)}"]`
       css.push(rule(selector, declarations))
@@ -341,11 +604,14 @@ export function documentStyleSheet(doc: WordDocument): string {
       css.push(rule(`${page} [data-word-rstyle="${cssString(style.id)}"]`, runCss(resolved.rPr, theme, false)))
     }
   }
+  // Line numbers are drawn in the Line Number character style, which starts from the document defaults (not Normal).
+  const lineNumber = styles.has("LineNumber") ? resolveStyle("LineNumber", styles, defaults) : defaults
+  css.push(rule(`${page} .line-number`, runCss({ ...lineNumber.rPr, vertAlign: undefined }, theme, true)))
   return css.filter(Boolean).join("\n")
 }
 
 /** A Word border as a CSS border shorthand. */
-export function borderCss(border: Border | undefined) {
+export function borderCss(border: Border | undefined, colors?: Record<string, string>) {
   if (!border || border.value === "none" || border.value === "nil") {
     return "none"
   }
@@ -358,20 +624,29 @@ export function borderCss(border: Border | undefined) {
         : /dash/i.test(border.value)
           ? "dashed"
           : "solid"
-  const color = border.color && border.color !== "auto" ? `#${border.color}` : "#000000"
+  const fromTheme = border.colorTheme && colors && themeRefColor(border.colorTheme, colors)
+  const color = fromTheme ?? (border.color && border.color !== "auto" ? `#${border.color}` : "#000000")
   // A double line needs room for two strokes and the gap between them.
   return `${style === "double" ? Math.max(width * 3, 2.25) : width}pt ${style} ${color}`
 }
 
 /** The colour a cell's shading paints. */
-export function shadingColor(shading: Shading | undefined) {
+export function shadingColor(shading: Shading | undefined, colors?: Record<string, string>) {
   if (!shading) {
     return undefined
   }
   if (shading.value === "solid" && shading.color && shading.color !== "auto") {
-    return `#${shading.color}`
+    return (shading.colorTheme && colors && themeRefColor(shading.colorTheme, colors)) || `#${shading.color}`
   }
-  return shading.fill && shading.fill !== "auto" ? `#${shading.fill}` : undefined
+  if (!shading.fill || shading.fill === "auto") {
+    return undefined
+  }
+  // Word draws a theme fill from the theme, whatever hex was saved with it (a Style Set's, or an older theme's).
+  return (shading.fillTheme && colors && themeRefColor(shading.fillTheme, colors)) || `#${shading.fill}`
+}
+
+function themeRefColor(ref: ThemeColorRef, colors: Record<string, string>) {
+  return themeColor(ref.name, colors, ref.tint, ref.shade)
 }
 
 function twips(value: number | undefined) {
@@ -379,11 +654,15 @@ function twips(value: number | undefined) {
 }
 
 /** Custom properties that the base table rules (index.css) place on cell edges and padding. */
-export function tableVariables(borders: TableBorders | undefined, margins: CellMargins | undefined) {
+export function tableVariables(
+  borders: TableBorders | undefined,
+  margins: CellMargins | undefined,
+  colors?: Record<string, string>,
+) {
   const rules: string[] = []
   for (const side of ["top", "left", "bottom", "right", "insideH", "insideV"] as const) {
     if (borders?.[side]) {
-      rules.push(`--wb-${side}: ${borderCss(borders[side])}`)
+      rules.push(`--wb-${side}: ${borderCss(borders[side], colors)}`)
     }
   }
   for (const side of ["top", "left", "bottom", "right"] as const) {
@@ -406,25 +685,32 @@ function shadingPatternImage(shading: Shading | undefined) {
 }
 
 /** Borders, padding, shading and alignment of cells. */
-export function cellCss(part: {
-  borders?: TableBorders
-  margins?: CellMargins
-  shading?: Shading
-  vAlign?: TableStylePart["vAlign"]
-}) {
+export function cellCss(
+  part: {
+    borders?: TableBorders
+    margins?: CellMargins
+    shading?: Shading
+    vAlign?: TableStylePart["vAlign"]
+  },
+  colors?: Record<string, string>,
+) {
   const rules: string[] = []
   for (const side of ["top", "left", "bottom", "right"] as const) {
     if (part.borders?.[side]) {
-      rules.push(`border-${side}: ${borderCss(part.borders[side])}`)
+      rules.push(`border-${side}: ${borderCss(part.borders[side], colors)}`)
     }
     const margin = part.margins?.[side]
     if (margin && margin.type === "dxa") {
       rules.push(`padding-${side}: ${twips(margin.value)}`)
     }
   }
-  const color = shadingColor(part.shading)
+  const color = shadingColor(part.shading, colors)
   if (color) {
     rules.push(`background-color: ${color}`)
+    const auto = autoColorRule(color)
+    if (auto) {
+      rules.push(auto)
+    }
   }
   const diagonals = [
     ["tl2br", "to top right"],
@@ -434,7 +720,7 @@ export function cellCss(part: {
     if (!border || border.value === "none" || border.value === "nil") {
       return []
     }
-    const line = borderCss(border).split(" ").pop() ?? "#000000"
+    const line = borderCss(border, colors).split(" ").pop() ?? "#000000"
     return [
       `linear-gradient(${direction}, transparent calc(50% - 0.75px), ${line} calc(50% - 0.75px), ${line} calc(50% + 0.75px), transparent calc(50% + 0.75px))`,
     ]
@@ -528,12 +814,12 @@ function tableStyleCss(page: string, style: Style, styles: Map<string, Style>, t
   )
   const table = `${page} table[data-word-table-style="${cssString(style.id)}"]`
   const css = [
-    rule(table, tableVariables(whole.borders, whole.margins)),
-    rule(`${table} :where(td)`, cellCss({ shading: whole.shading, vAlign: whole.vAlign })),
+    rule(table, tableVariables(whole.borders, whole.margins, theme.colors)),
+    rule(`${table} :where(td)`, cellCss({ shading: whole.shading, vAlign: whole.vAlign }, theme.colors)),
     // Table style formatting reaches paragraphs that keep the default paragraph style, as in Word.
     rule(`${table} :where(td p:not([data-word-style]))`, [
       ...runCss(whole.rPr, theme, false),
-      ...paragraphCss(whole.pPr, false, line),
+      ...paragraphCss(whole.pPr, false, line, theme.colors),
     ]),
   ]
   for (const condition of Object.keys(CONDITION_CELLS) as TableCondition[]) {
@@ -545,11 +831,11 @@ function tableStyleCss(page: string, style: Style, styles: Map<string, Style>, t
       continue
     }
     for (const [look, cells] of CONDITION_CELLS[condition]) {
-      css.push(rule(`${table}:where(${look}) :where(${cells})`, cellCss(part)))
+      css.push(rule(`${table}:where(${look}) :where(${cells})`, cellCss(part, theme.colors)))
       css.push(
         rule(`${table}:where(${look}) :where(${cells} p)`, [
           ...runCss(part.rPr, theme, false),
-          ...paragraphCss(part.pPr, false, line),
+          ...paragraphCss(part.pPr, false, line, theme.colors),
         ]),
       )
     }

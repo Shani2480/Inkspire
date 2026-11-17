@@ -408,8 +408,26 @@ export function MenuFlyout({
   disabled?: boolean
   onEnter?: () => void
 }) {
+  // Opens to the left when the window has no room on the right (a menu near the window's right edge).
+  const place = (event: { currentTarget: HTMLDivElement }) => {
+    const flyout = event.currentTarget
+    delete flyout.dataset.side
+    requestAnimationFrame(() => {
+      const panel = flyout.querySelector<HTMLElement>(":scope > .menu-flyout-panel")
+      if (panel && panel.getBoundingClientRect().right > window.innerWidth - 4) {
+        flyout.dataset.side = "left"
+      }
+    })
+  }
   return (
-    <div className={`menu-flyout${disabled ? " is-disabled" : ""}`} onMouseEnter={onEnter}>
+    <div
+      className={`menu-flyout${disabled ? " is-disabled" : ""}`}
+      onMouseEnter={(event) => {
+        place(event)
+        onEnter?.()
+      }}
+      onFocus={place}
+    >
       <button
         type="button"
         className="shape-menu-row"

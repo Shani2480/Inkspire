@@ -1,7 +1,16 @@
+import { openFootnoteDialog } from "@/components/footnote-dialog"
+import { openNewSource, openPlaceholder, openSourceManager } from "@/components/source-dialogs"
+import { updateCitationsAndBibliography } from "@/editor/bibliography"
+import { openDefaultPaste, openPasteSpecial } from "@/components/paste-special-dialog"
 import { useProofing } from "@/ai/proofing"
 import { useEditorPane } from "@/editor/grammar"
 import { openCompare } from "@/components/compare-dialog"
 import { openCoverGenerator } from "@/components/cover-page-dialog"
+import { openInsertTableDialog } from "@/components/insert-table-dialog"
+import { openCaptionDialog, openCrossReferenceDialog } from "@/components/caption-dialogs"
+import { openIndexDialog, openMarkEntryDialog } from "@/components/index-dialogs"
+import { useTocDialog } from "@/components/toc-dialogs"
+import { useTableDraw } from "@/editor/table-draw"
 import { askText } from "@/components/text-prompt"
 import { useAiSettings } from "@/ai/settings"
 import { captureTemplatePlace } from "@/ai/template-place"
@@ -165,7 +174,23 @@ function buildCommands(): TellMeCommand[] {
       description: tip("Paste"),
       keywords: ["paste"],
       category: "Home",
-      run: () => withEditor((current) => void pasteFromClipboard(current, "merge")),
+      run: () => withEditor((current) => void pasteFromClipboard(current, "default")),
+    },
+    {
+      id: "edit.paste-special",
+      label: "Paste Special…",
+      description: "Paste the clipboard in a format you choose: HTML, unformatted text or a picture.",
+      keywords: ["paste special", "paste as", "unformatted", "picture"],
+      category: "Home",
+      run: () => withEditor((current) => void openPasteSpecial(current)),
+    },
+    {
+      id: "edit.set-default-paste",
+      label: "Set Default Paste…",
+      description: "Choose how Paste formats text from this document and from other programs.",
+      keywords: ["default paste", "paste options", "keep text only", "merge formatting"],
+      category: "Home",
+      run: () => openDefaultPaste(),
     },
     {
       id: "edit.bold",
@@ -321,14 +346,107 @@ function buildCommands(): TellMeCommand[] {
     },
     {
       id: "insert.table",
-      label: "Insert Table",
+      label: "Insert Table…",
       description: tip("Table"),
-      keywords: ["insert", "table"],
+      keywords: ["insert", "table", "rows", "columns"],
       category: "Insert",
-      run: () =>
-        withEditor((current) =>
-          insertAtSelectionEnd(current).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
-        ),
+      run: () => withEditor((current) => openInsertTableDialog(current, "insert")),
+    },
+    {
+      id: "insert.convert-text-to-table",
+      label: "Convert Text to Table…",
+      description: "Turn the selected paragraphs into a table, split at tabs, commas or paragraphs.",
+      keywords: ["convert", "text", "table"],
+      category: "Insert",
+      run: () => withEditor((current) => openInsertTableDialog(current, "convert")),
+    },
+    {
+      id: "references.table-of-figures",
+      label: "Insert Table of Figures…",
+      description: "List the figures, tables or equations with their captions and pages.",
+      keywords: ["table of figures", "figures", "list of tables", "captions"],
+      category: "References",
+      run: () => withEditor(() => useTocDialog.getState().open("figures")),
+    },
+    {
+      id: "references.mark-entry",
+      label: "Mark Entry…",
+      description: "Include the selected text in the index (Alt+Shift+X).",
+      keywords: ["index", "mark", "entry", "xe"],
+      category: "References",
+      run: () => withEditor((current) => openMarkEntryDialog(current)),
+    },
+    {
+      id: "references.insert-index",
+      label: "Insert Index…",
+      description: "List the marked entries with their page numbers.",
+      keywords: ["index", "insert index", "back of the book"],
+      category: "References",
+      run: () => withEditor((current) => openIndexDialog(current)),
+    },
+    {
+      id: "references.footnote-dialog",
+      label: "Footnote and Endnote…",
+      description: "Choose where notes go and how they are numbered, insert one, or convert footnotes and endnotes.",
+      keywords: ["footnote", "endnote", "note number", "convert notes", "custom mark", "numbering"],
+      category: "References",
+      run: () => withEditor((current) => openFootnoteDialog(current)),
+    },
+    {
+      id: "references.manage-sources",
+      label: "Manage Sources…",
+      description: "Copy, edit, add and delete sources in the document's list and your master list.",
+      keywords: ["source manager", "sources", "bibliography", "citation", "master list", "references"],
+      category: "References",
+      run: () => withEditor((current) => openSourceManager(current)),
+    },
+    {
+      id: "references.add-source",
+      label: "Add New Source…",
+      description: "Create a source (book, journal article, web site…) and cite it at the cursor.",
+      keywords: ["citation", "cite", "create source", "insert citation", "reference"],
+      category: "References",
+      run: () => withEditor((current) => openNewSource(current)),
+    },
+    {
+      id: "references.add-placeholder",
+      label: "Add New Placeholder…",
+      description: "Cite a source you will fill in later.",
+      keywords: ["citation", "placeholder", "cite later"],
+      category: "References",
+      run: () => withEditor((current) => openPlaceholder(current)),
+    },
+    {
+      id: "references.update-citations",
+      label: "Update Citations and Bibliography",
+      description: "Bring every citation and bibliography up to date with the sources and the style.",
+      keywords: ["update bibliography", "refresh citations", "works cited", "references"],
+      category: "References",
+      run: () => updateCitationsAndBibliography(),
+    },
+    {
+      id: "references.insert-caption",
+      label: "Insert Caption…",
+      description: "Add a numbered caption to a picture, table or equation.",
+      keywords: ["caption", "figure", "label", "number"],
+      category: "References",
+      run: () => withEditor((current) => openCaptionDialog(current)),
+    },
+    {
+      id: "references.cross-reference",
+      label: "Cross-reference…",
+      description: "Refer to a heading, bookmark, figure or table: its text, page number or above/below.",
+      keywords: ["cross", "reference", "ref", "page", "see"],
+      category: "References",
+      run: () => withEditor((current) => openCrossReferenceDialog(current)),
+    },
+    {
+      id: "insert.draw-table",
+      label: "Draw Table",
+      description: "Draw a table, its rows and columns with the pencil.",
+      keywords: ["draw", "table", "pencil"],
+      category: "Insert",
+      run: () => useTableDraw.getState().toggle("draw"),
     },
     {
       id: "insert.page-break",
@@ -460,6 +578,22 @@ function buildCommands(): TellMeCommand[] {
       keywords: ["layout", "print", "pages"],
       category: "View",
       run: () => useViewStore.getState().setLayoutMode("print"),
+    },
+    {
+      id: "view.outline",
+      label: "Outline",
+      description: "Show the document as an outline, to move and promote headings with the text under them.",
+      keywords: ["outline", "outlining", "headings", "promote", "demote", "collapse", "expand", "show level"],
+      category: "View",
+      run: () => useViewStore.getState().setLayoutMode("outline"),
+    },
+    {
+      id: "view.draft",
+      label: "Draft",
+      description: "Show the document as plain text without page layout.",
+      keywords: ["draft", "normal view"],
+      category: "View",
+      run: () => useViewStore.getState().setLayoutMode("draft"),
     },
     {
       id: "view.web-layout",

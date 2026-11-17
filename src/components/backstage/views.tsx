@@ -31,6 +31,16 @@ import { placeCopy, printCopy } from "@/document/print-copy"
 import { defaultPictureWrap, setDefaultPictureWrap } from "@/document/object-layout"
 import { WRAP_CHOICES } from "@/editor/objects"
 import { useBodyEditor } from "@/editor/document-editor"
+import { useInspectDialog } from "@/components/inspect-dialog"
+import {
+  ManageDocumentCard,
+  ProtectDocumentCard,
+  recoverUnsavedDocuments,
+  VersionHistoryCard,
+} from "@/components/backstage/info-protect"
+import { LanguagePage, ProofingPage } from "@/components/backstage/proofing-pages"
+import { FontsPage } from "@/components/backstage/fonts-page"
+import { INSPECT_KINDS, inspectDocument } from "@/document/inspect"
 import { useEditorState } from "@tiptap/react"
 import { MARGIN_PRESETS, marginPresetId, pageMetrics } from "@/document/page-setup"
 import {
@@ -42,7 +52,7 @@ import {
   useEditingOptions,
 } from "@/document/editing-options"
 import { useUserSettings } from "@/document/user-settings"
-import { FileDown, FileText, FolderOpen, Monitor, Printer } from "lucide-react"
+import { FileDown, FileSearch, FileText, FolderOpen, Monitor, Printer } from "lucide-react"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 
 export function HomeView() {
@@ -278,7 +288,11 @@ export function OpenView() {
               ))}
             </ul>
           )}
-          <button type="button" className="backstage-secondary-btn backstage-recover-btn" onClick={browse}>
+          <button
+            type="button"
+            className="backstage-secondary-btn backstage-recover-btn"
+            onClick={() => void recoverUnsavedDocuments()}
+          >
             Recover Unsaved Documents
           </button>
         </div>
@@ -342,10 +356,7 @@ export function InfoView() {
   const path = useDocumentStore((state) => state.currentFilePath)
   const html = useDocumentStore((state) => state.documentHTML)
   const props = useDocumentStore((state) => state.documentProps)
-  const isDirty = useDocumentStore((state) => state.isDirty)
-  const readOnly = useDocumentStore((state) => state.readOnly)
   const setDocumentProps = useDocumentStore((state) => state.setDocumentProps)
-  const setReadOnly = useDocumentStore((state) => state.setReadOnly)
   const editor = useBodyEditor()
   const [showAll, setShowAll] = useState(false)
   const stats = useEditorState({
@@ -364,6 +375,11 @@ export function InfoView() {
     },
   })
 
+  // What the Document Inspector would find, read each time Info is shown (it reads the document as it is now).
+  const inspectSummary = inspectDocument(editor)
+    .filter((finding) => finding.found.length)
+    .map((finding) => INSPECT_KINDS.find((item) => item.kind === finding.kind)!.title)
+
   const sizeLabel = path ? `${Math.max(1, Math.round(new Blob([html]).size / 1024))} KB` : "Not saved yet"
   const editTime = formatDuration(props.totalEditingMs)
 
@@ -378,44 +394,39 @@ export function InfoView() {
               {path ?? "Not saved yet — this document only exists in memory."}
             </p>
           </div>
-          <div className="backstage-action-cards">
-            <button type="button" className="backstage-action-card" onClick={() => setReadOnly(!readOnly)}>
-              <strong>Protect Document</strong>
-              <em>Control what types of changes people can make to this document.</em>
-              <span>{readOnly ? "Allow Editing" : "Mark as Final"}</span>
-            </button>
-            <button
-              type="button"
-              className="backstage-action-card"
-              onClick={() => {
-                if (!editor) {
-                  return
-                }
-                const { from, to, empty } = editor.state.selection
-                const chain = editor.chain().focus()
-                if (empty) {
-                  chain.selectAll()
-                } else {
-                  chain.setTextSelection({ from, to })
-                }
-                chain.unsetAllMarks().run()
-              }}
-            >
-              <strong>Inspect Document</strong>
-              <em>Check for Issues</em>
-              <span>
-                Before publishing this file, be aware that it contains:
-                <br />
-                Document properties and author’s name
-                <br />
-                Custom XML data
-              </span>
-            </button>
-            <button type="button" className="backstage-action-card" disabled>
-              <strong>Manage Document</strong>
-              <em>Manage Document</em>
-              <span>{isDirty ? "There are unsaved changes." : "There are no unsaved changes."}</span>
-            </button>
+          <div className="backstage-info-rows">
+            <ProtectDocumentCard />
+            <div className="backstage-info-row">
+              <div className="backstage-info-trigger-wrap">
+                <button
+                  type="button"
+                  className="backstage-info-trigger"
+                  onClick={() => useInspectDialog.getState().show()}
+                >
+                  <span className="backstage-info-trigger-icon">
+                    <FileSearch className="size-7" strokeWidth={1.5} />
+                  </span>
+                  <span className="backstage-info-trigger-label">Check for Issues</span>
+                </button>
+              </div>
+              <div className="backstage-info-text">
+                <h3>Inspect Document</h3>
+                {inspectSummary.length ? (
+                  <>
+                    <p>Before publishing this file, be aware that it contains:</p>
+                    <ul>
+                      {inspectSummary.map((title) => (
+                        <li key={title}>{title}</li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p>Nothing was found that you may want to remove before sharing this file.</p>
+                )}
+              </div>
+            </div>
+            <VersionHistoryCard />
+            <ManageDocumentCard />
           </div>
         </div>
         <aside className="backstage-card backstage-props">
@@ -545,7 +556,11 @@ export function SaveAsView() {
   const path = useDocumentStore((state) => state.currentFilePath)
   const props = useDocumentStore((state) => state.documentProps)
   const [name, setName] = useState(props.title || documentName(path).replace(/\.[^.]+$/, "") || "Document")
-  const [format, setFormat] = useState("docx")
+  // A template or macro-enabled document is offered as its own type first, as in Word.
+  const [format, setFormat] = useState(() => {
+    const ext = /\.(docx|docm|dotx|dotm)$/i.exec(path ?? "")?.[1]?.toLowerCase()
+    return ext ?? "docx"
+  })
   const [place, setPlace] = useState("recent")
 
   const save = () => {
@@ -592,6 +607,9 @@ export function SaveAsView() {
               <span>File format</span>
               <select value={format} onChange={(event) => setFormat(event.target.value)}>
                 <option value="docx">Word Document (.docx)</option>
+                <option value="docm">Word Macro-Enabled Document (.docm)</option>
+                <option value="dotx">Word Template (.dotx)</option>
+                <option value="dotm">Word Macro-Enabled Template (.dotm)</option>
                 <option value="odt">OpenDocument Text (.odt)</option>
                 <option value="rtf">Rich Text (.rtf)</option>
                 <option value="pdf">PDF (.pdf)</option>
@@ -1124,9 +1142,7 @@ export function AddInsView() {
   )
 }
 
-export function HistoryView() {
-  return <StubView title="History" detail="Version history will appear here in a future update." />
-}
+export { HistoryView } from "@/components/backstage/info-protect"
 
 export function ShareView() {
   const closeBackstage = useBackstage((state) => state.closeBackstage)
@@ -1194,6 +1210,7 @@ export type OptionsPage =
   | "proofing"
   | "save"
   | "language"
+  | "fonts"
   | "accessibility"
   | "advanced"
   | "ribbon"
@@ -1207,6 +1224,7 @@ const OPTION_PAGES: { id: OptionsPage; label: string }[] = [
   { id: "proofing", label: "Proofing" },
   { id: "save", label: "Save" },
   { id: "language", label: "Language" },
+  { id: "fonts", label: "Fonts" },
   { id: "accessibility", label: "Accessibility" },
   { id: "advanced", label: "Advanced" },
   { id: "ribbon", label: "Customize Ribbon" },
@@ -1246,8 +1264,6 @@ export function OptionsPages({ initialPage = "general" }: { initialPage?: Option
   const setDocumentProps = useDocumentStore((state) => state.setDocumentProps)
   const ribbonLayout = useViewStore((state) => state.ribbonLayout)
   const setRibbonLayout = useViewStore((state) => state.setRibbonLayout)
-  const spellCheck = useViewStore((state) => state.spellCheck)
-  const toggleSpellCheck = useViewStore((state) => state.toggleSpellCheck)
   const settings = {
     locale: useUserSettings((state) => state.locale),
     dateFormat: useUserSettings((state) => state.dateFormat),
@@ -1441,18 +1457,26 @@ export function OptionsPages({ initialPage = "general" }: { initialPage?: Option
                 </select>
               </label>
             ))}
-            <UnavailableOptions
-              items={[
-                "When selecting, automatically select entire word",
-                "Use smart paragraph selection",
-                "Use smart cursoring",
-                "Prompt to update style",
-                "Keep track of formatting",
-                "Enable click and type",
-                "Show Paste Options button when content is pasted",
-                "Show AutoComplete suggestions",
-              ]}
-            />
+            {(
+              [
+                ["selectEntireWord", "When selecting, automatically select entire word"],
+                ["smartParagraphSelection", "Use smart paragraph selection"],
+                ["smartCursoring", "Use smart cursoring"],
+                ["clickAndType", "Enable click and type"],
+                ["pasteOptionsButton", "Show Paste Options button when content is pasted"],
+                ["autoComplete", "Show AutoComplete suggestions"],
+              ] as const
+            ).map(([name, label]) => (
+              <label key={name} className="backstage-check">
+                <input
+                  type="checkbox"
+                  checked={editing[name]}
+                  onChange={(event) => editing.set({ [name]: event.target.checked })}
+                />{" "}
+                {label}
+              </label>
+            ))}
+            <UnavailableOptions items={["Prompt to update style", "Keep track of formatting"]} />
             <h3 className="backstage-card-title">Show document content</h3>
             {(
               [
@@ -1560,61 +1584,9 @@ export function OptionsPages({ initialPage = "general" }: { initialPage?: Option
           </section>
         )}
         {page === "advanced" && <ShortcutSettings />}
-        {page === "proofing" && (
-          <section className="backstage-card">
-            <h2 className="backstage-card-title">Proofing</h2>
-            <label className="backstage-check">
-              <input type="checkbox" checked={spellCheck} onChange={toggleSpellCheck} /> Check spelling as you type
-            </label>
-            {(
-              [
-                ["ignoreUppercase", "Ignore words in UPPERCASE"],
-                ["ignoreNumbers", "Ignore words that contain numbers"],
-                ["ignoreAddresses", "Ignore Internet and file addresses"],
-                ["flagRepeated", "Flag repeated words"],
-              ] as const
-            ).map(([name, label]) => (
-              <label key={name} className="backstage-check">
-                <input
-                  type="checkbox"
-                  checked={editing[name]}
-                  onChange={(event) => editing.set({ [name]: event.target.checked })}
-                />{" "}
-                {label}
-              </label>
-            ))}
-            <label className="backstage-check">
-              <input
-                type="checkbox"
-                checked={editing.mainDictionaryOnly}
-                onChange={(event) => editing.set({ mainDictionaryOnly: event.target.checked })}
-              />{" "}
-              Suggest from main dictionary only
-            </label>
-            <label className="backstage-check">
-              <input
-                type="checkbox"
-                checked={editing.readability}
-                onChange={(event) => editing.set({ readability: event.target.checked })}
-              />{" "}
-              Show readability statistics (in Word Count)
-            </label>
-            <UnavailableOptions items={["Mark grammar errors as you type"]} />
-          </section>
-        )}
-        {page === "language" && (
-          <section className="backstage-card">
-            <h2 className="backstage-card-title">Language</h2>
-            <dl className="backstage-defaults">
-              <dt>Language</dt>
-              <dd>{settings.locale || "Not set"}</dd>
-              <dt>Date format</dt>
-              <dd>{settings.dateFormat || "Not set"}</dd>
-            </dl>
-            <p className="backstage-muted">These come from the first-run setup. Change them by running it again.</p>
-            <UnavailableOptions items={["Choose editing languages", "Display language", "Help language"]} />
-          </section>
-        )}
+        {page === "proofing" && <ProofingPage />}
+        {page === "language" && <LanguagePage locale={settings.locale} dateFormat={settings.dateFormat} />}
+        {page === "fonts" && <FontsPage />}
         {page === "accessibility" && (
           <section className="backstage-card">
             <h2 className="backstage-card-title">Accessibility</h2>

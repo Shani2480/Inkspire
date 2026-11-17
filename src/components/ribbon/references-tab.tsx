@@ -1,28 +1,22 @@
+import { openFootnoteDialog } from "@/components/footnote-dialog"
+import { openCaptionDialog, openCrossReferenceDialog } from "@/components/caption-dialogs"
 import { MenuButton, RibbonCommand, RibbonGroup } from "@/components/ribbon/ribbon-button"
 import { LineCitationIcon, LineContentsIcon, LineEndnoteIcon, LineFootnoteIcon } from "@/components/ribbon/line-icons"
 import { SingleLineBar, type LineCommand, type LineGroup } from "@/components/ribbon/single-line"
-import {
-  CITATION_STYLES,
-  deleteSource,
-  formatBibliographyEntry,
-  formatCitation,
-  loadCitationStyle,
-  loadSources,
-  saveCitationStyle,
-  saveSource,
-  type CitationSource,
-  type CitationStyle,
-} from "@/document/sources"
+import { BIB_STYLES, isPlaceholder, mainNames, namesText, styleInfo, type BibSource } from "@/document/bibliography"
+import { useBibliography } from "@/document/bibliography-store"
+import { openNewSource, openPlaceholder, openSourceManager } from "@/components/source-dialogs"
+import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
 import { updateBlocks } from "@/editor/block-format"
 import { AUTHORITY_CATEGORIES, type AuthorityCategory } from "@/editor/authorities"
 import { useDocumentEditor } from "@/editor/document-editor"
-import { listHeadings, listNotes, nextCaption } from "@/editor/insert-blocks"
+import { listNotes } from "@/editor/insert-blocks"
 import { chainWithSelection, insertAtSelectionEnd, restoreSelection } from "@/editor/selection-memory"
 import { useEditorState } from "@tiptap/react"
 import { useState } from "react"
-import { DialogFrame } from "@/components/word-dialog"
-import { useTocDialog } from "@/components/toc-dialogs"
+import { hasTableOfFigures, useTocDialog } from "@/components/toc-dialogs"
+import { openIndexDialog, openMarkEntryDialog } from "@/components/index-dialogs"
 import { DEFAULT_TOC_INSTRUCTION, tocLevels } from "@/document/toc"
 
 /** Word's two built-in tables, which differ only in their heading. */
@@ -36,16 +30,11 @@ export function ReferencesTab() {
   const openTocDialog = useTocDialog((state) => state.open)
   const openFind = useViewStore((state) => state.openFind)
   const ribbonLayout = useViewStore((state) => state.ribbonLayout)
-  const [sources, setSources] = useState<CitationSource[]>(() => loadSources())
-  const [style, setStyle] = useState<CitationStyle>(() => loadCitationStyle())
-  const [managing, setManaging] = useState(false)
+  const sources = useBibliography((state) => state.sources)
+  const style = useBibliography((state) => state.style)
   const notes = useEditorState({
     editor,
     selector: ({ editor: current }) => (current ? listNotes(current.state.doc) : []),
-  })
-  const headings = useEditorState({
-    editor,
-    selector: ({ editor: current }) => (current ? listHeadings(current.state.doc) : []),
   })
   /** The levels the document's table of contents shows, or 0 when it has none. */
   const tocDepth = useEditorState({
@@ -66,15 +55,14 @@ export function ReferencesTab() {
     editor,
     selector: ({ editor: current }) => hasNode(current, "documentIndex"),
   })
+  const hasFigures = useEditorState({
+    editor,
+    selector: ({ editor: current }) => (current ? hasTableOfFigures(current) : false),
+  })
   const hasAuthorities = useEditorState({
     editor,
     selector: ({ editor: current }) => hasNode(current, "authoritiesTable"),
   })
-
-  function applyStyle(next: CitationStyle) {
-    saveCitationStyle(next)
-    setStyle(next)
-  }
 
   const off = !editor
   const noNotes = off || (notes?.length ?? 0) === 0
@@ -189,32 +177,52 @@ export function ReferencesTab() {
     }
   }
   const citationList = (close: () => void) =>
-    sources.map((source, index) => (
+    sources.map((source) => (
       <MenuButton
-        key={source.id}
+        key={source.tag}
+        className="h-auto flex-col items-start gap-0 py-1"
         onClick={() => {
           editor &&
             chainWithSelection(editor)
-              .insertContent(formatCitation(source, style, index + 1))
+              .insertCitation({ tags: [source.tag] })
               .run()
           close()
         }}
       >
-        {source.author}
-        {source.year ? ` (${source.year})` : ""}
+        <SourceItem source={source} />
       </MenuButton>
     ))
   const citationMenu = (close: () => void) => (
-    <div className="flex max-h-56 w-64 flex-col overflow-auto">{citationList(close)}</div>
+    <div className="flex w-72 flex-col">
+      {sources.length > 0 ? <div className="flex max-h-72 flex-col overflow-y-auto">{citationList(close)}</div> : null}
+      {sources.length > 0 ? <div className="my-1 border-t border-black/10" /> : null}
+      <MenuButton
+        onClick={() => {
+          openNewSource(editor)
+          close()
+        }}
+      >
+        Add New Source…
+      </MenuButton>
+      <MenuButton
+        onClick={() => {
+          openPlaceholder(editor)
+          close()
+        }}
+      >
+        Add New Placeholder…
+      </MenuButton>
+    </div>
   )
   const styleMenu = (close: () => void) => (
-    <div className="flex w-36 flex-col">
-      {CITATION_STYLES.map((item) => (
+    <div className="flex w-56 flex-col">
+      {BIB_STYLES.map((item) => (
         <MenuButton
           key={item.id}
           selected={style === item.id}
           onClick={() => {
-            applyStyle(item.id)
+            useBibliography.getState().setStyle(item.id)
+            useDocumentStore.setState({ isDirty: true })
             close()
           }}
         >
@@ -223,61 +231,36 @@ export function ReferencesTab() {
       ))}
     </div>
   )
-  const insertBibliography = () => {
-    if (!editor) {
-      return
+  const insertBibliography = (heading?: string) => {
+    if (editor) {
+      chainWithSelection(editor).insertBibliography(heading).run()
     }
-    const html = [
-      `<h2>${style === "mla" ? "Works Cited" : style === "chicago" ? "Bibliography" : "References"}</h2>`,
-      ...sources.map((source, index) => `<p>${formatBibliographyEntry(source, style, index + 1)}</p>`),
-    ].join("")
-    chainWithSelection(editor).insertContent(html).run()
   }
   const bibliographyMenu = (close: () => void) => (
-    <div className="flex w-48 flex-col">
+    <div className="flex w-64 flex-col">
+      <p className="px-2 pt-1 pb-0.5 text-[11px] font-semibold text-neutral-500">Built-In</p>
+      {BIBLIOGRAPHY_GALLERY.map((heading) => (
+        <MenuButton
+          key={heading}
+          className="h-auto flex-col items-stretch gap-1 py-1.5"
+          onClick={() => {
+            insertBibliography(heading)
+            close()
+          }}
+        >
+          <span className="text-xs font-semibold">{heading}</span>
+          <BibliographyThumbnail title={heading} />
+        </MenuButton>
+      ))}
+      <div className="my-1 border-t border-black/10" />
       <MenuButton
         onClick={() => {
           insertBibliography()
           close()
         }}
       >
-        Insert bibliography
+        Insert Bibliography
       </MenuButton>
-    </div>
-  )
-  const captionMenu = (close: () => void) => (
-    <div className="flex w-36 flex-col">
-      {(["Figure", "Table"] as const).map((label) => (
-        <MenuButton
-          key={label}
-          onClick={() => {
-            if (editor) {
-              chainWithSelection(editor)
-                .insertContent(`<p>${label} ${nextCaption(editor.state.doc, label)}. </p>`)
-                .run()
-            }
-            close()
-          }}
-        >
-          {label}
-        </MenuButton>
-      ))}
-    </div>
-  )
-  const crossReferenceMenu = (close: () => void) => (
-    <div className="flex max-h-56 w-56 flex-col overflow-auto">
-      {(headings ?? []).map((heading) => (
-        <MenuButton
-          key={heading.pos}
-          onClick={() => {
-            editor && chainWithSelection(editor).insertContent(heading.text).run()
-            close()
-          }}
-        >
-          {heading.text}
-        </MenuButton>
-      ))}
-      {(headings?.length ?? 0) === 0 ? <p className="px-2 py-1 text-xs text-neutral-500">No headings yet.</p> : null}
     </div>
   )
   const authorityMenu = (close: () => void) => (
@@ -299,10 +282,6 @@ export function ReferencesTab() {
       ))}
     </div>
   )
-  const sourcesDialog = managing ? (
-    <SourceDialog sources={sources} onChange={setSources} onClose={() => setManaging(false)} />
-  ) : null
-
   if (ribbonLayout === "single") {
     // Word for the web's single line References tab (`screenshots/ribbon/`); the rest of the classic tab is under
     // More options.
@@ -338,20 +317,20 @@ export function ReferencesTab() {
         icon: <LineCitationIcon />,
         priority: 1,
         menu: (close) => (
-          <div className="flex max-h-80 w-64 flex-col overflow-auto">
-            {citationList(close)}
-            {sources.length === 0 ? <p className="px-2 py-1 text-xs text-neutral-500">No sources yet.</p> : null}
+          <div className="flex w-72 flex-col">
+            <p className="px-2 pt-1 pb-0.5 text-[11px] font-semibold text-neutral-500">Insert Citation</p>
+            {citationMenu(close)}
             <div className="my-1 border-t border-black/10" />
             <MenuButton
               onClick={() => {
-                setManaging(true)
+                openSourceManager(editor)
                 close()
               }}
             >
               Manage Sources…
             </MenuButton>
             <MenuButton
-              className={sources.length === 0 || off ? "pointer-events-none opacity-50" : undefined}
+              className={off ? "pointer-events-none opacity-50" : undefined}
               onClick={() => {
                 insertBibliography()
                 close()
@@ -385,6 +364,13 @@ export function ReferencesTab() {
         commands: [
           { id: "next-footnote", label: "Next Footnote", icon: <NextIcon />, disabled: noNotes, menu: nextNoteMenu },
           { id: "show-notes", label: "Show Notes", icon: <NoteIcon />, disabled: noNotes, onClick: showNotes },
+          {
+            id: "footnote-dialog",
+            label: "Footnote and Endnote…",
+            icon: <NoteIcon />,
+            disabled: off,
+            onClick: () => openFootnoteDialog(editor),
+          },
         ],
       },
       {
@@ -396,27 +382,33 @@ export function ReferencesTab() {
       {
         id: "captions",
         commands: [
-          { id: "insert-caption", label: "Insert Caption", icon: <CaptionIcon />, disabled: off, menu: captionMenu },
+          {
+            id: "insert-caption",
+            label: "Insert Caption",
+            icon: <CaptionIcon />,
+            disabled: off,
+            onClick: () => openCaptionDialog(editor),
+          },
           {
             id: "table-of-figures",
             label: "Insert Table of Figures",
             icon: <ListIcon />,
             disabled: off,
-            onClick: () => editor?.chain().focus().insertFigureTable().run(),
+            onClick: () => openTocDialog("figures"),
           },
           {
             id: "update-figures",
             label: "Update Table of Figures",
             icon: <RefreshIcon />,
-            disabled: off,
-            onClick: () => editor?.chain().focus().refreshFigureTable().run(),
+            disabled: off || !hasFigures,
+            onClick: () => openTocDialog("updateFigures"),
           },
           {
             id: "cross-reference",
             label: "Cross-reference",
             icon: <NextIcon />,
             disabled: off,
-            menu: crossReferenceMenu,
+            onClick: () => openCrossReferenceDialog(editor),
           },
         ],
       },
@@ -428,14 +420,14 @@ export function ReferencesTab() {
             label: "Mark Entry",
             icon: <MarkIcon />,
             disabled: off,
-            onClick: () => editor?.chain().focus().markIndexEntry().run(),
+            onClick: () => openMarkEntryDialog(editor),
           },
           {
             id: "insert-index",
             label: "Insert Index",
             icon: <ListIcon />,
             disabled: off,
-            onClick: () => editor?.chain().focus().insertDocumentIndex().run(),
+            onClick: () => openIndexDialog(editor),
           },
           {
             id: "update-index",
@@ -471,7 +463,6 @@ export function ReferencesTab() {
     return (
       <>
         <SingleLineBar label="References" groups={[{ id: "references", commands: row }]} more={more} />
-        {sourcesDialog}
       </>
     )
   }
@@ -498,7 +489,12 @@ export function ReferencesTab() {
         </div>
       </RibbonGroup>
 
-      <RibbonGroup label="Footnotes" className="shrink-0">
+      <RibbonGroup
+        label="Footnotes"
+        className="shrink-0"
+        onLaunch={() => openFootnoteDialog(editor)}
+        launchLabel="Footnote and Endnote"
+      >
         <RibbonCommand label="Insert Footnote" disabled={off} menu={footnoteMenu}>
           <NoteIcon />
         </RibbonCommand>
@@ -522,31 +518,26 @@ export function ReferencesTab() {
       </RibbonGroup>
 
       <RibbonGroup label="Citations & Bibliography" className="shrink-0">
-        <RibbonCommand label="Insert Citation" disabled={off || sources.length === 0} menu={citationMenu}>
+        <RibbonCommand label="Insert Citation" disabled={off} menu={citationMenu}>
           <CiteIcon />
         </RibbonCommand>
         <div className="ribbon-side-stack">
-          <RibbonCommand size="small" label="Manage Sources" onClick={() => setManaging(true)}>
+          <RibbonCommand size="small" label="Manage Sources" disabled={off} onClick={() => openSourceManager(editor)}>
             <SourcesIcon />
           </RibbonCommand>
           <RibbonCommand size="small" label="Style" menu={styleMenu}>
             <span className="text-[11px] font-semibold text-[var(--app-ribbon-text)]">
-              {CITATION_STYLES.find((item) => item.id === style)?.label ?? "APA"}
+              {styleInfo(style).styleName}
             </span>
           </RibbonCommand>
-          <RibbonCommand
-            size="small"
-            label="Bibliography"
-            disabled={off || sources.length === 0}
-            menu={bibliographyMenu}
-          >
+          <RibbonCommand size="small" label="Bibliography" disabled={off} menu={bibliographyMenu}>
             <ListIcon />
           </RibbonCommand>
         </div>
       </RibbonGroup>
 
       <RibbonGroup label="Captions" className="shrink-0">
-        <RibbonCommand label="Insert Caption" disabled={off} menu={captionMenu}>
+        <RibbonCommand label="Insert Caption" disabled={off} onClick={() => openCaptionDialog(editor)}>
           <CaptionIcon />
         </RibbonCommand>
         <div className="ribbon-side-stack">
@@ -554,25 +545,25 @@ export function ReferencesTab() {
             size="small"
             label="Insert Table of Figures"
             disabled={off}
-            onClick={() => editor?.chain().focus().insertFigureTable().run()}
+            onClick={() => openTocDialog("figures")}
           >
             <ListIcon />
           </RibbonCommand>
           <RibbonCommand
             size="small"
             label="Update Table"
-            description="Refresh the table of figures so it matches the captions."
-            disabled={off}
-            onClick={() => editor?.chain().focus().refreshFigureTable().run()}
+            description="Update the table of figures to include all of the entries in the document."
+            disabled={off || !hasFigures}
+            onClick={() => openTocDialog("updateFigures")}
           >
             <RefreshIcon />
           </RibbonCommand>
           <RibbonCommand
             size="small"
             label="Cross-reference"
-            description="Insert the text of a heading from this document."
+            description="Refer to a heading, bookmark, figure or table, as text, its page or above/below."
             disabled={off}
-            menu={crossReferenceMenu}
+            onClick={() => openCrossReferenceDialog(editor)}
           >
             <NextIcon />
           </RibbonCommand>
@@ -580,16 +571,16 @@ export function ReferencesTab() {
       </RibbonGroup>
 
       <RibbonGroup label="Index" className="shrink-0">
-        <RibbonCommand label="Mark Entry" disabled={off} onClick={() => editor?.chain().focus().markIndexEntry().run()}>
+        <RibbonCommand
+          label="Mark Entry"
+          description="Include the selected text in the index of your document (Alt+Shift+X)."
+          disabled={off}
+          onClick={() => openMarkEntryDialog(editor)}
+        >
           <MarkIcon />
         </RibbonCommand>
         <div className="ribbon-side-stack">
-          <RibbonCommand
-            size="small"
-            label="Insert Index"
-            disabled={off}
-            onClick={() => editor?.chain().focus().insertDocumentIndex().run()}
-          >
+          <RibbonCommand size="small" label="Insert Index" disabled={off} onClick={() => openIndexDialog(editor)}>
             <ListIcon />
           </RibbonCommand>
           <RibbonCommand
@@ -627,8 +618,6 @@ export function ReferencesTab() {
           </RibbonCommand>
         </div>
       </RibbonGroup>
-
-      {sourcesDialog}
     </div>
   )
 }
@@ -679,81 +668,38 @@ function NoteMenu({
   )
 }
 
-function SourceDialog({
-  sources,
-  onChange,
-  onClose,
-}: {
-  sources: CitationSource[]
-  onChange: (sources: CitationSource[]) => void
-  onClose: () => void
-}) {
-  const [author, setAuthor] = useState("")
-  const [title, setTitle] = useState("")
-  const [year, setYear] = useState("")
+/** Word's built-in bibliographies: the same list under different headings. */
+const BIBLIOGRAPHY_GALLERY = ["Bibliography", "References", "Works Cited"]
+
+/** A source as Insert Citation lists it: the author, then the title and year. */
+function SourceItem({ source }: { source: BibSource }) {
+  if (isPlaceholder(source)) {
+    return <span className="text-sm">{source.tag}</span>
+  }
+  const author = namesText(mainNames(source)) || source.fields.Title || source.tag
+  const rest = [source.fields.Title, source.fields.Year ? `(${source.fields.Year})` : ""].filter(Boolean).join(", ")
   return (
-    <DialogFrame
-      title="Manage sources"
-      width={440}
-      onClose={onClose}
-      onSubmit={(event) => {
-        event.preventDefault()
-        onChange(saveSource({ author, title, year }))
-        setAuthor("")
-        setTitle("")
-        setYear("")
-      }}
+    <>
+      <span className="max-w-64 truncate text-sm font-semibold">{author}</span>
+      {rest ? <span className="max-w-64 truncate text-xs">{rest}</span> : null}
+    </>
+  )
+}
+
+/** A bibliography in miniature, as Word's gallery shows each built-in one. */
+function BibliographyThumbnail({ title }: { title: string }) {
+  return (
+    <span
+      className="flex flex-col gap-0.5 rounded-sm border border-black/10 bg-white px-2 py-1.5 text-left"
+      data-keep-light
     >
-      <div className="mt-3 flex max-h-48 flex-col gap-1 overflow-auto">
-        {sources.map((source) => (
-          <div key={source.id} className="flex items-center justify-between gap-2 text-sm">
-            <span className="truncate">
-              {source.author}
-              {source.year ? ` (${source.year})` : ""} — {source.title}
-            </span>
-            <button
-              type="button"
-              className="text-xs text-neutral-500"
-              onClick={() => onChange(deleteSource(source.id))}
-            >
-              Remove
-            </button>
-          </div>
-        ))}
-        {sources.length === 0 ? <p className="text-xs text-neutral-500">No sources yet.</p> : null}
-      </div>
-      <div className="mt-3 grid grid-cols-3 gap-2">
-        <input
-          aria-label="Author"
-          value={author}
-          placeholder="Author"
-          className="dialog-btn"
-          onChange={(event) => setAuthor(event.target.value)}
-        />
-        <input
-          aria-label="Title"
-          value={title}
-          placeholder="Title"
-          className="dialog-btn"
-          onChange={(event) => setTitle(event.target.value)}
-        />
-        <input
-          aria-label="Year"
-          value={year}
-          placeholder="Year"
-          className="dialog-btn"
-          onChange={(event) => setYear(event.target.value)}
-        />
-      </div>
-      <div className="word-dialog-actions">
-        <button type="submit" className="dialog-btn is-primary">
-          Add
-        </button>
-        <button type="button" className="dialog-btn" onClick={onClose}>
-          Close
-        </button>
-      </div>
-    </DialogFrame>
+      <span className="text-[11px] font-semibold text-[#2f5496]">{title}</span>
+      {["Chen, J. (2003). Citations and References.", "Haas, J. (2005). Creating a Formal Publication."].map((line) => (
+        <span key={line} className="pl-2 -indent-2 text-[9px] text-neutral-700">
+          {line}
+        </span>
+      ))}
+    </span>
   )
 }
 

@@ -3,7 +3,12 @@ import { SplashScreen, setSplashLoadingStatus } from "@/components/splash-screen
 import { isLaunchWindow } from "@/document/windows"
 import { useWindowChrome } from "@/lib/window-chrome"
 
-const Workspace = lazy(() => import("@/workspace"))
+const Workspace = lazy(() =>
+  import("@/workspace").then((module) => {
+    setSplashLoadingStatus("Opening Inkspire...", 0.7)
+    return module
+  }),
+)
 
 /** Decided once, before the first render: only the app's first window shows the splash screen. */
 const SHOW_SPLASH = isLaunchWindow()
@@ -17,7 +22,7 @@ function App() {
   }, [])
 
   useEffect(() => {
-    setSplashLoadingStatus("Loading modules...")
+    setSplashLoadingStatus("Loading modules...", 0.25)
     setStartWorkspace(true)
   }, [])
 

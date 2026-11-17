@@ -34,10 +34,19 @@
     "allow-local-ai-cancel-install",
     "allow-local-ai-remove",
     "allow-list-system-fonts",
+    "allow-edit-in-cells",
+    "allow-edit-copy-modified",
+    "allow-read-edit-copy",
+    "allow-reveal-document",
+    "allow-email-document",
+    "allow-system-defaults",
+    "allow-convert-legacy-document",
+    "allow-read-settings-file",
+    "allow-write-settings-file",
     "dialog:default",
     {
       "identifier": "opener:allow-open-url",
-      "allow": [{ "url": "https://github.com/Shani2480/AiWord/*" }, { "url": "mailto:*" }]
+      "allow": [{ "url": "https://github.com/Shani2480/AiWord/*" }, { "url": "mailto:*" }, { "url": "https://www.microsoft.com/en-us/download/details.aspx?id=106087" }]
     },
     "fs:allow-read-file",
     "fs:allow-write-file",

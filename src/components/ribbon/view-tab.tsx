@@ -15,7 +15,7 @@ import {
 } from "@/components/ribbon/line-icons"
 import { SingleLineBar, type LineCommand, type LineGroup } from "@/components/ribbon/single-line"
 import { THEME_OPTIONS, isGradientTheme, themeAccentColor } from "@/document/theme"
-import { clampZoom, useViewStore, type LayoutMode } from "@/document/view"
+import { useViewStore, type LayoutMode } from "@/document/view"
 import { useDocumentStore } from "@/document/store"
 import { WINDOW_ID, focusWindow, openWindow as openNewWindow, useOpenWindows } from "@/document/windows"
 import { isAndroid } from "@/lib/platform"
@@ -24,6 +24,7 @@ import { listNotes } from "@/editor/insert-blocks"
 import { useEditorState } from "@tiptap/react"
 import { useState, type ReactNode } from "react"
 import { DialogFrame } from "@/components/word-dialog"
+import { ZoomDialog } from "@/components/status-dialogs"
 
 export function ViewTab() {
   const editor = useDocumentEditor()
@@ -200,7 +201,7 @@ export function ViewTab() {
 
   const dialogs = (
     <>
-      {zoomOpen ? <ZoomDialog zoom={zoom} onClose={() => setZoomOpen(false)} onZoom={setZoom} /> : null}
+      {zoomOpen ? <ZoomDialog onClose={() => setZoomOpen(false)} /> : null}
       {propertiesOpen ? <PropertiesDialog onClose={() => setPropertiesOpen(false)} /> : null}
       {macrosOpen ? <MacrosDialog onClose={() => setMacrosOpen(false)} /> : null}
     </>
@@ -678,46 +679,6 @@ function OfficeThemePicker() {
         })}
       </div>
     </div>
-  )
-}
-
-function ZoomDialog({ zoom, onClose, onZoom }: { zoom: number; onClose: () => void; onZoom: (zoom: number) => void }) {
-  const [value, setValue] = useState(String(Math.round(zoom * 100)))
-  return (
-    <DialogFrame
-      title="Zoom"
-      width={256}
-      onClose={onClose}
-      onSubmit={(event) => {
-        event.preventDefault()
-        onZoom(clampZoom(Number(value) / 100))
-        onClose()
-      }}
-    >
-      <label className="mt-3 flex items-center gap-2 text-sm">
-        Percent
-        <input
-          aria-label="Zoom percent"
-          type="number"
-          min={50}
-          max={200}
-          value={value}
-          className="h-8 w-20 rounded border border-black/15 px-2"
-          onChange={(event) => setValue(event.target.value)}
-        />
-      </label>
-      <div className="word-dialog-actions">
-        <button type="button" className="dialog-btn" onClick={onClose}>
-          Cancel
-        </button>
-        <button
-          type="submit"
-          className="h-8 rounded bg-[var(--app-theme-primary)] px-3 text-sm text-white hover:bg-[var(--app-theme-hover)]"
-        >
-          OK
-        </button>
-      </div>
-    </DialogFrame>
   )
 }
 

@@ -2,25 +2,16 @@ import { textBoxAttributes, textBoxOfElement, type TextBox } from "@/document/do
 import { effectCss } from "@/editor/text-effects"
 import { Extension, getStyleProperty, Mark } from "@tiptap/core"
 import Underline from "@tiptap/extension-underline"
-
-function decorationStyle(style: string, color: string | null) {
-  const rules = ["text-decoration-line: underline"]
-  if (style && style !== "solid") {
-    rules.push(`text-decoration-style: ${style}`)
-  }
-  if (color) {
-    rules.push(`text-decoration-color: ${color}`)
-  }
-  if (rules.length === 1 && style !== "double" && style !== "dotted" && style !== "dashed" && style !== "wavy") {
-    return {}
-  }
-  return { style: rules.join("; "), "data-underline": style || "solid" }
-}
+import { underlineCss } from "@/document/underlines"
+import type { MarkType, Node as ProseNode } from "@tiptap/pm/model"
+import { Plugin, PluginKey } from "@tiptap/pm/state"
+import { Decoration, DecorationSet } from "@tiptap/pm/view"
 
 export const StyledUnderline = Underline.extend({
   addAttributes() {
     return {
       ...this.parent?.(),
+      // The underline type (document/underlines.ts): Single (solid) to Wave double, and Words only.
       style: {
         default: "solid",
         parseHTML: (element: HTMLElement) =>
@@ -29,17 +20,67 @@ export const StyledUnderline = Underline.extend({
           if ((!attributes.style || attributes.style === "solid") && !attributes.color) {
             return {}
           }
-          return decorationStyle(attributes.style || "solid", attributes.color ?? null)
+          return {
+            style: underlineCss(attributes.style, attributes.color),
+            "data-underline": attributes.style || "solid",
+          }
         },
       },
       color: {
         default: null as string | null,
-        parseHTML: (element: HTMLElement) => getStyleProperty(element, "text-decoration-color"),
-        renderHTML: () => ({}),
+        parseHTML: (element: HTMLElement) =>
+          element.getAttribute("data-underline-color") || getStyleProperty(element, "text-decoration-color"),
+        renderHTML: (attributes: { color?: string | null }) =>
+          attributes.color ? { "data-underline-color": attributes.color } : {},
       },
     }
   },
+
+  addProseMirrorPlugins() {
+    return [...(this.parent?.() ?? []), wordsOnlyUnderline(this.type)]
+  },
 })
+
+/**
+ * Words only: the mark draws no line, and each word under it gets its own, so the spaces between stay clear (Word's
+ * w:u w:val="words"). CSS cannot take a line off part of an element, so the words are decorated instead.
+ */
+function wordsOnlyUnderline(type: MarkType) {
+  const build = (doc: ProseNode) => {
+    const decorations: Decoration[] = []
+    doc.descendants((node, pos) => {
+      if (!node.isText) {
+        return
+      }
+      const mark = node.marks.find((item) => item.type === type && item.attrs.style === "words")
+      if (!mark) {
+        return
+      }
+      const color = typeof mark.attrs.color === "string" && mark.attrs.color ? mark.attrs.color : null
+      for (const match of (node.text ?? "").matchAll(/\S+/g)) {
+        decorations.push(
+          Decoration.inline(pos + match.index, pos + match.index + match[0].length, {
+            class: "underline-word",
+            style: underlineCss("solid", color),
+          }),
+        )
+      }
+    })
+    return decorations.length ? DecorationSet.create(doc, decorations) : DecorationSet.empty
+  }
+  const key = new PluginKey<DecorationSet>("wordsOnlyUnderline")
+  return new Plugin<DecorationSet>({
+    key,
+    state: {
+      init: (_, state) => build(state.doc),
+      // Only an edit can change which words are underlined.
+      apply: (tr, old) => (tr.docChanged ? build(tr.doc) : old),
+    },
+    props: {
+      decorations: (state) => key.getState(state),
+    },
+  })
+}
 
 export const SubscriptMark = Mark.create({
   name: "subscript",

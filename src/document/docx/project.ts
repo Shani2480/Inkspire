@@ -1,3 +1,6 @@
+import { sheetSizePx } from "@/document/docx/sheet-object"
+import { dropCapOf, splitDropCap, withDropCap } from "@/document/docx/drop-cap"
+import { NOTE_MARK } from "@/document/note-numbering"
 import { BUILT_IN_STYLES, catalogWithStyles, wordIdForNamedStyle, type StyleDef } from "@/document/styles"
 import type { DocumentChrome } from "@/document/header"
 import { emptyChrome } from "@/document/header"
@@ -8,7 +11,8 @@ import {
   type ChromeSlot,
   type SectionChrome,
 } from "@/document/sections"
-import type { WordLevel } from "@/editor/word-markers"
+import { appLevel, type WordLevel } from "@/editor/word-markers"
+import { parseListIndent } from "@/editor/lists"
 import { chromeHasContent, chromeHasPageField } from "@/document/chrome-html"
 import { chromeJson } from "@/document/chrome-json"
 import { bordersOf, editedShading, sidePensOf, wordShadingValue } from "@/document/docx/cell-edits"
@@ -43,19 +47,24 @@ import {
   diagramSvg,
   inlinesHtml,
   mediaFor,
+  sheetOf,
   encodeBase64,
   numberAttr,
   payloadBlock,
   payloadInlines,
   placeCommentRanges,
   projectionFor,
+  type EditorNote,
   type InlineBuild,
   type JsonNode,
   type Projection,
   visibleText,
 } from "@/document/docx/inlines"
-import { readLooseTocAt, readTocAt, tocBlocks } from "@/document/docx/toc"
-import { headingBookmark, readTocEntries, tocLevelOf, tocOptions, type TocStyleLike } from "@/document/toc"
+import { parseInstruction } from "@/document/field-instructions"
+import { FIGURES_STYLE, readLooseTocAt, readTocAt, tocBlocks } from "@/document/docx/toc"
+import { indexBlocks, readIndexAt } from "@/document/docx/index-field"
+import { bibliographyBlocks, readBibliographyAt } from "@/document/docx/bibliography-field"
+import { figureTable, headingBookmark, readTocEntries, tocLevelOf, tocOptions, type TocStyleLike } from "@/document/toc"
 import {
   DEFAULT_SECTION,
   emptyNumbering,
@@ -74,6 +83,8 @@ import {
   type PageNumbering,
   type PageBorders,
   type MediaPart,
+  type Note,
+  type NotePart,
   type NumberingDefinitions,
   type Paragraph,
   type ParagraphProperties,
@@ -86,6 +97,8 @@ import {
   type TableCell,
   type TableRow,
   type WordDocument,
+  type NumberFormat,
+  type NumberingLevel,
 } from "@/document/docx/model"
 
 const TWIP_PER_MM = 1440 / 25.4
@@ -101,6 +114,14 @@ export type EditorView = {
   html: string
   chrome: DocumentChrome
   props: Partial<DocumentProps>
+  /** Each footnote's and endnote's text as HTML, by note id, and each kind's separator (`editor/page-notes.ts`). */
+  notes?: WordNoteTexts
+}
+
+export type WordNoteTexts = {
+  footnote: Record<string, string>
+  endnote: Record<string, string>
+  separator: { footnote?: string; endnote?: string }
 }
 
 type Build = InlineBuild & {
@@ -108,8 +129,10 @@ type Build = InlineBuild & {
   styles: StyleDef[]
   /** The source document's Word styles, for what a paragraph took from its style when it was opened. */
   wordStyles: Style[]
-  bulletId: number
-  orderedId: number
+  /** The numbering instance of each app-made list definition already written, by its levels. */
+  appLists?: Map<string, number>
+  /** The numbering instance each family of numbered lists is counting with, as the body is written in order. */
+  listChains?: Map<string, number>
   origins: Origins
   numbering: NumberingDefinitions
   toc: TocLinks
@@ -162,11 +185,52 @@ type Origins = {
 
 export function wordToEditor(doc: WordDocument): EditorView {
   assignKeys(doc)
+  const ctx = projectionFor(doc)
+  const html = sectionsHtml(doc, ctx)
+  const notes = noteTexts(doc, ctx)
   return {
-    html: sectionsHtml(doc, projectionFor(doc)),
+    html,
     chrome: chromeFromDocument(doc),
     props: {},
+    ...(notes ? { notes } : {}),
   }
+}
+
+/**
+ * The text of every note the body refers to, shown as the body's paragraphs are (each with its own style, its
+ * w:footnoteRef drawn as the reference's number), and the separator line each kind's notes start under.
+ */
+function noteTexts(doc: WordDocument, body: Projection): WordNoteTexts | undefined {
+  const texts: WordNoteTexts = { footnote: {}, endnote: {}, separator: {} }
+  let any = false
+  for (const kind of ["footnote", "endnote"] as const) {
+    const part = kind === "footnote" ? doc.footnotes : doc.endnotes
+    if (!part) {
+      continue
+    }
+    const noteDoc = (blocks: Block[]): WordDocument => ({
+      ...doc,
+      blocks,
+      media: storyMedia({ kind: "header", type: "default", relId: "", blocks, links: part.links }),
+      comments: undefined,
+    })
+    for (const [id, label] of body.noteLabels[kind]) {
+      const note = part.items.find((item) => item.id === id && !item.type)
+      if (note) {
+        // The note's number is drawn where the page shows it, in the document's number format (NOTE_MARK).
+        texts[kind][String(id)] = blocksToHtml(note.blocks, {
+          ...projectionFor(noteDoc(note.blocks)),
+          noteMark: body.noteCustom[kind].has(id) ? label : NOTE_MARK,
+        })
+        any = true
+      }
+    }
+    const separator = part.items.find((item) => item.type === "separator")
+    if (separator) {
+      texts.separator[kind] = blocksToHtml(separator.blocks, projectionFor(noteDoc(separator.blocks)))
+    }
+  }
+  return any ? texts : undefined
 }
 
 export function editorToWord(
@@ -199,20 +263,28 @@ export function editorToWord(
   const numbering = build.numbering
   section.references = stories.length > 0 ? stories : undefined
   const sectionStories = paragraphsIn(blocks).flatMap((paragraph) => paragraph.sectionBreak?.references ?? [])
-  const partBlocks = [...blocks, ...[...stories, ...sectionStories].flatMap((story) => story.blocks)]
+  const notes = notePartsWithEditorNotes(source, build.notes ?? [], blocks, build.nextNote)
+  const partBlocks = [
+    ...blocks,
+    ...[...stories, ...sectionStories].flatMap((story) => story.blocks),
+    ...[notes.footnotes, notes.endnotes].flatMap((part) => part?.items.flatMap((note) => note.blocks) ?? []),
+  ]
   const comments = commentsFromEditor(build.comments, source?.comments)
   placeCommentRanges(blocks, build.tags, comments.ids, commentReferenceProps(source))
+  // A document made in the app: every unstyled paragraph is Normal, drawn in the theme's body font (Aptos, as the
+  // font box says), so Normal and that font are written for Word and for reopening to show the same page.
+  const used = usedStyleIds(partBlocks)
+  if (source === null) {
+    used.add("Normal")
+  }
   const styles = ensureEditorStyles(
-    catalogWithStyles(
-      source?.styles ?? { docDefaults: { pPr: {}, rPr: {} }, styles: [] },
-      documentStyles,
-      usedStyleIds(partBlocks),
-    ),
+    catalogWithStyles(source?.styles ?? newDocumentCatalog(), documentStyles, used),
     partBlocks,
     source === null,
   )
   const settings = {
     ...(source?.settings ?? { compatibilityMode: 15, rsids: [] }),
+    ...notes.settings,
     evenAndOddHeaders: chrome.pageSetup.differentOddEven ? true : undefined,
     alignBordersAndEdges: chrome.pageSetup.borderAlign ? true : undefined,
     bordersDoNotSurroundHeader: chrome.pageSetup.borderSurroundHeader ? undefined : true,
@@ -232,8 +304,143 @@ export function editorToWord(
     settings,
     media: build.media.length > 0 ? build.media : undefined,
     comments: comments.part,
+    footnotes: notes.footnotes,
+    endnotes: notes.endnotes,
   }
   return document
+}
+
+/** The first id after a notes part's own (Word's notes start at 1; the separators are -1 and 0, or 0 and 1). */
+function nextNoteId(part: NotePart | undefined) {
+  return Math.max(1, ...(part?.items ?? []).map((note) => note.id + 1))
+}
+
+/**
+ * The opened document's notes parts with the editor's new notes added: each a Footnote Text paragraph that starts
+ * with the reference mark (w:footnoteRef) and holds the note's text. A document without notes gets Word's
+ * separator and continuation separator (ids -1 and 0), listed in settings as Word lists them.
+ */
+function notePartsWithEditorNotes(
+  source: WordDocument | null,
+  notes: EditorNote[],
+  blocks: Block[],
+  nextNote: InlineBuild["nextNote"],
+) {
+  const parts: { footnotes?: NotePart; endnotes?: NotePart; settings: Partial<WordDocument["settings"]> } = {
+    footnotes: source?.footnotes,
+    endnotes: source?.endnotes,
+    settings: {},
+  }
+  const converted = convertedNotes(blocks, parts, nextNote ?? { footnote: 1, endnote: 1 })
+  for (const kind of ["footnote", "endnote"] as const) {
+    const made = notes.filter((note) => note.kind === kind)
+    const moved = converted.filter((note) => note.kind === kind)
+    if (made.length === 0 && moved.length === 0) {
+      continue
+    }
+    const key = kind === "footnote" ? "footnotes" : "endnotes"
+    const style = kind === "footnote" ? "Footnote" : "Endnote"
+    const separator = (type: "separator" | "continuationSeparator", id: number): Note => ({
+      id,
+      type,
+      blocks: [
+        {
+          kind: "paragraph",
+          pPr: { spacing: { after: 0, line: 240, lineRule: "auto" } },
+          markRPr: {},
+          inlines: [{ kind: "run", rPr: {}, content: [{ kind: type }] }],
+        },
+      ],
+    })
+    const part: NotePart = structuredClone(parts[key]) ?? {
+      items: [separator("separator", -1), separator("continuationSeparator", 0)],
+    }
+    if (!parts[key]) {
+      parts.settings[kind === "footnote" ? "footnotePr" : "endnotePr"] = [-1, 0]
+    }
+    part.items.push(...moved.map((note) => note.note))
+    for (const note of made) {
+      part.items.push({
+        id: note.id,
+        blocks: [
+          {
+            kind: "paragraph",
+            styleId: `${style}Text`,
+            pPr: {},
+            markRPr: {},
+            inlines: [
+              {
+                kind: "run",
+                rPr: { rStyle: `${style}Reference` },
+                content: [note.mark ? { kind: "text", text: note.mark } : { kind: `${kind}Ref` }],
+              },
+              { kind: "run", rPr: {}, content: [{ kind: "text", text: ` ${note.text}` }] },
+            ],
+          },
+        ],
+      })
+    }
+    parts[key] = part
+  }
+  return parts
+}
+
+/**
+ * Word notes the editor converted (References > Footnotes > Convert…): a reference whose kind changed carries the
+ * part its text was read from (`from`). Each such note leaves that part and joins the other with a new id, its
+ * footnote styles and reference mark swapped for the endnote ones (or back).
+ */
+function convertedNotes(
+  blocks: Block[],
+  parts: { footnotes?: NotePart; endnotes?: NotePart },
+  next: { footnote: number; endnote: number },
+) {
+  const moved: { kind: "footnote" | "endnote"; note: Note }[] = []
+  const swap = (value: string | undefined, to: "footnote" | "endnote") => {
+    const [from, into] = to === "endnote" ? ["Footnote", "Endnote"] : ["Endnote", "Footnote"]
+    return value?.startsWith(from) ? `${into}${value.slice(from.length)}` : value
+  }
+  for (const run of runsIn(blocks)) {
+    for (const item of run.content) {
+      if (item.kind !== "footnoteReference" && item.kind !== "endnoteReference") {
+        continue
+      }
+      const reference = item as typeof item & { from?: "footnote" | "endnote" }
+      const kind = item.kind === "footnoteReference" ? "footnote" : "endnote"
+      const from = reference.from
+      delete reference.from
+      if (!from || from === kind) {
+        continue
+      }
+      const sourcePart = from === "footnote" ? parts.footnotes : parts.endnotes
+      const index = sourcePart?.items.findIndex((note) => note.id === item.id && !note.type) ?? -1
+      if (!sourcePart || index < 0) {
+        continue
+      }
+      const owned: NotePart = structuredClone(sourcePart)
+      const [note] = owned.items.splice(index, 1)
+      if (from === "footnote") {
+        parts.footnotes = owned
+      } else {
+        parts.endnotes = owned
+      }
+      const id = next[kind]
+      next[kind] += 1
+      for (const paragraph of paragraphsIn(note!.blocks)) {
+        paragraph.styleId = swap(paragraph.styleId, kind)
+      }
+      for (const noteRun of runsIn(note!.blocks)) {
+        noteRun.rPr.rStyle = swap(noteRun.rPr.rStyle, kind)
+        noteRun.content = noteRun.content.map((content) =>
+          content.kind === "footnoteRef" || content.kind === "endnoteRef" ? { kind: `${kind}Ref` as const } : content,
+        )
+      }
+      moved.push({ kind, note: { ...note!, id } })
+      item.id = id
+      run.rPr.rStyle = swap(run.rPr.rStyle, kind)
+    }
+  }
+  return moved
 }
 
 /**
@@ -367,8 +574,6 @@ function newBuild(
         .concat([...reserved].map((name) => name.toLowerCase())),
     ),
     preserved: source?.preserved,
-    bulletId: 0,
-    orderedId: 0,
     origins,
     numbering: source?.numbering ?? emptyNumbering(),
     runs: origins.runs,
@@ -380,6 +585,7 @@ function newBuild(
     theme: source ? themeFontsOf(source) : undefined,
     toc: { bookmarks: new Map(), anchors: new Map(), textWidth: 0 },
     sectionEnds: [],
+    nextNote: { footnote: nextNoteId(source?.footnotes), endnote: nextNoteId(source?.endnotes) },
   }
 }
 
@@ -502,13 +708,31 @@ function blocksToHtml(blocks: Block[], ctx: Projection) {
   let index = 0
   while (index < blocks.length) {
     const block = blocks[index]
+    const bibliography = readBibliographyAt(blocks, index)
+    if (bibliography) {
+      html += `<div data-bibliography data-bib-entries="${escapeAttribute(
+        JSON.stringify(bibliography.entries),
+      )}" data-bib-source="${escapeAttribute(bibliography.source)}"></div>`
+      index = bibliography.end
+      continue
+    }
+    const wordIndex = readIndexAt(blocks, index, ctx.doc)
+    if (wordIndex) {
+      html += `<div data-document-index data-index-instruction="${escapeAttribute(
+        wordIndex.instruction,
+      )}" data-index-entries="${escapeAttribute(JSON.stringify(wordIndex.entries))}" data-index-leader="${
+        wordIndex.leader
+      }" data-index-source="${escapeAttribute(wordIndex.source)}"></div>`
+      index = wordIndex.end
+      continue
+    }
     const toc = readTocAt(blocks, index, ctx.doc) ?? readLooseTocAt(blocks, index, ctx.doc)
     if (toc) {
       html += `<nav data-toc="${escapeAttribute(JSON.stringify(toc.entries))}" data-toc-instruction="${escapeAttribute(
         toc.instruction,
       )}" data-toc-title="${escapeAttribute(toc.title)}" data-toc-leader="${toc.leader}" data-toc-right-align="${
         toc.rightAlign
-      }" data-toc-source="${escapeAttribute(toc.source)}"></nav>`
+      }"${toc.endLine ? " data-toc-end-line" : ""} data-toc-source="${escapeAttribute(toc.source)}"></nav>`
       index = toc.end
       continue
     }
@@ -524,8 +748,22 @@ function blocksToHtml(blocks: Block[], ctx: Projection) {
         items.push(next)
         index += 1
       }
-      html += `<${tag}${listAttributes(tag, numId, items, ctx)}>${items.map((item) => listItemHtml(item, ctx)).join("")}</${tag}>`
+      html += `<${tag}${listAttributes(tag, numId, items, ctx)}>${items.map((item) => listItemHtml(item, numId, items, ctx)).join("")}</${tag}>`
       html += sectionBreakHtml(items[items.length - 1]!, ctx.doc)
+      continue
+    }
+    const next = blocks[index + 1]
+    if (
+      block?.kind === "paragraph" &&
+      block.pPr.dropCap &&
+      next?.kind === "paragraph" &&
+      !next.pPr.dropCap &&
+      !next.pPr.numPr?.numId &&
+      dropCapOf(block)
+    ) {
+      // Word's drop cap frame and the paragraph it starts open as one paragraph with its drop cap.
+      html += withDropCap(blockHtml(next, ctx), block) + sectionBreakHtml(next, ctx.doc)
+      index += 2
       continue
     }
     if (block) {
@@ -556,12 +794,15 @@ function listStart(numId: number, ctx: Projection) {
   const first = !ctx.listSeen.has(numId)
   ctx.listSeen.add(numId)
   const instance = ctx.doc.numbering.instances.find((item) => item.id === numId)
-  const restarts = instance?.overrides?.some((item) => item.ilvl === 0 && item.startOverride !== undefined) ?? false
+  const override = instance?.overrides?.find((item) => item.ilvl === 0 && item.startOverride !== undefined)
   const next = ctx.listNext.get(key)
-  if (next === undefined || (first && restarts)) {
-    return numberingLevel(ctx.doc.numbering, numId, 0)?.start ?? 1
+  if (first && override) {
+    return { start: override.startOverride!, continues: false }
   }
-  return next
+  if (next === undefined) {
+    return { start: numberingLevel(ctx.doc.numbering, numId, 0)?.start ?? 1, continues: false }
+  }
+  return { start: next, continues: true }
 }
 
 /**
@@ -569,24 +810,38 @@ function listStart(numId: number, ctx: Projection) {
  * level's, for the first level and as the step to each deeper one.
  */
 function listAttributes(tag: string, numId: number, items: Paragraph[], ctx: Projection) {
-  const level = numberingLevel(ctx.doc.numbering, numId, 0)
-  const start = listStart(numId, ctx)
+  const { start, continues } = listStart(numId, ctx)
   ctx.listNext.set(listKey(numId, ctx), start + items.filter((item) => (item.pPr.numPr?.ilvl ?? 0) === 0).length)
-  const leftOf = (item: Paragraph) =>
-    item.pPr.ind?.left ?? numberingLevel(ctx.doc.numbering, numId, item.pPr.numPr?.ilvl ?? 0)?.pPr.ind?.left
-  const first = items.find((item) => (item.pPr.numPr?.ilvl ?? 0) === 0) ?? items[0]
-  const left = (first && leftOf(first)) ?? level?.pPr.ind?.left
-  const deeper = items.find((item) => (item.pPr.numPr?.ilvl ?? 0) > 0)
-  const deeperLeft = deeper ? leftOf(deeper) : numberingLevel(ctx.doc.numbering, numId, 1)?.pPr.ind?.left
-  const depth = deeper?.pPr.numPr?.ilvl ?? 1
-  const step = left !== undefined && deeperLeft !== undefined ? (deeperLeft - left) / depth : undefined
+  // How the list counts, for Restart at 1 / Continue Numbering in the editor and for saving it as Word wrote it.
+  const numbering =
+    tag === "ol"
+      ? ` data-list-family="${listKey(numId, ctx)}" data-opened="${start}|${continues ? 1 : 0}"${continues ? ` data-continue="1"` : ""}`
+      : ""
+  const { left, step } = listGeometry(numId, items, ctx)
   const indent =
     left !== undefined
       ? `padding-left: ${left / 20}pt${step !== undefined && step > 0 ? `; --list-indent-step: ${step / 20}pt` : ""}`
       : ""
-  return `${tag === "ol" && start !== 1 ? ` start="${start}"` : ""} data-word-list="1"${
+  return `${tag === "ol" && start !== 1 ? ` start="${start}"` : ""}${numbering} data-word-list="1"${
     indent ? ` data-word-indent="${indent}"` : ""
   }${wordLevelsAttribute(ctx.doc.numbering, numId, ctx.doc.settings.defaultTabStop)}`
+}
+
+/** An item's left indent in twips: its own, or else its numbering level's. */
+function itemLeft(item: Paragraph, numId: number, ctx: Projection) {
+  return item.pPr.ind?.left ?? numberingLevel(ctx.doc.numbering, numId, item.pPr.numPr?.ilvl ?? 0)?.pPr.ind?.left
+}
+
+/** Where a run of list items starts its text (twips from the margin), and the step to each deeper level. */
+function listGeometry(numId: number, items: Paragraph[], ctx: Projection) {
+  const level = numberingLevel(ctx.doc.numbering, numId, 0)
+  const first = items.find((item) => (item.pPr.numPr?.ilvl ?? 0) === 0) ?? items[0]
+  const left = (first && itemLeft(first, numId, ctx)) ?? level?.pPr.ind?.left
+  const deeper = items.find((item) => (item.pPr.numPr?.ilvl ?? 0) > 0)
+  const deeperLeft = deeper ? itemLeft(deeper, numId, ctx) : numberingLevel(ctx.doc.numbering, numId, 1)?.pPr.ind?.left
+  const depth = deeper?.pPr.numPr?.ilvl ?? 1
+  const step = left !== undefined && deeperLeft !== undefined ? (deeperLeft - left) / depth : undefined
+  return { left, step }
 }
 
 /**
@@ -663,12 +918,28 @@ function listTag(doc: WordDocument, numId: number) {
   return level?.format === "bullet" ? "ul" : "ol"
 }
 
-function listItemHtml(paragraph: Paragraph, ctx: Projection) {
+/**
+ * One list item. Its own w:ind wins over its level's, as in Word: a left indent other than where the list puts its
+ * level moves the item (`data-word-shift`, pt), and its own hanging or first-line indent replaces the level's hanging
+ * one for its marker (`data-word-own-hang`, pt; a first-line indent of 0 puts the marker at the text's start).
+ */
+function listItemHtml(paragraph: Paragraph, numId: number, items: Paragraph[], ctx: Projection) {
   const level = paragraph.pPr.numPr?.ilvl ?? 0
   const indent = level > 0 ? ` data-indent="${level}"` : ""
+  const { left, step } = listGeometry(numId, items, ctx)
+  const own = itemLeft(paragraph, numId, ctx)
+  const expected =
+    left === undefined ? undefined : level === 0 ? left : step !== undefined ? left + level * step : undefined
+  const shift = own !== undefined && expected !== undefined && own !== expected ? (own - expected) / 20 : 0
+  const ind = paragraph.pPr.ind
+  const hang =
+    ind?.hanging !== undefined ? ind.hanging / 20 : ind?.firstLine !== undefined ? -ind.firstLine / 20 : undefined
+  const attributes = `${indent}${shift ? ` data-word-shift="${Math.round(shift * 100) / 100}"` : ""}${
+    hang !== undefined ? ` data-word-own-hang="${Math.round(hang * 100) / 100}"` : ""
+  }`
   // A list item has to open with a paragraph; without a blank one the picture would be pushed out of the list.
   const opening = picturesOnly(paragraph, ctx.doc) ? "<p></p>" : ""
-  return `<li${indent}>${opening}${paragraphHtml(paragraph, ctx)}</li>`
+  return `<li${attributes}>${opening}${paragraphHtml(paragraph, ctx)}</li>`
 }
 
 const breakTypes = new WeakMap<WordDocument, Map<Paragraph, SectionProps["type"]>>()
@@ -858,7 +1129,8 @@ function blockHtml(block: Block, ctx: Projection) {
     return tableHtml(block, ctx)
   }
   if (block.kind === "raw") {
-    return blockAtomHtml(block, block.text)
+    const shown = block.blocks?.length && /^<(?:\w+:)?sdt[\s>]/.test(block.xml) ? blocksToHtml(block.blocks, ctx) : ""
+    return blockAtomHtml(block, block.text, shown)
   }
   if (isPageBreak(block)) {
     const key = block.key ? ` data-docx="${block.key}"` : ""
@@ -871,6 +1143,16 @@ function blockHtml(block: Block, ctx: Projection) {
 }
 
 function paragraphHtml(paragraph: Paragraph, ctx: Projection) {
+  const outer = ctx.paragraphStyleId
+  ctx.paragraphStyleId = paragraph.styleId
+  try {
+    return paragraphInnerHtml(paragraph, ctx)
+  } finally {
+    ctx.paragraphStyleId = outer
+  }
+}
+
+function paragraphInnerHtml(paragraph: Paragraph, ctx: Projection) {
   // Text of its own, not a shape's or a text box's: a paragraph holding only a shape with text is not a line of text.
   ctx.textParagraph = paragraphText(paragraph, false).trim() !== ""
   const floatingOnly = paragraph.inlines.every(
@@ -888,8 +1170,9 @@ function paragraphHtml(paragraph: Paragraph, ctx: Projection) {
   const tag = headingTag(paragraph.styleId)
   const outline = tag === "p" ? outlineLevelOf(paragraph, ctx.doc) : null
   const attrs =
-    blockHtmlAttributes(blockFromProperties(shownProperties(paragraph.pPr)), paragraph.key) +
-    (outline ? ` data-outline="${outline}"` : "")
+    blockHtmlAttributes(blockFromProperties(shownProperties(paragraph.pPr)), paragraph.key, {
+      alignLeft: paragraph.pPr.jc === "left" || paragraph.pPr.jc === "start",
+    }) + (outline ? ` data-outline="${outline}"` : "")
   const style = tag === "p" && paragraph.styleId ? ` data-word-style="${escapeAttribute(paragraph.styleId)}"` : ""
   const stops = editorTabStops(paragraph, ctx.doc)
   const tabs = stops ? ` data-tab-stops="${stops}"` : ""
@@ -994,7 +1277,10 @@ function picturesOnly(paragraph: Paragraph, doc: WordDocument) {
         inline.content.length > 0 &&
         inline.content.every(
           (item) =>
-            item.kind === "drawing" && (mediaFor(doc, item.relId) !== undefined || diagramSvg(doc, item) !== null),
+            item.kind === "drawing" &&
+            (mediaFor(doc, item.relId) !== undefined ||
+              diagramSvg(doc, item) !== null ||
+              sheetOf(doc, item.xml) !== undefined),
         ),
     )
   )
@@ -1041,7 +1327,10 @@ function tableHtml(table: Table, ctx: Projection) {
       const height = row.height ? ` style="height: ${Math.round(row.height.value / TWIP_PER_PX)}px"` : ""
       const rule = row.height?.rule === "exact" ? ` data-height-rule="exact"` : ""
       const split = row.cantSplit ? ` data-cant-split="1"` : ""
-      return `<tr${height}${rule}${split}>${cells}</tr>`
+      // A row's own borders (w:tblPrEx) set the edges its cells draw, over the table's.
+      const rowFrame = tableVariables(row.exceptionBorders, undefined).join("; ")
+      const frame = rowFrame ? ` data-word-frame="${escapeAttribute(rowFrame)}"` : ""
+      return `<tr${height}${rule}${split}${frame}>${cells}</tr>`
     })
     .join("")
   const key = table.key ? ` data-docx="${table.key}"` : ""
@@ -1977,13 +2266,24 @@ function storyParagraph(line: string, page: boolean): Paragraph {
   return { kind: "paragraph", pPr: {}, markRPr: {}, inlines }
 }
 
-/** The editor keeps an empty paragraph after a final list or table; Word does not need it. */
+/** The paragraph Word ends a multi-paragraph field in (a bibliography's): nothing but the field's end. */
+const fieldEndParagraph = (block: Block) =>
+  block.kind === "paragraph" &&
+  block.inlines.length > 0 &&
+  block.inlines.every(
+    (inline) =>
+      inline.kind === "run" &&
+      inline.content.length > 0 &&
+      inline.content.every((content) => content.kind === "fldChar" && content.fieldType === "end"),
+  )
+
+/** The editor keeps an empty paragraph after a final list, table or bibliography; Word does not need it. */
 function dropEditorTrailingParagraph(blocks: Block[]) {
   const last = blocks[blocks.length - 1]
   const before = blocks[blocks.length - 2]
   if (last?.kind === "paragraph" && !last.key && last.inlines.length === 0 && before) {
     const listEnd = before.kind === "paragraph" && before.pPr.numPr !== undefined
-    if (before.kind === "table" || listEnd) {
+    if (before.kind === "table" || listEnd || fieldEndParagraph(before)) {
       blocks.pop()
     }
   }
@@ -2122,6 +2422,15 @@ function blocksFromNodes(nodes: JsonNode[], build: Build, level: number, top = f
       blocks.push(...tocBlocks(node.attrs, build.toc.anchors.get(node) ?? [], build.toc.textWidth))
       continue
     }
+    if (node.type === "documentIndex") {
+      blocks.push(...indexBlocks(node.attrs, build.toc.textWidth))
+      continue
+    }
+    if (node.type === "bibliography") {
+      build.controlIds = (build.controlIds ?? 0) + 1
+      blocks.push(...bibliographyBlocks(node.attrs, 0x51b0000 + build.controlIds))
+      continue
+    }
     if (node.type === "image" && typeof node.attrs?.wrap === "string" && node.attrs.wrap !== "inline") {
       // A floating picture goes into the paragraph it is anchored to, the next one, as Word keeps it.
       const drawing = imageRun(node, build)
@@ -2134,6 +2443,11 @@ function blocksFromNodes(nodes: JsonNode[], build: Build, level: number, top = f
     if (floats.length > 0 && block?.kind === "paragraph") {
       placeFloats(block, floats, build)
       floats = []
+    }
+    const frame = block?.kind === "paragraph" && node.attrs?.dropCap ? splitDropCap(block, node.attrs) : null
+    if (frame) {
+      // The drop cap goes back into a frame paragraph of its own before its text, as Word keeps it.
+      blocks.push(frame)
     }
     const previous = blocks[blocks.length - 1]
     const runKey = node.type === "image" && typeof node.attrs?.docxKey === "string" ? node.attrs.docxKey : undefined
@@ -2172,7 +2486,7 @@ function blocksFromNodes(nodes: JsonNode[], build: Build, level: number, top = f
   return blocks
 }
 
-function blocksFromList(node: JsonNode, build: Build, level: number): Block[] {
+function blocksFromList(node: JsonNode, build: Build, level: number, parentNumId?: number): Block[] {
   const kind = node.type === "orderedList" ? "ordered" : "bullet"
   // An opened list keeps its numbering instance, so restarts, start values and level formats survive.
   const sourceNumId = (child: JsonNode | undefined) => {
@@ -2185,16 +2499,27 @@ function blocksFromList(node: JsonNode, build: Build, level: number): Block[] {
     return bullet === (kind === "bullet") ? numId : undefined
   }
   const items = (node.content ?? []).filter((item) => item.type === "listItem")
-  const listNumId =
-    items.map((item) => sourceNumId(item.content?.[0])).find((numId) => numId !== undefined) ??
-    (kind === "bullet" ? build.bulletId : build.orderedId)
+  const openedNumId = items.map((item) => sourceNumId(item.content?.[0])).find((numId) => numId !== undefined)
+  // A nested list counts in its parent's numbering at its own level, as Word's lists do.
+  let listNumId = openedNumId ?? parentNumId ?? appListNumId(build, node)
+  let keepItems = true
+  if (kind === "ordered" && level === 0) {
+    const chosen = orderedNumbering(node, listNumId, openedNumId, build)
+    listNumId = chosen.numId
+    keepItems = chosen.keep
+  }
+  const adjusted = level === 0 ? parseListIndent(node.attrs?.listIndent) : null
+  if (adjusted && adjusted.follow !== "tab") {
+    listNumId = withSuffix(build, listNumId, adjusted.follow, Number(node.attrs?.start) || 1)
+    keepItems = false
+  }
   const blocks: Block[] = []
   for (const item of node.content ?? []) {
     if (item.type !== "listItem") {
       continue
     }
     const indent = numberAttr(item.attrs?.indent) ?? 0
-    const numId = sourceNumId(item.content?.[0]) ?? listNumId
+    const numId = (keepItems ? sourceNumId(item.content?.[0]) : undefined) ?? listNumId
     let first = true
     const children = item.content ?? []
     for (const [index, child] of children.entries()) {
@@ -2203,12 +2528,22 @@ function blocksFromList(node: JsonNode, build: Build, level: number): Block[] {
         continue
       }
       if (child.type === "bulletList" || child.type === "orderedList") {
-        blocks.push(...blocksFromList(child, build, level + 1))
+        blocks.push(...blocksFromList(child, build, level + 1, numId))
         continue
       }
       const block = blockFromNode(child, build)
       if (block?.kind === "paragraph" && first) {
         block.pPr = { ...block.pPr, numPr: { ilvl: level + indent, numId } }
+        if (adjusted && indent === 0) {
+          // Adjust List Indents: the item's own indent, which Word puts before its numbering level's.
+          const left = Math.round(adjusted.text * 20)
+          const hanging = Math.round(Math.max(0, adjusted.text - adjusted.number) * 20)
+          block.pPr.ind = { ...block.pPr.ind, left, hanging, firstLine: undefined }
+          if (adjusted.tab !== null) {
+            const pos = Math.round(adjusted.tab * 20)
+            block.pPr.tabs = [...(block.pPr.tabs ?? []).filter((tab) => tab.pos !== pos), { val: "num", pos }]
+          }
+        }
         first = false
       }
       if (block) {
@@ -2219,11 +2554,88 @@ function blocksFromList(node: JsonNode, build: Build, level: number): Block[] {
   return blocks
 }
 
+/**
+ * The numbering instance a first-level numbered list is written with. Word counts every paragraph of one abstract
+ * numbering as one list, so a list that starts again (Restart at 1, Set Numbering Value, or any new list made in the
+ * app) gets its own w:num with a w:startOverride, and a list that continues the one before it shares that one's.
+ * A list opened from Word whose numbering was not changed keeps its own instance.
+ */
+function orderedNumbering(node: JsonNode, fallback: number, opened: number | undefined, build: Build) {
+  const start = Number(node.attrs?.start) || 1
+  const continues = node.attrs?.continueList === true
+  const family = typeof node.attrs?.listFamily === "string" ? node.attrs.listFamily : ""
+  const chains = (build.listChains ??= new Map<string, number>())
+  if (opened !== undefined && node.attrs?.openedAs === `${start}|${continues ? 1 : 0}`) {
+    chains.set(family, opened)
+    return { numId: opened, keep: true }
+  }
+  const chained = chains.get(family)
+  if (continues && chained !== undefined) {
+    return { numId: chained, keep: false }
+  }
+  const instances = build.numbering.instances
+  const abstractNumId = instances.find((item) => item.id === (opened ?? fallback))?.abstractNumId
+  if (abstractNumId === undefined) {
+    return { numId: fallback, keep: false }
+  }
+  const numId = Math.max(0, ...instances.map((item) => item.id)) + 1
+  instances.push({ id: numId, abstractNumId, overrides: [{ ilvl: 0, startOverride: start }] })
+  chains.set(family, numId)
+  return { numId, keep: false }
+}
+
+/**
+ * A numbering instance whose first level is followed by a space or nothing instead of a tab (Adjust List Indents'
+ * Follow number with). A paragraph cannot say that, so the list gets its own copy of its numbering.
+ */
+function withSuffix(build: Build, numId: number, suffix: "space" | "nothing", start: number) {
+  const { abstracts, instances } = build.numbering
+  const abstract = abstracts.find((item) => item.id === instances.find((num) => num.id === numId)?.abstractNumId)
+  if (!abstract) {
+    return numId
+  }
+  const id = Math.max(0, ...abstracts.map((item) => item.id)) + 1
+  abstracts.push({
+    ...abstract,
+    id,
+    nsid: undefined,
+    levels: abstract.levels.map((item) => (item.ilvl === 0 ? { ...item, suffix } : item)),
+  })
+  const own = Math.max(0, ...instances.map((item) => item.id)) + 1
+  instances.push({ id: own, abstractNumId: id, overrides: [{ ilvl: 0, startOverride: start }] })
+  return own
+}
+
+const BLANK_PNG =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4//8/AwAI/AL+p5qgoAAAAABJRU5ErkJggg=="
+
 function isBlankParagraph(node: JsonNode) {
   return node.type === "paragraph" && !node.attrs?.docxKey && (node.content ?? []).length === 0
 }
 
 function blockFromNode(node: JsonNode, build: Build): Block | null {
+  if (node.type === "sheetBlock") {
+    // A sheet saved without its picture (made where there is no canvas): Excel draws it when the object is opened.
+    const grid = String(node.attrs?.grid ?? "[]")
+    let size = { width: 256, height: 80 }
+    try {
+      size = sheetSizePx(JSON.parse(grid) as string[][])
+    } catch {
+      // The default size.
+    }
+    return blockFromNode(
+      {
+        type: "image",
+        attrs: {
+          src: BLANK_PNG,
+          width: size.width,
+          height: size.height,
+          objectNode: encodeBase64(new TextEncoder().encode(JSON.stringify(node))),
+        },
+      },
+      build,
+    )
+  }
   if (node.type === "columnBreak") {
     return {
       kind: "paragraph",
@@ -2373,6 +2785,14 @@ function paragraphStyleId(
 }
 
 /** The Word style ids the saved body refers to. */
+/** Styles of a document made in the app before its own are added: the body text in the theme's body font. */
+function newDocumentCatalog(): StyleCatalog {
+  return {
+    docDefaults: { pPr: {}, rPr: { rFonts: { asciiTheme: "minorHAnsi", hAnsiTheme: "minorHAnsi" } } },
+    styles: [],
+  }
+}
+
 function usedStyleIds(blocks: Block[]) {
   const ids = new Set(paragraphsIn(blocks).flatMap((paragraph) => (paragraph.styleId ? [paragraph.styleId] : [])))
   for (const run of runsIn(blocks)) {
@@ -2660,49 +3080,81 @@ function gridColumn(cells: { gridSpan?: number }[], index: number) {
 }
 
 function ensureListNumbering(numbering: NumberingDefinitions, json: JsonNode, build: Build) {
-  const wantsBullet = treeHas(json, "bulletList")
-  const wantsOrdered = treeHas(json, "orderedList")
-  if (!wantsBullet && !wantsOrdered) {
-    build.bulletId = numbering.instances[0]?.id ?? 1
-    build.orderedId = numbering.instances[0]?.id ?? 1
+  build.appLists = new Map()
+  if (!treeHas(json, "bulletList") && !treeHas(json, "orderedList")) {
     return numbering
   }
-  const abstracts = [...numbering.abstracts]
-  const instances = [...numbering.instances]
-  const add = (format: "bullet" | "decimal") => {
-    const found = instances.find((instance) => {
-      const level = abstracts.find((item) => item.id === instance.abstractNumId)?.levels[0]
-      return level?.format === format
-    })
-    if (found) {
-      return found.id
-    }
+  // Copies, so app lists can add their numbering to them while the body is written.
+  return { ...numbering, abstracts: [...numbering.abstracts], instances: [...numbering.instances] }
+}
+
+/**
+ * The app's own numbering for a list made in the editor, added the first time one needs it: a document whose lists
+ * all came from Word gains nothing. Its nine levels are what the editor draws at each depth (`appListLevels`): the
+ * list at that depth's own kind and marker, else the app's usual 1. a. i. / • ○ ■, or 1. 1.1. 1.1.1. for Legal,
+ * indented as Word's own lists (the text 0.5" a level in, the marker hanging 0.25" before it). An identical definition already in the file is reused;
+ * a Word list counts with its own paragraphs, so it is never shared.
+ */
+function appListNumId(build: Build, node: JsonNode) {
+  const levels = appListDefinition(node)
+  const key = JSON.stringify(levels)
+  const cache = (build.appLists ??= new Map())
+  const known = cache.get(key)
+  if (known !== undefined) {
+    return known
+  }
+  const { abstracts, instances } = build.numbering
+  const found = instances.find((instance) => {
+    const abstract = abstracts.find((item) => item.id === instance.abstractNumId)
+    return !instance.overrides?.length && abstract && JSON.stringify(abstract.levels) === key
+  })
+  let numId = found?.id
+  if (numId === undefined) {
     const abstractId = Math.max(0, ...abstracts.map((item) => item.id)) + 1
-    const numId = Math.max(0, ...instances.map((item) => item.id)) + 1
-    abstracts.push({
-      id: abstractId,
-      levels: [
-        {
-          ilvl: 0,
-          start: 1,
-          format,
-          text: format === "bullet" ? "•" : "%1.",
-          justify: "left",
-          pPr: {},
-          rPr: {},
-        },
-      ],
-    })
+    numId = Math.max(0, ...instances.map((item) => item.id)) + 1
+    abstracts.push({ id: abstractId, multiLevelType: "hybridMultilevel", levels })
     instances.push({ id: numId, abstractNumId: abstractId })
-    return numId
   }
-  if (wantsBullet) {
-    build.bulletId = add("bullet")
+  cache.set(key, numId)
+  return numId
+}
+
+/** Word levels for an app-made list and the lists nested in it, as the list marker decorations draw them. */
+export function appListDefinition(node: JsonNode): NumberingLevel[] {
+  const legal = node.type === "orderedList" && node.attrs?.scheme === "legal"
+  const drawn: { kind: "bullet" | "ordered"; marker: string | null }[] = []
+  const walk = (list: JsonNode, depth: number) => {
+    if (depth > 8) {
+      return
+    }
+    const marker = typeof list.attrs?.marker === "string" && list.attrs.marker ? list.attrs.marker : null
+    drawn[depth] ??= { kind: list.type === "orderedList" ? "ordered" : "bullet", marker }
+    for (const item of list.content ?? []) {
+      for (const child of item.content ?? []) {
+        if (child.type === "bulletList" || child.type === "orderedList") {
+          walk(child, depth + 1)
+        }
+      }
+    }
   }
-  if (wantsOrdered) {
-    build.orderedId = add("decimal")
-  }
-  return { ...numbering, abstracts, instances }
+  walk(node, 0)
+  return Array.from({ length: 9 }, (_, ilvl) => {
+    const own = drawn[ilvl] ?? { kind: drawn[0].kind, marker: null }
+    const level = legal
+      ? { format: "decimal", text: Array.from({ length: ilvl + 1 }, (_, i) => `%${i + 1}`).join(".") + ".", start: 1 }
+      : appLevel(own.kind, own.marker, ilvl)
+    return {
+      ilvl,
+      start: level.start,
+      format: level.format as NumberFormat,
+      text: level.text,
+      ...(legal ? { legal: true } : {}),
+      justify: "left" as const,
+      // Legal numbers grow a part a level, so their hanging grows with them (the text stays 0.5" a level).
+      pPr: { ind: { left: 720 * (ilvl + 1), hanging: legal ? 360 + 216 * ilvl : 360 } },
+      rPr: {},
+    }
+  })
 }
 
 /**
@@ -2759,6 +3211,67 @@ function ensureEditorStyles(styles: StyleCatalog, blocks: Block[], fresh: boolea
       })
     }
   }
+  for (let level = 1; level <= 2; level += 1) {
+    const id = `Index${level}`
+    if (!ids.has(id) && paragraphStyles.has(id)) {
+      // Word's built-in index n: a hanging indent of 0.17", one more a level.
+      extra.push({
+        id,
+        type: "paragraph",
+        name: `index ${level}`,
+        basedOn: "Normal",
+        next: "Normal",
+        pPr: { spacing: { after: 0 }, ind: { left: 240 * level, hanging: 240 } },
+        rPr: {},
+      })
+    }
+  }
+  if (!ids.has(FIGURES_STYLE) && paragraphStyles.has(FIGURES_STYLE)) {
+    // Word's built-in table of figures: Normal with no space after.
+    extra.push({
+      id: FIGURES_STYLE,
+      type: "paragraph",
+      name: "table of figures",
+      basedOn: "Normal",
+      next: "Normal",
+      pPr: { spacing: { after: 0 } },
+      rPr: {},
+    })
+  }
+  for (const kind of ["Footnote", "Endnote"] as const) {
+    // Word's built-in footnote / endnote text (10 pt, single spaced, no space after) and reference (superscript).
+    if (!ids.has(`${kind}Text`) && paragraphStyles.has(`${kind}Text`)) {
+      extra.push({
+        id: `${kind}Text`,
+        type: "paragraph",
+        name: `${kind.toLowerCase()} text`,
+        basedOn: "Normal",
+        pPr: { spacing: { after: 0, line: 240, lineRule: "auto" } },
+        rPr: { sz: 20, szCs: 20 },
+      })
+    }
+    if (!ids.has(`${kind}Reference`) && runStyles.has(`${kind}Reference`)) {
+      extra.push({
+        id: `${kind}Reference`,
+        type: "character",
+        name: `${kind.toLowerCase()} reference`,
+        pPr: {},
+        rPr: { vertAlign: "superscript" },
+      })
+    }
+  }
+  if (!ids.has("Bibliography") && paragraphStyles.has("Bibliography")) {
+    // Word's built-in Bibliography: Normal, which the entries give a hanging indent of their own.
+    extra.push({
+      id: "Bibliography",
+      type: "paragraph",
+      name: "Bibliography",
+      basedOn: "Normal",
+      next: "Normal",
+      pPr: {},
+      rPr: {},
+    })
+  }
   if (!ids.has("Hyperlink") && runStyles.has("Hyperlink")) {
     extra.push({
       id: "Hyperlink",
@@ -2779,7 +3292,10 @@ function linkTocEntries(json: JsonNode, section: SectionProps, styles: readonly 
   const textWidth =
     (section.pageWidth ?? 12240) - (section.marginLeft ?? 1440) - (section.marginRight ?? 1440) - (section.gutter ?? 0)
   const links: TocLinks = { bookmarks: new Map(), anchors: new Map(), textWidth }
-  const headings: { node: JsonNode; text: string; anchor?: string }[] = []
+  type Target = { node: JsonNode; text: string; anchor?: string }
+  const headings: Target[] = []
+  // Caption paragraphs by SEQ identifier, with the text after "Figure 1" for tables without labels (\a).
+  const captions = new Map<string, (Target & { body: string })[]>()
   const tables: JsonNode[] = []
   const names = new Set<string>()
   let nextId = 0
@@ -2799,9 +3315,22 @@ function linkTocEntries(json: JsonNode, section: SectionProps, styles: readonly 
       }
     }
     const level = node.type ? tocLevelOf({ type: node.type, attrs: node.attrs }, styles) : null
+    const children = (node.content ?? []).map((child) => ({ type: child.type ?? "", attrs: child.attrs }))
     if (level !== null) {
-      const children = (node.content ?? []).map((child) => ({ type: child.type ?? "", attrs: child.attrs }))
       headings.push({ node, text: normalizedText(jsonText(node)), anchor: headingBookmark(children) })
+    }
+    const sequence = (node.content ?? []).findIndex((child) => sequenceOfJson(child) !== null)
+    if (sequence >= 0) {
+      const identifier = sequenceOfJson(node.content![sequence]!)!
+      const body = normalizedText(
+        (node.content ?? [])
+          .slice(sequence + 1)
+          .map(jsonText)
+          .join(""),
+      ).replace(/^[\s:.\-–—]+/, "")
+      const list = captions.get(identifier) ?? []
+      list.push({ node, text: normalizedText(jsonText(node)), body, anchor: headingBookmark(children) })
+      captions.set(identifier, list)
     }
     for (const child of node.content ?? []) {
       visit(child)
@@ -2827,22 +3356,32 @@ function linkTocEntries(json: JsonNode, section: SectionProps, styles: readonly 
       continue
     }
     let cursor = 0
+    const figures = figureTable(String(table.attrs?.instruction ?? ""))
+    const targets: Target[] = figures
+      ? (captions.get(figures.label.trim().replace(/\s+/g, "_").toLowerCase()) ?? []).map((caption) => ({
+          ...caption,
+          text: figures.includeLabel ? caption.text : caption.body,
+        }))
+      : headings
     const anchors = readTocEntries(table.attrs?.entries).map((entry) => {
-      let at = entry.anchor ? headings.findIndex((heading) => heading.anchor === entry.anchor) : -1
+      let at = entry.anchor ? targets.findIndex((heading) => heading.anchor === entry.anchor) : -1
       if (at < 0) {
         const text = normalizedText(entry.text)
-        const after = headings.slice(cursor).findIndex((heading) => heading.text === text)
-        at = after < 0 ? headings.findIndex((heading) => heading.text === text) : cursor + after
+        const after = targets.slice(cursor).findIndex((heading) => heading.text === text)
+        at = after < 0 ? targets.findIndex((heading) => heading.text === text) : cursor + after
       }
-      const heading = headings[at]
+      const heading = targets[at]
       if (!heading) {
         return undefined
       }
       cursor = at + 1
       if (!heading.anchor) {
-        heading.anchor = newName()
-        links.bookmarks.set(heading.node, { id: nextId, name: heading.anchor })
-        nextId += 1
+        // The same paragraph may be listed by two tables: give it one bookmark.
+        heading.anchor = links.bookmarks.get(heading.node)?.name ?? newName()
+        if (!links.bookmarks.has(heading.node)) {
+          links.bookmarks.set(heading.node, { id: nextId, name: heading.anchor })
+          nextId += 1
+        }
       }
       return heading.anchor
     })
@@ -2852,7 +3391,30 @@ function linkTocEntries(json: JsonNode, section: SectionProps, styles: readonly 
 }
 
 function jsonText(node: JsonNode): string {
+  if (node.type === "wordField") {
+    return String(node.attrs?.result ?? "")
+  }
   return node.text ?? (node.content ?? []).map((child) => jsonText(child)).join("")
+}
+
+/** The SEQ identifier (lower case) an inline field counts, for the captions a Table of Figures lists. */
+function sequenceOfJson(node: JsonNode): string | null {
+  let instr = ""
+  if (node.type === "wordField") {
+    instr = String(node.attrs?.instr ?? "")
+  } else if (node.type === "wordInline" && node.attrs?.role === "field") {
+    for (const item of payloadInlines(node.attrs.payload)) {
+      if (item.kind === "simpleField") {
+        instr += item.instr
+      } else if (item.kind === "run") {
+        for (const content of item.content) {
+          instr += content.kind === "instrText" ? content.text : ""
+        }
+      }
+    }
+  }
+  const parsed = instr ? parseInstruction(instr) : null
+  return parsed?.kind === "SEQ" && parsed.argument ? parsed.argument.toLowerCase() : null
 }
 
 function normalizedText(text: string) {

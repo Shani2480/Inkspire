@@ -41,6 +41,7 @@ export const MAIN_TABS = [
   { id: "design", label: "Design" },
   { id: "layout", label: "Layout" },
   { id: "references", label: "References" },
+  { id: "mailings", label: "Mailings" },
   { id: "review", label: "Review" },
   { id: "view", label: "View" },
   { id: "help", label: "Help" },

@@ -1,0 +1,116 @@
+{
+  "APA": {
+    "cit": [
+      ["CITATION Smi20 \\l 1033", "(Smith J. A., 2020)"],
+      ["CITATION Smi20 \\p 12 \\l 1033", "(Smith J. A., 2020, p. 12)"],
+      ["CITATION Smi20 \\n  \\t  \\l 1033", "(2020)"],
+      ["CITATION Smi20 \\y  \\l 1033", "(Smith J. A.)"],
+      ["CITATION Smi18 \\l 1033", "(Smith & Jones, 2018)"],
+      ["CITATION Bro19 \\l 1033", "(Brown, Lee, & Clark, 2019)"],
+      ["CITATION Wor21 \\l 1033", "(World Health Organization, 2021)"],
+      ["CITATION Gre17 \\l 1033", "(Green, 2017)"],
+      ["CITATION Doe15 \\l 1033", "(Doe, 2015)"],
+      ["CITATION Kim22 \\l 1033", "(Kim, 2022)"],
+      ["CITATION Ano10 \\l 1033", "(No Author Here, 2010)"],
+      ["CITATION Placeholder1 \\l 1033", "(Placeholder1)"],
+      ["CITATION Smi20 \\l 1033  \\m Bro19", "(Smith J. A., 2020; Brown, Lee, & Clark, 2019)"],
+      ["CITATION Smi20 \\f \"see \" \\s \", ch. 2\" \\v 3 \\l 1033", "(see Smith J. A., 2020, vol. 3, ch. 2)"]
+    ],
+    "bib": "Brown, A., Lee, B., & Clark, C. (2019). Measuring Things Well. Journal of Tests, 12(3), 45-67. | Doe, J. (2015). Annual Findings. Oslo: Institute of Data. | Green, T. (2017). A Chapter. In A. White (Ed.), The Big Collection (pp. 10-20). Paris: Galt. | Kim, L. (2022). Fast Layout. Proceedings of Layout Conf (pp. 1-9). Rome: LC Press. | No Author Here. (2010). Bern: Pubs. | Smith, J. A. (2020). The Art of Testing. London: Acme Press. | Smith, J., & Jones, M. (2018). Second Book (2nd ed.). Boston: Beacon. | World Health Organization. (2021, March 5). Clean Water Facts. Retrieved May 1, 2022, from WHO Online: https://example.org/water | "
+  },
+  "MLA": {
+    "cit": [
+      ["CITATION Smi20 \\l 1033", "(J. A. Smith)"],
+      ["CITATION Smi20 \\p 12 \\l 1033", "(J. A. Smith 12)"],
+      ["CITATION Smi20 \\n  \\t  \\l 1033", "()"],
+      ["CITATION Smi20 \\y  \\l 1033", "(J. A. Smith)"],
+      ["CITATION Smi18 \\l 1033", "(Smith and Jones)"],
+      ["CITATION Bro19 \\l 1033", "(Brown, Lee and Clark)"],
+      ["CITATION Wor21 \\l 1033", "(World Health Organization)"],
+      ["CITATION Gre17 \\l 1033", "(Green)"],
+      ["CITATION Doe15 \\l 1033", "(Doe)"],
+      ["CITATION Kim22 \\l 1033", "(Kim)"],
+      ["CITATION Ano10 \\l 1033", "(No Author Here)"],
+      ["CITATION Placeholder1 \\l 1033", "(Placeholder1)"],
+      ["CITATION Smi20 \\l 1033  \\m Bro19", "(J. A. Smith; Brown, Lee and Clark)"],
+      ["CITATION Smi20 \\f \"see \" \\s \", ch. 2\" \\v 3 \\l 1033", "(see J. A. Smith vol. 3, ch. 2)"]
+    ],
+    "bib": "Brown, Alice, Bo Lee and Cy Clark. \"Measuring Things Well.\" Journal of Tests 12.3 (2019): 45-67. | Doe, Jane. Annual Findings. Technical report. Oslo: Institute of Data, 2015. | Green, Tom. \"A Chapter.\" The Big Collection. Ed. Ann White. Paris: Galt, 2017. 10-20. | Kim, Lee. \"Fast Layout.\" Proceedings of Layout Conf. Rome: LC Press, 2022. 1-9. | No Author Here. Bern: Pubs, 2010. | Smith, John A. The Art of Testing. London: Acme Press, 2020. | Smith, John and Mary Jones. Second Book. 2nd. Boston: Beacon, 2018. | World Health Organization. Clean Water Facts. 5 March 2021. 1 May 2022. <https://example.org/water>. | "
+  },
+  "Chicago": {
+    "cit": [
+      ["CITATION Smi20 \\l 1033", "(J. A. Smith 2020)"],
+      ["CITATION Smi20 \\p 12 \\l 1033", "(J. A. Smith 2020, 12)"],
+      ["CITATION Smi20 \\n  \\t  \\l 1033", "(2020)"],
+      ["CITATION Smi20 \\y  \\l 1033", "(J. A. Smith)"],
+      ["CITATION Smi18 \\l 1033", "(Smith and Jones 2018)"],
+      ["CITATION Bro19 \\l 1033", "(Brown, Lee and Clark 2019)"],
+      ["CITATION Wor21 \\l 1033", "(World Health Organization 2021)"],
+      ["CITATION Gre17 \\l 1033", "(Green 2017)"],
+      ["CITATION Doe15 \\l 1033", "(Doe 2015)"],
+      ["CITATION Kim22 \\l 1033", "(Kim 2022)"],
+      ["CITATION Ano10 \\l 1033", "(No Author Here 2010)"],
+      ["CITATION Placeholder1 \\l 1033", "(Placeholder1)"],
+      ["CITATION Smi20 \\l 1033  \\m Bro19", "(J. A. Smith 2020, Brown, Lee and Clark 2019)"],
+      ["CITATION Smi20 \\f \"see \" \\s \", ch. 2\" \\v 3 \\l 1033", "(see J. A. Smith 2020, vol. 3, ch. 2)"]
+    ],
+    "bib": "Brown, Alice, Bo Lee, and Cy Clark. 2019. \"Measuring Things Well.\" Journal of Tests 12 (3): 45-67. | Doe, Jane. 2015. Annual Findings. Technical report, Oslo: Institute of Data. | Green, Tom. 2017. \"A Chapter.\" In The Big Collection, edited by Ann White, 10-20. Paris: Galt. | Kim, Lee. 2022. \"Fast Layout.\" Proceedings of Layout Conf. Rome: LC Press. 1-9. | 2010. No Author Here. Bern: Pubs. | Smith, John A. 2020. The Art of Testing. London: Acme Press. | Smith, John, and Mary Jones. 2018. Second Book. 2nd. Boston: Beacon. | World Health Organization. 2021. Clean Water Facts. March 5. Accessed May 1, 2022. https://example.org/water. | "
+  },
+  "IEEE": {
+    "cit": [
+      ["CITATION Smi20 \\l 1033", "[1]"],
+      ["CITATION Smi20 \\p 12 \\l 1033", "[1, p. 12]"],
+      ["CITATION Smi20 \\n  \\t  \\l 1033", "[1]"],
+      ["CITATION Smi20 \\y  \\l 1033", "[1]"],
+      ["CITATION Smi18 \\l 1033", "[2]"],
+      ["CITATION Bro19 \\l 1033", "[3]"],
+      ["CITATION Wor21 \\l 1033", "[4]"],
+      ["CITATION Gre17 \\l 1033", "[5]"],
+      ["CITATION Doe15 \\l 1033", "[6]"],
+      ["CITATION Kim22 \\l 1033", "[7]"],
+      ["CITATION Ano10 \\l 1033", "[8]"],
+      ["CITATION Placeholder1 \\l 1033", "Invalid source specified."],
+      ["CITATION Smi20 \\l 1033  \\m Bro19", "[1, 3]"],
+      ["CITATION Smi20 \\f \"see \" \\s \", ch. 2\" \\v 3 \\l 1033", "[1]"]
+    ],
+    "bib": " | [1]  | \u0007J. A. Smith, The Art of Testing, London: Acme Press, 2020.  | \u0007 | \u0007[2]  | \u0007J. Smith and M. Jones, Second Book, 2nd ed., Boston: Beacon, 2018.  | \u0007 | \u0007[3]  | \u0007A. Brown, B. Lee and C. Clark, \"Measuring Things Well,\" Journal of Tests, vol. 12, no. 3, pp. 45-67, 2019.  | \u0007 | \u0007[4]  | \u0007World Health Organization, \"Clean Water Facts,\" 5 March 2021. [Online]. Available: https://example.org/water. [Accessed 1 May 2022]. | \u0007 | \u0007[5]  | \u0007T. Green, \"A Chapter,\" in The Big Collection, A. White, Ed., Paris, Galt, 2017, pp. 10-20. | \u0007 | \u0007[6]  | \u0007J. Doe, \"Annual Findings,\" Institute of Data, Oslo, 2015. | \u0007 | \u0007[7]  | \u0007L. Kim, \"Fast Layout,\" in Proceedings of Layout Conf, Rome, 2022.  | \u0007 | \u0007[8]  | \u0007No Author Here, Bern: Pubs, 2010.  | \u0007 | \u0007 | "
+  },
+  "Turabian": {
+    "cit": [
+      ["CITATION Smi20 \\l 1033", "(J. A. Smith 2020)"],
+      ["CITATION Smi20 \\p 12 \\l 1033", "(J. A. Smith 2020, 12)"],
+      ["CITATION Smi20 \\n  \\t  \\l 1033", "(2020)"],
+      ["CITATION Smi20 \\y  \\l 1033", "(J. A. Smith)"],
+      ["CITATION Smi18 \\l 1033", "(Smith and Jones 2018)"],
+      ["CITATION Bro19 \\l 1033", "(Brown, Lee and Clark 2019)"],
+      ["CITATION Wor21 \\l 1033", "(World Health Organization 2021)"],
+      ["CITATION Gre17 \\l 1033", "(Green 2017)"],
+      ["CITATION Doe15 \\l 1033", "(Doe 2015)"],
+      ["CITATION Kim22 \\l 1033", "(Kim 2022)"],
+      ["CITATION Ano10 \\l 1033", "(No Author Here 2010)"],
+      ["CITATION Placeholder1 \\l 1033", "(Placeholder1)"],
+      ["CITATION Smi20 \\l 1033  \\m Bro19", "(J. A. Smith 2020, Brown, Lee and Clark 2019)"],
+      ["CITATION Smi20 \\f \"see \" \\s \", ch. 2\" \\v 3 \\l 1033", "(see J. A. Smith 2020, vol. 3, ch. 2)"]
+    ],
+    "bib": "Brown, Alice, Bo Lee, and Cy Clark. \"Measuring Things Well.\" Journal of Tests 12, no. 3 (2019): 45-67. | Doe, Jane. Annual Findings. Technical report, Oslo: Institute of Data, 2015. | Green, Tom. \"A Chapter.\" In The Big Collection, edited by Ann White, 10-20. Paris: Galt, 2017. | Kim, Lee. \"Fast Layout.\" Proceedings of Layout Conf. Rome: LC Press, 2022. 1-9. | No Author Here. Bern: Pubs, 2010. | Smith, John A. The Art of Testing. London: Acme Press, 2020. | Smith, John, and Mary Jones. Second Book. 2nd. Boston: Beacon, 2018. | World Health Organization. Clean Water Facts. March 5, 2021. https://example.org/water (accessed May 1, 2022). | "
+  },
+  "Harvard": {
+    "cit": [
+      ["CITATION Smi20 \\l 1033", "(Smith, 2020)"],
+      ["CITATION Smi20 \\p 12 \\l 1033", "(Smith, 2020, p. 12)"],
+      ["CITATION Smi20 \\n  \\t  \\l 1033", "(2020)"],
+      ["CITATION Smi20 \\y  \\l 1033", "(Smith)"],
+      ["CITATION Smi18 \\l 1033", "(Smith & Jones, 2018)"],
+      ["CITATION Bro19 \\l 1033", "(Brown, et al., 2019)"],
+      ["CITATION Wor21 \\l 1033", "(World Health Organization, 2021)"],
+      ["CITATION Gre17 \\l 1033", "(Green, 2017)"],
+      ["CITATION Doe15 \\l 1033", "(Doe, 2015)"],
+      ["CITATION Kim22 \\l 1033", "(Kim, 2022)"],
+      ["CITATION Ano10 \\l 1033", "(Anon., 2010)"],
+      ["CITATION Placeholder1 \\l 1033", "(Placeholder1)"],
+      ["CITATION Smi20 \\l 1033  \\m Bro19", "(Smith, 2020; Brown, et al., 2019)"],
+      ["CITATION Smi20 \\f \"see \" \\s \", ch. 2\" \\v 3 \\l 1033", "(see Smith, 2020, vol. 3, ch. 2)"]
+    ],
+    "bib": "Anon., 2010. No Author Here. Bern: Pubs. | Brown, A., Lee, B. & Clark, C., 2019. Measuring Things Well. Journal of Tests, 12(3), pp. 45-67. | Doe, J., 2015. Annual Findings, Oslo: Institute of Data. | Green, T., 2017. A Chapter. In: A. White, ed. The Big Collection. Paris: Galt, pp. 10-20. | Kim, L., 2022. Fast Layout. Rome, LC Press, pp. 1-9. | Smith, J. A., 2020. The Art of Testing. London: Acme Press. | Smith, J. & Jones, M., 2018. Second Book. 2nd ed. Boston: Beacon. | World Health Organization, 2021. Clean Water Facts. [Online] \u000bAvailable at: https://example.org/water\u000b[Accessed 1 May 2022]. | "
+  }
+}

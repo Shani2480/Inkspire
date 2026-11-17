@@ -1,4 +1,7 @@
+import type { NoteProps } from "@/document/note-numbering"
 import type { ElementSource } from "@/document/docx/element-source"
+import type { OpcRelationship } from "@/document/docx/opc"
+import type { DocumentProtection } from "@/document/review"
 
 /** The namespace of the app's own objects kept in a drawing's docPr extension list. */
 export const INKSPIRE_OBJECT_NS = "https://inkspire.app/2026/object"
@@ -24,9 +27,9 @@ export const UNDERLINE_VALUES = [
   "dashLong",
   "dashLongHeavy",
   "dotDash",
-  "dotDashHeavy",
+  "dashDotHeavy",
   "dotDotDash",
-  "dotDotDashHeavy",
+  "dashDotDotHeavy",
   "wave",
   "wavyHeavy",
   "wavyDouble",
@@ -158,6 +161,8 @@ export type RunProperties = {
   noProof?: boolean
   vanish?: boolean
   color?: string
+  /** w:color's theme colour (accent1, text1…) with its tint or shade (hex 00–FF): Word draws it from the theme. */
+  colorTheme?: ThemeColorRef
   spacing?: number
   w?: number
   kern?: number
@@ -208,7 +213,8 @@ export type TabStop = { val: TabAlign; leader?: TabLeader; pos: number }
 
 export type TightWrap = "none" | "allLines" | "firstAndLastLine" | "firstLineOnly" | "lastLineOnly"
 
-export type ParagraphBorders = { top?: Border; left?: Border; bottom?: Border; right?: Border }
+/** w:pBdr; `between` is the line between paragraphs that share these borders (Inside Horizontal Border). */
+export type ParagraphBorders = { top?: Border; left?: Border; bottom?: Border; right?: Border; between?: Border }
 
 export type ParagraphProperties = {
   /** w:pPr as written (with pStyle, the mark's rPr, and sectPr when on a paragraph). */
@@ -235,7 +241,14 @@ export type ParagraphProperties = {
   shading?: Shading
   /** No space before or after when the neighbouring paragraph has the same style. */
   contextualSpacing?: boolean
+  /**
+   * w:framePr with w:dropCap: this paragraph is a drop cap, the large letter of the paragraph after it. `lines` is
+   * how many lines it drops, `hSpace` its distance from the text (twips). Other frames stay in `source`.
+   */
+  dropCap?: DropCapFrame
 }
+
+export type DropCapFrame = { kind: "drop" | "margin"; lines: number; hSpace?: number }
 
 /** How a section numbers its lines: every `countBy`th from `start`, `distance` twips from the text. */
 export type LineNumbering = {
@@ -268,6 +281,9 @@ export type PageBorders = {
 export type SectionProps = {
   /** w:sectPr as written. */
   source?: ElementSource
+  /** The section's own footnote and endnote position and numbering (w:footnotePr, w:endnotePr). */
+  footnoteProps?: NoteProps
+  endnoteProps?: NoteProps
   type?: SectionType
   pageWidth?: number
   pageHeight?: number
@@ -322,8 +338,9 @@ export type RunContent =
   | { kind: "break"; breakType: BreakType }
   | { kind: "instrText"; text: string }
   | { kind: "fldChar"; fieldType: FieldCharType }
-  | { kind: "footnoteReference"; id: number }
-  | { kind: "endnoteReference"; id: number }
+  /** A note's reference mark; with customMarkFollows the run's text after it is the mark, not a number. */
+  | { kind: "footnoteReference"; id: number; customMarkFollows?: boolean }
+  | { kind: "endnoteReference"; id: number; customMarkFollows?: boolean }
   | { kind: "footnoteRef" }
   | { kind: "endnoteRef" }
   | { kind: "separator" }
@@ -343,6 +360,8 @@ export type RunContent =
       layout?: DrawingLayout
       relId?: string
       name?: string
+      /** wp:docPr descr: the picture's alt text in Word. */
+      description?: string
       cx?: number
       cy?: number
       /** a:xfrm rot, the turn clockwise in 60000ths of a degree. */
@@ -400,6 +419,8 @@ export type Hyperlink = {
   /** External target. Present when the relationship resolved. */
   target?: string
   anchor?: string
+  /** The ScreenTip Word shows over the link (`w:tooltip`). */
+  tooltip?: string
   history?: boolean
   inlines: Inline[]
 }
@@ -549,11 +570,16 @@ export type MergeValue = (typeof MERGE_VALUES)[number]
  * One w:top / w:bottom … border: its line, width in eighths of a point, gap in points, colour, Word's shadow, and its
  * frame effect (the 3-D setting, which reverses the line's inner and outer edges).
  */
+/** A colour taken from the theme (accent1, text1…) with its tint or shade (hex 00–FF); Word draws it from the theme. */
+export type ThemeColorRef = { name: string; tint?: string; shade?: string }
+
 export type Border = {
   value: BorderValue
   sz?: number
   space?: number
   color?: string
+  /** w:themeColor with w:themeTint / w:themeShade: the line's colour follows the theme. */
+  colorTheme?: ThemeColorRef
   shadow?: boolean
   frame?: boolean
 }
@@ -579,7 +605,15 @@ export type TableLook = {
 }
 export type CellMargin = { value: number; type: TableWidthType }
 export type CellMargins = { top?: CellMargin; left?: CellMargin; bottom?: CellMargin; right?: CellMargin }
-export type Shading = { value: ShadingValue; color?: string; fill?: string }
+export type Shading = {
+  value: ShadingValue
+  color?: string
+  fill?: string
+  /** w:themeColor / w:themeTint / w:themeShade of the pattern colour. */
+  colorTheme?: ThemeColorRef
+  /** w:themeFill / w:themeFillTint / w:themeFillShade: the fill follows the theme. */
+  fillTheme?: ThemeColorRef
+}
 export type TableWidth = { value: number; type: TableWidthType }
 /** How cells look beyond their shading. Shown in the editor; saving writes w:tcPr from its source. */
 export type CellLook = { borders?: TableBorders; margins?: CellMargins; vAlign?: "top" | "center" | "bottom" }
@@ -641,6 +675,8 @@ export type TableRow = {
   source?: ElementSource
   /** w:tblPrEx as written. */
   exceptionSource?: ElementSource
+  /** The row's own table borders (w:tblPrEx/w:tblBorders), drawn over the table's; saved from exceptionSource. */
+  exceptionBorders?: TableBorders
 }
 /** w:tblpPr: a table text wraps around, and where it sits. Distances are in twips. */
 export type TablePosition = {
@@ -786,6 +822,11 @@ export type Style = {
 
 export type StyleCatalog = {
   docDefaults: { pPr: ParagraphProperties; rPr: RunProperties }
+  /**
+   * What Word draws with where the file leaves its defaults out (no styles part, no w:pPrDefault): its own fallbacks
+   * over `docDefaults`. Display only; saving writes `docDefaults` as read.
+   */
+  wordDefaults?: { pPr: ParagraphProperties; rPr: RunProperties }
   styles: Style[]
   /**
    * Every child of w:styles as written (latentStyles, docDefaults, styles), in source order, with the root's
@@ -819,8 +860,21 @@ export type Settings = {
   /** Page border Options: Surround header and Surround footer off. */
   bordersDoNotSurroundHeader?: boolean
   bordersDoNotSurroundFooter?: boolean
+  /** Track Changes is on (w:trackRevisions). Absent means the element was not in settings. */
+  trackRevisions?: boolean
+  /** Restrict Editing / Lock Tracking (w:documentProtection); null when it was taken off. */
+  protection?: DocumentProtection | null
+  /** Info > Protect Document > Always Open Read-Only (w:writeProtection w:recommended). Absent: as the file had it. */
+  readOnlyRecommended?: boolean
+  /** Options > Proofing > Hide spelling / grammar errors in this document only. Absent: as the file had it. */
+  hideSpellingErrors?: boolean
+  hideGrammaticalErrors?: boolean
   /** Separator note ids listed in w:footnotePr, including -1 and 0. */
   footnotePr?: number[]
+  /** Footnote position and numbering for the document (w:footnotePr's pos, numFmt, numStart, numRestart). */
+  footnoteProps?: NoteProps
+  /** Endnote position and numbering for the document. */
+  endnoteProps?: NoteProps
   /** Separator note ids listed in w:endnotePr. */
   endnotePr?: number[]
   /**
@@ -828,6 +882,8 @@ export type Settings = {
    * The writer swaps in the modelled elements and keeps the rest (zoom, compat flags, themeFontLang…) as they were.
    */
   raw?: { rootAttributes: RootAttribute[]; children: { name: string; xml: string }[] }
+  /** The settings part's external relationships (w:attachedTemplate, mail merge sources), kept as read. */
+  relationships?: OpcRelationship[]
 }
 
 export type Note = {
@@ -946,6 +1002,8 @@ export type WordDocument = {
   glossary?: GlossaryPackage
   /** Parts Word keeps but this reader does not interpret, with the relationships that point at them. */
   preserved?: PreservedPackage
+  /** Embedded Excel worksheets (Insert > Table > Excel Spreadsheet), read into grids, by their relationship. */
+  sheets?: { relId: string; grid: string[][]; values: string[][]; workbook: Uint8Array }[]
   notes: WordNote[]
 }
 
@@ -1061,7 +1119,8 @@ export function tableGrid(table: Pick<Table, "grid" | "rows">, section: SectionP
   if (table.grid.length > 0) {
     return table.grid
   }
-  const counts = table.rows.map((row) => row.cells.length)
+  // Columns, counting a merged cell as the columns it spans.
+  const counts = table.rows.map((row) => row.cells.reduce((sum, cell) => sum + (cell.gridSpan ?? 1), 0))
   const columns = Math.max(1, ...counts)
   const width = contentWidth(section)
   const base = Math.floor(width / columns)
@@ -1078,7 +1137,7 @@ export function resolveRunProperties(input: {
   table?: RunProperties
   numbering?: RunProperties
 }): RunProperties {
-  let result = applyRunLayer({}, input.styles.docDefaults.rPr, "absolute")
+  let result = applyRunLayer({}, defaultsOf(input.styles).rPr, "absolute")
   if (input.table) {
     result = applyRunLayer(result, input.table, "style")
   }
@@ -1097,6 +1156,11 @@ export function resolveRunProperties(input: {
   return compactRun(result)
 }
 
+/** The defaults a document is drawn with: Word's fallbacks where the file has none (`StyleCatalog.wordDefaults`). */
+export function defaultsOf(styles: StyleCatalog) {
+  return styles.wordDefaults ?? styles.docDefaults
+}
+
 export function resolveParagraphProperties(input: {
   styles: StyleCatalog
   paragraphStyleId?: string
@@ -1104,7 +1168,7 @@ export function resolveParagraphProperties(input: {
   table?: ParagraphProperties
   numbering?: ParagraphProperties
 }): ParagraphProperties {
-  let result = compactParagraph(input.styles.docDefaults.pPr)
+  let result = compactParagraph(defaultsOf(input.styles).pPr)
   if (input.table) {
     result = mergeParagraph(result, input.table)
   }
@@ -1164,6 +1228,7 @@ function applyRunLayer(base: RunProperties, next: RunProperties, mode: "absolute
     noProof: next.noProof ?? base.noProof,
     vanish: applyToggle(base.vanish, next.vanish, mode),
     color: next.color ?? base.color,
+    colorTheme: next.color !== undefined ? next.colorTheme : base.colorTheme,
     spacing: next.spacing ?? base.spacing,
     w: next.w ?? base.w,
     kern: next.kern ?? base.kern,
@@ -1171,6 +1236,8 @@ function applyRunLayer(base: RunProperties, next: RunProperties, mode: "absolute
     sz: next.sz ?? base.sz,
     szCs: next.szCs ?? base.szCs,
     highlight: next.highlight ?? base.highlight,
+    shd: next.shd ?? base.shd,
+    bdr: next.bdr ?? base.bdr,
     u: next.u ?? base.u,
     vertAlign: next.vertAlign ?? base.vertAlign,
     lang: mergeLanguage(base.lang, next.lang),
@@ -1187,21 +1254,26 @@ function applyToggle(current: boolean | undefined, specified: boolean | undefine
   return specified ? !current : false
 }
 
-function mergeFonts(base: RunFonts | undefined, next: RunFonts | undefined): RunFonts | undefined {
+export function mergeFonts(base: RunFonts | undefined, next: RunFonts | undefined): RunFonts | undefined {
   if (!next) {
     return base
   }
-  return {
-    ascii: next.ascii ?? base?.ascii,
-    hAnsi: next.hAnsi ?? base?.hAnsi,
-    cs: next.cs ?? base?.cs,
-    eastAsia: next.eastAsia ?? base?.eastAsia,
-    hint: next.hint ?? base?.hint,
-    asciiTheme: next.asciiTheme ?? base?.asciiTheme,
-    hAnsiTheme: next.hAnsiTheme ?? base?.hAnsiTheme,
-    eastAsiaTheme: next.eastAsiaTheme ?? base?.eastAsiaTheme,
-    csTheme: next.csTheme ?? base?.csTheme,
+  // Each script's typeface is one setting written two ways, by name or as a theme font (the theme wins on one
+  // element). A level that names either replaces both: a run's own w:ascii="Arial" shows Arial under a style or
+  // document default of w:asciiTheme="minorHAnsi", as in Word.
+  const slot = (name: "ascii" | "hAnsi" | "cs" | "eastAsia") => {
+    const theme = `${name}Theme` as const
+    return next[name] !== undefined || next[theme] !== undefined
+      ? { [name]: next[name], [theme]: next[theme] }
+      : { [name]: base?.[name], [theme]: base?.[theme] }
   }
+  return {
+    ...slot("ascii"),
+    ...slot("hAnsi"),
+    ...slot("cs"),
+    ...slot("eastAsia"),
+    hint: next.hint ?? base?.hint,
+  } as RunFonts
 }
 
 function mergeLanguage(base: Language | undefined, next: Language | undefined): Language | undefined {
@@ -1240,6 +1312,9 @@ function compactRun(props: RunProperties): RunProperties {
   if (props.color !== undefined) {
     result.color = props.color
   }
+  if (props.colorTheme !== undefined) {
+    result.colorTheme = { ...props.colorTheme }
+  }
   if (props.spacing !== undefined) {
     result.spacing = props.spacing
   }
@@ -1260,6 +1335,12 @@ function compactRun(props: RunProperties): RunProperties {
   }
   if (props.highlight !== undefined) {
     result.highlight = props.highlight
+  }
+  if (props.shd) {
+    result.shd = props.shd
+  }
+  if (props.bdr) {
+    result.bdr = props.bdr
   }
   if (props.u) {
     result.u = props.u.color ? { value: props.u.value, color: props.u.color } : { value: props.u.value }

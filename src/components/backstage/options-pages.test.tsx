@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
+import { useEditorPane } from "@/editor/grammar"
 import { useEditingOptions } from "@/document/editing-options"
 import { afterEach, describe, expect, it } from "vitest"
 import { OptionsPages } from "@/components/backstage/views"
@@ -14,11 +15,16 @@ describe("Options pages (22.9)", () => {
     expect(screen.getByRole("button", { name: "General" }).getAttribute("aria-current")).toBe("page")
   })
 
-  it("shows unsupported proofing options switched off", () => {
+  it("shows the proofing options, grammar as you type among them", () => {
     render(<OptionsPages />)
     fireEvent.click(screen.getByRole("button", { name: "Proofing" }))
     const box = screen.getByLabelText("Mark grammar errors as you type") as HTMLInputElement
-    expect(box.disabled).toBe(true)
+    expect(box.disabled).toBe(false)
+    const before = useEditorPane.getState().checkGrammar
+    fireEvent.click(box)
+    expect(useEditorPane.getState().checkGrammar).toBe(!before)
+    useEditorPane.getState().setCheckGrammar(before)
+    expect(screen.getByRole("button", { name: "Custom Dictionaries…" })).toBeTruthy()
     expect((screen.getByLabelText("Suggest from main dictionary only") as HTMLInputElement).disabled).toBe(false)
     expect((screen.getByLabelText("Flag repeated words") as HTMLInputElement).disabled).toBe(false)
     expect((screen.getByLabelText("Check spelling as you type") as HTMLInputElement).disabled).toBe(false)

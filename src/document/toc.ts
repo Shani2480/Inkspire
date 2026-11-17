@@ -70,6 +70,34 @@ export function tocInstruction(base: string, options: Pick<TocOptions, "levels" 
   return instruction.replace(/\s+/g, " ")
 }
 
+/** A Table of Figures: a TOC field listing one caption label, with label and number (\c "Figure") or without (\a). */
+export type FigureTableOptions = { label: string; includeLabel: boolean }
+
+/** The label a Table of Figures lists, or null for a table of contents. */
+export function figureTable(instruction: string): FigureTableOptions | null {
+  const match = /\\([ca])(?![a-z])\s+(?:"([^"]*)"|(\S+))/i.exec(instruction || "")
+  if (!match) {
+    return null
+  }
+  return { label: (match[2] ?? match[3] ?? "").replace(/_/g, " "), includeLabel: match[1]!.toLowerCase() === "c" }
+}
+
+/** What References > Insert Table of Figures writes: TOC \h \z \c "Figure" (\n without page numbers). */
+export function figureInstruction(
+  options: FigureTableOptions & Pick<TocOptions, "hyperlinks" | "pageNumbers">,
+): string {
+  const label = options.label.trim().replace(/\s+/g, "_")
+  return [
+    "TOC",
+    options.hyperlinks ? "\\h" : "",
+    "\\z",
+    `${options.includeLabel ? "\\c" : "\\a"} "${label}"`,
+    options.pageNumbers ? "" : "\\n",
+  ]
+    .filter(Boolean)
+    .join(" ")
+}
+
 export function readLeader(value: unknown): TocLeader {
   return TOC_LEADERS.includes(value as TocLeader) ? (value as TocLeader) : "dot"
 }

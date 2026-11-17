@@ -1,8 +1,17 @@
+import { SymbolDialog } from "@/components/symbol-dialog"
+import { insertSymbol, useRecentSymbols, type SymbolChoice } from "@/editor/symbols"
+import { useBookmarkDialog } from "@/document/bookmark-dialog"
 import { openCoverGenerator } from "@/components/cover-page-dialog"
 import { IconLibrary } from "@/components/icon-library"
+import { StockImages } from "@/components/stock-images"
 import { ModelLibrary } from "@/components/model-library"
 import { SmartArtDialog, SmartArtMenu } from "@/components/smartart-gallery"
 import { MenuButton, RibbonCommand, RibbonGroup } from "@/components/ribbon/ribbon-button"
+import { openInsertTableDialog } from "@/components/insert-table-dialog"
+import { openCrossReferenceDialog } from "@/components/caption-dialogs"
+import { useTableDraw } from "@/editor/table-draw"
+import { textForTable } from "@/editor/table-insert"
+import { builtInQuickTables, quickTableContent, quickTablePreview, type QuickTable } from "@/editor/quick-tables"
 import {
   LineBookmarkIcon,
   LineBreakIcon,
@@ -56,17 +65,32 @@ import { embedVideoSrc } from "@/editor/online-video"
 import { insertScreenClipping, pickScreenshotFile } from "@/editor/screenshot"
 import { WORD_ART_PRESETS } from "@/editor/text-effects"
 import type { BuiltInHeader } from "@/document/page-setup"
-import { updateBlocks } from "@/editor/block-format"
+import { DropCapPicture, applyDropCap, currentDropCap, openDropCapDialog } from "@/components/drop-cap-dialog"
 import { EquationEditor } from "@/components/equation-editor"
 import { EQUATION_PRESETS } from "@/editor/equation"
 import { openLocalFile } from "@/lib/file-io"
-import { deleteQuickPart, loadQuickParts, saveQuickPart, type QuickPart } from "@/editor/quick-parts"
-import { chainWithSelection, insertAtSelectionEnd } from "@/editor/selection-memory"
+import type { BlockGallery, QuickPart } from "@/editor/quick-parts"
+import {
+  insertBuildingBlock,
+  insertField,
+  openBuildingBlocksOrganizer,
+  openCreateBuildingBlock,
+  openFieldDialog,
+  useQuickPartsDialogs,
+} from "@/components/quick-parts-dialogs"
+import { MenuFlyout, MenuHeading, MenuRow, MenuSeparator } from "@/components/shape-menus"
+import {
+  chainWithSelection,
+  insertAtSelectionEnd,
+  restoreSelection,
+  syncSelectionMemory,
+} from "@/editor/selection-memory"
 import { DOMSerializer } from "@tiptap/pm/model"
 import type { Editor } from "@tiptap/core"
 import { useEditorState } from "@tiptap/react"
 import { loadKatex } from "@/lib/katex-lazy"
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { openLinkDialog } from "@/components/link-dialog"
 import { DialogButtons, DialogFrame } from "@/components/word-dialog"
 
 const SHAPE_GROUPS: { title: string; items: { id: string; label: string }[] }[] = [
@@ -264,101 +288,6 @@ const TEXT_BOXES: { label: string; text: string; fill: string; borderColor: stri
   { label: "Filigree Quote", text: "Your quote here", fill: "#fff8e8", borderColor: "#bf8f00", width: 220 },
 ]
 
-const EXTRA_SYMBOLS = [
-  "←",
-  "→",
-  "↑",
-  "↓",
-  "↔",
-  "⇒",
-  "⇐",
-  "♠",
-  "♣",
-  "♥",
-  "♦",
-  "♪",
-  "♫",
-  "☑",
-  "☒",
-  "★",
-  "☆",
-  "✓",
-  "✗",
-  "⌘",
-  "⌥",
-  "∑",
-  "∏",
-  "∫",
-  "∂",
-  "∆",
-  "∇",
-  "∈",
-  "∉",
-  "⊂",
-  "⊃",
-  "∧",
-  "∨",
-  "¬",
-  "⊕",
-  "⊗",
-  "∠",
-  "⊥",
-  "∥",
-  "∴",
-  "∵",
-  "½",
-  "¼",
-  "¾",
-  "²",
-  "³",
-  "¹",
-  "℃",
-  "℉",
-  "№",
-  "℗",
-  "℠",
-]
-
-const SYMBOLS = [
-  "©",
-  "®",
-  "™",
-  "€",
-  "£",
-  "¥",
-  "°",
-  "±",
-  "×",
-  "÷",
-  "≠",
-  "≈",
-  "≤",
-  "≥",
-  "∞",
-  "√",
-  "π",
-  "µ",
-  "§",
-  "¶",
-  "•",
-  "–",
-  "—",
-  "‘",
-  "’",
-  "“",
-  "”",
-  "«",
-  "»",
-  "†",
-  "‡",
-  "…",
-  "‰",
-  "α",
-  "β",
-  "γ",
-  "Ω",
-]
-
 /** A saved cover in the gallery, with buttons to rename it (the name turns into a field) and to delete it. */
 function SavedCoverTile({ name, onChanged, children }: { name: string; onChanged: () => void; children: ReactNode }) {
   const [renaming, setRenaming] = useState(false)
@@ -430,8 +359,9 @@ export function InsertTab() {
   const editor = useDocumentEditor()
   const fileInput = useRef<HTMLInputElement>(null)
   const insertAt = useRef<number | null>(null)
-  const [bookmarkOpen, setBookmarkOpen] = useState(false)
+  const openBookmarks = useBookmarkDialog((state) => state.show)
   const [iconLibraryOpen, setIconLibraryOpen] = useState(false)
+  const [stockImagesOpen, setStockImagesOpen] = useState(false)
   const [modelLibraryOpen, setModelLibraryOpen] = useState(false)
   const [smartArtOpen, setSmartArtOpen] = useState(false)
   const [symbolOpen, setSymbolOpen] = useState(false)
@@ -531,25 +461,78 @@ export function InsertTab() {
   }
   const insertBlankPage = () => editor && insertAtSelectionEnd(editor).setBlankPage().run()
   const insertPageBreak = () => editor && insertAtSelectionEnd(editor).setPageBreak().run()
+  // Word's Table menu: the grid, then Insert Table…, Draw Table, Convert Text to Table… (with a selection only) and
+  // Excel Spreadsheet, an embedded worksheet saved as Word's (`docx/sheet-object.ts`).
   const tableMenu = (close: () => void) => (
-    <TableGrid
-      onInsert={(rows, cols) => {
-        if (editor) {
-          insertAtSelectionEnd(editor).insertTable({ rows, cols, withHeaderRow: true }).run()
-        }
-        close()
-      }}
-    />
+    <div className="flex flex-col">
+      <TableGrid
+        onInsert={(rows, cols) => {
+          if (editor) {
+            insertAtSelectionEnd(editor).insertTable({ rows, cols, withHeaderRow: true }).run()
+          }
+          close()
+        }}
+      />
+      <div className="my-1 border-t border-[var(--app-popover-border)]" />
+      <MenuButton
+        onClick={() => {
+          close()
+          openInsertTableDialog(editor, "insert")
+        }}
+      >
+        Insert Table…
+      </MenuButton>
+      <MenuButton
+        onClick={() => {
+          useTableDraw.getState().toggle("draw")
+          editor?.view.focus()
+          close()
+        }}
+      >
+        Draw Table
+      </MenuButton>
+      <MenuButton
+        disabled={!editor || !textForTable(editor)}
+        onClick={() => {
+          close()
+          openInsertTableDialog(editor, "convert")
+        }}
+      >
+        Convert Text to Table…
+      </MenuButton>
+      <MenuButton
+        onClick={() => {
+          close()
+          insertSheet()
+        }}
+      >
+        Excel Spreadsheet
+      </MenuButton>
+      <QuickTablesMenu editor={editor} close={close} />
+    </div>
   )
   const picturesMenu = (close: () => void) => (
-    <MenuButton
-      onClick={() => {
-        openImagePicker()
-        close()
-      }}
-    >
-      This Device
-    </MenuButton>
+    <>
+      <MenuButton
+        onClick={() => {
+          openImagePicker()
+          close()
+        }}
+      >
+        This Device
+      </MenuButton>
+      <MenuButton
+        onClick={() => {
+          if (editor) {
+            insertAt.current = editor.state.selection.from
+            setStockImagesOpen(true)
+          }
+          close()
+        }}
+      >
+        Stock Images...
+      </MenuButton>
+    </>
   )
   const shapesMenu = (close: () => void) => (
     <ShapesMenu
@@ -659,42 +642,7 @@ export function InsertTab() {
       </MenuButton>
     </div>
   )
-  const linkMenu = (close: () => void) => <LinkMenu editor={editor} close={close} />
-  const crossReferenceMenu = (close: () => void) => (
-    <div className="flex max-h-64 w-56 flex-col overflow-auto">
-      {(targets?.headings ?? []).map((heading) => (
-        <MenuButton
-          key={`h-${heading.pos}`}
-          onClick={() => {
-            if (editor) {
-              chainWithSelection(editor).insertContent(`${heading.text}`).run()
-            }
-            close()
-          }}
-        >
-          {heading.text}
-        </MenuButton>
-      ))}
-      {(targets?.bookmarks ?? []).map((name) => (
-        <MenuButton
-          key={name}
-          onClick={() => {
-            if (editor) {
-              chainWithSelection(editor)
-                .insertContent(`<a href="#bm-${encodeURIComponent(name.replace(/[^a-zA-Z0-9_-]/g, "-"))}">${name}</a>`)
-                .run()
-            }
-            close()
-          }}
-        >
-          {name}
-        </MenuButton>
-      ))}
-      {(targets?.headings.length ?? 0) + (targets?.bookmarks.length ?? 0) === 0 ? (
-        <p className="px-2 py-1 text-xs text-neutral-500">Add a heading or bookmark first.</p>
-      ) : null}
-    </div>
-  )
+  const openLink = () => openLinkDialog(editor)
   const commentMenu = (close: () => void) => <CommentMenu editor={editor} close={close} />
   const textBoxMenu = (close: () => void) => (
     <div className="grid w-[280px] grid-cols-2 gap-1 p-1">
@@ -759,14 +707,6 @@ export function InsertTab() {
       </MenuButton>
       <MenuButton
         onClick={() => {
-          editor?.chain().focus().insertSheetBlock().run()
-          close()
-        }}
-      >
-        Spreadsheet
-      </MenuButton>
-      <MenuButton
-        onClick={() => {
           newEquation()
           close()
         }}
@@ -802,11 +742,13 @@ export function InsertTab() {
       </MenuButton>
     </div>
   )
+  const recentSymbols = useRecentSymbols((state) => state.recent)
   const symbolMenu = (close: () => void) => (
     <div className="w-56 p-1">
-      <div className="grid grid-cols-8 gap-0.5">
-        {SYMBOLS.map((symbol) => (
-          <SymbolButton key={symbol} symbol={symbol} editor={editor} close={close} />
+      {/* Word's Symbol gallery: the 20 symbols used last. */}
+      <div className="grid grid-cols-5 gap-0.5">
+        {recentSymbols.map((symbol) => (
+          <SymbolButton key={`${symbol.font ?? ""}|${symbol.char}`} symbol={symbol} editor={editor} close={close} />
         ))}
       </div>
       <MenuButton
@@ -837,8 +779,8 @@ export function InsertTab() {
   )
   const dialogs = (
     <>
-      {bookmarkOpen && editor ? (
-        <BookmarkDialog editor={editor} names={targets?.bookmarks ?? []} onClose={() => setBookmarkOpen(false)} />
+      {stockImagesOpen && editor ? (
+        <StockImages editor={editor} at={insertAt.current ?? undefined} onClose={() => setStockImagesOpen(false)} />
       ) : null}
       {iconLibraryOpen && editor ? <IconLibrary editor={editor} onClose={() => setIconLibraryOpen(false)} /> : null}
       {modelLibraryOpen && editor ? <ModelLibrary editor={editor} onClose={() => setModelLibraryOpen(false)} /> : null}
@@ -860,7 +802,7 @@ export function InsertTab() {
       { id: "table", label: "Table", icon: <LineTableIcon />, priority: 3, menu: tableMenu },
       { id: "picture", label: "Picture", icon: <LinePictureIcon />, priority: 3, menu: picturesMenu },
       { id: "drawing", label: "Drawing", icon: <LineDrawingIcon />, priority: 1, onClick: insertCanvas },
-      { id: "link", label: "Link", icon: <LineLinkIcon />, priority: 2, menu: linkMenu },
+      { id: "link", label: "Link", icon: <LineLinkIcon />, priority: 2, onClick: openLink },
       {
         id: "table-of-contents",
         label: "Table of Contents",
@@ -886,7 +828,7 @@ export function InsertTab() {
           <div className="flex max-h-64 w-56 flex-col overflow-auto">
             <MenuButton
               onClick={() => {
-                setBookmarkOpen(true)
+                openBookmarks()
                 close()
               }}
             >
@@ -949,14 +891,18 @@ export function InsertTab() {
           { id: "3d-models", label: "3D Models", icon: <CubeIcon />, onClick: () => setModelLibraryOpen(true) },
           { id: "smartart", label: "SmartArt", icon: <SmartArtIcon />, menu: smartArtMenu },
           { id: "chart", label: "Chart", icon: <ChartIcon />, menu: chartMenu },
-          { id: "spreadsheet", label: "Spreadsheet", icon: <SheetIcon />, onClick: insertSheet },
           { id: "screenshot", label: "Screenshot", icon: <ScreenshotIcon />, menu: screenshotMenu },
         ],
       },
       {
         id: "links",
         commands: [
-          { id: "cross-reference", label: "Cross-reference", icon: <CrossRefIcon />, menu: crossReferenceMenu },
+          {
+            id: "cross-reference",
+            label: "Cross-reference",
+            icon: <CrossRefIcon />,
+            onClick: () => openCrossReferenceDialog(editor),
+          },
         ],
       },
       {
@@ -1019,9 +965,6 @@ export function InsertTab() {
         <RibbonCommand label="Chart" disabled={off} menu={chartMenu}>
           <ChartIcon />
         </RibbonCommand>
-        <RibbonCommand label="Spreadsheet" disabled={off} onClick={insertSheet}>
-          <SheetIcon />
-        </RibbonCommand>
         <RibbonCommand label="Drawing Canvas" disabled={off} onClick={insertCanvas}>
           <DrawingCanvasIcon />
         </RibbonCommand>
@@ -1036,13 +979,13 @@ export function InsertTab() {
         </RibbonCommand>
       </RibbonGroup>
       <RibbonGroup label="Links">
-        <RibbonCommand label="Link" disabled={off} menu={linkMenu}>
+        <RibbonCommand label="Link" shortcut="Ctrl+K" disabled={off} onClick={openLink}>
           <LinkIcon />
         </RibbonCommand>
-        <RibbonCommand label="Bookmark" disabled={off} onClick={() => setBookmarkOpen(true)}>
+        <RibbonCommand label="Bookmark" disabled={off} onClick={() => openBookmarks()}>
           <BookmarkIcon />
         </RibbonCommand>
-        <RibbonCommand label="Cross-reference" disabled={off} menu={crossReferenceMenu}>
+        <RibbonCommand label="Cross-reference" disabled={off} onClick={() => openCrossReferenceDialog(editor)}>
           <CrossRefIcon />
         </RibbonCommand>
       </RibbonGroup>
@@ -1149,7 +1092,9 @@ function VideoDialog({ editor, onClose }: { editor: Editor; onClose: () => void 
   )
 }
 
+/** Insert > Drop Cap, as Word's: None, Dropped and In margin as pictures, then Drop Cap Options…. */
 function DropCapMenu({ editor, close }: { editor: Editor | null; close: () => void }) {
+  const current = editor ? currentDropCap(editor).kind : null
   const choices = [
     { id: null, label: "None" },
     { id: "dropped", label: "Dropped" },
@@ -1157,24 +1102,38 @@ function DropCapMenu({ editor, close }: { editor: Editor | null; close: () => vo
   ] as const
 
   return (
-    <div className="grid w-[220px] grid-cols-3 gap-1 p-1">
-      {choices.map((choice) => (
-        <button
-          key={choice.label}
-          type="button"
-          className="flex h-16 flex-col items-center justify-center rounded border border-[#e1e1e1] bg-white text-[11px] hover:border-[#0f6cbd]"
-          onMouseDown={(event) => event.preventDefault()}
-          onClick={() => {
-            if (editor) {
-              updateBlocks(editor, { dropCap: choice.id })
-            }
-            close()
-          }}
-        >
-          <span className="text-[18px] leading-none font-medium">{choice.id ? "A" : "—"}</span>
-          {choice.label}
-        </button>
-      ))}
+    <div className="flex w-[228px] flex-col">
+      <div className="drop-cap-menu" role="group" aria-label="Drop Cap">
+        {choices.map((choice) => (
+          <button
+            key={choice.label}
+            type="button"
+            className="drop-cap-menu-tile"
+            aria-label={choice.label}
+            aria-pressed={current === choice.id}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => {
+              if (editor) {
+                const now = currentDropCap(editor)
+                applyDropCap(editor, { ...now, kind: choice.id })
+              }
+              close()
+            }}
+          >
+            <DropCapPicture kind={choice.id} />
+            <span>{choice.label}</span>
+          </button>
+        ))}
+      </div>
+      <MenuButton
+        disabled={!editor}
+        onClick={() => {
+          close()
+          openDropCapDialog(editor)
+        }}
+      >
+        Drop Cap Options…
+      </MenuButton>
     </div>
   )
 }
@@ -1284,6 +1243,17 @@ function goToBookmark(editor: Editor, target: string) {
   }
 }
 
+/** The Bookmark dialog, opened from Insert > Bookmark… or Ctrl+Shift+F5 and drawn once by the workspace. */
+export function BookmarkDialogHost() {
+  const open = useBookmarkDialog((state) => state.open)
+  const hide = useBookmarkDialog((state) => state.hide)
+  const editor = useDocumentEditor()
+  if (!open || !editor) {
+    return null
+  }
+  return <BookmarkDialog editor={editor} names={listBookmarks(editor.state.doc)} onClose={hide} />
+}
+
 function BookmarkDialog({ editor, names, onClose }: { editor: Editor; names: string[]; onClose: () => void }) {
   const [name, setName] = useState("")
   const [selected, setSelected] = useState(names[0] ?? "")
@@ -1353,6 +1323,7 @@ function BookmarkDialog({ editor, names, onClose }: { editor: Editor; names: str
               setError("That bookmark name already exists.")
               return
             }
+            restoreSelection(editor)
             if (!editor.chain().focus().insertBookmark(id).run()) {
               setError("Could not add bookmark.")
               return
@@ -1376,43 +1347,24 @@ function BookmarkDialog({ editor, names, onClose }: { editor: Editor; names: str
   )
 }
 
-function SymbolDialog({ editor, onClose }: { editor: Editor; onClose: () => void }) {
-  const [query, setQuery] = useState("")
-  const symbols = [...SYMBOLS, ...EXTRA_SYMBOLS].filter((symbol) => !query || symbol.includes(query))
-
-  return (
-    <Overlay title="Symbol" onClose={onClose}>
-      <input
-        aria-label="Find a symbol"
-        value={query}
-        placeholder="Type a character to find it"
-        className="h-8 w-full rounded-md border border-black/15 px-2 text-sm"
-        onChange={(event) => setQuery(event.target.value)}
-      />
-      <div className="mt-3 grid max-h-52 grid-cols-10 gap-1 overflow-auto">
-        {symbols.map((symbol) => (
-          <SymbolButton key={symbol} symbol={symbol} editor={editor} close={onClose} />
-        ))}
-      </div>
-    </Overlay>
-  )
-}
-
-function SymbolButton({ symbol, editor, close }: { symbol: string; editor: Editor | null; close: () => void }) {
+/** One of the recently used symbols on Insert > Symbol, in its own font. */
+function SymbolButton({ symbol, editor, close }: { symbol: SymbolChoice; editor: Editor | null; close: () => void }) {
   return (
     <button
       type="button"
-      aria-label={`Insert ${symbol}`}
-      className="h-7 rounded text-sm hover:bg-neutral-100"
+      aria-label={`Insert ${symbol.char}`}
+      title={symbol.font ? `${symbol.font}: ${symbol.char}` : symbol.char}
+      className="h-8 rounded text-base hover:bg-[var(--app-hover)]"
+      style={{ fontFamily: symbol.font ? `"${symbol.font}"` : undefined }}
       onMouseDown={(event) => event.preventDefault()}
       onClick={() => {
         if (editor) {
-          chainWithSelection(editor).insertContent(symbol).run()
+          insertSymbol(editor, symbol)
         }
         close()
       }}
     >
-      {symbol}
+      {symbol.char}
     </button>
   )
 }
@@ -1730,45 +1682,6 @@ function DropCapIcon() {
   )
 }
 
-function LinkMenu({ editor, close }: { editor: Editor | null; close: () => void }) {
-  const [url, setUrl] = useState("https://")
-  return (
-    <form
-      className="flex w-64 flex-col gap-2 p-1"
-      onSubmit={(event) => {
-        event.preventDefault()
-        if (!editor) {
-          return
-        }
-        const href = url.trim()
-        if (!href) {
-          return
-        }
-        const chain = chainWithSelection(editor)
-        if (editor.state.selection.empty) {
-          chain.insertContent(`<a href="${href}">${href}</a>`).run()
-        } else {
-          chain.extendMarkRange("link").setLink({ href }).run()
-        }
-        close()
-      }}
-    >
-      <label className="text-[11px] text-neutral-500">
-        Address
-        <input
-          aria-label="Link address"
-          value={url}
-          className="mt-1 h-8 w-full rounded border border-black/15 px-2 text-sm text-neutral-900"
-          onChange={(event) => setUrl(event.target.value)}
-        />
-      </label>
-      <button type="submit" className="h-8 rounded bg-[#0f6cbd] text-sm text-white">
-        Insert
-      </button>
-    </form>
-  )
-}
-
 function CommentMenu({ editor, close }: { editor: Editor | null; close: () => void }) {
   const [text, setText] = useState("")
   return (
@@ -1795,62 +1708,220 @@ function CommentMenu({ editor, close }: { editor: Editor | null; close: () => vo
   )
 }
 
+/** Document Property: the properties the app keeps, inserted as the field Word shows them with. */
+const DOCUMENT_PROPERTY_FIELDS: [string, string][] = [
+  ["Author", "AUTHOR"],
+  ["Category", "DOCPROPERTY Category"],
+  ["Comments", "COMMENTS"],
+  ["Company", "DOCPROPERTY Company"],
+  ["Keywords", "KEYWORDS"],
+  ["Subject", "SUBJECT"],
+  ["Title", "TITLE"],
+]
+
+/**
+ * Insert > Quick Parts, as in Word: the Quick Parts gallery by category, AutoText, Document Property, Field…,
+ * Building Blocks Organizer… and Save Selection to Quick Part Gallery…. Word's Document Property entries are content
+ * controls bound to the property; the app inserts the property's field, which Word shows and updates the same way.
+ * "Get More on Office.com" is left out (no online gallery).
+ */
 function QuickMenu({ editor, close }: { editor: Editor | null; close: () => void }) {
-  const [parts, setParts] = useState<QuickPart[]>(() => loadQuickParts())
-  const [name, setName] = useState("")
+  const parts = useQuickPartsDialogs((state) => state.parts)
+  const reload = useQuickPartsDialogs((state) => state.reload)
+  useEffect(() => reload(), [reload])
+  const quick = parts.filter((part) => part.gallery === "Quick Parts")
+  const autoText = parts.filter((part) => part.gallery === "AutoText")
+  const categories = [...new Set(quick.map((part) => part.category))].sort()
+  const hasSelection = !!editor && !editor.state.selection.empty
+  const insert = (part: QuickPart) => {
+    if (editor) {
+      insertBuildingBlock(editor, part)
+    }
+    close()
+  }
+  const saveTo = (gallery: BlockGallery) => {
+    if (!editor) {
+      return
+    }
+    const html = selectionHtml(editor)
+    const { from, to } = editor.state.selection
+    close()
+    openCreateBuildingBlock(editor, gallery, html, editor.state.doc.textBetween(from, to, " "))
+  }
   return (
-    <div className="flex w-56 flex-col">
-      {parts.map((part) => (
-        <MenuButton
-          key={part.id}
-          onClick={() => {
-            editor?.chain().focus().insertContent(part.html).run()
-            close()
-          }}
-        >
-          <span className="flex w-full items-center justify-between gap-2">
-            <span className="truncate">{part.name}</span>
-            <span
-              className="text-[11px] text-neutral-400"
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={(event) => {
-                event.stopPropagation()
-                setParts(deleteQuickPart(part.id))
+    <div className="shape-menu quick-parts-menu">
+      {/* Only the gallery scrolls: the flyouts below must not sit in a scrolling box, which would clip them. */}
+      <div className="quick-parts-gallery">
+        {categories.map((category) => (
+          <div key={category}>
+            <MenuHeading>{category}</MenuHeading>
+            {quick
+              .filter((part) => part.category === category)
+              .map((part) => (
+                <BlockTile key={part.id} part={part} onClick={() => insert(part)} />
+              ))}
+          </div>
+        ))}
+      </div>
+      {categories.length > 0 ? <MenuSeparator /> : null}
+      <MenuFlyout label="AutoText">
+        <div className="shape-menu quick-parts-menu">
+          <div className="quick-parts-gallery">
+            {autoText.length > 0 ? <MenuHeading>General</MenuHeading> : null}
+            {autoText.map((part) => (
+              <BlockTile key={part.id} part={part} onClick={() => insert(part)} />
+            ))}
+          </div>
+          {autoText.length > 0 ? <MenuSeparator /> : null}
+          <MenuRow disabled={!hasSelection} onClick={() => saveTo("AutoText")}>
+            Save Selection to AutoText Gallery
+          </MenuRow>
+        </div>
+      </MenuFlyout>
+      <MenuFlyout label="Document Property">
+        <div className="shape-menu">
+          {DOCUMENT_PROPERTY_FIELDS.map(([label, instr]) => (
+            <MenuRow
+              key={label}
+              onClick={() => {
+                if (editor) {
+                  insertField(editor, `${instr} \\* MERGEFORMAT`)
+                }
+                close()
               }}
             >
-              Remove
-            </span>
-          </span>
-        </MenuButton>
-      ))}
-      {parts.length === 0 ? <p className="px-2 py-1 text-xs text-neutral-500">No saved parts yet.</p> : null}
-      <form
-        className="mt-1 flex gap-1 border-t border-black/10 p-1"
-        onSubmit={(event) => {
-          event.preventDefault()
-          if (!editor) {
-            return
-          }
-          const html = selectionHtml(editor)
-          if (!html) {
-            return
-          }
-          setParts(saveQuickPart(name || "Part", html))
-          setName("")
+              {label}
+            </MenuRow>
+          ))}
+        </div>
+      </MenuFlyout>
+      <MenuRow
+        icon={<FieldIcon />}
+        onClick={() => {
+          close()
+          openFieldDialog(editor)
         }}
       >
-        <input
-          aria-label="Quick part name"
-          value={name}
-          placeholder="Save selection"
-          className="h-7 min-w-0 flex-1 rounded border border-black/15 px-2 text-xs"
-          onChange={(event) => setName(event.target.value)}
-        />
-        <button type="submit" className="rounded bg-neutral-900 px-2 text-xs text-white">
-          Save
-        </button>
-      </form>
+        Field...
+      </MenuRow>
+      <MenuRow
+        onClick={() => {
+          close()
+          openBuildingBlocksOrganizer(editor)
+        }}
+      >
+        Building Blocks Organizer...
+      </MenuRow>
+      <MenuSeparator />
+      <MenuRow disabled={!hasSelection} onClick={() => saveTo("Quick Parts")}>
+        Save Selection to Quick Part Gallery...
+      </MenuRow>
     </div>
+  )
+}
+
+/**
+ * Insert > Table > Quick Tables: Word's built-in tables, then the ones saved to the Tables gallery by category, and
+ * Save Selection to Quick Tables Gallery.
+ */
+function QuickTablesMenu({ editor, close }: { editor: Editor | null; close: () => void }) {
+  const parts = useQuickPartsDialogs((state) => state.parts)
+  const reload = useQuickPartsDialogs((state) => state.reload)
+  useEffect(() => reload(), [reload])
+  const builtIn = useMemo(() => builtInQuickTables(), [])
+  const saved = parts.filter((part) => part.gallery === "Tables")
+  const categories = [...new Set(saved.map((part) => part.category))].sort()
+  const hasSelection = !!editor && !editor.state.selection.empty
+  const insertBuiltIn = (table: QuickTable) => {
+    if (editor) {
+      chainWithSelection(editor).insertContent(quickTableContent(table)).run()
+      syncSelectionMemory(editor)
+    }
+    close()
+  }
+  const insertSaved = (part: QuickPart) => {
+    if (editor) {
+      insertBuildingBlock(editor, part)
+    }
+    close()
+  }
+  const saveSelection = () => {
+    if (!editor) {
+      return
+    }
+    const { from, to } = editor.state.selection
+    const html = selectionHtml(editor)
+    close()
+    openCreateBuildingBlock(editor, "Tables", html, editor.state.doc.textBetween(from, to, " "))
+  }
+  return (
+    // In the Table menu's list of plain entries: lined up with them, without the icon column of picture menus.
+    <div className="table-menu-flyout">
+      <MenuFlyout label="Quick Tables">
+        <div className="shape-menu quick-parts-menu quick-tables-menu">
+          <div className="quick-parts-gallery">
+            <MenuHeading>Built-In</MenuHeading>
+            {builtIn.map((table) => (
+              <button
+                key={table.name}
+                type="button"
+                className="quick-part-tile"
+                title={table.description}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => insertBuiltIn(table)}
+              >
+                <span className="quick-part-name">{table.name}</span>
+                <span
+                  className="quick-part-preview quick-table-tile"
+                  data-keep-light
+                  dangerouslySetInnerHTML={{ __html: quickTablePreview(table) }}
+                />
+              </button>
+            ))}
+            {categories.map((category) => (
+              <div key={category}>
+                <MenuHeading>{category}</MenuHeading>
+                {saved
+                  .filter((part) => part.category === category)
+                  .map((part) => (
+                    <BlockTile key={part.id} part={part} onClick={() => insertSaved(part)} />
+                  ))}
+              </div>
+            ))}
+          </div>
+          <MenuSeparator />
+          <MenuRow disabled={!hasSelection} onClick={saveSelection}>
+            Save Selection to Quick Tables Gallery...
+          </MenuRow>
+        </div>
+      </MenuFlyout>
+    </div>
+  )
+}
+
+/** A building block in a Quick Parts gallery: its name and a small picture of its text, as Word shows it. */
+function BlockTile({ part, onClick }: { part: QuickPart; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className="quick-part-tile"
+      title={part.description || part.name}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={onClick}
+    >
+      <span className="quick-part-name">{part.name}</span>
+      <span className="quick-part-preview" data-keep-light dangerouslySetInnerHTML={{ __html: part.html }} />
+    </button>
+  )
+}
+
+function FieldIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
+      <rect x="2.5" y="4.5" width="11" height="7" rx="1" fill="none" stroke="var(--icon-base-color, currentColor)" />
+      <path d="M5 6.5v3M7 6.5h-2M7 8h-2" stroke="var(--icon-accent-color, currentColor)" fill="none" />
+      <path d="M9 9.5h3" stroke="var(--icon-base-color, currentColor)" />
+    </svg>
   )
 }
 
@@ -1904,15 +1975,18 @@ function insertAutomatic(editor: Editor, format: DateFormat, close: () => void) 
   close()
 }
 
+/** Word's grid: 10 columns by 8 rows, with the size picked named above it ("3x2 Table"). */
 function TableGrid({ onInsert }: { onInsert: (rows: number, cols: number) => void }) {
   const [hover, setHover] = useState({ rows: 0, cols: 0 })
-  const size = 8
+  const columns = 10
+  const rowCount = 8
   return (
     <div className="flex flex-col gap-2" onMouseLeave={() => setHover({ rows: 0, cols: 0 })}>
-      <div className="grid grid-cols-8 gap-1">
-        {Array.from({ length: size * size }, (_, index) => {
-          const row = Math.floor(index / size) + 1
-          const col = (index % size) + 1
+      <p className="text-xs font-semibold">{hover.rows > 0 ? `${hover.cols}x${hover.rows} Table` : "Insert Table"}</p>
+      <div className="grid grid-cols-10 gap-1">
+        {Array.from({ length: columns * rowCount }, (_, index) => {
+          const row = Math.floor(index / columns) + 1
+          const col = (index % columns) + 1
           const selected = row <= hover.rows && col <= hover.cols
           return (
             <button
@@ -1927,9 +2001,6 @@ function TableGrid({ onInsert }: { onInsert: (rows: number, cols: number) => voi
           )
         })}
       </div>
-      <p className="text-center text-xs text-neutral-500">
-        {hover.rows > 0 ? `${hover.cols} × ${hover.rows} table` : "Insert table"}
-      </p>
     </div>
   )
 }
@@ -2081,14 +2152,6 @@ function SmartArtIcon() {
       <rect x="22" y="8" width="4" height="6" rx="1" fill="#9cc7f0" stroke="#0f6cbd" />
       <path d="M11 11h2M20 11h2" stroke="#0f6cbd" />
       <rect x="8" y="16" width="12" height="5" rx="1" fill="#fff4ce" stroke="#8a6116" />
-    </Svg>
-  )
-}
-function SheetIcon() {
-  return (
-    <Svg>
-      <rect x="5" y="5" width="18" height="18" fill="#fff" stroke="#107c10" />
-      <path d="M5 11h18M5 17h18M11 5v18M17 5v18" stroke="#107c10" />
     </Svg>
   )
 }

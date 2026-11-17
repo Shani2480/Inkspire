@@ -1,3 +1,5 @@
+import { sheetSizePx } from "@/document/docx/sheet-object"
+import { parseGrid, shownCells } from "@/editor/sheet-grid"
 import { floatingAttributes } from "@/editor/objects"
 import { textBoxChains } from "@/editor/text-box-link"
 import { textBoxMark } from "@/document/docx/word-text-box"
@@ -5,13 +7,22 @@ import type { Editor, JSONContent } from "@tiptap/core"
 import { DOMParser as ProseDOMParser, Fragment, type Node as ProseNode, type Schema } from "@tiptap/pm/model"
 
 /** The objects Word has no part for: each is saved as its picture, with itself kept inside to open again. */
-const OBJECT_TYPES = new Set(["figure", "threeDModel", "smartArt", "drawingCanvas", "textBox"])
+const OBJECT_TYPES = new Set(["figure", "threeDModel", "smartArt", "drawingCanvas", "textBox", "sheetBlock"])
 
 /**
  * What an object and its picture share: the size, the turn, the wrap and the place, and for a chart opened from
  * Word the run it came from, so an unchanged chart keeps Word's parts.
  */
-const LAYOUT_KEYS = ["width", "height", "rotate", "docxKey", ...Object.keys(floatingAttributes("inline"))]
+// The name and Hide of the Selection pane are the file's (wp:docPr), as its layout is: Word may have changed them.
+const LAYOUT_KEYS = [
+  "width",
+  "height",
+  "rotate",
+  "docxKey",
+  "objectName",
+  "hidden",
+  ...Object.keys(floatingAttributes("inline")),
+]
 
 const SKIPPED = "[data-resize], [data-rotate], [data-object-handle], .object-edge, .object-size-tip"
 
@@ -34,7 +45,7 @@ const SVG_STYLES = [
 ]
 
 type Paint =
-  | { kind: "box"; x: number; y: number; w: number; h: number; style: CSSStyleDeclaration }
+  | { kind: "box"; x: number; y: number; w: number; h: number; style: CSSStyleDeclaration; bare?: boolean }
   | { kind: "text"; x: number; y: number; text: string; font: string; color: string }
   | { kind: "image"; x: number; y: number; w: number; h: number; src: string }
 
@@ -80,6 +91,8 @@ function svgSource(svg: SVGSVGElement, width: number, height: number) {
       target.setAttribute("style", SVG_STYLES.map((name) => `${name}:${style.getPropertyValue(name)}`).join(";"))
     }
   })
+  // The drawing canvas's Ruler and lasso are tools on screen, not part of the drawing.
+  copy.querySelectorAll(".ink-ruler, .ink-lasso-line, .ink-lasso-frame").forEach((element) => element.remove())
   copy.setAttribute("xmlns", "http://www.w3.org/2000/svg")
   copy.setAttribute("width", String(width))
   copy.setAttribute("height", String(height))
@@ -90,6 +103,10 @@ function svgSource(svg: SVGSVGElement, width: number, height: number) {
 function paintsOf(dom: HTMLElement): { width: number; height: number; paints: Paint[] } {
   const turn = dom.style.transform
   dom.style.transform = "none"
+  // An object hidden on the Selection pane is still in the file (wp:docPr hidden): it is measured shown, all within
+  // this one synchronous step, so the page never draws it.
+  const hidden = dom.getAttribute("data-hidden")
+  dom.removeAttribute("data-hidden")
   try {
     const frame = dom.getBoundingClientRect()
     const width = dom.offsetWidth || frame.width
@@ -127,7 +144,8 @@ function paintsOf(dom: HTMLElement): { width: number; height: number; paints: Pa
         paints.push({ kind: "image", ...box, src: element.currentSrc || element.src })
         return
       }
-      paints.push({ kind: "box", ...box, style })
+      // A drawing canvas's frame (dashed, or blue while selected) shows where to draw; Word's canvas has none.
+      paints.push({ kind: "box", ...box, style, ...(element.matches(".drawing-canvas") ? { bare: true } : {}) })
       for (const child of element.childNodes) {
         if (child instanceof Element) {
           visit(child)
@@ -159,6 +177,9 @@ function paintsOf(dom: HTMLElement): { width: number; height: number; paints: Pa
     return { width, height, paints }
   } finally {
     dom.style.transform = turn
+    if (hidden !== null) {
+      dom.setAttribute("data-hidden", hidden)
+    }
   }
 }
 
@@ -171,6 +192,9 @@ function paintBox(context: CanvasRenderingContext2D, paint: Extract<Paint, { kin
     context.beginPath()
     context.roundRect(x, y, w, h, radius)
     context.fill()
+  }
+  if (paint.bare) {
+    return
   }
   const sides = [
     ["Top", x, y, w, Number.parseFloat(style.borderTopWidth)],
@@ -245,6 +269,65 @@ async function objectPicture(dom: HTMLElement) {
   }
 }
 
+/**
+ * The picture Word shows of an embedded worksheet, as Excel draws it: the cells' values in Calibri 11 on Excel's
+ * default 64 by 20 pixel cells, text to the left and numbers to the right, without gridlines.
+ */
+function sheetPicture(grid: string[][], kept: Record<string, unknown> = {}) {
+  const shownAt = shownCells(grid, kept.workbookGrid as string | null, kept.workbookValues as string | null)
+  const { width, height } = sheetSizePx(grid)
+  const canvas = document.createElement("canvas")
+  const density = 2
+  canvas.width = width * density
+  canvas.height = height * density
+  const context = canvas.getContext("2d")
+  if (!context) {
+    return null
+  }
+  context.scale(density, density)
+  context.fillStyle = "#ffffff"
+  context.fillRect(0, 0, width, height)
+  context.font = '14.67px Calibri, Carlito, "Segoe UI", sans-serif'
+  context.fillStyle = "#000000"
+  context.textBaseline = "alphabetic"
+  grid.forEach((line, row) =>
+    line.forEach((_, col) => {
+      const shown = shownAt(row, col)
+      if (!shown) {
+        return
+      }
+      const number = shown.trim() !== "" && Number.isFinite(Number(shown))
+      const x = col * 64
+      const y = row * 20 + 15
+      context.save()
+      // Text runs on into empty cells to its right, as in Excel; a number stays in its cell.
+      if (number) {
+        context.beginPath()
+        context.rect(x, row * 20, 64, 20)
+        context.clip()
+        context.textAlign = "right"
+        context.fillText(shown, x + 61, y)
+      } else {
+        let end = col + 1
+        while (end < line.length && !(line[end] ?? "").trim()) {
+          end += 1
+        }
+        context.beginPath()
+        context.rect(x, row * 20, (end - col) * 64, 20)
+        context.clip()
+        context.textAlign = "left"
+        context.fillText(shown, x + 3, y)
+      }
+      context.restore()
+    }),
+  )
+  try {
+    return { src: canvas.toDataURL("image/png"), width, height }
+  } catch {
+    return null
+  }
+}
+
 function layoutOf(node: ProseNode, schema: Schema, into: string) {
   const type = schema.nodes[into]
   const attrs: Record<string, unknown> = {}
@@ -293,7 +376,13 @@ export async function documentWithObjectPictures(editor: Editor): Promise<JSONCo
   if (!image || found.length === 0) {
     return editor.getJSON()
   }
-  const pictures = await Promise.all(found.map(({ dom }) => objectPicture(dom)))
+  const pictures = await Promise.all(
+    found.map(({ node, dom }) =>
+      node.type.name === "sheetBlock"
+        ? sheetPicture(parseGrid(String(node.attrs.grid ?? "")), node.attrs)
+        : objectPicture(dom),
+    ),
+  )
   const saved = chainsAsWord(state.doc)
   const tr = state.tr
   for (let index = found.length - 1; index >= 0; index -= 1) {

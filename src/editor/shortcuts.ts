@@ -1,5 +1,7 @@
+import { openPasteSpecial } from "@/components/paste-special-dialog"
 import { applyAlign, selectedShapeText, toggleBold, toggleItalic, toggleUnderline } from "@/editor/shape-text"
 import { askText } from "@/components/text-prompt"
+import { openLinkDialog } from "@/components/link-dialog"
 import { requestFormatDialog } from "@/components/format-dialogs"
 import { useEditorPane } from "@/editor/grammar"
 import { useEditingOptions } from "@/document/editing-options"
@@ -17,7 +19,33 @@ import {
 } from "@/editor/home-actions"
 import { updateBlocks } from "@/editor/block-format"
 import type { Editor } from "@tiptap/core"
+import {
+  goBack,
+  moveParagraph,
+  promoteDemote,
+  redoOrRepeat,
+  repeatLast,
+  unlinkFields,
+  updateFields,
+} from "@/editor/word-keys"
+import { useProofing } from "@/ai/proofing"
+import {
+  BODY_LEVEL,
+  outlineActive,
+  outlineCollapse,
+  outlineExpand,
+  outlineMove,
+  outlinePromoteDemote,
+  setOutlineOption,
+  outlineState,
+  showOutlineLevel,
+} from "@/editor/outline-view"
+import { useViewStore } from "@/document/view"
+import { useBookmarkDialog } from "@/document/bookmark-dialog"
+import { useStylePanes } from "@/document/style-panes"
+import { openMarkEntryDialog } from "@/components/index-dialogs"
 import { create } from "zustand"
+import { insertSymbol, symbolOfCommand } from "@/editor/symbols"
 
 export type ShortcutDef = {
   id: string
@@ -29,6 +57,9 @@ export type ShortcutDef = {
   /** Keys the editor's own keymap also binds to this command; they stop working once it is rebound. */
   native?: string[]
 }
+
+/** Types a character at the selection, as Word's symbol keys do. */
+const typeText = (text: string) => (editor: Editor) => editor.chain().focus().insertContent(text).run()
 
 const align = (kind: "left" | "center" | "right" | "justify") => (editor: Editor) => {
   applyAlign(editor, kind)
@@ -64,6 +95,14 @@ function toggleDoubleUnderline(editor: Editor) {
   return editor.getAttributes("underline").style === "double"
     ? chain.unsetUnderline().run()
     : chain.setMark("underline", { style: "double" }).run()
+}
+
+/** Word's Ctrl+Shift+W: underline the words but not the spaces between them, or take it off again. */
+function toggleWordsUnderline(editor: Editor) {
+  const chain = editor.chain().focus()
+  return editor.getAttributes("underline").style === "words"
+    ? chain.unsetUnderline().run()
+    : chain.setMark("underline", { style: "words" }).run()
 }
 
 /** A character format kept on the text style (small caps, hidden), on or off as Word's Ctrl+Shift+K and H. */
@@ -113,6 +152,7 @@ const PARAGRAPH_FORMAT = [
   "shadingPattern",
   "border",
   "borderPen",
+  "borderSides",
   "borderSpace",
   "borderShadow",
   "borderFrame",
@@ -146,13 +186,47 @@ function cycleCase(editor: Editor) {
 }
 
 function insertLink(editor: Editor) {
-  void askText({ title: "Insert Hyperlink", label: "Address:", value: "https://" }).then((href) => {
-    if (href) {
-      editor.chain().focus().setLink({ href }).run()
-    }
-  })
+  openLinkDialog(editor)
   return true
 }
+
+/** Alt+Ctrl+F and Alt+Ctrl+D: a note at the caret, its text asked for as the References tab does. */
+function insertNote(kind: "footnote" | "endnote") {
+  return (editor: Editor) => {
+    const label = kind === "footnote" ? "Footnote" : "Endnote"
+    void askText({ title: `Insert ${label}`, label, multiline: true, ok: "Insert" }).then((text) => {
+      if (text?.trim()) {
+        editor.chain().focus().insertNote(kind, text).run()
+      }
+    })
+    return true
+  }
+}
+
+/** Commands F4 does not repeat: dialogs, panes, switches and Repeat itself. */
+export const NOT_REPEATED = new Set([
+  "paste-special",
+  "mark-index-entry",
+  "link",
+  "comment",
+  "track-changes",
+  "spelling",
+  "field-codes",
+  "field-code",
+  "font-dialog",
+  "footnote",
+  "endnote",
+  "bookmark",
+  "repeat",
+  "redo-repeat",
+  "go-back",
+  "thesaurus",
+  "apply-styles",
+  "styles-pane",
+  "reveal-formatting",
+  "update-fields",
+  "format-painter",
+])
 
 function newComment(editor: Editor) {
   void askText({ title: "New Comment", label: "Comment", multiline: true, ok: "Post" }).then((text) => {
@@ -247,11 +321,25 @@ export const SHORTCUTS: ShortcutDef[] = [
   },
   { id: "paste-formatting", label: "Paste Formatting", group: "Text", keys: ["Mod+Shift+V"], run: pasteFormatting },
   {
+    id: "paste-special",
+    label: "Paste Special",
+    group: "Text",
+    keys: ["Mod+Alt+V"],
+    run: (editor) => (void openPasteSpecial(editor), true),
+  },
+  {
     id: "double-underline",
     label: "Double Underline",
     group: "Text",
     keys: ["Mod+Shift+D"],
     run: toggleDoubleUnderline,
+  },
+  {
+    id: "words-underline",
+    label: "Underline Words Only",
+    group: "Text",
+    keys: ["Mod+Shift+W"],
+    run: toggleWordsUnderline,
   },
   {
     id: "small-caps",
@@ -341,6 +429,155 @@ export const SHORTCUTS: ShortcutDef[] = [
     run: () => (useEditorPane.getState().openPane(), true),
   },
   {
+    id: "move-up",
+    label: "Move Paragraph Up",
+    group: "Paragraph",
+    keys: ["Alt+Shift+ArrowUp"],
+    run: (e) => (outlineActive(e.state) ? outlineMove(e, -1) : moveParagraph(e, -1)),
+  },
+  {
+    id: "move-down",
+    label: "Move Paragraph Down",
+    group: "Paragraph",
+    keys: ["Alt+Shift+ArrowDown"],
+    run: (e) => (outlineActive(e.state) ? outlineMove(e, 1) : moveParagraph(e, 1)),
+  },
+  {
+    id: "promote",
+    label: "Promote",
+    group: "Paragraph",
+    keys: ["Alt+Shift+ArrowLeft"],
+    run: (e) => (outlineActive(e.state) ? outlinePromoteDemote(e, -1) : promoteDemote(e, -1)),
+  },
+  {
+    id: "demote",
+    label: "Demote",
+    group: "Paragraph",
+    keys: ["Alt+Shift+ArrowRight"],
+    run: (e) => (outlineActive(e.state) ? outlinePromoteDemote(e, 1) : promoteDemote(e, 1)),
+  },
+  {
+    id: "outline-expand",
+    label: "Expand (Outline view)",
+    group: "Paragraph",
+    keys: ["Alt+Shift+="],
+    run: (e) => outlineExpand(e),
+  },
+  {
+    id: "outline-collapse",
+    label: "Collapse (Outline view)",
+    group: "Paragraph",
+    keys: ["Alt+Shift+-"],
+    run: (e) => outlineCollapse(e),
+  },
+  ...Array.from({ length: 9 }, (_, index): ShortcutDef => ({
+    id: `outline-level-${index + 1}`,
+    label: `Show Level ${index + 1} (Outline view)`,
+    group: "Paragraph",
+    keys: [`Alt+Shift+${index + 1}`],
+    run: (e) => showOutlineLevel(e, index + 1),
+  })),
+  {
+    id: "outline-all",
+    label: "Show All Levels (Outline view)",
+    group: "Paragraph",
+    keys: ["Alt+Shift+A"],
+    run: (e) => showOutlineLevel(e, BODY_LEVEL),
+  },
+  {
+    id: "outline-first-line",
+    label: "Show First Line Only (Outline view)",
+    group: "Paragraph",
+    keys: ["Alt+Shift+L"],
+    run: (e) =>
+      outlineActive(e.state) && (setOutlineOption(e, { firstLineOnly: !outlineState(e.state).firstLineOnly }), true),
+  },
+  {
+    id: "view-print",
+    label: "Print Layout",
+    group: "Tools",
+    keys: ["Mod+Alt+P"],
+    run: () => (useViewStore.getState().setLayoutMode("print"), true),
+  },
+  {
+    id: "view-outline",
+    label: "Outline",
+    group: "Tools",
+    keys: ["Mod+Alt+O"],
+    run: () => (useViewStore.getState().setLayoutMode("outline"), true),
+  },
+  {
+    id: "view-draft",
+    label: "Draft",
+    group: "Tools",
+    keys: ["Mod+Alt+N"],
+    run: () => (useViewStore.getState().setLayoutMode("draft"), true),
+  },
+  { id: "footnote", label: "Insert Footnote", group: "Insert", keys: ["Mod+Alt+F"], run: insertNote("footnote") },
+  { id: "endnote", label: "Insert Endnote", group: "Insert", keys: ["Mod+Alt+D"], run: insertNote("endnote") },
+  {
+    id: "bookmark",
+    label: "Bookmark…",
+    group: "Insert",
+    keys: ["Mod+Shift+F5"],
+    run: () => (useBookmarkDialog.getState().show(), true),
+  },
+  // Word's symbol keys (Insert > Symbol > Special Characters). Ctrl+- and Ctrl+Num - zoom out in this app, so the
+  // en dash, nonbreaking hyphen and optional hyphen have no key until one is assigned there.
+  { id: "em-dash", label: "Em Dash", group: "Insert", keys: ["Mod+Alt+Num -"], run: typeText("\u2014") },
+  { id: "copyright", label: "Copyright", group: "Insert", keys: ["Mod+Alt+C"], run: typeText("\u00A9") },
+  { id: "registered", label: "Registered", group: "Insert", keys: ["Mod+Alt+R"], run: typeText("\u00AE") },
+  { id: "trademark", label: "Trademark", group: "Insert", keys: ["Mod+Alt+T"], run: typeText("\u2122") },
+  { id: "ellipsis", label: "Ellipsis", group: "Insert", keys: ["Mod+Alt+."], run: typeText("\u2026") },
+  { id: "repeat", label: "Repeat", group: "Tools", keys: ["F4"], run: repeatLast },
+  { id: "redo-repeat", label: "Redo or Repeat", group: "Tools", keys: ["Mod+Y"], native: ["Mod+Y"], run: redoOrRepeat },
+  { id: "go-back", label: "Go Back", group: "Tools", keys: ["Shift+F5"], run: goBack },
+  {
+    id: "mark-index-entry",
+    label: "Mark Index Entry",
+    group: "Tools",
+    keys: ["Alt+Shift+X"],
+    run: (editor) => (openMarkEntryDialog(editor), true),
+  },
+  {
+    id: "apply-styles",
+    label: "Apply Styles",
+    group: "Tools",
+    keys: ["Mod+Shift+S"],
+    run: () => (useStylePanes.getState().toggleApplyBox(true), true),
+  },
+  {
+    id: "styles-pane",
+    label: "Styles Pane",
+    group: "Tools",
+    keys: ["Mod+Alt+Shift+S"],
+    run: () => (useStylePanes.getState().togglePane(), true),
+  },
+  {
+    id: "reveal-formatting",
+    label: "Reveal Formatting",
+    group: "Tools",
+    keys: ["Shift+F1"],
+    run: () => (useStylePanes.getState().toggleReveal(), true),
+  },
+  {
+    id: "thesaurus",
+    label: "Thesaurus",
+    group: "Tools",
+    keys: ["Shift+F7"],
+    run: () => (useProofing.getState().openPanel("thesaurus"), true),
+  },
+  { id: "update-fields", label: "Update Fields", group: "Tools", keys: ["F9"], run: updateFields },
+  {
+    id: "field-code",
+    label: "Toggle Field Code",
+    group: "Tools",
+    // Word toggles the selected field; Inkspire shows codes for every field at once (as Alt+F9).
+    keys: ["Shift+F9"],
+    run: () => (useEditingOptions.getState().set({ fieldCodes: !useEditingOptions.getState().fieldCodes }), true),
+  },
+  { id: "unlink-fields", label: "Unlink Fields", group: "Tools", keys: ["Mod+Shift+F9"], run: unlinkFields },
+  {
     id: "field-codes",
     label: "Toggle Field Codes",
     group: "Tools",
@@ -364,6 +601,7 @@ const CODE_NAMES: Record<string, string> = {
   Backslash: "\\",
   Backquote: "`",
   Space: "Space",
+  NumpadSubtract: "Num -",
 }
 
 /** The key of an event as the registry writes it: "Mod+Shift+L", "F7", "Mod+Alt+1". Null for a bare modifier. */
@@ -445,7 +683,18 @@ export const useShortcuts = create<ShortcutStore>((set) => ({
           custom[other.id] = keysOf(other, custom).filter((key) => !keys.includes(key))
         }
       }
+      for (const other of Object.keys(custom)) {
+        if (other !== id && other.startsWith("symbol:")) {
+          custom[other] = custom[other].filter((key) => !keys.includes(key))
+          if (custom[other].length === 0) {
+            delete custom[other]
+          }
+        }
+      }
       custom[id] = keys
+      if (id.startsWith("symbol:") && keys.length === 0) {
+        delete custom[id]
+      }
       persist(custom)
       return { custom }
     }),
@@ -464,11 +713,30 @@ export function keysOf(def: ShortcutDef, custom: Record<string, string[]> = useS
   return custom[def.id] ?? def.keys
 }
 
+/** The keys assigned to a command (a SHORTCUTS id, or a symbol's `symbol:` id). */
+export function keysForCommand(id: string, custom: Record<string, string[]> = useShortcuts.getState().custom) {
+  const def = SHORTCUTS.find((item) => item.id === id)
+  return def ? keysOf(def, custom) : (custom[id] ?? [])
+}
+
 /** The command a key runs, or null; and whether it is a native key of a command that has been rebound. */
 export function shortcutFor(combo: string, custom: Record<string, string[]> = useShortcuts.getState().custom) {
   const bound = SHORTCUTS.find((def) => keysOf(def, custom).includes(combo))
   if (bound) {
     return { def: bound, blocked: false }
+  }
+  // A key assigned to a symbol in the Symbol dialog (Shortcut Key…).
+  const symbolId = Object.keys(custom).find((id) => id.startsWith("symbol:") && custom[id].includes(combo))
+  const symbol = symbolId ? symbolOfCommand(symbolId) : null
+  if (symbolId && symbol) {
+    const def: ShortcutDef = {
+      id: symbolId,
+      label: symbol.char,
+      group: "Insert",
+      keys: custom[symbolId],
+      run: (editor) => (insertSymbol(editor, symbol), true),
+    }
+    return { def, blocked: false }
   }
   const orphan = SHORTCUTS.find((def) => def.native?.includes(combo))
   return orphan ? { def: orphan, blocked: true } : null

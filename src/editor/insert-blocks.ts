@@ -1,10 +1,11 @@
+import { underlineKind } from "@/document/underlines"
+import { currentNoteLabels, watchNoteLabel } from "@/editor/note-labels"
 import { onMapCountries } from "@/editor/chart-map"
 import { useViewStore } from "@/document/view"
 import { chartSpecOf, defaultChartSpec, renderChart, serializeChartSpec, type ChartSpec } from "@/editor/chart-spec"
 import { applyFrame, bindDrag, floatingAttributes, inlineMaxWidth, isFloating, resizeAttrs } from "@/editor/objects"
 import { bindObjectResize } from "@/editor/object-resize"
 import { bindRotate, ensureRotateHandle } from "@/editor/object-rotate"
-import { chainWithSelection } from "@/editor/selection-memory"
 import { paintShapeSvg, shapeStyleAttributes, stringAttr, textStyle } from "@/editor/shape-style"
 import { WORD_ART_PRESETS } from "@/editor/text-effects"
 import { POINTS_BOX } from "@/editor/shape-points"
@@ -31,7 +32,7 @@ declare module "@tiptap/core" {
       insertWordArt: (preset: string) => ReturnType
       insertSignature: (name?: string, title?: string) => ReturnType
       insertBookmark: (name: string) => ReturnType
-      insertNote: (kind: "footnote" | "endnote", text: string) => ReturnType
+      insertNote: (kind: "footnote" | "endnote", text: string, mark?: string) => ReturnType
       insertFigureTable: () => ReturnType
       refreshFigureTable: () => ReturnType
     }
@@ -328,8 +329,10 @@ function styleShapeText(holder: HTMLElement, node: ProseNode) {
   holder.style.fontSize = `${(Number(node.attrs.textSize) || 14) * (4 / 3)}px`
   holder.style.fontWeight = node.attrs.textBold ? "700" : ""
   holder.style.fontStyle = node.attrs.textItalic ? "italic" : ""
-  holder.style.textDecorationLine = node.attrs.textUnderline ? "underline" : ""
-  holder.style.textDecorationStyle = node.attrs.textUnderline ? String(node.attrs.textUnderline) : ""
+  const underline = node.attrs.textUnderline ? underlineKind(String(node.attrs.textUnderline)) : null
+  holder.style.textDecorationLine = underline ? "underline" : ""
+  holder.style.textDecorationStyle = underline && underline.css !== "solid" ? underline.css : ""
+  holder.style.textDecorationThickness = underline?.heavy ? "max(2px, 0.1em)" : ""
   holder.style.fontFamily = String(node.attrs.textFont || "")
   const align = String(node.attrs.textAlign || "center")
   holder.style.textAlign = align
@@ -414,6 +417,8 @@ function paintFigure(dom: HTMLElement, node: ProseNode) {
 
 export const Bookmark = Mark.create({
   name: "bookmark",
+  // Bookmarks overlap in Word (a caption's whole text and its label and number, each referred to on its own).
+  excludes: "",
   inclusive: false,
   keepOnSplit: false,
   addAttributes() {
@@ -926,6 +931,12 @@ export const Note = Node.create({
         parseHTML: (element) => element.getAttribute("data-text") ?? "",
         renderHTML: (attributes) => ({ "data-text": attributes.text ?? "" }),
       },
+      /** A custom mark (the dialog's Custom mark) shown instead of a number. */
+      mark: {
+        default: "",
+        parseHTML: (element) => element.getAttribute("data-mark") ?? "",
+        renderHTML: (attributes) => (attributes.mark ? { "data-mark": attributes.mark } : {}),
+      },
     }
   },
   parseHTML() {
@@ -938,33 +949,32 @@ export const Note = Node.create({
     return ({ node, getPos, editor }) => {
       const dom = document.createElement("sup")
       dom.className = "doc-note"
-      const paint = (next: ProseNode) => {
+      let current = node
+      // The number from the document's footnote and endnote options, counted with Word's notes.
+      const paint = () => {
         const pos = getPos()
-        const kind = next.attrs.kind === "endnote" ? "endnote" : "footnote"
-        let number = 1
-        if (typeof pos === "number") {
-          let count = 0
-          editor.state.doc.nodesBetween(0, pos + 1, (child) => {
-            if (child.type.name === "note" && child.attrs.kind === kind) {
-              count += 1
-            }
-          })
-          number = Math.max(1, count)
+        const kind = current.attrs.kind === "endnote" ? "endnote" : "footnote"
+        const label = typeof pos === "number" ? currentNoteLabels(editor).get(pos) : undefined
+        const text = label ?? (String(current.attrs.mark ?? "") || "1")
+        if (dom.textContent !== text) {
+          dom.textContent = text
         }
-        dom.textContent = String(number)
-        dom.title = String(next.attrs.text ?? "")
+        dom.title = String(current.attrs.text ?? "")
         dom.dataset.kind = kind
       }
-      paint(node)
+      paint()
+      const stop = watchNoteLabel(paint)
       return {
         dom,
         update(next) {
           if (next.type.name !== "note") {
             return false
           }
-          paint(next)
+          current = next
+          paint()
           return true
         },
+        destroy: stop,
       }
     }
   },
@@ -1051,9 +1061,10 @@ function captionRows(doc: ProseNode) {
 export function listBookmarks(doc: ProseNode) {
   const names = new Set<string>()
   doc.descendants((node) => {
-    const mark = node.marks.find((item) => item.type.name === "bookmark")
-    if (mark?.attrs.id) {
-      names.add(String(mark.attrs.id))
+    for (const mark of node.marks) {
+      if (mark.type.name === "bookmark" && mark.attrs.id) {
+        names.add(String(mark.attrs.id))
+      }
     }
   })
   return [...names]
@@ -1086,16 +1097,6 @@ export function listNotes(doc: ProseNode, kind?: "footnote" | "endnote") {
     })
   })
   return notes
-}
-
-export function nextCaption(doc: ProseNode, label: "Figure" | "Table") {
-  let count = 0
-  doc.descendants((node) => {
-    if (node.isTextblock && node.textContent.trim().startsWith(`${label} `)) {
-      count += 1
-    }
-  })
-  return count + 1
 }
 
 function insertSelectableBlock(state: EditorState, tr: Transaction, node: ProseNode) {
@@ -1156,13 +1157,10 @@ export const insertBlockCommands = Node.create({
         },
       insertBookmark:
         (name) =>
-        ({ editor, state }) => {
+        ({ state, tr, dispatch }) => {
           const id = name.trim().replace(/\s+/g, " ").slice(0, 40)
-          if (!id) {
-            return false
-          }
           const mark = state.schema.marks.bookmark
-          if (!mark) {
+          if (!id || !mark) {
             return false
           }
           let duplicate = false
@@ -1177,23 +1175,29 @@ export const insertBlockCommands = Node.create({
           if (duplicate) {
             return false
           }
-          const chain = chainWithSelection(editor)
-          if (state.selection.empty) {
-            return chain
-              .insertContent({ type: "text", text: "\u200b", marks: [{ type: "bookmark", attrs: { id } }] })
-              .run()
+          if (!dispatch) {
+            return true
           }
-          return chain.setMark("bookmark", { id }).run()
+          // Not a chain of its own: a command that dispatched inside the caller's chain broke it (mismatched
+          // transaction). The selection the dialog took focus from is restored by the caller.
+          const { from, to, empty } = tr.selection
+          if (empty) {
+            tr.insert(from, state.schema.text("\u200b", [mark.create({ id })]))
+          } else {
+            tr.addMark(from, to, mark.create({ id }))
+          }
+          return true
         },
       insertNote:
-        (kind, text) =>
+        (kind, text, mark = "") =>
         ({ state, tr }) => {
           const type = state.schema.nodes.note
           const body = text.trim().slice(0, 500)
           if (!type || !body) {
             return false
           }
-          tr.insert(state.selection.to, type.create({ id: crypto.randomUUID(), kind, text: body }))
+          const custom = mark.trim().slice(0, 10)
+          tr.insert(state.selection.to, type.create({ id: crypto.randomUUID(), kind, text: body, mark: custom }))
           return true
         },
       insertFigureTable:

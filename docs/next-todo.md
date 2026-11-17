@@ -20,11 +20,208 @@ Where a simpler version already exists, the note says so. The item is still open
 
 Items built but not yet checked in Word, Chrome or the desktop app are collected in `verify-list.md`; tick them there, do not re-check them here.
 
+**Word comparison (2026-11-14).** Each fixture rendered by Word itself (PDF) next to Inkspire's screen and
+next to Word's render of Inkspire's save. Saving: Word opens all 72 saves and each renders as the original.
+Opening: the 13 differences found first are fixed (see `changes.md`, 2026-11-14); mean page difference 0.133 →
+0.080, 20 files closer to Word, 1 further (w13, below). Still different from Word, most visible first:
+
+1. ~~Multiple line spacing~~ — done 2026-11-17 (`document/line-lead.ts`, see `changes.md`). Still different: a
+   line that mixes text sizes (or holds an inline object) keeps the browser's placement, up to about 1 pt off.
+   Found on the way, already there before: a picture's paragraph is shorter than Word's (Word gives it its line
+   spacing and space after; the text after it sits about 10 pt higher in Inkspire, `f13`); bullet lines in `f04` are
+   1 pt further apart in Word; a picture in a list item drops below its bullet, and the empty bullet after a table
+   sits higher than Word's (`combined`).
+2. ~~A TOC's field-end paragraph~~ — done 2026-11-17 (see `changes.md`). Still different: the line is drawn in
+   Normal whatever its style; a table inserted in Inkspire closes in its last entry (Word's gallery not checked).
+3. Endnotes: the space above the endnote separator is a little larger than Word's (`combined`).
+4. Footnotes are not placed on page breaks inside a table or in unequal columns (they move to the next ordinary
+   break), and endnotes that do not fit the last page are not split across pages.
+5. The heart preset sits about 2 px off Word's (`f20`).
+6. Header text is faded while the header is closed, as Word does on screen; Word's PDF draws it in full colour, so the
+   comparison shows a difference that is not one (`f07`).
+7. TOC entries sit about 6 px (4.5 pt) lower than Word's: they are flex rows with their own margins, not drawn with
+   their TOCn style's spacing and Word's line placement (`f12`).
+
+Environment notes: Aptos (the Office default font) is not installed on the Linux host, so Inkspire's text uses a
+fallback and widths differ (tab positions too); the VM's background Word draws no 3D models; Word's first start can
+pick other fallback fonts, so render both sides in the same warm Word. Tools (local): `tools/word-render.py`,
+`tools/corpus/` (save every fixture), `tools/fidelity-audit.mjs --pages dir`.
+
+**Fidelity audit (2026-11-13).** When a .docx "opens weird", run `npm run audit:docx -- file.docx` with the dev
+server up before reading XML: it lists every run and paragraph whose drawn formatting differs from Word's rules,
+with the style and text. Done: run toggles turned off against styles, highlight, automatic colour on shading, row
+borders, explicit left alignment, theme-font merge. Left over: table-style run formatting in the audit; automatic
+colour on dark highlights (see verify list); extending the audit to spacing and indents.
+
 Every fix or feature also gets a dated entry in `changes.md` (newest first) the session it lands: what was wrong, what changed and where, how it was checked, what is open.
 
 **Done.** Icons (Iconify + cache), 3D Models Stock library from Insert + catalog cache, SmartArt gallery with in-place text edit, more Design themes, Section Break (next page / continuous), Spreadsheet block with A1-style cross-cell formulas, and Mailings Start / Recipients / Preview / Finish & Merge.
 
 Phases 1–14 are done.
+
+## Word UI gaps (2026-11-14)
+
+What Word 365's desktop UI offers that Inkspire lacks, from a surface-by-surface comparison with the code. H =
+everyday writing and opening/saving, M = common, L = rare. "(listed)" = already elsewhere in this file. Built in
+the order of the waves below; tick an item (`[x]`, date) when it lands.
+
+### Wave 1 — everyday (H)
+
+- [x] U1. (2026-11-14) File > Info > Inspect Document removed every character mark of the selection or document instead of
+      inspecting. Make it Word's Document Inspector: Inspect, then Remove All per kind found.
+- [x] U2. (2026-11-14) AutoCorrect / AutoFormat as you type: smart quotes, `--` → dash, (c) (tm) (r) → © ™ ®, ordinals, capital at
+      a sentence's start, the replace list, auto bullets and numbering from "* " and "1. ", auto hyperlinks; Undo
+      takes a correction back; options in File > Options > Proofing > AutoCorrect Options. TipTap's Markdown rules
+      ("# " → heading) are not Word's and go.
+- [x] U3. (2026-11-14) Link dialog: Text to display, ScreenTip, Existing File or Web Page, Place in This Document (headings and
+      bookmarks), E-mail Address; Edit / Open / Copy / Remove Link on a link's context menu.
+- [x] U4. (2026-11-14; the Navigation pane search is U5) Find: More >> (Match whole word, Use wildcards, Sounds like, All word forms, prefix/suffix, ignore
+      punctuation and spaces, Format…, Special ^p ^t ^?…); Ctrl+F searches in the Navigation pane with a Results tab.
+- [x] U5. (2026-11-14; Pages not filtered to matches, no search for graphics/tables) Navigation pane: search, Results, Pages (thumbnails), collapse headings, drag a heading to move its section.
+- [x] U6. (2026-11-14; macros kept in .docm/.dotm, .doc through LibreOffice; double-clicking a template does not start a new document yet) Open .doc, .dotx, .docm (macros dropped); Save As .dotx template.
+- [x] U7. (2026-11-14; Ctrl+Alt+V moves to U12 and Ctrl+Shift+S to U9; Shift+F9 toggles all field codes; Repeat covers keys and typing, not ribbon buttons) Shortcuts: F12 Save As, Ctrl+F2 Print Preview, F4 / Ctrl+Y Repeat, Shift+F5 Go Back, Alt+Shift+Up/Down move
+      paragraph, Alt+Shift+Left/Right promote/demote, Alt+Ctrl+F footnote, Alt+Ctrl+D endnote, F9 / Shift+F9 /
+      Ctrl+Shift+F9 fields, Ctrl+Shift+F5 bookmark, Shift+F7 thesaurus, Ctrl+Alt+V Paste Special, Ctrl+Shift+S Apply
+      Styles (Save As moves to F12).
+- [x] U8. Insert > Table: Insert Table… dialog (columns, rows, AutoFit), Convert Text to Table, Draw Table.
+      Done: Word's 10 × 8 grid and menu, both dialogs (`editor/table-insert.ts`, `components/insert-table-dialog.tsx`).
+      Excel Spreadsheet and Quick Tables landed 2026-11-16 (U29); AutoFit to contents fits once, it does not grow while typing.
+
+### Wave 2 — common (M)
+
+- [x] U9. Styles pane (live list, Show Preview, Disable Linked Styles, New / Inspect / Manage); Apply Styles box
+      (Ctrl+Shift+S, Save As staying on F12); Style Inspector; Reveal Formatting (Shift+F1). Home's Styles launcher
+      opens the pane. Done (`components/styles-pane.tsx`, `editor/style-inspect.ts`). Left: the pane's Options…, Select
+      All n instances, Reveal Formatting's Compare and Distinguish style source.
+- [x] U10. Captions as SEQ fields (Insert Caption dialog: label, position, numbering, New Label, Exclude label) and
+      Cross-reference as REF/PAGEREF fields (to headings, bookmarks, figures, notes; text, page, above/below; insert
+      as hyperlink); Table of Figures and Index dialogs with their options; Mark Index Entry dialog.
+      Done: Caption and Cross-reference dialogs, `wordField` (SEQ/REF/PAGEREF/XE) and bookmarks saved
+      (`editor/word-field.ts`, `editor/captions.ts`, `components/caption-dialogs.tsx`); Table of Figures as a TOC `\c`
+      field; Mark Index Entry and Insert Index as XE / INDEX fields (`components/index-dialogs.tsx`,
+      `editor/index-entry.ts`). Left: references to notes and numbered items; chapter numbers; the index in its own
+      section (and reading Word's sectioned index); AutoMark; Modify… and Options… in both dialogs.
+- [x] U11. Track Changes: formatting changes tracked, For Everyone / Just Mine, Lock Tracking, Track Changes
+      Options; Show Markup menu (Comments, Insertions and Deletions, Formatting, Balloons, Specific People) and No
+      Markup; Restrict Editing pane saved as `w:documentProtection`. Done 2026-11-14: formatting changes as
+      `w:rPrChange` (`editor/track-changes.ts`), Track Changes as a split button, Lock Tracking and Restrict Editing
+      with Word's SHA-512 password hash (`document/protection.ts`, `editor/protection.ts`,
+      `components/protect-pane.tsx`), `w:trackRevisions` read and saved. Left: Balloons (the app draws no revision
+      balloons, so the choice is left out); "Filling in forms" leaves nothing editable (the editor has no form fields:
+      content controls are kept as read); Just Mine behaves as For Everyone (no co-authoring); passwords from Word
+      2007–2019 (legacy hash) cannot be checked, so Stop Protection offers to stop anyway; Restrict Editing's
+      exceptions (parts anyone may edit) and the styles list of "Limit formatting"; per-reviewer colours.
+- [x] U12. Paste Special… (Ctrl+Alt+V; formats list, paste link) and Set Default Paste; Paste as Picture. Done
+      2026-11-14 (`editor/paste-special.ts`, `components/paste-special-dialog.tsx`). Left: Paste link and Display as
+      icon (the clipboard a web view reads never carries a link source or an object), Word's RTF and metafile formats
+      (not readable there), the Paste Options button that appears after a paste.
+- [x] U13. Footnote and Endnote dialog (location, number format, start at, numbering restart, convert). Done
+      2026-11-14 (`components/footnote-dialog.tsx`, `editor/note-labels.ts`, `editor/note-convert.ts`); app notes are
+      now saved to .docx. Left: Below text and End of section are saved but notes are still drawn at the page bottom /
+      document end; options per section ("This section"); footnote layout columns; Symbol… for the custom mark; the
+      note text is asked for in the dialog rather than typed in the note area.
+- [x] U14. Source Manager and Create Source with every source type and field, master list, Edit Citation,
+      placeholders. Done 2026-11-14 (`components/source-dialogs.tsx`, `document/bibliography.ts`,
+      `editor/bibliography.ts`); citations, bibliography and sources are Word's own fields and custom XML part, checked
+      in Word. Left: IEEE as Word's table, the Language list, Browse… for another master list, Search Libraries, the
+      styles beyond 6 (GB7714, GOST, ISO 690, SIST02), the Bibliographies gallery wrapper control, Save Selection to
+      Bibliography Gallery.
+- [x] U15. Outline view with the Outlining tab (Promote/Demote, Show Level, Expand/Collapse, Move Up/Down, Show
+      Text Formatting, Show First Line Only). Done 2026-11-14 (`editor/outline-view.ts`,
+      `components/ribbon/outlining-tab.tsx`). Left: dragging a symbol to move a heading; the Master Document group (no
+      subdocuments in the app); Heading 7-9's own look.
+- [x] U16. Design: Style Sets gallery, Paragraph Spacing presets, Customize Colors / Fonts, Save Current Theme.
+      Done 2026-11-14 (`document/design.ts`, `components/ribbon/design-tab.tsx`, `components/theme-dialogs.tsx`).
+      Left: Save as a New Style Set…, Custom Paragraph Spacing…, Edit / Delete on a custom scheme.
+- [x] U17. Status bar: click the word count (Word Count), the page (Go To), the zoom % (Zoom dialog); "12 of 340
+      words" for a selection; Track Changes indicator; right-click Customize Status Bar; the language applies to the
+      selection, with "Do not check spelling". Done 2026-11-14 (`components/status-bar.tsx`,
+      `components/status-dialogs.tsx`, `editor/proofing.ts`, `editor/word-count.ts`). Left: Formatted Page Number,
+      Vertical Page Position, Line Number and Column; Zoom's Text width; Detect language automatically.
+- [x] U18. (2026-11-15) KeyTips (Alt shows letter badges on tabs and commands). Done
+      (`components/ribbon/keytips.ts`, `keytips-layer.tsx`). Left: KeyTips inside opened menus and galleries; Word's
+      own letters for the tabs not yet in the table (generated ones meanwhile).
+- [x] U19. (2026-11-15) List context menu: Restart at 1, Continue Numbering, Set Numbering Value, Adjust List Indents.
+      Done (`editor/list-numbering.ts`, `components/list-numbering-dialogs.tsx`, `components/text-context-menu.tsx`,
+      save in `docx/project.ts`); Word numbers the saves like the app. Left: Adjust List Indents for deeper levels;
+      drawing its tab stop.
+  - [x] (2026-11-15) Lists made in the app save as one level of "1." / "•". Write their own number formats (a., i.,
+        1), ✓…) and nested levels to `numbering.xml`, with Word's indents per level. Done (`appListDefinition`),
+        checked in Word. Left: the marker's place before the text; the space below an app list (see `changes.md`).
+- [x] U20. (2026-11-15; grammar marks stay listed with the Editor pane) Spelling context menu: Ignore All,
+      AutoCorrect submenu, Language; grammar marks (listed: Editor pane). Done in `components/text-context-menu.tsx`.
+      Left: Language Preferences… (U24); Ignore All kept with the document.
+- [x] U21. (2026-11-15) Symbol dialog: font and subset, character code (Unicode/ASCII), Special Characters tab,
+      Shortcut Key… Done (`components/symbol-dialog.tsx`, `editor/symbols.ts`), checked in Word. Left: subsets per
+      font, Alt+X, Customize Keyboard's command lists.
+- [x] U22. Quick Parts: Field… dialog (every field with its switches), Document Property, AutoText, Building Blocks
+      Organizer. Done 2026-11-16 (`document/field-catalog.ts`, `document/field-results.ts`,
+      `components/quick-parts-dialogs.tsx`, Quick Parts menu in `ribbon/insert-tab.tsx`); field results checked
+      against Word's own. Left: Word's built-in building blocks (Building Blocks.dotx); the special dialogs Word opens
+      from the Field list (TOC, Index, Hyperlink…); Document Property as bound content controls; Mail Merge data.
+- [x] U23. Info > Protect Document (Encrypt with Password, Restrict Editing, Always Open Read-Only, Digital
+      Signature); Manage Document (Recover Unsaved Documents); History (versions). Done 2026-11-16
+      (`docx/encryption.ts`, `docx/cfb.ts`, `document/file-protection.ts`, `document/versions.ts`,
+      `backstage/info-protect.tsx`). Checked with Word both ways: encrypted, read-only and final files. Left: Add a
+      Digital Signature (needs a certificate; existing signatures are shown and dropped on save), Word 2007's
+      Standard encryption, and versions kept beside the file rather than in the app.
+- [x] U24. Options: Language, grammar as you type, Custom Dictionaries, Advanced editing items now greyed (listed 22.9).
+      Part 1 done 2026-11-16: Proofing in Word's sections (grammar as you type, Frequently confused words, Grammar
+      Settings, Recheck Document, exceptions for the document saved in settings.xml), Custom Dictionaries, Language
+      (authoring languages, preferred one proofs new documents). Part 2 done 2026-11-16: select entire word, smart
+      paragraph selection, smart cursoring, click and type, Paste Options button, AutoComplete. Left greyed: Prompt to
+      update style, Keep track of formatting (need direct formatting tracked in the Styles pane).
+- [x] U25. Mail merge tab (listed: Future features). Done 2026-11-16 (`mailings-tab.tsx`, `mailings-dialogs.tsx`,
+      `merge-sources.ts`, `merge-fields.ts`, `merge-output.ts`, `envelopes-labels.ts`). Lists: CSV/text, Excel, Outlook
+      contacts (vCard, CSV), typed. Finish & Merge: Edit Individual Documents and Print Documents (no e-mail, as asked).
+      Checked against Word's own merge in the VM. Left: Add to Document for envelopes, saving a typed list to a file,
+      Rules' Ask / Fill-in / Set Bookmark.
+- [x] U39. (asked 2026-11-16) Optional fonts to download, so documents written with Office's fonts look right where
+      those fonts are missing (Linux, the web build, Android).
+      - **What:** free fonts with the same widths as Office's, which Word documents use most. Carlito = Calibri,
+        Caladea = Cambria, Liberation Sans / Serif / Mono = Arial / Times New Roman / Courier New, Gelasio =
+        Georgia. Office-like faces from Google Fonts (OFL) too. Microsoft's fonts (Aptos, Calibri, Wingdings,
+        Symbol…) may not be redistributed: for Aptos, link to Microsoft's own free download instead. For Symbol /
+        Wingdings, see whether OpenSymbol covers their code points.
+      - **Where:** File > Options > Fonts ("Download fonts": a list with size, licence and Download / Remove each), an
+        opt-in step in the quick setup (per the house rule), and a hint when an opened document uses a missing font
+        that has a download ("This document uses Calibri: download Carlito, a free font with the same widths?").
+      - **How:** fetch from a fixed list of sources (Google Fonts / the projects' releases, pinned versions and
+        checksums). Desktop: save under the app's data folder and register them with the webview (FontFace) and the
+        font list (`editor/system-fonts.ts`). Web: keep them in the Cache API / IndexedDB. Map Word's font names to
+        the stand-in when drawing, but save the document's own font name unchanged.
+      - **Check:** an Office fixture (Calibri, Cambria) opened before and after the download against Word's render in
+        the VM: line breaks and page count should match. Offline: nothing breaks, and the list says the fonts need a
+        connection.
+
+### Wave 3 — rare (L)
+
+- [x] U26. Underline menu: Thick, Words only, More Underlines…, Underline Color; Ctrl+Shift+W.
+- [x] U27. Home Borders menu: Outside, Inside, Inside Horizontal/Vertical, Diagonals, Horizontal Line, Draw Table,
+      View Gridlines.
+- [x] U28. Select > Select Objects, Selection Pane; Selection pane Show All / Hide All, rename, reorder.
+- [x] U29. Insert: Excel Spreadsheet, Quick Tables, Stock Images; Drop Cap Options… (font, lines, distance).
+      Part 1 done 2026-11-16: Drop Cap Options…, Word drop caps open and save (`w:framePr w:dropCap`).
+      Part 2 done 2026-11-16: Excel Spreadsheet (Insert > Table), saved and opened as Word's embedded worksheet.
+      Edit in Cells (2026-11-16): the sheet opens in Cells (`cells://edit`) and Cells' saves come back.
+      Quick Tables done 2026-11-16 (built-ins, Tables gallery, Save Selection). Stock Images done 2026-11-16
+      (Openverse public-domain photos; Images tab only).
+- [ ] U30. Draw: Eraser, Lasso Select, pen gallery and Add Pen, Ink to Shape, Ink Replay, Ruler, ink anywhere on the
+      page.
+      Part 1 done 2026-11-17 (pen gallery, Add Pen, Eraser, Lasso Select, Ruler). Left: ink anywhere on the page,
+      Ink to Shape, Ink Replay, Point Eraser. Lower priority now: core Word work is tested first (2026-11-17).
+- [ ] U31. Custom Watermark dialog (picture, font, size, colour, layout, semitransparent); Hyphenation Manual and
+      Options.
+- [ ] U32. Equation: Professional / Linear / Normal Text; Header & Footer: Document Info, Header/Footer Position,
+      Insert Alignment Tab, Show Document Text.
+- [ ] U33. Title bar: Editing / Reviewing / Viewing mode switch, Comments button.
+- [ ] U34. Ruler: table column and cell markers.
+- [ ] U35. Mini toolbar: Styles, Format Painter, New Comment, Line Spacing.
+- [ ] U36. Format Picture pane (Corrections, Crop, Transparency); Thesaurus as a pane (listed).
+- [ ] U37. Researcher / Smart Lookup; Share by link and Account (listed: Future features); Transform (listed 21.28);
+      Macros (listed).
+- [ ] U38. Rare shortcuts: ~~Alt+Ctrl+C/T/R/. symbols~~ (done with U21), Ctrl+- optional hyphen (taken by zoom out), Alt+Shift+D/T/P fields,
+      Alt+Shift+X/O/I mark entries, Ctrl+Alt+P/O/N views, F6 panes, Ctrl+F6 windows, F8 Extend Selection, Alt+F8.
 
 ## Rich header and footer (H1-H4 done; left over below)
 

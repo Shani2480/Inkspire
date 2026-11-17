@@ -1,4 +1,6 @@
 import { patternImage } from "@/document/docx/shading-pattern"
+import { borderSidesStyle } from "@/document/paragraph-sides"
+import { autoColorRule } from "@/document/docx/word-styles"
 import type { Editor } from "@tiptap/core"
 
 const MM_TO_PX = 96 / 25.4
@@ -38,7 +40,8 @@ export function blockFormatAttributes() {
         if (!attributes.shading) {
           return {}
         }
-        return { style: `background-color: ${attributes.shading}` }
+        const auto = autoColorRule(attributes.shading)
+        return { style: `background-color: ${attributes.shading}${auto ? `; ${auto}` : ""}` }
       },
     },
     /** Word's shading pattern over the fill (22.4): its w:shd value and, unless automatic, its colour. */
@@ -69,6 +72,15 @@ export function blockFormatAttributes() {
             }
           : {},
     },
+    /** A Word paragraph's sides drawn with their own lines (`document/paragraph-sides.ts`), over the pen above. */
+    borderSides: {
+      default: null as string | null,
+      parseHTML: (element: HTMLElement) => element.getAttribute("data-border-sides"),
+      renderHTML: (attributes: { borderSides?: string | null }) => {
+        const style = borderSidesStyle(attributes.borderSides)
+        return style.length > 0 ? { "data-border-sides": attributes.borderSides, style: style.join("; ") } : {}
+      },
+    },
     /**
      * The gap between the text and each side of its box, in points: "top right bottom left" (Word's w:space, set in
      * Borders and Shading > Options…); Word's 1, 4, 1, 4 when unset (22.4).
@@ -86,6 +98,13 @@ export function blockFormatAttributes() {
           style: BOX_SIDES.map((side, index) => `--para-space-${side}: ${space[index]}pt`).join("; "),
         }
       },
+    },
+    /** Word's between border (Inside Horizontal): a line between this paragraph and the next one in its box (U27). */
+    borderBetween: {
+      default: false,
+      parseHTML: (element: HTMLElement) => element.getAttribute("data-border-between") === "1",
+      renderHTML: (attributes: { borderBetween?: boolean }) =>
+        attributes.borderBetween ? { "data-border-between": "1" } : {},
     },
     /** Word's Shadow border setting: a shadow to the bottom right of the box (22.4). */
     borderShadow: {
@@ -123,15 +142,55 @@ export function blockFormatAttributes() {
         return { style: `margin-bottom: ${points}pt` }
       },
     },
+    // Insert > Drop Cap: the paragraph's first letter, dropped or in the margin, over `dropCapLines` lines, in its
+    // own font and `dropCapDistance` points from the text (Word's framePr; `docx/drop-cap.ts`).
     dropCap: {
       default: null as string | null,
       parseHTML: (element: HTMLElement) => element.getAttribute("data-drop-cap"),
-      renderHTML: (attributes: { dropCap?: string | null }) => {
+      renderHTML: (attributes: {
+        dropCap?: string | null
+        dropCapLines?: number | null
+        dropCapDistance?: number | null
+        dropCapFont?: string | null
+      }) => {
         if (attributes.dropCap !== "dropped" && attributes.dropCap !== "margin") {
           return {}
         }
-        return { "data-drop-cap": attributes.dropCap }
+        const lines = dropCapLines(attributes.dropCapLines)
+        const distance = Math.max(0, Number(attributes.dropCapDistance) || 0)
+        const font = typeof attributes.dropCapFont === "string" ? attributes.dropCapFont.replace(/["\\;]/g, "") : ""
+        const style = [`--drop-lines: ${lines}`, `--drop-distance: ${distance}pt`]
+        if (font) {
+          style.push(`--drop-font: "${font}"`)
+        }
+        return { "data-drop-cap": attributes.dropCap, style: style.join("; ") }
       },
+    },
+    dropCapLines: {
+      default: null as number | null,
+      parseHTML: (element: HTMLElement) => {
+        const value = Number(element.getAttribute("data-drop-lines"))
+        return value > 0 ? dropCapLines(value) : null
+      },
+      renderHTML: (attributes: { dropCap?: string | null; dropCapLines?: number | null }) =>
+        attributes.dropCap && attributes.dropCapLines ? { "data-drop-lines": String(attributes.dropCapLines) } : {},
+    },
+    dropCapDistance: {
+      default: null as number | null,
+      parseHTML: (element: HTMLElement) => {
+        const value = Number(element.getAttribute("data-drop-distance"))
+        return value > 0 ? value : null
+      },
+      renderHTML: (attributes: { dropCap?: string | null; dropCapDistance?: number | null }) =>
+        attributes.dropCap && attributes.dropCapDistance
+          ? { "data-drop-distance": String(attributes.dropCapDistance) }
+          : {},
+    },
+    dropCapFont: {
+      default: null as string | null,
+      parseHTML: (element: HTMLElement) => element.getAttribute("data-drop-font") || null,
+      renderHTML: (attributes: { dropCap?: string | null; dropCapFont?: string | null }) =>
+        attributes.dropCap && attributes.dropCapFont ? { "data-drop-font": attributes.dropCapFont } : {},
     },
     indentRight: {
       default: 0,
@@ -287,4 +346,10 @@ export function updateBlocks(editor: Editor, attrs: Record<string, unknown>) {
   }
   editor.view.dispatch(transaction)
   editor.commands.focus()
+}
+
+/** Lines a drop cap drops: Word's 1 to 10, 3 when not set. */
+export function dropCapLines(value: unknown) {
+  const lines = Math.round(Number(value))
+  return Number.isFinite(lines) && lines >= 1 ? Math.min(10, lines) : 3
 }

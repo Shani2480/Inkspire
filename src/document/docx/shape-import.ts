@@ -1,3 +1,4 @@
+import { UNDERLINE_KINDS } from "@/document/underlines"
 import { readDash, readEffects, readGradient } from "@/document/docx/shape-effects"
 import { presetAdjust, presetSegments } from "@/document/docx/preset-geometry"
 import { pathString, pointsFromCustGeom } from "@/editor/shape-points"
@@ -56,6 +57,9 @@ export const VARIANT_OF_PRESET: Record<string, string> = {
   noSmoking: "no-sign",
   irregularSeal1: "burst",
 }
+
+/** Presets the app draws exactly as Word's geometry does. */
+const SAME_DRAWING = new Set(["rect", "ellipse"])
 
 export type WordShape = {
   preset: string
@@ -237,10 +241,12 @@ export function readWordShape(xml: string, themeXml: string | null): WordShape |
   // A preset the app has no drawing of, or one whose handles Word moved (its own adjust values), opens drawn from
   // Word's own geometry at the shape's size.
   // It keeps the preset's name and adjust values, so its adjustment handles still move them.
+  // The app's own drawings of other presets are lookalikes (its heart, its frame's hole), so only a rectangle and an
+  // ellipse, which are the same either way, keep the app's drawing.
   const adjust = named ? presetAdjust(shape) : {}
   const geometric =
     Boolean(named) &&
-    (!VARIANT_OF_PRESET[named!] || Object.keys(adjust).length > 0) &&
+    (!SAME_DRAWING.has(named!) || Object.keys(adjust).length > 0) &&
     presetSegments(named!, ...shapeExtent(shape, xml), adjust) !== null
   const points = custom ? pathString(custom) : ""
   const preset = custom ? "custom" : named
@@ -387,13 +393,9 @@ export const WORD_HIGHLIGHTS: Record<string, string> = {
 }
 
 /** The app's underline styles and Word's `w:u` values for them. */
-export const WORD_UNDERLINES: Record<string, string> = {
-  solid: "single",
-  double: "double",
-  dotted: "dotted",
-  dashed: "dash",
-  wavy: "wave",
-}
+export const WORD_UNDERLINES: Record<string, string> = Object.fromEntries(
+  UNDERLINE_KINDS.map((kind) => [kind.id, kind.word]),
+)
 
 const THEME_COLOR_SLOTS: Record<string, string> = {
   text1: "dk1",

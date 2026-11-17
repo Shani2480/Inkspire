@@ -1,5 +1,3 @@
-import { useEditingOptions } from "@/document/editing-options"
-import { readability } from "@/lib/readability"
 import { useProofing } from "@/ai/proofing"
 import { useEditorPane } from "@/editor/grammar"
 import { EditorIcon, RibbonSvg } from "@/components/ribbon/icons"
@@ -20,12 +18,17 @@ import {
 import { MenuButton, RibbonCommand, RibbonGroup } from "@/components/ribbon/ribbon-button"
 import { SingleLineBar, type LineCommand, type LineGroup } from "@/components/ribbon/single-line"
 import { useViewStore } from "@/document/view"
-import { useReviewStore, type MarkupMode } from "@/document/review"
+import { trackingLocked, useReviewStore, type MarkupMode } from "@/document/review"
+import {
+  openTrackChangesOptions,
+  ShowMarkupMenu,
+  toggleRestrictPane,
+  TrackChangesMenu,
+} from "@/components/protect-pane"
 import { addComment, deleteComment, listComments, selectComment } from "@/editor/comments"
 import { useDocumentEditor } from "@/editor/document-editor"
 import { checkSpellingNow } from "@/editor/spellcheck"
 import { acceptChanges, changeAtSelection, listChanges, rejectChanges } from "@/editor/track-changes"
-import { DOCUMENT_LANGUAGES } from "@/document/languages"
 import { useDocumentStore } from "@/document/store"
 import { useAccessibility } from "@/ai/accessibility-check"
 import { openCompare } from "@/components/compare-dialog"
@@ -33,10 +36,12 @@ import type { Editor } from "@tiptap/core"
 import { useEditorState } from "@tiptap/react"
 import { useState } from "react"
 import { DialogFrame } from "@/components/word-dialog"
+import { LanguageDialog, WordCountDialog } from "@/components/status-dialogs"
 
 const MARKUP: { id: MarkupMode; label: string }[] = [
   { id: "simple", label: "Simple Markup" },
   { id: "all", label: "All Markup" },
+  { id: "none", label: "No Markup" },
   { id: "original", label: "Original" },
 ]
 
@@ -72,10 +77,14 @@ export function ReviewTab() {
   const openProofing = useProofing((state) => state.openPanel)
   const openEditorPane = useEditorPane((state) => state.openPane)
   const [countOpen, setCountOpen] = useState(false)
+  const [languageOpen, setLanguageOpen] = useState(false)
   const openAccessibility = useAccessibility((state) => state.openPane)
   const [notesOpen, setNotesOpen] = useState(false)
   const ribbonLayout = useViewStore((state) => state.ribbonLayout)
   const restricted = useViewStore((state) => state.restricted)
+  const restrictPane = useReviewStore((state) => state.restrictPane)
+  const protectedDoc = useReviewStore((state) => Boolean(state.protection?.enforced))
+  const locked = useReviewStore(trackingLocked)
   const markupLabel = MARKUP.find((item) => item.id === markup)?.label ?? "Simple Markup"
 
   const off = !editor
@@ -190,6 +199,8 @@ export function ReviewTab() {
       ))}
     </div>
   )
+  const trackMenu = (close: () => void) => <TrackChangesMenu close={close} />
+  const showMarkupMenu = (close: () => void) => <ShowMarkupMenu editor={editor} close={close} />
   const acceptMenu = (close: () => void) => (
     <div className="flex w-48 flex-col">
       <MenuButton
@@ -255,6 +266,7 @@ export function ReviewTab() {
   const dialogs = (
     <>
       {countOpen ? <WordCountDialog editor={editor} onClose={() => setCountOpen(false)} /> : null}
+      {languageOpen ? <LanguageDialog editor={editor} onClose={() => setLanguageOpen(false)} /> : null}
       {notesOpen && editor ? <LinkedNotesDialog editor={editor} onClose={() => setNotesOpen(false)} /> : null}
     </>
   )
@@ -343,6 +355,12 @@ export function ReviewTab() {
         description: `Choose how changes and comments show. Currently ${markupLabel}.`,
         menu: markupMenu,
       },
+      {
+        id: "show-markup",
+        label: "Show Markup",
+        icon: <LineMarkupIcon />,
+        menu: showMarkupMenu,
+      },
     ]
     const changes: LineCommand[] = [
       {
@@ -352,7 +370,9 @@ export function ReviewTab() {
         showLabel: true,
         priority: 3,
         active: tracking,
+        description: locked ? "Tracking is locked. Unlock it from this button's menu." : undefined,
         onClick: () => setTracking(!tracking),
+        menu: trackMenu,
       },
       {
         id: "accept",
@@ -397,7 +417,7 @@ export function ReviewTab() {
             id: "language",
             label: "Language",
             icon: <LanguageIcon />,
-            menu: (close) => <LanguageList close={close} />,
+            menu: (close) => <LanguageList close={close} onProofing={() => setLanguageOpen(true)} />,
           },
         ],
       },
@@ -428,8 +448,8 @@ export function ReviewTab() {
             id: "restrict-editing",
             label: "Restrict Editing",
             icon: <ProtectIcon />,
-            active: restricted,
-            menu: (close) => <RestrictList editor={editor} close={close} />,
+            active: restrictPane || protectedDoc,
+            onClick: () => toggleRestrictPane(),
           },
         ],
       },
@@ -495,7 +515,10 @@ export function ReviewTab() {
         <RibbonCommand label="Translate" disabled={off} menu={translateMenu}>
           <TranslateIcon />
         </RibbonCommand>
-        <RibbonCommand label="Language" menu={(close) => <LanguageList close={close} />}>
+        <RibbonCommand
+          label="Language"
+          menu={(close) => <LanguageList close={close} onProofing={() => setLanguageOpen(true)} />}
+        >
           <LanguageIcon />
         </RibbonCommand>
       </RibbonGroup>
@@ -537,18 +560,38 @@ export function ReviewTab() {
           </RibbonCommand>
         </div>
       </RibbonGroup>
-      <RibbonGroup label="Tracking" className="shrink-0">
-        <RibbonCommand label="Track Changes" active={tracking} disabled={off} onClick={() => setTracking(!tracking)}>
+      <RibbonGroup
+        label="Tracking"
+        className="shrink-0"
+        onLaunch={openTrackChangesOptions}
+        launchLabel="Track Changes Options"
+      >
+        <RibbonCommand
+          label="Track Changes"
+          description={
+            locked
+              ? "Tracking is locked. Unlock it from this button's menu."
+              : "Keep track of all changes made to this document."
+          }
+          shortcut="Ctrl+Shift+E"
+          active={tracking}
+          disabled={off}
+          onClick={() => setTracking(!tracking)}
+          menu={trackMenu}
+        >
           <TrackIcon />
         </RibbonCommand>
         <div className="ribbon-side-stack">
           <RibbonCommand
             size="small"
-            label="Simple Markup"
-            description={`Show markup. Currently ${markupLabel}.`}
+            label={markupLabel}
+            description="Choose how to see changes in this document: Simple Markup, All Markup, No Markup or Original."
             menu={markupMenu}
           >
-            <span className="max-w-[72px] truncate text-[10px] leading-tight">{markupLabel}</span>
+            <MarkupModeIcon />
+          </RibbonCommand>
+          <RibbonCommand size="small" label="Show Markup" disabled={off} menu={showMarkupMenu}>
+            <MarkupListIcon />
           </RibbonCommand>
           <RibbonCommand
             size="small"
@@ -604,8 +647,10 @@ export function ReviewTab() {
         </RibbonCommand>
         <RibbonCommand
           label="Restrict Editing"
-          active={restricted}
-          menu={(close) => <RestrictList editor={editor} close={close} />}
+          description="Control what types of changes others can make to this document."
+          active={restrictPane || protectedDoc}
+          disabled={off}
+          onClick={() => toggleRestrictPane()}
         >
           <ProtectIcon />
         </RibbonCommand>
@@ -686,23 +731,18 @@ function stepChange(editor: Editor, direction: 1 | -1) {
   }
 }
 
-function LanguageList({ close }: { close: () => void }) {
-  const setup = useDocumentStore((state) => state.pageSetup)
-  const setPageSetup = useDocumentStore((state) => state.setPageSetup)
+/** Review > Language > Language, as in Word: Set Proofing Language… opens the Language dialog. */
+function LanguageList({ close, onProofing }: { close: () => void; onProofing: () => void }) {
   return (
     <div className="flex w-56 flex-col">
-      {DOCUMENT_LANGUAGES.map((item) => (
-        <MenuButton
-          key={item.id}
-          selected={setup.language === item.id}
-          onClick={() => {
-            setPageSetup({ ...setup, language: item.id })
-            close()
-          }}
-        >
-          {item.label}
-        </MenuButton>
-      ))}
+      <MenuButton
+        onClick={() => {
+          close()
+          onProofing()
+        }}
+      >
+        Set Proofing Language…
+      </MenuButton>
     </div>
   )
 }
@@ -731,29 +771,6 @@ function BlockAuthorsList({ editor, close }: { editor: Editor | null; close: () 
         }}
       >
         Unblock All
-      </MenuButton>
-    </div>
-  )
-}
-
-function RestrictList({ editor, close }: { editor: Editor | null; close: () => void }) {
-  return (
-    <div className="flex w-52 flex-col">
-      <MenuButton
-        onClick={() => {
-          setProtected(editor, true)
-          close()
-        }}
-      >
-        Read only
-      </MenuButton>
-      <MenuButton
-        onClick={() => {
-          setProtected(editor, false)
-          close()
-        }}
-      >
-        Stop protection
       </MenuButton>
     </div>
   )
@@ -909,6 +926,26 @@ function TrackIcon() {
   )
 }
 
+function MarkupModeIcon() {
+  return (
+    <RibbonSvg>
+      <rect x="2" y="2.4" width="9.6" height="11.2" rx="0.6" fill="#fff" stroke="#5c5c5c" strokeWidth="0.8" />
+      <path d="M3.6 5h6.4M3.6 7.2h6.4M3.6 9.4h4" stroke="#b0b0b0" strokeWidth="0.7" />
+      <path d="M13.4 3.4v9" stroke="#d13438" strokeWidth="1.2" strokeLinecap="round" />
+    </RibbonSvg>
+  )
+}
+
+function MarkupListIcon() {
+  return (
+    <RibbonSvg>
+      <rect x="2" y="2.4" width="9" height="11.2" rx="0.6" fill="#fff" stroke="#5c5c5c" strokeWidth="0.8" />
+      <path d="M3.6 5h5.8M3.6 7.2h5.8M3.6 9.4h3.4" stroke="#b0b0b0" strokeWidth="0.7" />
+      <path d="M9.6 9.6h4.6M11.9 7.4v4.4" stroke="#0f6cbd" strokeWidth="1.1" strokeLinecap="round" />
+    </RibbonSvg>
+  )
+}
+
 function PaneIcon() {
   return (
     <RibbonSvg>
@@ -1058,52 +1095,6 @@ function LinkedNotesDialog({ editor, onClose }: { editor: Editor; onClose: () =>
         </button>
         <button type="submit" className="dialog-btn is-primary">
           Save Note
-        </button>
-      </div>
-    </DialogFrame>
-  )
-}
-
-function WordCountDialog({ editor, onClose }: { editor: Editor | null; onClose: () => void }) {
-  const text = editor?.state.doc.textContent ?? ""
-  const words = text.trim() ? text.trim().split(/\s+/).length : 0
-  let paragraphs = 0
-  editor?.state.doc.descendants((node) => {
-    if (node.type.name === "paragraph" || node.type.name === "heading") {
-      paragraphs += 1
-    }
-  })
-  const pages = editor?.storage.pagination?.pageCount ?? 1
-  const showReadability = useEditingOptions((state) => state.readability)
-  const scores = showReadability
-    ? readability(editor?.state.doc.textBetween(0, editor.state.doc.content.size, "\n", " ") ?? "")
-    : null
-  return (
-    <DialogFrame title="Word Count" width={288} onClose={onClose}>
-      <dl className="mt-3 grid grid-cols-2 gap-y-1 text-sm">
-        <dt>Pages</dt>
-        <dd>{pages}</dd>
-        <dt>Words</dt>
-        <dd>{words}</dd>
-        <dt>Characters</dt>
-        <dd>{text.length}</dd>
-        <dt>Paragraphs</dt>
-        <dd>{paragraphs}</dd>
-      </dl>
-      {showReadability ? (
-        <dl aria-label="Readability" className="mt-3 grid grid-cols-2 gap-y-1 border-t pt-2 text-sm">
-          <dt>Sentences</dt>
-          <dd>{scores?.sentences ?? 0}</dd>
-          <dt>Flesch Reading Ease</dt>
-          <dd>{scores?.ease ?? "—"}</dd>
-          <dt>Flesch-Kincaid Grade Level</dt>
-          <dd>{scores?.grade ?? "—"}</dd>
-        </dl>
-      ) : null}
-      <div className="word-dialog-actions">
-        <span className="flex-1" />
-        <button type="button" className="dialog-btn is-primary" onClick={onClose}>
-          Close
         </button>
       </div>
     </DialogFrame>

@@ -175,7 +175,10 @@ function textBlockInset($pos: ResolvedPos) {
   return 0
 }
 
-export async function insertFittedImage(editor: Editor, options: { src: string; alt?: string; at?: number }) {
+export async function insertFittedImage(
+  editor: Editor,
+  options: { src: string; alt?: string; at?: number; size?: { width: number; height: number } },
+) {
   if (editor.isDestroyed || !options.src) {
     return false
   }
@@ -184,8 +187,12 @@ export async function insertFittedImage(editor: Editor, options: { src: string; 
   let width: number | undefined
   let height: number | undefined
   try {
-    const natural = await loadImageNaturalSize(options.src)
-    const fitted = fitImageSize(natural.width, natural.height, bounds)
+    // A size the caller knows (a picture of pasted text, drawn at twice its size) is fitted instead of the pixels.
+    const natural = options.size ?? (await loadImageNaturalSize(options.src))
+    // A picture of text keeps the text's size, so no soft cap for photos: only the column narrows it.
+    const fitted = options.size
+      ? fitImageSize(natural.width, natural.height, { ...bounds, kind: "column" })
+      : fitImageSize(natural.width, natural.height, bounds)
     width = fitted.width
     height = fitted.height
   } catch {

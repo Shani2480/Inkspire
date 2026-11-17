@@ -1,4 +1,7 @@
+import { excelObjectRelId, excelObjectXml, sheetWorkbook, sheetSizePx } from "@/document/docx/sheet-object"
 import { frameOfPreset, presetOfFrame } from "@/editor/picture-shape"
+import { dateFieldResult } from "@/document/field-date"
+import { isAppField, isMergeField, wordBookmarkName } from "@/document/field-instructions"
 import { equationOmml, isOmml, ommlToTex } from "@/document/docx/omml"
 import { equationToText } from "@/editor/equation-gallery"
 import {
@@ -24,11 +27,11 @@ import {
   readChartEx,
 } from "@/document/docx/chartex-xml"
 import { MC_NS } from "@/document/docx/mce"
-import { decodeXml } from "@/document/docx/xml"
-import { readWordShape, schemeColors, shapeLook, wordShapeMark } from "@/document/docx/shape-import"
+import { decodeXml, escapeXml } from "@/document/docx/xml"
+import { WORD_HIGHLIGHTS, readWordShape, schemeColors, shapeLook, wordShapeMark } from "@/document/docx/shape-import"
 import { wordShapeGraphic } from "@/document/docx/shape-write"
 import { boxLink, readWordTextBox, textBoxMark, wordTextBoxGraphic } from "@/document/docx/word-text-box"
-import { looseParagraphsXml } from "@/document/docx/wml-write"
+import { inlinesXml, looseParagraphsXml } from "@/document/docx/wml-write"
 import { diagramDataRelId, diagramDrawingRelId, renderDiagramDrawing } from "@/document/docx/smartart-import"
 import {
   DIAGRAM_NS,
@@ -48,7 +51,7 @@ import { readItems, writeItems } from "@/editor/smartart-model"
 import { pointsMarkup, shapeMarkup } from "@/editor/insert-blocks"
 import { geometryPoints } from "@/editor/shape-adjust"
 import { hasPictureFormat } from "@/editor/picture-format"
-import { fontOf, fontStack, themeFontsOf, type ThemeFonts } from "@/document/docx/word-styles"
+import { fontOf, fontStack, runOffTokens, themeFontsOf, type ThemeFonts } from "@/document/docx/word-styles"
 import { pictureLookHtml, readPictureLook } from "@/document/docx/picture-look"
 import { runBoxOf, textBoxAttributes, textBoxOfRun, type TextBox } from "@/document/docx/text-box"
 import { expandSpec } from "@/editor/chart-expand"
@@ -73,10 +76,13 @@ import {
   type Run,
   type RunContent,
   type RunProperties,
+  type RunPropertyChange,
   type PreservedPackage,
   type SectionProps,
+  type UnderlineValue,
   type WordDocument,
 } from "@/document/docx/model"
+import { underlineCss, underlineIdOfWord, wordColorOf, wordUnderlineOf } from "@/document/underlines"
 
 const EMU_PER_PX = 914400 / 96
 
@@ -113,6 +119,12 @@ export type Projection = {
   /** Main comments whose range is open at the current point, in document order. */
   open: Set<number>
   notes: { footnote: number; endnote: number }
+  /** The number or mark each note reference drew, by note id: what its note's own w:footnoteRef shows. */
+  noteLabels: { footnote: Map<number, string>; endnote: Map<number, string> }
+  /** Notes whose reference is a custom mark (w:customMarkFollows), by kind. */
+  noteCustom: { footnote: Set<number>; endnote: Set<number> }
+  /** While a note's text is shown: the mark its w:footnoteRef / w:endnoteRef draws. */
+  noteMark?: string
   theme: ThemeFonts
   /**
    * The number the next first-level item of each list takes, by its abstract numbering: Word counts every w:num of
@@ -123,6 +135,8 @@ export type Projection = {
   listSeen: Set<number>
   /** The paragraph being shown has text of its own, so a shape in it stays in place (21.35). */
   textParagraph?: boolean
+  /** The style of the paragraph being shown, for the toggles its runs turn off (`runOffTokens`). */
+  paragraphStyleId?: string
 }
 
 export function projectionFor(doc: WordDocument): Projection {
@@ -133,6 +147,8 @@ export function projectionFor(doc: WordDocument): Projection {
     replies,
     open: new Set(),
     notes: { footnote: 0, endnote: 0 },
+    noteLabels: { footnote: new Map(), endnote: new Map() },
+    noteCustom: { footnote: new Set(), endnote: new Set() },
     theme: themeFontsOf(doc),
     listNext: new Map(),
     listSeen: new Set(),
@@ -202,7 +218,7 @@ export function inlinesHtml(inlines: Inline[], ctx: Projection): string {
     const end = fieldEnd(inlines, index)
     if (end >= 0) {
       const field = inlines.slice(index, end + 1)
-      html += wrapComments(atomHtml("field", field, visibleText(field)), ctx)
+      html += wrapComments(fieldHtml(field), ctx)
       index = end
       continue
     }
@@ -242,16 +258,20 @@ function inlineHtml(inline: Inline, ctx: Projection): string {
       return runHtml(inline, ctx)
     case "hyperlink": {
       const href = inline.target ?? (inline.anchor ? `#${inline.anchor}` : "")
-      const attrs = href ? ` href="${escapeHtml(href)}"` : ""
+      const title = inline.tooltip ? ` title="${escapeHtml(inline.tooltip)}"` : ""
+      const attrs = href ? ` href="${escapeHtml(href)}"${title}` : ""
       return `<a${attrs}>${inlinesHtml(inline.inlines, ctx)}</a>`
     }
     case "ins":
     case "del":
       return revisionHtml(inline, ctx)
     case "simpleField":
-      return wrapComments(atomHtml("field", [inline], visibleText([inline])), ctx)
+      return wrapComments(fieldHtml([inline]), ctx)
     case "raw":
-      return wrapComments(equationHtml(inline.xml) ?? atomHtml("raw", [inline], inline.text), ctx)
+      return wrapComments(
+        equationHtml(inline.xml) ?? citationHtml(inline) ?? atomHtml("raw", [inline], inline.text),
+        ctx,
+      )
     case "bookmarkStart":
     case "bookmarkEnd":
       return atomHtml("bookmark", [inline], "")
@@ -280,28 +300,62 @@ function revisionHtml(revision: Revision, ctx: Projection) {
 function runHtml(run: Run, ctx: Projection) {
   if (run.content.some((item) => item.kind === "footnoteReference" || item.kind === "endnoteReference")) {
     const footnote = run.content.some((item) => item.kind === "footnoteReference")
-    const number = footnote ? ++ctx.notes.footnote : ++ctx.notes.endnote
-    return wrapComments(atomHtml("note", [run], footnote ? String(number) : romanNumeral(number)), ctx)
+    // A custom mark (w:customMarkFollows) is the run's text and takes no number; the editor numbers the rest
+    // from the document's footnote and endnote options (`editor/note-labels.ts`).
+    const custom = run.content.some(
+      (item) => (item.kind === "footnoteReference" || item.kind === "endnoteReference") && item.customMarkFollows,
+    )
+    const text = run.content.map((item) => (item.kind === "text" ? item.text : "")).join("")
+    const number = custom ? 0 : footnote ? ++ctx.notes.footnote : ++ctx.notes.endnote
+    const label = custom ? text : footnote ? String(number) : romanNumeral(number)
+    for (const item of run.content) {
+      if (item.kind === "footnoteReference" || item.kind === "endnoteReference") {
+        const kind = item.kind === "footnoteReference" ? "footnote" : "endnote"
+        ctx.noteLabels[kind].set(item.id, label)
+        if (custom) {
+          ctx.noteCustom[kind].add(item.id)
+        }
+      }
+    }
+    return wrapComments(atomHtml("note", [run], label), ctx)
+  }
+  // A note's separator line (footnotes.xml), drawn as Word draws it: a short rule across the line.
+  if (run.content.some((item) => item.kind === "separator" || item.kind === "continuationSeparator")) {
+    const wide = run.content.some((item) => item.kind === "continuationSeparator")
+    return `<span class="word-note-separator${wide ? " word-note-separator-wide" : ""}"></span>`
+  }
+  if (
+    ctx.noteMark !== undefined &&
+    run.content.some((item) => item.kind === "footnoteRef" || item.kind === "endnoteRef")
+  ) {
+    // The note's own number, in its run's formatting (the Footnote Reference style).
+    const mark = ctx.noteMark
+    run = {
+      ...run,
+      content: run.content.map((item) =>
+        item.kind === "footnoteRef" || item.kind === "endnoteRef" ? { kind: "text" as const, text: mark } : item,
+      ),
+    }
   }
   const chart = chartPictureHtml(run, ctx)
   if (chart) {
-    return wrapComments(chart, ctx)
+    return wrapComments(withDocPr(chart, run), ctx)
   }
   const box = textBoxPictureHtml(run, ctx)
   if (box) {
-    return wrapComments(box, ctx)
+    return wrapComments(withDocPr(box, run), ctx)
   }
   const shape = shapePictureHtml(run, ctx)
   if (shape) {
-    return wrapComments(shape, ctx)
+    return wrapComments(withDocPr(shape, run), ctx)
   }
   const diagram = diagramPictureHtml(run, ctx)
   if (diagram) {
-    return wrapComments(diagram, ctx)
+    return wrapComments(withDocPr(diagram, run), ctx)
   }
   const model = modelPictureHtml(run, ctx)
   if (model) {
-    return wrapComments(model, ctx)
+    return wrapComments(withDocPr(model, run), ctx)
   }
   if (run.content.some((item) => item.kind === "drawing" && !mediaFor(ctx.doc, item.relId))) {
     // Shapes and text boxes have no picture to show; keep them whole and show their text.
@@ -328,9 +382,73 @@ function runHtml(run: Run, ctx: Projection) {
   const style = spaced ? ` style="white-space: pre-wrap"` : ""
   // The character style is shown by the document stylesheet (data-word-rstyle); saving keeps it from the source.
   const rstyle = run.rPr.rStyle ? ` data-word-rstyle="${escapeHtml(run.rPr.rStyle)}"` : ""
+  // Bold or italic its paragraph or character style gives that the run turns off (index.css draws it).
+  const offTokens = runOffTokens(ctx.doc, ctx.paragraphStyleId, run.rPr)
+  const off = offTokens.length > 0 ? ` data-run-off="${offTokens.join(" ")}"` : ""
   const anchored =
-    run.key || spaced || rstyle ? `<span data-docx-run="${run.key ?? ""}"${rstyle}${style}>${inner}</span>` : inner
-  return wrapComments(anchored, ctx)
+    run.key || spaced || rstyle || off
+      ? `<span data-docx-run="${run.key ?? ""}"${rstyle}${off}${style}>${inner}</span>`
+      : inner
+  return wrapComments(formatChangeHtml(anchored, run.rPr.rPrChange), ctx)
+}
+
+/** A tracked formatting change (w:rPrChange) as the editor's formatChange mark, keeping Word's markup for saving. */
+function formatChangeHtml(inner: string, change: RunPropertyChange | undefined) {
+  if (!change) {
+    return inner
+  }
+  const attrs = [
+    "data-format-change",
+    `data-id="${change.id}"`,
+    `data-author="${escapeHtml(change.author ?? "")}"`,
+    `data-time="${escapeHtml(change.date ?? "")}"`,
+    `data-before="${escapeHtml(JSON.stringify(savedMarksOf(change.rPr)))}"`,
+    `data-source="${escapeHtml(JSON.stringify(change))}"`,
+  ]
+  return `<span ${attrs.join(" ")}>${inner}</span>`
+}
+
+/** Run properties as the editor's formatting marks (what a formatChange mark records), sorted by type. */
+export function savedMarksOf(props: RunProperties): JsonMark[] {
+  const marks: JsonMark[] = []
+  const add = (type: string, attrs?: Record<string, unknown>) =>
+    marks.push(attrs && Object.keys(attrs).length > 0 ? { type, attrs } : { type })
+  if (props.b) {
+    add("bold")
+  }
+  if (props.i) {
+    add("italic")
+  }
+  if (props.u && props.u.value !== "none") {
+    add("underline", underlineMarkAttrs(props.u))
+  }
+  if (props.strike || props.dstrike) {
+    add("strike")
+  }
+  if (props.vertAlign === "subscript" || props.vertAlign === "superscript") {
+    add(props.vertAlign)
+  }
+  const highlight = highlightHex(props)
+  if (highlight) {
+    add("highlight", { color: highlight })
+  }
+  const style: Record<string, unknown> = {}
+  if (props.color && props.color !== "auto") {
+    style.color = `#${props.color.toLowerCase()}`
+  }
+  if (props.rFonts?.ascii) {
+    style.fontFamily = props.rFonts.ascii
+  }
+  if (props.sz) {
+    style.fontSize = `${props.sz / 2}pt`
+  }
+  if (Object.keys(style).length > 0) {
+    add("textStyle", style)
+  }
+  if (props.lang?.val || props.noProof) {
+    add("proofing", { lang: props.lang?.val ?? null, noProof: props.noProof === true })
+  }
+  return marks.sort((left, right) => String(left.type).localeCompare(String(right.type)))
 }
 
 function runContentHtml(content: RunContent, run: Run, ctx: Projection) {
@@ -340,6 +458,15 @@ function runContentHtml(content: RunContent, run: Run, ctx: Projection) {
     case "tab":
       return wrapText(`<span data-tab="1"></span>`, run.rPr, ctx.theme)
     case "drawing": {
+      const sheet = sheetOf(ctx.doc, content.xml)
+      if (sheet) {
+        // Word's embedded Excel worksheet: the editor's sheet, keeping the run to write back while unchanged.
+        const grid = escapeHtml(JSON.stringify(sheet.grid))
+        const kept =
+          ` data-workbook="${encodeBase64(sheet.workbook)}" data-workbook-grid="${grid}"` +
+          ` data-workbook-values="${escapeHtml(JSON.stringify(sheet.values))}"`
+        return `<div data-sheet-block="" data-grid="${grid}" data-sheet-source="${grid}"${kept}${run.key ? ` data-docx="${escapeHtml(run.key)}"` : ""}></div>`
+      }
       const media = mediaFor(ctx.doc, content.relId)
       if (!media) {
         return ""
@@ -347,19 +474,22 @@ function runContentHtml(content: RunContent, run: Run, ctx: Projection) {
       const layout = content.layout ? floatingLayout(content.layout, content.cx, ctx.doc.section, content.cy) : null
       const theme = ctx.doc.preserved?.parts.find((item) => item.name.toLowerCase() === "/word/theme/theme1.xml")
       const look = readPictureLook(content.xml, theme ? decodeXml(theme.data) : null)
-      return imageHtml(
-        media,
-        content.cx,
-        content.cy,
-        content.name,
-        run.key,
-        layout,
-        content.rot,
-        content.object,
-        content.crop,
-        content.geometry,
-        content,
-        look,
+      return withDocPrOf(
+        content.xml,
+        imageHtml(
+          media,
+          content.cx,
+          content.cy,
+          content.description ?? content.name,
+          run.key,
+          layout,
+          content.rot,
+          content.object,
+          content.crop,
+          content.geometry,
+          content,
+          look,
+        ),
       )
     }
     case "text":
@@ -368,6 +498,53 @@ function runContentHtml(content: RunContent, run: Run, ctx: Projection) {
     default:
       return ""
   }
+}
+
+/**
+ * The name and visibility the Selection pane shows (wp:docPr name and hidden), on the object's element: Word's own
+ * names ("Picture 3", "Text Box 5") stay as they are, and a hidden object stays hidden.
+ */
+function withDocPr(html: string, run: Run) {
+  const drawing = run.content.find((item) => item.kind === "drawing")
+  return drawing?.kind === "drawing" ? withDocPrOf(drawing.xml, html) : html
+}
+
+function withDocPrOf(xml: string, html: string) {
+  const docPr = /<wp:docPr\b[^>]*>/.exec(xml)?.[0]
+  if (!docPr || !html.startsWith("<img")) {
+    return html
+  }
+  const name = /\sname="([^"]*)"/.exec(docPr)?.[1]
+  const hidden = /\shidden="(1|true|on)"/.test(docPr)
+  const attrs =
+    (name ? ` data-object-name="${escapeHtml(unescapeXmlAttr(name))}"` : "") + (hidden ? ` data-hidden="1"` : "")
+  return attrs ? `<img${attrs}${html.slice(4)}` : html
+}
+
+function unescapeXmlAttr(value: string) {
+  return value
+    .replace(/&#x([0-9a-f]+);/gi, (_match, hex: string) => String.fromCodePoint(Number.parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_match, dec: string) => String.fromCodePoint(Number(dec)))
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&")
+}
+
+/** The object's name and visibility from the editor, on the drawing written for it (wp:docPr). */
+export function patchDocPr(xml: string, name: string, hidden: boolean) {
+  return xml.replace(/<wp:docPr\b([^>]*?)(\/?)>/, (_match, attrs: string, slash: string) => {
+    let next = attrs.replace(/\shidden="[^"]*"/, "")
+    if (name) {
+      const value = ` name="${escapeXml(name)}"`
+      next = /\sname="/.test(next) ? next.replace(/\sname="[^"]*"/, value) : `${next}${value}`
+    }
+    if (hidden) {
+      next += ` hidden="1"`
+    }
+    return `<wp:docPr${next}${slash}>`
+  })
 }
 
 function wrapComments(html: string, ctx: Projection) {
@@ -519,7 +696,7 @@ function chartPictureHtml(run: Run, ctx: Projection) {
     picture,
     drawing.cx,
     drawing.cy,
-    drawing.name,
+    drawing.description ?? drawing.name,
     run.key,
     layout,
     drawing.rot,
@@ -592,7 +769,7 @@ function modelPictureHtml(run: Run, ctx: Projection) {
     picture,
     drawing.cx,
     drawing.cy,
-    drawing.name,
+    drawing.description ?? drawing.name,
     run.key,
     layout,
     drawing.rot,
@@ -643,7 +820,7 @@ function diagramPictureHtml(run: Run, ctx: Projection) {
     picture,
     drawing.cx,
     drawing.cy,
-    drawing.name,
+    drawing.description ?? drawing.name,
     run.key,
     layout,
     drawing.rot,
@@ -788,7 +965,7 @@ function shapePictureHtml(run: Run, ctx: Projection) {
     picture,
     drawing.cx,
     drawing.cy,
-    drawing.name,
+    drawing.description ?? drawing.name,
     run.key,
     layout,
     drawing.rot,
@@ -878,7 +1055,7 @@ function textBoxPictureHtml(run: Run, ctx: Projection) {
     picture,
     drawing.cx,
     drawing.cy,
-    drawing.name,
+    drawing.description ?? drawing.name,
     run.key,
     layout,
     drawing.rot,
@@ -895,6 +1072,66 @@ function equationHtml(xml: string) {
   const tex = escapeHtml(read.tex)
   const display = read.display ? ' data-display="1"' : ""
   return `<span data-equation="" data-tex="${tex}"${display} data-omml="${escapeHtml(xml)}" data-omml-tex="${tex}"></span>`
+}
+
+/**
+ * A field: SEQ, REF and PAGEREF become the editor's own field (captions and cross-references it can renumber),
+ * keeping the markup they were read from; any other field is kept whole as an atom.
+ */
+function fieldHtml(field: Inline[]) {
+  const nested = nestedFieldCode(field)
+  const merge = isMergeField(nested)
+  const instr = merge ? nested : fieldInstruction(field).replace(/\s+/g, " ").trim()
+  if (!merge && !isAppField(instr)) {
+    return atomHtml("field", field, fieldText(field))
+  }
+  const text = visibleText(field)
+  const attrs = [
+    "data-word-field",
+    `data-instr="${escapeHtml(instr)}"`,
+    `data-result="${escapeHtml(text)}"`,
+    `data-source="${escapeHtml(JSON.stringify(field))}"`,
+    `data-read="${escapeHtml(text)}"`,
+    `data-read-instr="${escapeHtml(instr)}"`,
+  ]
+  return `<span ${attrs.join(" ")}>${escapeHtml(text)}</span>`
+}
+
+/**
+ * Word's citation: a CITATION field in a citation content control. It becomes the editor's field (its result follows
+ * the document's sources and style) and keeps the control as written, saved as read while unchanged.
+ */
+function citationHtml(inline: Extract<Inline, { kind: "raw" }>) {
+  const xml = inline.xml
+  const properties = /<(?:\w+:)?sdtPr\b[\s\S]*?<\/(?:\w+:)?sdtPr>/.exec(xml)?.[0] ?? ""
+  if (!/^<(?:\w+:)?sdt\b/.test(xml) || !/<(?:\w+:)?citation\s*\/>/.test(properties)) {
+    return null
+  }
+  const instr = [...xml.matchAll(/<(?:\w+:)?instrText\b[^>]*>([^<]*)<\/(?:\w+:)?instrText>/g)]
+    .map((match) =>
+      (match[1] ?? "")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&amp;/g, "&"),
+    )
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim()
+  if (!/^CITATION\b/i.test(instr)) {
+    return null
+  }
+  const text = inline.text
+  const attrs = [
+    "data-word-field",
+    `data-instr="${escapeHtml(instr)}"`,
+    `data-result="${escapeHtml(text)}"`,
+    `data-source="${escapeHtml(JSON.stringify([inline]))}"`,
+    `data-read="${escapeHtml(text)}"`,
+    `data-read-instr="${escapeHtml(instr)}"`,
+  ]
+  return `<span ${attrs.join(" ")}>${escapeHtml(text)}</span>`
 }
 
 function atomHtml(role: string, payload: unknown, text: string) {
@@ -919,17 +1156,134 @@ function pageFieldOf(payload: unknown) {
 }
 
 /** A block content control or display equation, kept whole. */
-export function blockAtomHtml(block: Block, text: string) {
+export function blockAtomHtml(block: Block, text: string, shown = "") {
   const attrs = [
     "data-word-block",
     `data-role="raw"`,
     `data-payload="${escapeHtml(JSON.stringify(block))}"`,
     `data-text="${escapeHtml(text)}"`,
+    // The content drawn as the body's paragraphs are (`WordBlock`); the payload above is what is saved.
+    ...(shown ? [`data-shown="${escapeHtml(shown)}"`] : []),
   ]
   return `<div ${attrs.join(" ")}>${text
     .split("\n")
     .map((line) => `<p>${escapeHtml(line)}</p>`)
     .join("")}</div>`
+}
+
+/**
+ * What a field shows: its result as last saved, except a DATE or TIME field, which Word updates whenever the document
+ * opens (`field-date.ts`).
+ */
+function fieldText(inlines: Inline[]) {
+  return dateFieldResult(fieldInstruction(inlines)) ?? visibleText(inlines)
+}
+
+/** A field's own instruction: a simple field's w:instr, or a complex field's w:instrText before its separator. */
+/**
+ * A field's whole code as Word shows it with Alt+F9: fields inside it in braces ({ MERGEFIELD City }), line breaks
+ * (Word's w:cr in an Address Block's format) as new lines. Spaces are tidied but the lines are kept.
+ */
+function nestedFieldCode(inlines: Inline[]) {
+  const first = inlines[0]
+  if (first?.kind === "simpleField") {
+    return first.instr.replace(/[ \t]+/g, " ").trim()
+  }
+  let depth = 0
+  const inCode: boolean[] = []
+  let text = ""
+  for (const inline of inlines) {
+    if (inline.kind !== "run") {
+      continue
+    }
+    for (const content of inline.content) {
+      if (content.kind === "fldChar") {
+        if (content.fieldType === "begin") {
+          depth += 1
+          inCode[depth] = true
+          if (depth > 1 && inCode[depth - 1]) {
+            text += "{ "
+          }
+        } else if (content.fieldType === "separate") {
+          inCode[depth] = false
+        } else {
+          if (depth > 1 && inCode[depth - 1]) {
+            text += " }"
+          }
+          depth = Math.max(0, depth - 1)
+        }
+      } else if (depth > 0 && inCode.slice(1, depth + 1).every(Boolean)) {
+        if (content.kind === "instrText") {
+          text += content.text
+        } else if (content.kind === "break") {
+          text += "\n"
+        }
+      }
+    }
+  }
+  return text
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+/g, " "))
+    .join("\n")
+    .trim()
+}
+
+function fieldInstruction(inlines: Inline[]) {
+  const first = inlines[0]
+  if (first?.kind === "simpleField") {
+    return first.instr
+  }
+  let depth = 0
+  let code = true
+  let text = ""
+  for (const inline of inlines) {
+    if (inline.kind !== "run") {
+      continue
+    }
+    for (const content of inline.content) {
+      if (content.kind === "fldChar") {
+        depth += content.fieldType === "begin" ? 1 : content.fieldType === "end" ? -1 : 0
+        if (content.fieldType === "separate" && depth === 1) {
+          code = false
+        }
+      } else if (content.kind === "instrText" && depth === 1 && code) {
+        text += content.text
+      }
+    }
+  }
+  return text
+}
+
+/**
+ * The runs of a field's code up to its separator: the begin mark, the code, and any field inside it (in braces) as a
+ * field of its own, without a result, which Word works out on update. A new line is Word's w:cr.
+ */
+function complexFieldCode(instr: string): Inline[] {
+  const runs: Inline[] = [{ kind: "run", rPr: {}, content: [{ kind: "fldChar", fieldType: "begin" }] }]
+  let text = " "
+  const flush = () => {
+    if (text) {
+      runs.push({ kind: "run", rPr: {}, content: [{ kind: "instrText", text }] })
+      text = ""
+    }
+  }
+  for (const char of instr) {
+    if (char === "{") {
+      flush()
+      runs.push({ kind: "run", rPr: {}, content: [{ kind: "fldChar", fieldType: "begin" }] })
+    } else if (char === "}") {
+      flush()
+      runs.push({ kind: "run", rPr: {}, content: [{ kind: "fldChar", fieldType: "end" }] })
+    } else if (char === "\n") {
+      flush()
+      runs.push({ kind: "run", rPr: {}, content: [{ kind: "raw", xml: "<w:cr/>", text: "" }] })
+    } else {
+      text += char
+    }
+  }
+  text += " "
+  flush()
+  return runs
 }
 
 /** Text a reader sees: field results without their codes, deleted text left out. */
@@ -967,6 +1321,12 @@ export function visibleText(inlines: Inline[]) {
   }
   inlines.forEach(visit)
   return text
+}
+
+/** The embedded Excel worksheet a w:object holds, read into a grid when the file opened. */
+export function sheetOf(doc: WordDocument, xml: string) {
+  const relId = xml.startsWith("<w:object") ? excelObjectRelId(xml) : null
+  return relId ? doc.sheets?.find((item) => item.relId === relId) : undefined
 }
 
 export function mediaFor(doc: WordDocument, relId: string | undefined) {
@@ -1114,6 +1474,7 @@ function imageHtml(
   media: MediaPart,
   cx: number | undefined,
   cy: number | undefined,
+  /** The alt text: Word's descr, else the picture's name. */
   name?: string,
   key?: string,
   layout?: FloatingLayout | null,
@@ -1204,7 +1565,7 @@ function wrapText(text: string, props: RunProperties, theme: ThemeFonts) {
     html = `<em>${html}</em>`
   }
   if (props.u && props.u.value !== "none") {
-    html = `<u>${html}</u>`
+    html = `<u${underlineAttributes(props.u)}>${html}</u>`
   }
   if (props.strike || props.dstrike) {
     html = `<s>${html}</s>`
@@ -1219,6 +1580,10 @@ function wrapText(text: string, props: RunProperties, theme: ThemeFonts) {
   if (style) {
     html = `<span style="${style}">${html}</span>`
   }
+  const highlight = highlightHex(props)
+  if (highlight) {
+    html = `<mark data-color="${highlight}" style="background-color: ${highlight}; color: inherit">${html}</mark>`
+  }
   const box = textBoxOfRun(props)
   if (box) {
     const attributes = Object.entries(textBoxAttributes(box))
@@ -1226,7 +1591,24 @@ function wrapText(text: string, props: RunProperties, theme: ThemeFonts) {
       .join(" ")
     html = `<span ${attributes}>${html}</span>`
   }
+  // The run's language and "Do not check spelling or grammar", for the spell checker and the Language dialog.
+  if (props.lang?.val || props.noProof) {
+    const lang = props.lang?.val ? ` data-lang="${escapeHtml(props.lang.val)}"` : ""
+    html = `<span data-proofing${lang}${props.noProof ? " data-no-proof" : ""}>${html}</span>`
+  }
   return html
+}
+
+/** A run's w:highlight as the editor's highlight colour; none for "none" and for no highlight. */
+function highlightHex(props: RunProperties) {
+  return props.highlight && props.highlight !== "none" ? WORD_HIGHLIGHTS[props.highlight] : undefined
+}
+
+/** Word's highlight name for the editor's highlight colour, if it is one of Word's. */
+function highlightName(hex: string): RunProperties["highlight"] | undefined {
+  const value = hex.toLowerCase()
+  return Object.keys(WORD_HIGHLIGHTS).find((name) => WORD_HIGHLIGHTS[name] === value) as
+    RunProperties["highlight"] | undefined
 }
 
 function runStyle(props: RunProperties, theme: ThemeFonts) {
@@ -1274,13 +1656,15 @@ const NO_THEME_FONTS: ThemeFonts = {
   minorEastAsia: "",
   majorBidi: "",
   minorBidi: "",
+  colors: {},
 }
 
 /** Run properties the editor shows. Everything else on a run is carried from its source. */
 type VisibleRun = {
   b: boolean
   i: boolean
-  u: boolean
+  /** The underline type and colour, or "" for none. */
+  u: string
   strike: boolean
   vertAlign: string
   color: string
@@ -1288,19 +1672,27 @@ type VisibleRun = {
   sz: number
   /** The box and shading (Borders and Shading > Apply to Text), as the editor draws them. */
   box: string
+  /** The highlight colour (hex), or "". */
+  highlight: string
+  /** The run's language (w:lang w:val), or "". */
+  lang: string
+  noProof: boolean
 }
 
 function visibleRun(props: RunProperties, theme: ThemeFonts): VisibleRun {
   return {
     b: props.b === true,
     i: props.i === true,
-    u: Boolean(props.u && props.u.value !== "none"),
+    u: props.u && props.u.value !== "none" ? `${props.u.value}|${props.u.color ?? ""}`.toUpperCase() : "",
     strike: props.strike === true || props.dstrike === true,
     vertAlign: props.vertAlign === "subscript" || props.vertAlign === "superscript" ? props.vertAlign : "",
     color: props.color && props.color !== "auto" ? props.color.toUpperCase() : "",
     font: fontOf(props.rFonts, theme) || "",
     sz: props.sz ?? 0,
     box: JSON.stringify(textBoxOfRun(props)),
+    highlight: highlightHex(props) ?? "",
+    lang: props.lang?.val ?? "",
+    noProof: props.noProof === true,
   }
 }
 
@@ -1326,7 +1718,8 @@ export function runPropertiesFromEdit(
     base.i = after.i || undefined
   }
   if (after.u !== before.u) {
-    base.u = after.u ? { value: "single" } : undefined
+    // The type and colour chosen; a colour Word had kept as a theme colour goes with a new one.
+    base.u = after.u ? edited.u : source.u?.value === "none" ? source.u : undefined
   }
   if (after.strike !== before.strike) {
     base.strike = after.strike || undefined
@@ -1337,6 +1730,7 @@ export function runPropertiesFromEdit(
   }
   if (after.color !== before.color) {
     base.color = after.color || undefined
+    base.colorTheme = undefined
   }
   if (after.font !== before.font) {
     // A theme font overrides the explicit name in Word, so a chosen font replaces it.
@@ -1357,13 +1751,24 @@ export function runPropertiesFromEdit(
     base.bdr = edited.bdr
     base.shd = edited.shd
   }
+  if (after.highlight !== before.highlight) {
+    base.highlight = edited.highlight
+  }
+  if (after.lang !== before.lang) {
+    // The Language dialog sets the run's language; East Asian and complex script languages stay as they were.
+    const lang = { ...base.lang, val: after.lang || undefined }
+    base.lang = lang.val || lang.eastAsia || lang.bidi ? lang : undefined
+  }
+  if (after.noProof !== before.noProof) {
+    base.noProof = after.noProof || undefined
+  }
   return Object.fromEntries(Object.entries(base).filter(([, value]) => value !== undefined)) as RunProperties
 }
 
-type RevisionKey = { kind: "ins" | "del"; id: string; author: string; date: string }
+type RevisionKey = { kind: "ins" | "del" | "rPr"; id: string; author: string; date: string }
 
 /** One inline from the editor, with the annotations that decide how it is grouped. */
-type Piece = { inline: Inline; link?: string; revision?: RevisionKey; comments: string[] }
+type Piece = { inline: Inline; link?: string; linkTitle?: string; revision?: RevisionKey; comments: string[] }
 
 /** Comments found while saving, by editor id, in document order. */
 export type EditorComment = CommentView
@@ -1387,15 +1792,52 @@ export type InlineBuild = {
   usedParts?: Set<string>
   /** The parts the reader keeps whole (a 3-D model's `.glb`), to carry a model into the app's own picture. */
   preserved?: PreservedPackage
+  /** The editor's bookmarks written so far: the next free id and the names used (each written once). */
+  bookmarks?: { next: number; names: Set<string> }
+  /** Footnotes and endnotes made in the editor, in order, with the ids their references were given. */
+  notes?: EditorNote[]
+  /** The next free note id of each kind (after the opened document's own). */
+  nextNote?: { footnote: number; endnote: number }
+  /** Content controls made while saving (citations, the bibliography): their w:id is unique in the document. */
+  controlIds?: number
 }
+
+/** A note made in the editor: its reference's id in the body and its text, written to footnotes or endnotes.xml. */
+export type EditorNote = { kind: "footnote" | "endnote"; id: number; text: string; mark?: string }
 
 /** Word's date pictures for the automatic date and time the editor offers. */
 
 export function inlinesFromEditor(nodes: JsonNode[], build: InlineBuild): Inline[] {
   const pieces: Piece[] = []
+  // The editor's bookmarks (a mark over the text) as Word's start and end markers, ids unique in the document.
+  const bookmarks = (build.bookmarks ??= { next: 900000, names: new Set<string>() })
+  const open = new Map<string, number>()
+  const closeBookmarks = (keep: Set<string>, link?: string) => {
+    for (const [name, id] of [...open]) {
+      if (!keep.has(name)) {
+        pieces.push({ inline: { kind: "bookmarkEnd", id }, link, comments: [] })
+        open.delete(name)
+      }
+    }
+  }
   for (const node of nodes) {
     const marks = node.marks ?? []
     const annotations = annotationsOf(marks, build)
+    const names = new Set(
+      marks
+        .filter((mark) => mark.type === "bookmark" && mark.attrs?.id)
+        .map((mark) => wordBookmarkName(String(mark.attrs?.id))),
+    )
+    closeBookmarks(names, annotations.link)
+    for (const name of names) {
+      if (!open.has(name) && !bookmarks.names.has(name)) {
+        const id = bookmarks.next
+        bookmarks.next += 1
+        bookmarks.names.add(name)
+        open.set(name, id)
+        pieces.push({ inline: { kind: "bookmarkStart", id, name }, link: annotations.link, comments: [] })
+      }
+    }
     if (node.type === "text") {
       pieces.push({ inline: textRun(node.text ?? "", marks, annotations.revision, build), ...annotations })
       continue
@@ -1426,6 +1868,76 @@ export function inlinesFromEditor(nodes: JsonNode[], build: InlineBuild): Inline
       })
       continue
     }
+    if (node.type === "wordField") {
+      const instr = String(node.attrs?.instr ?? "").trim()
+      const result = String(node.attrs?.result ?? "")
+      const source = String(node.attrs?.source ?? "")
+      if (source && instr === node.attrs?.readInstr && result === node.attrs?.readResult) {
+        // Unchanged since it was read: Word's own markup, simple or complex, goes back as it was.
+        for (const inline of payloadInlines(source)) {
+          pieces.push({
+            inline,
+            link: annotations.link,
+            linkTitle: annotations.linkTitle,
+            comments: annotations.comments,
+          })
+        }
+      } else if (/^CITATION\b/i.test(instr)) {
+        // A citation goes in Word's citation content control, as Word inserts it, so Word offers Edit Citation.
+        build.controlIds = (build.controlIds ?? 0) + 1
+        const runs: Inline[] = [
+          { kind: "run", rPr: {}, content: [{ kind: "fldChar", fieldType: "begin" }] },
+          { kind: "run", rPr: {}, content: [{ kind: "instrText", text: ` ${instr} ` }] },
+          { kind: "run", rPr: {}, content: [{ kind: "fldChar", fieldType: "separate" }] },
+          textRun(result, marks, undefined, build),
+          { kind: "run", rPr: {}, content: [{ kind: "fldChar", fieldType: "end" }] },
+        ]
+        const xml =
+          `<w:sdt><w:sdtPr><w:id w:val="${0x51a0000 + build.controlIds}"/><w:citation/></w:sdtPr>` +
+          `<w:sdtContent>${inlinesXml(runs)}</w:sdtContent></w:sdt>`
+        pieces.push({ inline: { kind: "raw", xml, text: result }, ...annotations })
+      } else if (/[\n{}]/.test(instr)) {
+        // Fields inside it ({ MERGEFIELD City } in an IF) or line breaks (an Address Block's format): a complex
+        // field, as Word writes them; a simple field's instruction can hold neither.
+        const runs = complexFieldCode(instr)
+        runs.push(
+          { kind: "run", rPr: {}, content: [{ kind: "fldChar", fieldType: "separate" }] },
+          textRun(result, marks, annotations.revision, build),
+          { kind: "run", rPr: {}, content: [{ kind: "fldChar", fieldType: "end" }] },
+        )
+        for (const inline of runs) {
+          pieces.push({ inline, ...annotations })
+        }
+      } else {
+        pieces.push({
+          inline: {
+            kind: "simpleField",
+            instr: ` ${instr} `,
+            inlines: [textRun(result, marks, annotations.revision, build)],
+          },
+          ...annotations,
+        })
+      }
+      continue
+    }
+    if (node.type === "note") {
+      // A note made in the editor: Word's reference mark in the body, its text in the notes part.
+      const kind = node.attrs?.kind === "endnote" ? "endnote" : "footnote"
+      const next = (build.nextNote ??= { footnote: 1, endnote: 1 })
+      const id = next[kind]
+      next[kind] += 1
+      const mark = String(node.attrs?.mark ?? "")
+      ;(build.notes ??= []).push({ kind, id, text: String(node.attrs?.text ?? ""), ...(mark ? { mark } : {}) })
+      const reference = kind === "endnote" ? "endnoteReference" : "footnoteReference"
+      // A custom mark follows the reference in the same run (w:customMarkFollows), as Word writes it.
+      const run = contentRun({ kind: reference, id, ...(mark ? { customMarkFollows: true } : {}) }, marks, build)
+      if (mark) {
+        run.content.push({ kind: "text", text: mark })
+      }
+      run.rPr.rStyle = kind === "endnote" ? "EndnoteReference" : "FootnoteReference"
+      pieces.push({ inline: run, ...annotations })
+      continue
+    }
     if (node.type === "equation") {
       const text = equationToText(String(node.attrs?.tex ?? ""), "unicode")
       pieces.push({ inline: { kind: "raw", xml: equationOmml(node.attrs), text }, ...annotations })
@@ -1434,7 +1946,12 @@ export function inlinesFromEditor(nodes: JsonNode[], build: InlineBuild): Inline
     if (node.type === "wordInline") {
       for (const inline of payloadInlines(node.attrs?.payload)) {
         // A field inside a link (a table of contents' page number) stays inside it.
-        pieces.push({ inline, link: annotations.link, comments: annotations.comments })
+        pieces.push({
+          inline,
+          link: annotations.link,
+          linkTitle: annotations.linkTitle,
+          comments: annotations.comments,
+        })
       }
       continue
     }
@@ -1442,12 +1959,14 @@ export function inlinesFromEditor(nodes: JsonNode[], build: InlineBuild): Inline
       pieces.push({ inline, comments: [] })
     }
   }
+  closeBookmarks(new Set())
   return groupLinks(pieces, build)
 }
 
 function annotationsOf(marks: JsonMark[], build: InlineBuild) {
   const link = marks.find((mark) => mark.type === "link")
   const href = typeof link?.attrs?.href === "string" ? link.attrs.href : undefined
+  const title = typeof link?.attrs?.title === "string" && link.attrs.title ? link.attrs.title : undefined
   const tracked = marks.find((mark) => mark.type === "insertion" || mark.type === "deletion")
   const revision: RevisionKey | undefined = tracked
     ? {
@@ -1477,7 +1996,7 @@ function annotationsOf(marks: JsonMark[], build: InlineBuild) {
       })
     }
   }
-  return { link: href || undefined, revision, comments }
+  return { link: href || undefined, linkTitle: href ? title : undefined, revision, comments }
 }
 
 function parseReplies(value: unknown): CommentReply[] {
@@ -1559,7 +2078,40 @@ function contentRun(content: RunContent | null, marks: JsonMark[], build: Inline
   if (key) {
     run.key = key
   }
+  // A tracked formatting change goes as w:rPrChange; one the editor accepted or rejected goes away.
+  const format = marks.find((mark) => mark.type === "formatChange")
+  if (format) {
+    run.rPr.rPrChange = formatChangeOf(format, build)
+  } else if (content?.kind === "text" || content?.kind === "delText") {
+    delete run.rPr.rPrChange
+  }
   return run
+}
+
+function formatChangeOf(mark: JsonMark, build: InlineBuild): RunPropertyChange {
+  const before = readJsonArray(mark.attrs?.before) as JsonMark[]
+  const author = String(mark.attrs?.author ?? "")
+  const date = String(mark.attrs?.time ?? "")
+  const id = revisionId({ kind: "rPr", id: String(mark.attrs?.id ?? ""), author, date }, build)
+  try {
+    // Read from Word and not changed since: Word's own properties, which may hold more than the editor shows.
+    const source = JSON.parse(String(mark.attrs?.source || "null")) as RunPropertyChange | null
+    if (source && JSON.stringify(savedMarksOf(source.rPr)) === JSON.stringify(before)) {
+      return { ...source, id }
+    }
+  } catch {
+    // Not from Word.
+  }
+  return { id, ...(author ? { author } : {}), ...(date ? { date } : {}), rPr: propsFromMarks(before) }
+}
+
+function readJsonArray(value: unknown): unknown[] {
+  try {
+    const parsed = JSON.parse(String(value || "[]")) as unknown
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
 }
 
 /** Hyperlinks wrap revisions, the way Word nests a tracked change inside a link. */
@@ -1574,8 +2126,9 @@ function groupLinks(all: Piece[], build: InlineBuild): Inline[] {
   let index = 0
   while (index < pieces.length) {
     const link = pieces[index]!.link
+    const title = pieces[index]!.linkTitle
     let end = index
-    while (end < pieces.length && pieces[end]!.link === link) {
+    while (end < pieces.length && pieces[end]!.link === link && pieces[end]!.linkTitle === title) {
       end += 1
     }
     const grouped = groupRevisions(pieces.slice(index, end), build)
@@ -1583,9 +2136,15 @@ function groupLinks(all: Piece[], build: InlineBuild): Inline[] {
       const fresh: Hyperlink = link.startsWith("#")
         ? { kind: "hyperlink", anchor: link.slice(1), inlines: grouped }
         : { kind: "hyperlink", target: link, inlines: grouped }
+      if (title) {
+        fresh.tooltip = title
+      }
       const source = sourceLink(pieces.slice(index, end), build)
       const hyperlink: Hyperlink =
-        source && source.target === fresh.target && source.anchor === fresh.anchor
+        source &&
+        source.target === fresh.target &&
+        source.anchor === fresh.anchor &&
+        (source.tooltip ?? "") === (fresh.tooltip ?? "")
           ? { ...source, inlines: grouped }
           : fresh
       const tags = pieces.slice(index, end).flatMap((piece) => piece.comments)
@@ -1661,7 +2220,7 @@ function groupRevisions(pieces: Piece[], build: InlineBuild): Inline[] {
     }
     const inlines = pieces.slice(index, end).map((piece) => piece.inline)
     const tracked: Revision = {
-      kind: revision.kind,
+      kind: revision.kind === "del" ? "del" : "ins",
       id: revisionId(revision, build),
       ...(revision.author ? { author: revision.author } : {}),
       ...(revision.date ? { date: revision.date } : {}),
@@ -1701,8 +2260,9 @@ export function propsFromMarks(marks: JsonMark[]): RunProperties {
   if (marks.some((mark) => mark.type === "italic")) {
     props.i = true
   }
-  if (marks.some((mark) => mark.type === "underline")) {
-    props.u = { value: "single" }
+  const underline = marks.find((mark) => mark.type === "underline")
+  if (underline) {
+    props.u = underlineOfMark(underline.attrs)
   }
   if (marks.some((mark) => mark.type === "strike")) {
     props.strike = true
@@ -1716,6 +2276,19 @@ export function propsFromMarks(marks: JsonMark[]): RunProperties {
   const box = marks.find((mark) => mark.type === "textBorder")
   if (box?.attrs) {
     Object.assign(props, runBoxOf(box.attrs as TextBox))
+  }
+  const highlight = marks.find((mark) => mark.type === "highlight")
+  if (highlight) {
+    // Word highlights in its own sixteen colours; the editor offers those (Text Highlight Color).
+    const color = typeof highlight.attrs?.color === "string" ? highlight.attrs.color : "#ffff00"
+    const hex = colorHex(color)
+    const name = highlightName(hex ? `#${hex}` : color)
+    if (name) {
+      props.highlight = name
+    } else if (hex && !props.shd) {
+      // Any other colour is the run's shading, as Word keeps it.
+      props.shd = { value: "clear", color: "auto", fill: hex }
+    }
   }
   const style = marks.find((mark) => mark.type === "textStyle")
   const color = colorHex(style?.attrs?.color)
@@ -1731,6 +2304,13 @@ export function propsFromMarks(marks: JsonMark[]): RunProperties {
     props.sz = Math.round(size * 2)
     props.szCs = props.sz
   }
+  const proofing = marks.find((mark) => mark.type === "proofing")
+  if (typeof proofing?.attrs?.lang === "string" && proofing.attrs.lang) {
+    props.lang = { val: proofing.attrs.lang }
+  }
+  if (proofing?.attrs?.noProof === true) {
+    props.noProof = true
+  }
   return props
 }
 
@@ -1739,6 +2319,60 @@ export function propsFromMarks(marks: JsonMark[]): RunProperties {
  * as Word wrote it (position, wrapping, cropping, effects); otherwise it becomes a new inline picture.
  */
 export function imageRun(node: JsonNode, build: InlineBuild, asPicture = false): Run | null {
+  const run = describedRun(objectRun(node, build, asPicture), node)
+  const name = typeof node.attrs?.objectName === "string" ? node.attrs.objectName.trim() : ""
+  const hidden = node.attrs?.hidden === "1"
+  if (
+    !run ||
+    (!name && !hidden && !run.content.some((item) => item.kind === "drawing" && /\shidden="/.test(item.xml)))
+  ) {
+    return run
+  }
+  return {
+    ...run,
+    content: run.content.map((item) =>
+      item.kind === "drawing" ? { ...item, xml: patchDocPr(item.xml, name, hidden), ...(name ? { name } : {}) } : item,
+    ),
+  }
+}
+
+/**
+ * The picture's alt text (Alt Text, the Format pane) as Word keeps it, wp:docPr descr. A picture opened from Word
+ * reads its descr, else its name, as the alt text: unchanged, the drawing stays as written.
+ */
+function describedRun(run: Run | null, node: JsonNode): Run | null {
+  if (!run) {
+    return run
+  }
+  const alt = typeof node.attrs?.alt === "string" ? node.attrs.alt.trim() : ""
+  return {
+    ...run,
+    content: run.content.map((item) => {
+      if (item.kind !== "drawing") {
+        return item
+      }
+      const docPr = /<wp:docPr\b[^>]*>/.exec(item.xml)?.[0] ?? ""
+      const read = (attr: string) => {
+        const value = new RegExp(`\\s${attr}="([^"]*)"`).exec(docPr)?.[1]
+        return value === undefined ? undefined : unescapeXmlAttr(value)
+      }
+      const descr = read("descr")
+      if (alt === (descr ?? read("name") ?? "").trim() || (!alt && descr === undefined)) {
+        return item
+      }
+      return { ...item, xml: patchDescr(item.xml, alt) }
+    }),
+  }
+}
+
+export function patchDescr(xml: string, descr: string) {
+  return xml.replace(/<wp:docPr\b([^>]*?)(\/?)>/, (_match, attrs: string, slash: string) => {
+    const rest = attrs.replace(/\sdescr="[^"]*"/, "")
+    return `<wp:docPr${rest}${descr ? ` descr="${escapeXml(descr)}"` : ""}${slash}>`
+  })
+}
+
+function objectRun(node: JsonNode, build: InlineBuild, asPicture: boolean): Run | null {
   const object = typeof node.attrs?.objectNode === "string" ? node.attrs.objectNode : ""
   const figure = object ? decodeObjectJson(object) : null
   if (figure?.type === "figure" && figure.attrs?.kind === "chart" && !asPicture) {
@@ -1747,6 +2381,12 @@ export function imageRun(node: JsonNode, build: InlineBuild, asPicture = false):
     const run = chartRun(node, figure, object, build)
     if (run) {
       return run
+    }
+  }
+  if (figure?.type === "sheetBlock") {
+    const sheet = sheetRun(node, figure, build)
+    if (sheet) {
+      return sheet
     }
   }
   if (figure?.type === "textBox") {
@@ -1861,6 +2501,69 @@ export function imageRun(node: JsonNode, build: InlineBuild, asPicture = false):
         name: `Picture ${id}`,
         cx,
         cy,
+      },
+    ],
+  }
+}
+
+/**
+ * Insert > Table > Excel Spreadsheet as Word keeps it: a w:object with the sheet's picture, which Word shows, and the
+ * workbook, which Excel opens on a double-click. One opened from Word and not changed is written as Word wrote it.
+ */
+function sheetRun(node: JsonNode, figure: JsonNode, build: InlineBuild): Run | null {
+  const grid = typeof figure.attrs?.grid === "string" ? figure.attrs.grid : ""
+  const key = typeof figure.attrs?.docxKey === "string" ? figure.attrs.docxKey : undefined
+  const origin = key ? build.runs.get(key) : undefined
+  if (origin && figure.attrs?.sheetSource === grid) {
+    return structuredClone(origin)
+  }
+  const decoded = decodeDataUrl(typeof node.attrs?.src === "string" ? node.attrs.src : "")
+  if (!decoded) {
+    return null
+  }
+  let cells: string[][]
+  try {
+    cells = JSON.parse(grid) as string[][]
+  } catch {
+    return null
+  }
+  // The workbook Word or Cells wrote, while it still holds this grid; otherwise one made from the grid.
+  const kept =
+    typeof figure.attrs?.workbook === "string" && figure.attrs.workbookGrid === grid ? figure.attrs.workbook : ""
+  const workbook = kept ? Uint8Array.from(atob(kept), (char) => char.charCodeAt(0)) : sheetWorkbook(cells)
+  const { relId: imageRelId, id } = addPicture(build, decoded)
+  const packageRelId = `rId${20 + build.media.length}`
+  const workbookName = freePartName(build, (index) => `/word/embeddings/Microsoft_Excel_Worksheet${index}.xlsx`)
+  build.media.push({
+    relId: packageRelId,
+    type: PACKAGE_RELATIONSHIP,
+    target: workbookName.slice("/word/".length),
+    name: workbookName,
+    contentType: WORKBOOK_CONTENT_TYPE,
+    data: workbook,
+  })
+  const size = sheetSizePx(cells)
+  const width = numberAttr(node.attrs?.width) ?? size.width
+  const height = numberAttr(node.attrs?.height) ?? size.height
+  return {
+    kind: "run",
+    rPr: {},
+    content: [
+      {
+        kind: "drawing",
+        xml: excelObjectXml({
+          shapeId: 1025 + id,
+          objectId: 1800000000 + id,
+          widthPt: Math.round(width * 0.75 * 100) / 100,
+          heightPt: Math.round(height * 0.75 * 100) / 100,
+          imageRelId,
+          packageRelId,
+        }),
+        text: "",
+        floating: false,
+        relId: imageRelId,
+        cx: Math.round(width * EMU_PER_PX),
+        cy: Math.round(height * EMU_PER_PX),
       },
     ],
   }
@@ -3037,4 +3740,37 @@ export function encodeBase64(data: Uint8Array) {
 
 export function escapeHtml(value: string) {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+}
+
+/** The editor's underline mark attributes for Word's w:u (the five older ids keep their names). */
+function underlineMarkAttrs(u: NonNullable<RunProperties["u"]>) {
+  const attrs: Record<string, string> = {}
+  const style = underlineIdOfWord(u.value)
+  if (style !== "solid") {
+    attrs.style = style
+  }
+  if (u.color && u.color !== "auto") {
+    attrs.color = `#${u.color.toLowerCase()}`
+  }
+  return attrs
+}
+
+/** A `<u>` element's attributes the editor's underline mark reads back (type, colour), drawn as Word does. */
+function underlineAttributes(u: NonNullable<RunProperties["u"]>) {
+  const attrs = underlineMarkAttrs(u)
+  if (!attrs.style && !attrs.color) {
+    return ""
+  }
+  const parts = [` style="${underlineCss(attrs.style, attrs.color)}"`, ` data-underline="${attrs.style ?? "solid"}"`]
+  if (attrs.color) {
+    parts.push(` data-underline-color="${attrs.color}"`)
+  }
+  return parts.join("")
+}
+
+/** Word's w:u for the editor's underline mark. */
+function underlineOfMark(attrs: Record<string, unknown> | undefined): NonNullable<RunProperties["u"]> {
+  const value = wordUnderlineOf(typeof attrs?.style === "string" ? attrs.style : null) as UnderlineValue
+  const color = wordColorOf(typeof attrs?.color === "string" ? attrs.color : null)
+  return color ? { value, color } : { value }
 }

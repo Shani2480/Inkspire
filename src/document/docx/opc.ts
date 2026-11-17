@@ -15,6 +15,19 @@ const MAIN_BY_EXTENSION: Record<string, string> = {
   dotm: CONTENT_TYPE_MACRO_TEMPLATE,
 }
 
+/** The main part's content type a Word package with this file name needs (.docx when the name has no Word extension). */
+export function mainContentTypeFor(fileName: string) {
+  return MAIN_BY_EXTENSION[fileExtension(fileName)] ?? CONTENT_TYPE_DOCUMENT
+}
+
+/** The Word package extensions: documents and templates, with and without macros. */
+export const WORD_PACKAGE_EXTENSIONS = Object.keys(MAIN_BY_EXTENSION)
+
+/** Whether a Word package with this file name may hold macros (.docm, .dotm). */
+export function allowsMacros(fileName: string) {
+  return /\.(docm|dotm)$/i.test(fileName)
+}
+
 const OFFICE_DOCUMENT_TYPES = new Set([
   "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument",
   "http://purl.oclc.org/ooxml/officeDocument/relationships/officeDocument",
@@ -499,6 +512,9 @@ const PASSTHROUGH_TYPES = new Set([
   "application/vnd.openxmlformats-officedocument.extended-properties+xml",
   "application/vnd.openxmlformats-officedocument.custom-properties+xml",
   "application/vnd.openxmlformats-officedocument.customXmlProperties+xml",
+  // A .docm/.dotm's macros: kept as written while the file stays macro-enabled, left out of a .docx (wml-write).
+  "application/vnd.ms-office.vbaProject",
+  "application/vnd.ms-word.vbaData+xml",
 ])
 
 export function isPassthroughPart(part: OpcPart) {

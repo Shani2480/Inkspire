@@ -23,6 +23,8 @@ export type ActiveMarks = {
   subscript: boolean
   superscript: boolean
   underlineStyle: string
+  /** The underline's own colour (Underline Color), "" for the text's colour. */
+  underlineColor: string
   effect: string
   namedStyle: string
   /** The Word paragraph style an opened document's paragraph shows. */
@@ -30,6 +32,8 @@ export type ActiveMarks = {
   charStyle: string
   shading: string
   border: string
+  /** The line between paragraphs that share a box (w:between). */
+  borderBetween: boolean
   bulletMarker: string
   numberMarker: string
   listScheme: string
@@ -54,12 +58,14 @@ const idleMarks: ActiveMarks = {
   subscript: false,
   superscript: false,
   underlineStyle: "",
+  underlineColor: "",
   effect: "",
   namedStyle: "",
   wordStyle: "",
   charStyle: "",
   shading: "",
   border: "",
+  borderBetween: false,
   bulletMarker: "",
   numberMarker: "",
   listScheme: "",
@@ -145,12 +151,15 @@ export function useActiveMarks(editor: Editor | null) {
           : current.isActive("underline") && typeof underline.style === "string"
             ? underline.style
             : "",
+        underlineColor:
+          !shape && current.isActive("underline") && typeof underline.color === "string" ? underline.color : "",
         effect: typeof textStyle.effect === "string" ? textStyle.effect : "",
         namedStyle: typeof block.namedStyle === "string" ? block.namedStyle : "",
         wordStyle: typeof block.wordStyle === "string" ? block.wordStyle : "",
         charStyle: typeof textStyle.charStyle === "string" ? textStyle.charStyle : "",
         shading: typeof block.shading === "string" ? block.shading : "",
         border: typeof block.border === "string" ? block.border : "",
+        borderBetween: block.borderBetween === true,
         bulletMarker: typeof bullet.marker === "string" ? bullet.marker : "",
         numberMarker: typeof ordered.marker === "string" ? ordered.marker : "",
         listScheme:

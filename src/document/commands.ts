@@ -1,4 +1,9 @@
+import { applyOpenedNotes, notesForSave } from "@/document/note-settings"
+import { applyOpenedSources, sourcesForSave } from "@/document/bibliography-store"
+import { applyOpenedReview, reviewForSave } from "@/document/review"
 import { withWordMarkers } from "@/editor/word-markers"
+import { useMailMerge, type MainDocumentType } from "@/document/mail-merge"
+import { mergeDocument, type JsonNode, type MergeRange } from "@/document/merge-output"
 import { useBackstage } from "@/document/backstage"
 import { invokeWithTools } from "@/document/helper-tools"
 import {
@@ -15,6 +20,7 @@ import { emptyChrome, packDocument, unpackDocument, type DocumentChrome } from "
 import { useOptimizeDialog } from "@/document/optimize-dialog-state"
 import { documentWithObjectPictures, restoreObjects } from "@/document/object-pictures"
 import { clearWordDocument, currentWordDocument, rememberWordDocument } from "@/document/docx/session"
+import { setWordNoteTexts } from "@/editor/page-notes"
 import { htmlToMarkdown, markdownToHtml } from "@/document/markdown"
 import { rtfToHtml } from "@/document/rtf"
 import {
@@ -29,6 +35,11 @@ import {
 import { describeFileProblem, useFileError, type FileOperation } from "@/document/file-errors"
 import { playDocumentEntrance } from "@/document/motion"
 import { useSavePrompt } from "@/document/save-prompt"
+import { useMacroPrompt } from "@/document/macro-prompt"
+import { protectionForSave, useFileProtection } from "@/document/file-protection"
+import { proofingForSave, useProofingExceptions } from "@/document/proofing-exceptions"
+import { askOpenPassword, askOpenReadOnly } from "@/document/protect-prompts"
+import { readVersion, recordVersion, versionFileName } from "@/document/versions"
 import { defaultStyles, packStyles, stylesFromWord, unpackStyles, useStyleStore } from "@/document/styles"
 import { useEditingOptions } from "@/document/editing-options"
 import { documentName, useDocumentStore, type DocumentProps } from "@/document/store"
@@ -51,19 +62,60 @@ import {
 import { openExternal } from "@/document/help"
 import { isTauriRuntime } from "@/lib/platform"
 import { EditorState } from "@tiptap/pm/state"
+import { generateJSON } from "@tiptap/core"
+import type { PageSetup } from "@/document/page-setup"
 import { invoke } from "@tauri-apps/api/core"
 import { message } from "@tauri-apps/plugin-dialog"
 
 // The .docx reader and writer (and the zip library under them) are large and needed only once a file is opened or
 // saved, so they load then rather than when the app starts.
 const docxIo = () => import("@/document/docx/io")
+const docxEncryption = () => import("@/document/docx/encryption")
+
+/** Opening was called off by the person (Cancel in the Password or read-only question): nothing to report. */
+class OpenCancelled extends Error {
+  override name = "OpenCancelled"
+}
+
+/**
+ * A Word document's package: an encrypted one asks for its password (or tries `known`, the password of the
+ * document it is a version of). Throws EncryptionError for a wrong password, OpenCancelled on Cancel.
+ */
+async function wordPackageBytes(file: OpenedFile, known?: string | null) {
+  const head = file.bytes.subarray(0, 8)
+  const compound = head.length === 8 && head[0] === 0xd0 && head[1] === 0xcf && head[2] === 0x11 && head[3] === 0xe0
+  if (!compound) {
+    return { bytes: file.bytes, password: null }
+  }
+  const encryption = await docxEncryption()
+  if (!encryption.isEncryptedPackage(file.bytes)) {
+    // Not an encrypted package (an old .doc renamed): the reader's error says so.
+    return { bytes: file.bytes, password: null }
+  }
+  if (known) {
+    try {
+      return { bytes: await encryption.decryptPackage(file.bytes, known), password: known }
+    } catch {
+      // Not this password: ask.
+    }
+  }
+  const password = await askOpenPassword(documentName(file.path ?? file.name) || file.name)
+  if (password === null) {
+    throw new OpenCancelled()
+  }
+  return { bytes: await encryption.decryptPackage(file.bytes, password), password }
+}
 const docxOptimizer = () => import("@/document/docx/optimize")
 
 export const BLANK_DOCUMENT_HTML = '<p style="text-align: left;"></p>'
 
 const OPEN_FILTERS: FileFilter[] = [
-  { name: "Documents", extensions: ["docx", "html", "htm", "md", "txt", "rtf", "odt"] },
-  { name: "Word Document", extensions: ["docx"] },
+  {
+    name: "Documents",
+    extensions: ["docx", "docm", "dotx", "dotm", "doc", "dot", "html", "htm", "md", "txt", "rtf", "odt"],
+  },
+  { name: "Word Documents", extensions: ["docx", "docm", "doc"] },
+  { name: "Word Templates", extensions: ["dotx", "dotm", "dot"] },
   { name: "HTML", extensions: ["html", "htm"] },
   { name: "Markdown", extensions: ["md"] },
   { name: "Plain Text", extensions: ["txt"] },
@@ -73,6 +125,9 @@ const OPEN_FILTERS: FileFilter[] = [
 
 const SAVE_FILTERS: FileFilter[] = [
   { name: "Word Document", extensions: ["docx"] },
+  { name: "Word Macro-Enabled Document", extensions: ["docm"] },
+  { name: "Word Template", extensions: ["dotx"] },
+  { name: "Word Macro-Enabled Template", extensions: ["dotm"] },
   { name: "OpenDocument Text", extensions: ["odt"] },
   { name: "HTML", extensions: ["html", "htm"] },
   { name: "PDF", extensions: ["pdf"] },
@@ -80,6 +135,11 @@ const SAVE_FILTERS: FileFilter[] = [
   { name: "Plain Text", extensions: ["txt"] },
   { name: "Rich Text", extensions: ["rtf"] },
 ]
+
+/** The Word package types Inkspire reads and writes natively (.doc is read through a conversion). */
+export function isWordPackage(ext: string) {
+  return ext === "docx" || ext === "docm" || ext === "dotx" || ext === "dotm"
+}
 
 export type ExportFormat = "docx" | "pdf" | "md" | "html" | "txt" | "odt" | "rtf"
 
@@ -116,7 +176,7 @@ function fileStem(path: string | null | undefined) {
 function ensureExtension(path: string, ext: string) {
   const clean = ext.replace(/^\./, "").toLowerCase() || DEFAULT_SAVE_EXT
   const normalized = path.replace(/[/\\]+$/, "")
-  const stripped = normalized.replace(/\.(html|htm|docx|odt|pdf|md|txt|rtf)$/i, "")
+  const stripped = normalized.replace(/\.(html|htm|docx|docm|dotx|dotm|odt|pdf|md|txt|rtf)$/i, "")
   return `${stripped}.${clean}`
 }
 
@@ -218,15 +278,23 @@ async function openPickedFile() {
  * Reads and opens a file. When that fails the error dialog says why and offers what fits: try again, open another
  * file, or take a missing file off the Recent list.
  */
-async function openWithRecovery(read: () => Promise<OpenedFile | null>, label: string | null, recent = false) {
+async function openWithRecovery(
+  read: () => Promise<OpenedFile | null>,
+  label: string | null,
+  recent = false,
+  knownPassword?: string | null,
+) {
   let file: OpenedFile | null = null
   try {
     file = await read()
     if (file) {
-      await loadOpenedFile(file)
+      await loadOpenedFile(file, knownPassword)
     }
     return
   } catch (error) {
+    if (error instanceof OpenCancelled) {
+      return
+    }
     const action = await askAboutFileProblem(error, {
       operation: "open",
       file: file?.path ?? file?.name ?? label,
@@ -234,7 +302,7 @@ async function openWithRecovery(read: () => Promise<OpenedFile | null>, label: s
       recent,
     })
     if (action === "retry") {
-      await openWithRecovery(read, label, recent)
+      await openWithRecovery(read, label, recent, knownPassword)
     } else if (action === "open-other") {
       await openPickedFile()
     } else if (action === "remove-recent" && label) {
@@ -290,8 +358,9 @@ export function openFilters() {
  */
 export async function readFileHtml(file: OpenedFile) {
   const ext = fileExtension(file.name || file.path || "")
-  if (ext === "docx") {
-    const opened = await (await docxIo()).openDocxBytes(file.bytes, file.name || file.path || "document.docx")
+  if (isWordPackage(ext)) {
+    const { bytes } = await wordPackageBytes(file)
+    const opened = await (await docxIo()).openDocxBytes(bytes, file.name || file.path || "document.docx")
     return opened.view.html
   }
   if (ext === "odt" || (ext === "rtf" && isTauriRuntime() && file.path)) {
@@ -320,22 +389,76 @@ export async function readFileHtml(file: OpenedFile) {
     .join("")
 }
 
-async function loadOpenedFile(file: OpenedFile) {
+async function loadOpenedFile(file: OpenedFile, knownPassword?: string | null) {
   const editor = getDocumentEditor()
   if (!editor) {
     return
   }
+  // Asked before anything of the open document is let go, so Cancel leaves it as it was.
+  const ext0 = fileExtension(file.name || file.path || "")
+  const unlocked = isWordPackage(ext0) ? await wordPackageBytes(file, knownPassword) : null
+  const opened = unlocked
+    ? await (await docxIo()).openDocxBytes(unlocked.bytes, file.name || file.path || "document.docx")
+    : null
+  // Always Open Read-Only: asked as Word asks, unless the file is marked final (which opens read-only anyway).
+  const answer =
+    opened?.protection.readOnlyRecommended && !opened.protection.markedFinal
+      ? await askOpenReadOnly(documentName(file.path ?? file.name) || file.name)
+      : "no"
+  if (answer === "cancel") {
+    throw new OpenCancelled()
+  }
+  useFileProtection.getState().opened()
+  useProofingExceptions.getState().opened()
   // Prior dirty draft stays in IndexedDB for the Unsaved Documents rail.
   resetRecoverySession()
   clearWordDocument()
+  applyOpenedReview({})
+  applyOpenedNotes(null)
+  applyOpenedSources(null)
+  setWordNoteTexts(undefined)
   // Each document has its own styles: a Word or Inkspire file brings them, anything else starts from the defaults.
   useStyleStore.getState().load(defaultStyles())
   const ext = fileExtension(file.name || file.path || "")
-  if (ext === "docx") {
-    const opened = await (await docxIo()).openDocxBytes(file.bytes, file.name || file.path || "document.docx")
+  if (ext === "doc" || ext === "dot") {
+    // Word 97–2003: converted to .docx by LibreOffice on the desktop. Like Word's Convert, the result is a new
+    // .docx beside nothing yet, so Save asks where to put it rather than writing over the old file.
+    if (!isTauriRuntime() || !file.path) {
+      throw new Error("Opening a Word 97–2003 file requires the desktop app.")
+    }
+    const converted = new Uint8Array(await invoke<ArrayBuffer>("convert_legacy_document", { path: file.path }))
+    const name = `${fileStem(file.name || file.path)}.docx`
+    const opened = await (await docxIo()).openDocxBytes(converted, name)
     rememberWordDocument(opened.word)
     useStyleStore.getState().load(stylesFromWord(opened.word))
+    setWordNoteTexts(opened.view.notes)
+    applyEditorHtml(opened.view.html, opened.view.chrome, null, name, opened.view.props, true)
+    applyOpenedReview(opened.word.settings)
+    applyOpenedNotes(opened.word)
+    applyOpenedSources(opened.word)
+    return
+  }
+  if (unlocked && opened) {
+    rememberWordDocument(opened.word)
+    useStyleStore.getState().load(stylesFromWord(opened.word))
+    setWordNoteTexts(opened.view.notes)
     applyEditorHtml(opened.view.html, opened.view.chrome, file.path, file.name, opened.view.props, true)
+    applyOpenedReview(opened.word.settings)
+    applyOpenedNotes(opened.word)
+    applyOpenedSources(opened.word)
+    useFileProtection.getState().opened({
+      password: unlocked.password,
+      readOnlyRecommended: opened.protection.readOnlyRecommended,
+      markedFinal: opened.protection.markedFinal,
+      signatures: opened.signatures,
+    })
+    useProofingExceptions.getState().opened({
+      hideSpelling: opened.word.settings.hideSpellingErrors,
+      hideGrammar: opened.word.settings.hideGrammaticalErrors,
+    })
+    if (opened.protection.markedFinal || answer === "yes") {
+      useDocumentStore.getState().setReadOnly(true)
+    }
     return
   }
   if (ext === "odt") {
@@ -370,7 +493,9 @@ async function loadOpenedFile(file: OpenedFile) {
   }
   if (ext !== "txt") {
     // An old .doc or any other binary would show as garbage; the error dialog explains it instead.
-    throw new Error("Inkspire can only open and save .docx, .odt, .rtf, .html, .md, .txt, and .pdf files.")
+    throw new Error(
+      "Inkspire can only open and save .docx, .docm, .dotx, .odt, .rtf, .html, .md, .txt, and .pdf files.",
+    )
   }
   const escaped = raw.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br/>")
   applyEditorHtml(`<p>${escaped}</p>`, emptyChrome(), file.path, file.name)
@@ -533,6 +658,102 @@ export async function openWindowRequest(request: WindowRequest) {
     await openWithRecovery(() => openDroppedFile(handoff.file), handoff.file.name)
   } else {
     await openWithRecovery(async () => handoff.file, handoff.file.name)
+    if (handoff.then === "print") {
+      useBackstage.getState().openBackstage("print")
+    }
+  }
+}
+
+/** The name Word gives a merged document: Letters1, Envelopes1, Labels1, Directory1. */
+const MERGED_NAMES: Record<MainDocumentType, string> = {
+  normal: "Letters",
+  letters: "Letters",
+  envelopes: "Envelopes",
+  labels: "Labels",
+  directory: "Directory",
+}
+let mergedCount = 0
+
+/**
+ * Finish & Merge > Edit Individual Documents or Print Documents: the merged document opens as a new, unsaved one
+ * in a window of its own ("Letters1"), with File > Print open on it for Print Documents. The main document stays as
+ * it is. Resolves to the number of records merged.
+ */
+export async function finishMerge(range: MergeRange, then: "edit" | "print") {
+  const editor = getDocumentEditor()
+  if (!editor) {
+    return 0
+  }
+  const state = useMailMerge.getState()
+  const merged = mergeDocument((await documentWithObjectPictures(editor)) as JsonNode, range, state)
+  mergedCount += 1
+  await openAsNewDocument({
+    json: merged.json,
+    chrome: currentChrome(),
+    fileName: `${MERGED_NAMES[state.type]}${mergedCount}.docx`,
+    print: then === "print",
+    keepStyles: true,
+  })
+  return merged.copies
+}
+
+let madeCount = 0
+
+/**
+ * Envelopes and Labels' New Document and Print: a document of the envelope's or sheet's page size, from the
+ * editor's HTML, in a window of its own (Word's "Document2").
+ */
+export async function openHtmlAsNewDocument(html: string, pageSetup: PageSetup, print: boolean) {
+  const editor = getDocumentEditor()
+  if (!editor) {
+    return
+  }
+  madeCount += 1
+  await openAsNewDocument({
+    json: generateJSON(html, editor.extensionManager.extensions) as JsonNode,
+    chrome: { ...emptyChrome(), pageSetup },
+    fileName: `Document${madeCount + 1}.docx`,
+    print,
+    keepStyles: false,
+  })
+}
+
+/** A document made here (a merge, envelopes, labels) saved to .docx and opened, unsaved, in a new window. */
+async function openAsNewDocument(options: {
+  json: JsonNode
+  chrome: DocumentChrome
+  fileName: string
+  print: boolean
+  keepStyles: boolean
+}) {
+  const saved = await (
+    await docxIo()
+  ).saveDocxBytes({
+    json: options.json as never,
+    chrome: options.chrome,
+    ...(options.keepStyles
+      ? {
+          props: useDocumentStore.getState().documentProps,
+          word: currentWordDocument(),
+          styles: useStyleStore.getState().styles,
+          review: reviewForSave(),
+          notes: notesForSave(),
+          bibliography: sourcesForSave(),
+        }
+      : { word: null }),
+    unchanged: false,
+    fileName: options.fileName,
+  })
+  const file: OpenedFile = { name: options.fileName, path: null, bytes: saved.bytes }
+  if (openWindow({ kind: "handoff", handoff: { kind: "file", file, ...(options.print ? { then: "print" as const } : {}) } })) {
+    return
+  }
+  // The browser blocked the new tab: the document opens here, after offering to save this one.
+  if (await confirmCloseDocument()) {
+    await openWithRecovery(async () => file, file.name)
+    if (options.print) {
+      useBackstage.getState().openBackstage("print")
+    }
   }
 }
 
@@ -598,6 +819,10 @@ export async function emailDocument() {
         word,
         unchanged: Boolean(word) && !useDocumentStore.getState().isDirty,
         styles: useStyleStore.getState().styles,
+        review: reviewForSave(),
+        notes: notesForSave(),
+        bibliography: sourcesForSave(),
+        ...protectionForSave(),
         fileName,
       })
       await invoke("email_document", { fileName, bytes: Array.from(saved.bytes), subject })
@@ -623,6 +848,9 @@ async function currentDocxBytes(fileName: string) {
     word,
     unchanged: Boolean(word) && !useDocumentStore.getState().isDirty,
     styles: useStyleStore.getState().styles,
+    review: reviewForSave(),
+    notes: notesForSave(),
+    bibliography: sourcesForSave(),
     fileName,
   })
   return saved.bytes
@@ -753,7 +981,12 @@ export function newBlankDocument(html = BLANK_DOCUMENT_HTML) {
   }
   // Leave any dirty snapshot in IndexedDB so it appears under Unsaved Documents.
   resetRecoverySession()
+  applyOpenedReview({})
+  applyOpenedNotes(null)
+  applyOpenedSources(null)
   useStyleStore.getState().load(defaultStyles())
+  useFileProtection.getState().opened()
+  useProofingExceptions.getState().opened()
   useDocumentStore.getState().startUntitled(html)
   editor.commands.setContent(html, { emitUpdate: false })
   const next = EditorState.create({
@@ -844,6 +1077,9 @@ export function insertHtmlAsNewDocument(html: string) {
     return "dirty" as const
   }
   resetRecoverySession()
+  applyOpenedReview({})
+  applyOpenedNotes(null)
+  applyOpenedSources(null)
   useStyleStore.getState().load(defaultStyles())
   useDocumentStore.getState().startUntitled(BLANK_DOCUMENT_HTML)
   editor.commands.setContent(html, { emitUpdate: false })
@@ -857,6 +1093,43 @@ export function insertHtmlAsNewDocument(html: string) {
   editor.commands.focus("start")
   enterDocument()
   return "ok" as const
+}
+
+/**
+ * History > Open version: the version opens as a new, unsaved copy (named with the time it was saved), in a window
+ * of its own where one can open, as Word opens a version beside the document.
+ */
+export async function openVersion(id: string) {
+  const version = await readVersion(id)
+  if (!version) {
+    return
+  }
+  const file: OpenedFile = { name: versionFileName(version.file, version.savedAt), path: null, bytes: version.bytes }
+  if (!untouchedHere() && openWindow({ kind: "handoff", handoff: { kind: "file", file } })) {
+    return
+  }
+  if (!(await confirmCloseDocument())) {
+    return
+  }
+  await openWithRecovery(async () => file, file.name)
+}
+
+/**
+ * History > Restore: the version becomes the document again and is saved over the file, as Word's Restore does. The
+ * version it replaces stays in History. Unsaved changes are offered for saving first.
+ */
+export async function restoreVersion(id: string) {
+  const version = await readVersion(id)
+  const path = useDocumentStore.getState().currentFilePath
+  if (!version || !path || !(await confirmCloseDocument())) {
+    return
+  }
+  const known = useFileProtection.getState().password
+  await openWithRecovery(async () => ({ name: documentName(path), path, bytes: version.bytes }), path, false, known)
+  if (useDocumentStore.getState().currentFilePath === path) {
+    useDocumentStore.setState({ isDirty: true })
+    saveDocument()
+  }
 }
 
 /**
@@ -914,14 +1187,32 @@ export async function restoreRecoveryDocument(offer: RecoveryOffer) {
   enterDocument()
 }
 
-async function saveAs(preferredExt = DEFAULT_SAVE_EXT) {
-  const ext = preferredExt.replace(/^\./, "").toLowerCase() || DEFAULT_SAVE_EXT
+/** The extensions Save As writes; a name the person typed with one of them keeps it. */
+const SAVE_EXTENSIONS = new Set(SAVE_FILTERS.flatMap((filter) => filter.extensions))
+
+/** Whether the open Word document carries a VBA project (a .docm or .dotm with macros). */
+function hasMacros() {
+  return Boolean(
+    currentWordDocument()?.preserved?.parts.some((part) => /vbaProject/i.test(`${part.contentType} ${part.name}`)),
+  )
+}
+
+async function saveAs(preferredExt?: string): Promise<boolean> {
   const current = useDocumentStore.getState().currentFilePath
+  // Save As from a template or macro-enabled document offers its own type first, as Word does.
+  const currentExt = fileExtension(current ?? "")
+  const ext =
+    preferredExt?.replace(/^\./, "").toLowerCase() || (isWordPackage(currentExt) ? currentExt : DEFAULT_SAVE_EXT)
   const selected = await pickSavePath(saveFiltersFor(ext), `${fileStem(current)}.${ext}`, "Save As")
   if (!selected) {
     return false
   }
-  return writeDocument(ensureExtension(selected, ext), ext)
+  const typed = fileExtension(selected)
+  const target = SAVE_EXTENSIONS.has(typed) ? typed : ext
+  if ((target === "docx" || target === "dotx") && hasMacros() && !(await useMacroPrompt.getState().ask())) {
+    return saveAs(target === "dotx" ? "dotm" : "docm")
+  }
+  return writeDocument(ensureExtension(selected, target), target)
 }
 
 /**
@@ -940,7 +1231,7 @@ async function writeDocument(path: string, forceExt?: string, operation: FileOpe
     const chrome = currentChrome()
     const props = useDocumentStore.getState().documentProps
 
-    if (ext === "docx") {
+    if (isWordPackage(ext)) {
       const json = editor ? await documentWithObjectPictures(editor) : { type: "doc", content: [] }
       const word = currentWordDocument()
       const saved = await (
@@ -952,10 +1243,19 @@ async function writeDocument(path: string, forceExt?: string, operation: FileOpe
         word,
         unchanged: Boolean(word) && !useDocumentStore.getState().isDirty,
         styles: useStyleStore.getState().styles,
+        review: reviewForSave(),
+        notes: notesForSave(),
+        bibliography: sourcesForSave(),
+        ...protectionForSave(),
+        proofing: proofingForSave(),
         fileName: pathBaseName(path) || "document.docx",
       })
       rememberWordDocument(saved.word)
       await writeBytes(path, saved.bytes)
+      // File > History: the file as just written.
+      void recordVersion(path, saved.bytes, props.author).catch(() => undefined)
+      // The signatures the file had were for the file as it was; this save left them out.
+      useFileProtection.setState({ signatures: 0 })
     } else if (ext === "odt" || ext === "pdf" || ext === "rtf") {
       if (!isTauriRuntime()) {
         throw new Error(`Saving .${ext} requires the desktop app.`)

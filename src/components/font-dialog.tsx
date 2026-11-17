@@ -1,3 +1,4 @@
+import { UNDERLINE_KINDS, underlineKind } from "@/document/underlines"
 import { openColorDialog } from "@/components/color-dialog"
 import { ColorMenu } from "@/components/color-menu"
 import { MenuButton } from "@/components/ribbon/ribbon-button"
@@ -13,14 +14,6 @@ import { useEffect, useRef, useState, type CSSProperties } from "react"
 
 const THEME_BODY = ""
 const THEME_HEADINGS = "var(--doc-heading-font)"
-
-const UNDERLINES = [
-  { id: "solid", label: "Single" },
-  { id: "double", label: "Double" },
-  { id: "dotted", label: "Dotted" },
-  { id: "dashed", label: "Dashed" },
-  { id: "wavy", label: "Wave" },
-] as const
 
 const SCALES = ["80%", "90%", "100%", "110%", "120%", "150%", "200%"]
 const LIGATURES = [
@@ -454,7 +447,7 @@ export function FontDialog({ open, onClose }: { open: boolean; onClose: () => vo
                 onChange={(event) => patch({ underlineStyle: event.target.value })}
               >
                 <option value="none">(none)</option>
-                {UNDERLINES.map((style) => (
+                {UNDERLINE_KINDS.map((style) => (
                   <option key={style.id} value={style.id}>
                     {style.label}
                   </option>
@@ -707,8 +700,10 @@ function FontPreview({ draft, fonts }: { draft: FontDraft; fonts: FontChoice[] }
     textDecorationStyle: (draft.doubleStrike
       ? "double"
       : draft.underlineStyle !== "none"
-        ? draft.underlineStyle
+        ? underlineKind(draft.underlineStyle).css
         : undefined) as CSSProperties["textDecorationStyle"],
+    textDecorationThickness:
+      draft.underlineStyle !== "none" && underlineKind(draft.underlineStyle).heavy ? "max(2px, 0.1em)" : undefined,
     textDecorationColor: draft.underlineColor || undefined,
     fontVariant: draft.smallCaps ? "small-caps" : undefined,
     textTransform: draft.allCaps ? "uppercase" : undefined,

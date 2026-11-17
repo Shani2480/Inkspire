@@ -1,3 +1,4 @@
+import { KeyTipsLayer } from "@/components/ribbon/keytips-layer"
 import { QuickAccessToolbar } from "@/components/quick-access"
 import { ChartFormatPane } from "@/components/chart-format-pane"
 import { HelperToolsDialog } from "@/components/helper-tools-dialog"
@@ -7,6 +8,8 @@ import { TableStylesDialog } from "@/components/table-design-menus"
 import { TextPromptHost } from "@/components/text-prompt"
 import { ChartTypeDialog, SelectDataDialog } from "@/components/chart-menus"
 import { HelpDialogs } from "@/components/help-dialogs"
+import { useHelp } from "@/document/help"
+import { updatedSinceLastRun } from "@/lib/release-notes"
 import { OptionsDialog } from "@/components/options-dialog"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { AiSidebar } from "@/components/ai-sidebar"
@@ -30,12 +33,18 @@ import { RewritePopover } from "@/components/rewrite-popover"
 import { Ribbon } from "@/components/ribbon/ribbon"
 import { FieldEditor } from "@/components/field-editor"
 import { TocDialogHost } from "@/components/toc-dialogs"
+import { IndexDialogsHost } from "@/components/index-dialogs"
+import { FootnoteDialogHost } from "@/components/footnote-dialog"
+import { SourceDialogsHost } from "@/components/source-dialogs"
+import { PasteSpecialHost } from "@/components/paste-special-dialog"
+import { ProtectDialogsHost, RestrictEditingPane } from "@/components/protect-pane"
 import { ProofingPanel } from "@/components/proofing-panel"
 import { AccessibilityPane } from "@/components/accessibility-pane"
+import { ApplyStylesBox, RevealFormattingPane, StyleInspector, StylesPane } from "@/components/styles-pane"
 import { EditorPane } from "@/components/editor-pane"
 import { ReviewPanel } from "@/components/review-panel"
-import { SpellMenu } from "@/components/spell-menu"
 import { SelectionPane } from "@/components/selection-pane"
+import { SelectObjectsMode } from "@/components/select-objects-mode"
 import { FormatShapePane } from "@/components/format-shape-pane"
 import { StatusBar } from "@/components/status-bar"
 import { TemplateBuilder } from "@/components/template-builder"
@@ -45,7 +54,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { openDroppedDocuments } from "@/document/commands"
 import { useAutosave, useCloseGuard, useDocumentWindow } from "@/document/autosave"
 import { useBackstage } from "@/document/backstage"
-import { useReviewStore } from "@/document/review"
+import { editingAllowed, useReviewStore } from "@/document/review"
 import { useDocumentStore } from "@/document/store"
 import { themeAccentVars } from "@/document/theme"
 import { useViewStore } from "@/document/view"
@@ -55,19 +64,36 @@ import { PageNumberFormatDialog } from "@/components/page-number-format-dialog"
 import { BordersShadingHost } from "@/components/borders-shading-dialog"
 import { CustomizeDialogHost } from "@/components/customize-dialog"
 import { OptimizeDialogHost } from "@/components/optimize-dialog"
+import { InspectDialogHost } from "@/components/inspect-dialog"
+import { AutoCorrectDialogHost } from "@/components/autocorrect-dialog"
+import { LinkDialogHost } from "@/components/link-dialog"
 import { SmartArtTextPane } from "@/components/smartart-text-pane"
 import { ColumnsDialogHost } from "@/components/columns-dialog"
+import { InsertTableDialogHost } from "@/components/insert-table-dialog"
+import { DropCapDialogHost } from "@/components/drop-cap-dialog"
+import { CaptionDialogsHost } from "@/components/caption-dialogs"
+import { MailingsDialogs } from "@/components/mailings-dialogs"
+import { QuickPartsDialogsHost } from "@/components/quick-parts-dialogs"
 import { TablePropertiesHost } from "@/components/table-properties-dialog"
+import { ListNumberingHost } from "@/components/list-numbering-dialogs"
 import { FirstRunSetup } from "@/components/first-run-setup"
 import { StyleDialogs } from "@/components/style-dialogs"
 import { showEditedStyles, useStyleStore } from "@/document/styles"
 import { SaveChangesDialog } from "@/components/save-changes-dialog"
+import { MacroPromptDialog } from "@/components/macro-prompt-dialog"
+import { ProtectDocumentDialogs } from "@/components/protect-document-dialogs"
+import { ProofingDialogs } from "@/components/proofing-dialogs"
+import { PasteOptionsButton } from "@/components/paste-options-button"
+import { DocumentMessageBar } from "@/components/document-message-bar"
+import { BookmarkDialogHost } from "@/components/ribbon/insert-tab"
 import { useDocumentCommands } from "@/document/app-menu"
 import { getDocumentEditor } from "@/document/editor-ref"
 import { DocumentEditorProvider, useBodyEditor } from "@/editor/document-editor"
 import { installPaginationProfileCommand } from "@/editor/pagination-profile"
 import { ensureSystemFonts } from "@/editor/system-fonts"
+import { useOptionalFonts } from "@/document/optional-fonts"
 import { useEditorState } from "@tiptap/react"
+import { setOutlineActive } from "@/editor/outline-view"
 
 type WorkspaceProps = {
   onReady: () => void
@@ -92,6 +118,12 @@ function DocumentShell({ onReady }: WorkspaceProps) {
   useDocumentWindow(Boolean(editor))
 
   useEffect(() => installPaginationProfileCommand(() => getDocumentEditor()), [])
+  // What's New, once, on the first start after an update.
+  useEffect(() => {
+    if (updatedSinceLastRun()) {
+      useHelp.getState().openHelp("whats-new")
+    }
+  }, [])
   useEffect(() => {
     showEditedStyles(useStyleStore.getState().styles)
     return useStyleStore.subscribe((state, previous) => {
@@ -101,14 +133,21 @@ function DocumentShell({ onReady }: WorkspaceProps) {
     })
   }, [])
   const markup = useReviewStore((state) => state.markup)
-  // Web Layout and Read Mode have no page to measure, so no rulers.
+  // Web Layout and Read Mode have no page to measure, so no rulers; Outline view has none in Word.
   const showRuler = useViewStore(
-    (state) => state.showRuler && state.layoutMode !== "web" && state.layoutMode !== "read",
+    (state) =>
+      state.showRuler && state.layoutMode !== "web" && state.layoutMode !== "read" && state.layoutMode !== "outline",
   )
   const split = useViewStore((state) => state.split)
   const sideBySide = useViewStore((state) => state.sideBySide)
   const syncScroll = useViewStore((state) => state.syncScroll)
-  const restricted = useViewStore((state) => state.restricted)
+  // Block Authors, or Restrict Editing enforced with nothing (or only form fields, which the editor has none of) to change.
+  const blocked = useViewStore((state) => state.restricted)
+  const locked = useReviewStore((state) => ["none", "forms"].includes(editingAllowed(state)))
+  const restricted = blocked || locked
+  const showInsertions = useReviewStore((state) => state.showInsertions)
+  const showFormatting = useReviewStore((state) => state.showFormatting)
+  const hiddenAuthors = useReviewStore((state) => state.hiddenAuthors)
   const readOnly = useDocumentStore((state) => state.readOnly)
   const addEditingTime = useDocumentStore((state) => state.addEditingTime)
   const backstageOpen = useBackstage((state) => state.open)
@@ -148,9 +187,31 @@ function DocumentShell({ onReady }: WorkspaceProps) {
     if (!editor) {
       return
     }
-    editor.view.dom.dataset.markup = markup
+    const dataset = editor.view.dom.dataset
+    dataset.markup = markup
+    dataset.showInsertions = String(showInsertions)
+    dataset.showFormatting = String(showFormatting)
     editor.setEditable(!restricted && !readOnly && layoutMode !== "read")
-  }, [editor, markup, restricted, readOnly, layoutMode])
+  }, [editor, markup, showInsertions, showFormatting, restricted, readOnly, layoutMode])
+
+  // Outline view: the body's paragraphs as an outline (`editor/outline-view.ts`).
+  useEffect(() => {
+    if (editor && !editor.isDestroyed) {
+      setOutlineActive(editor, layoutMode === "outline")
+    }
+  }, [editor, layoutMode])
+
+  // Show Markup > Specific People: a hidden reviewer's changes show as if accepted, the way Word draws them.
+  useEffect(() => {
+    if (hiddenAuthors.length === 0) {
+      return
+    }
+    const style = document.createElement("style")
+    style.dataset.hiddenAuthors = ""
+    style.textContent = hiddenAuthorsCss(hiddenAuthors)
+    document.head.append(style)
+    return () => style.remove()
+  }, [hiddenAuthors])
 
   useEffect(() => {
     if (backstageOpen || restricted || readOnly) {
@@ -199,6 +260,8 @@ function DocumentShell({ onReady }: WorkspaceProps) {
         onReady()
         // Read the system's fonts while the app is idle, so the font menu has them when it first opens.
         window.setTimeout(() => void ensureSystemFonts(), 1000)
+        // Fonts downloaded in Options > Fonts are registered with the page (U39).
+        void useOptionalFonts.getState().load()
       }
     }
 
@@ -242,7 +305,9 @@ function DocumentShell({ onReady }: WorkspaceProps) {
         {/* Kept mounted, only hidden, so its tab and state are as they were when the reading is over. */}
         <div className={reading ? "hidden" : "contents"}>
           <Ribbon />
+          <KeyTipsLayer />
           <QuickAccessToolbar placement="below" />
+          <DocumentMessageBar />
         </div>
         <div className="flex min-h-0 min-w-0 flex-1 flex-row">
           {/* Task panes sit beside the rulers, as in Word, so the rulers never run over or cover them. */}
@@ -272,12 +337,16 @@ function DocumentShell({ onReady }: WorkspaceProps) {
                 ) : null}
               </div>
               <SelectionPane />
+              <SelectObjectsMode />
               <FormatShapePane />
               <ChartFormatPane />
               <AiSidebar />
             </div>
             <ReviewPanel />
             <AccessibilityPane />
+            <StylesPane />
+            <RevealFormattingPane />
+            <RestrictEditingPane />
             <EditorPane />
           </DocumentRulers>
         </div>
@@ -292,7 +361,6 @@ function DocumentShell({ onReady }: WorkspaceProps) {
       <FindDialog />
       <HelpDialogs />
       <OptionsDialog />
-      <SpellMenu />
       <ProofingPanel />
       <FieldEditor />
       <TocDialogHost />
@@ -302,6 +370,11 @@ function DocumentShell({ onReady }: WorkspaceProps) {
       <SetDefaultDialogHost />
       <FormatDialogHost />
       <SaveChangesDialog />
+      <MacroPromptDialog />
+      <ProtectDocumentDialogs />
+      <ProofingDialogs />
+      <PasteOptionsButton />
+      <BookmarkDialogHost />
       <FileErrorDialog />
       <PageNumberFormatDialog />
       <StyleDialogs />
@@ -314,10 +387,26 @@ function DocumentShell({ onReady }: WorkspaceProps) {
       <CompareDialogHost />
       <CoverPageDialogHost />
       <TablePropertiesHost />
+      <ListNumberingHost />
       <ColumnsDialogHost />
+      <InsertTableDialogHost />
+      <DropCapDialogHost />
+      <CaptionDialogsHost />
+      <QuickPartsDialogsHost />
+      <MailingsDialogs />
+      <IndexDialogsHost />
+      <FootnoteDialogHost />
+      <SourceDialogsHost />
+      <PasteSpecialHost />
+      <ProtectDialogsHost editor={editor} />
+      <StyleInspector />
+      <ApplyStylesBox />
       <SmartArtTextPane />
       <CustomizeDialogHost />
       <OptimizeDialogHost />
+      <InspectDialogHost />
+      <AutoCorrectDialogHost />
+      <LinkDialogHost />
       <CompressDialog editor={editor} />
       <RemoveBackgroundDialog editor={editor} />
       <TableStylesDialog editor={editor} />
@@ -341,4 +430,14 @@ function SplitPreview() {
       dangerouslySetInnerHTML={{ __html: preview ?? "" }}
     />
   )
+}
+
+/** Rules that draw the named reviewers' changes as if accepted: insertions plain, deletions gone, no format marks. */
+function hiddenAuthorsCss(authors: string[]) {
+  const by = (name: string) => `[data-author="${CSS.escape(name)}"]`
+  const list = (kind: string) => authors.map((name) => `.page-editor ${kind}${by(name)}`).join(",\n")
+  return [
+    `${list(".track-insertion")}, ${list(".track-format")} { color: inherit !important; text-decoration: none !important; background: none !important; }`,
+    `${list(".track-deletion")} { display: none !important; }`,
+  ].join("\n")
 }

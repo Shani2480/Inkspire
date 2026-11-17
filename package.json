@@ -1,7 +1,7 @@
 {
   "name": "inkspire",
   "private": true,
-  "version": "0.1.6",
+  "version": "0.3.3",
   "author": "The Inkspire authors",
   "license": "MIT",
   "type": "module",
@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run",
-    "lint": "eslint . && prettier --check ."
+    "lint": "eslint . && prettier --check .",
+    "audit:docx": "node tools/fidelity-audit.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

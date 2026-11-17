@@ -7,6 +7,90 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Microsoft Word (open the saved .docx in Word)
 
+- [x] **Stock photos and alt text in Word (2026-11-16)** — the photos show; Word keeps their descriptions when it saves.
+- [x] **Quick Tables and app-made tables in Word (2026-11-16)** — the seven built-ins render across the text width
+  with their lines, shading and cell margins, as in the app; 0 validator errors.
+- [x] **An ordinary Insert Table in Word (2026-11-16)** — a 3 by 3 table made in the app renders in Word across the
+  text width in even columns, its text inside the cell margins.
+- [x] **Excel Spreadsheet (2026-11-16)** — the app's sheet renders in Word as in the app and Word re-saves it as an
+  embedded `Excel.Sheet.12` object, which the app opens with the same grid; 0 validator errors.
+- [ ] **Excel Spreadsheet opens in Excel** — double-click the app's sheet in Word: Excel opens the workbook with the
+  same cells and formulas.
+- [x] **Drop caps (2026-11-16)** — Word's Dropped / In margin frames open as the paragraph's drop cap and re-save as
+  they were; the app's 5-line Georgia drop cap and an In margin one render in Word as in the app; 0 validator errors.
+- [x] **Selection pane names and Hide (2026-11-16)** — a Word file with Frame 6 and Heart 7, renamed and hidden in the
+  app and saved: Word hides the frame and keeps the new name, and re-saves `name` and `hidden="1"` on `wp:docPr`;
+  0 validator errors.
+- [x] **Paragraph boxes and lines between (2026-11-16)** — Outside / All Borders over three paragraphs each: the app
+  draws one box and the lines between, as Word does; Word re-saves the app's `w:between`.
+- [x] **Underline types (2026-11-16)** — the app's file with all 17 types and two colours: Word draws each one and
+  re-saves every `w:u` value and colour unchanged; the Open XML validator reports 0 errors.
+- [x] **Optional fonts (2026-11-16)** — a document in Georgia, rendered by Word in the VM and by the app with
+  Gelasio downloaded: the same 7 lines with the same last words. Before the download (Noto Serif) it was 6 lines.
+- [x] **Mail merge main documents (2026-11-16)** — checked in Word in the VM: a main document saved by the app opens
+      with its merge fields, and Word's merge of it with the same CSV matches the app's merge line for line.
+- [ ] **Envelopes and labels in Word (2026-11-16)**: an envelope (Size 10, DL) and a sheet of Avery 5160 / L7160
+      labels made in the app print on the right spots when opened in Word: the page size, the delivery address
+      position, and each label's exact row height.
+- [ ] **Mailings in the desktop app (2026-11-16)**: Use an Existing List and Choose from Outlook Contacts open .csv,
+      .xlsx and .vcf through the system file dialog, and Edit Individual Documents opens Letters1 in a window of its own.
+
+- [x] **Outline levels 7-9 (2026-11-14)** — checked in Word in the VM: a heading demoted past Heading 6 in the app's
+      Outline view opens in Word at outline level 7, and a paragraph Word set to level 8 opens in the app at level 8.
+
+- [x] **Citations, bibliography and sources (2026-11-14)** — checked in Word in the VM: an app-made document in each
+      of APA, Chicago, Harvard, IEEE, MLA and Turabian opens with that style and its 9 sources in Source Manager;
+      Update Field gives the same citations and bibliography (IEEE as a table); Word keeps the app's citations on save.
+- [ ] **Language on text (2026-11-14)**: a phrase marked Dutch in the app shows "Dutch (Netherlands)" in
+      Word's status bar with the caret in it, and a word marked "Do not check spelling or grammar" gets no red
+      underline in Word; a Word document with a German paragraph opens in the app with "German" in the status bar.
+- [ ] **List numbering in Word (2026-11-15)**: in a document saved from the app, right-click a numbered item in
+      Word: Restart at 1 / Continue Numbering behave there as they did in the app. Open a Word document with restarted
+      and continued lists in the app, change nothing, save: Word still numbers it the same. Adjust List Indents values
+      set in the app show in Word's own Adjust List Indents dialog.
+- [ ] **Design tab in the desktop app (2026-11-14)**: Save Current Theme… writes a `.thmx` that Word's Themes >
+      Browse for Themes… loads; Browse for Themes… in the app loads a `.thmx` saved by Word; a custom colour scheme made
+      in the app shows its colours in Word's Design > Colors after the document is saved.
+- [ ] **Edit Citation and placeholders in Word (2026-11-14)** — a citation edited in the app (pages 12, author
+      suppressed) shows the same in Word's Edit Citation; a placeholder shows with a ? in Word's Source Manager.
+
+- [ ] **Footnotes and endnotes (2026-11-14)** — a document with a footnote and an endnote inserted in the app, one
+      with a custom mark (†), and options set to a, b, c starting at 3 with Restart each page, opens in Word with the
+      same marks; Word's Footnote and Endnote dialog shows those options; a Word document whose footnote was converted
+      to an endnote in the app shows it as an endnote with its text, and Word opens it without a repair prompt.
+
+- [ ] **Restrict Editing, Lock Tracking and formatting changes (2026-11-14)** — a document protected in the app for
+      Comments with the password "secret" opens in Word as protected for comments, and Word's Stop Protection accepts
+      "secret" (the SHA-512 hash the app writes) and refuses anything else; Lock Tracking with a password keeps Word's
+      Track Changes button locked; text made bold in the app with Track Changes on shows in Word as "Formatted: Font:
+      Bold" and Reject takes the bold off. A document Word protected opens in the app protected the same way.
+
+- [ ] **Table of Figures and Index (2026-11-14)** — a document with a table of figures, a table of contents and an
+      index (bold page, subentry, "See" cross-reference) made in the app opens in Word with the same entries; F9 in Word
+      changes neither table's entries; Ctrl+click on a figure entry goes to its caption. A Word document with a table of
+      figures opens as one (Update fills it with captions, not headings) and is saved back unchanged.
+- [ ] **Captions and cross-references (2026-11-14)** — a document with two figure captions, a Roman-numbered table
+      caption and cross-references (label and number as a hyperlink, above/below, page number, a heading's text) opens
+      in Word with the same numbers; F9 in Word changes nothing; Ctrl+click on a reference goes to the caption; Word's
+      Cross-reference dialog lists the app's captions. A Word document with captions opens in the app and new captions
+      continue Word's numbering.
+- [ ] **Insert Table and Convert Text to Table (2026-11-14)** — a table made with a fixed column width of 3 cm, one
+      made with AutoFit to window and one converted from tab-separated text open in Word with the same column widths
+      (Table Properties shows the fixed width / 100% preferred width, and the fixed one does not grow as you type).
+- [ ] **Templates and macro-enabled files (2026-11-14)** — open a real .docm with a macro, save it as .docm and run
+      the macro in Word; save it as .docx (answer Yes) and check Word opens it without a repair prompt; save any
+      document as .dotx and check Word's File > New > Personal lists it as a template.
+- [ ] **Footnotes and endnotes drawn (2026-11-14)** — a long Word document with footnotes on several pages: each
+      page's footnotes sit at its foot below Word's separator, and the page breaks where Word's do. Also a footnote
+      referenced inside a table that breaks across pages (not placed yet, see `next-todo.md`).
+- [ ] **DATE field formats (2026-11-14)** — fields with `\@ "dddd, d MMMM yyyy"` and `\@ "h:mm am/pm"` show the same
+      text in the app as in Word on a non-English system locale.
+- [ ] **Runs that turn off their style, highlight, automatic colour (2026-11-13)** — a form whose heading-styled
+      paragraphs turn bold/italic off per run, with yellow highlights and a dark header row in automatic colour,
+      looks the same in Word and the app (`npm run audit:docx` reports no differences). Saved after adding a
+      magenta and a light-yellow highlight in the app, it opens in Word with both (magenta as a highlight, the other as
+      shading) and nothing else changed. Also check in Word whether automatic text is white on a dark highlight
+      (dark blue) and on a mid fill (#808080, #4472C4), to settle the threshold in `autoColorRule`.
 - [ ] **Word's picture formatting read back (2026-11-12)** — in Word, give a picture Corrections (Brightness +20%,
       Contrast −40%), Transparency 30%, a dotted blue border, an outer shadow and a glow. It opens in the app with
       them. Saved unchanged it opens in Word as it was; after changing the brightness in the app it opens in Word
@@ -159,6 +243,31 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs Chrome (the web build in a browser)
 
+- [x] **Stock Images (2026-11-16; headless Chrome, light and dark)** — categories, a search, More pictures, two photos
+      inserted with their alt text; no overflow.
+- [x] **Quick Tables (2026-11-16; headless Chrome, light and dark)** — the gallery opens upward with one scrollbar;
+      a click inserts the table.
+- [x] **Insert > Table > Excel Spreadsheet (2026-11-16; headless Chrome, light and dark)** — inserts the sheet;
+      typing with Enter fills cells and formulas show their values.
+- [ ] **Excel Spreadsheet in the desktop app (WebKitGTK)** — insert, type, Add Row / Add Column, save and reopen.
+- [ ] **Edit in Cells on Windows and macOS** — the button opens the sheet in Cells and Cells' changes come back
+      (checked on Linux only; Windows shows its own "find an app" prompt when Cells is not installed).
+- [x] **Drop Cap menu and Drop Cap Options… (2026-11-16; checked in headless Chrome, light and dark)** — tiles show
+      the current position; the dialog sets lines, font and distance; None clears; In margin keeps the text edge.
+- [ ] **Drop caps in the desktop app (WebKitGTK)** — drawn with `initial-letter` (and `-webkit-initial-letter`):
+      check a 3-line drop cap draws over three lines in the Tauri build.
+
+- [x] **Select Objects and the Selection pane (2026-11-16; checked in headless Chrome, light and dark)** — Home >
+      Select lists Select Objects and Selection Pane…; the pane shows Word's names, top of the stack first; click
+      selects, double-click renames, Hide All / Show All, Send Backward and Undo; Select Objects drags a rectangle
+      that picks both shapes, and Esc ends it. The pane never scrolls sideways.
+- [ ] **Selection pane drag to reorder (2026-11-16)** — drag a row onto another: the object moves to that place in
+      the stack (only checked through the function; drag and drop is not driven in the headless check).
+
+- [x] **List right-click menu (2026-11-15; checked 2026-11-15 in headless Chrome, light and dark)**: right-click a numbered list item: Adjust List Indents…, Restart at 1,
+      Continue Numbering (greyed out on the first list), Set Numbering Value…; on a bullet only Adjust List Indents….
+      Both dialogs fit without scrolling and read well in light and dark; the Preview number matches the list's format.
+
 - [ ] **Multiple Pages with columns (2026-11-11)** — a two-column document long enough to reach the second column on
       its last page, in View > Multiple Pages: each column's text is in its own column, and typing there keeps it so.
 
@@ -275,6 +384,63 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **TOC end line (2026-11-17)** — open `f12_fields_toc.docx` in the desktop app: an empty line below the table
+      of contents, as in Word; update the table (Update Table…) and save: Word still shows the line (checked in
+      Chrome and the unit tests only).
+- [ ] **Line spacing (2026-11-17)** — open a Word document with double-spaced and 1.15-spaced text in the desktop
+      app: the text sits at the top of each line, as in Word (checked in Chrome and in WebKitGTK's MiniBrowser only).
+- [ ] **New documents in Aptos, and core edits (2026-11-17)** — in the desktop app: File > New > Blank document
+      shows Aptos (or its stand-in) at 12 pt; type, make text bold, red, Heading 2, a list and a table; save, reopen,
+      and open the file in Word: the same lines and spacing. Not run in the desktop build: it cannot be driven on a
+      private display here (its transparent window stays blank under Xvfb and a headless KWin).
+- [ ] **Draw tools with a pen or touch (2026-11-17)** — the pen gallery, Eraser, Lasso Select and Ruler with a real
+      stylus or finger (checked with a mouse in Chrome only); pressure shows in pen strokes.
+- [ ] **Stock Images in the desktop app** — the dialog finds and inserts photos (the content policy now lists
+      api.openverse.org, live.staticflickr.com and upload.wikimedia.org; tried only in Chrome).
+- [ ] **Optional fonts in the desktop app (2026-11-16)** — Options > Fonts > Download in the Tauri build (CSP: raw
+  GitHub, blob: fonts). The fonts should draw after a restart, and "Get Aptos from Microsoft" should open the
+  browser.
+
+- [ ] **Smart editing options (2026-11-16)**: in the desktop app, paste something from a web page: the "(Ctrl)" button
+      shows at its end, and Ctrl then T pastes it again as plain text. Type "Sept" and press Enter: "September". Double
+      click low in the middle of an empty page: the cursor lands there, centred. Drag from the middle of one word into
+      the next: both whole words are selected.
+
+- [ ] **Proofing options (2026-11-16)**: in the desktop app, File > Options > Proofing > Custom Dictionaries…: New…, add
+      a word in Edit Word List, Add… a .dic file Word made (it lists its words); after a restart they are still there and
+      the words are not underlined. Hide spelling errors in this document only, save, and open the file in Word on
+      Windows: Word shows no red underlines in it either.
+
+- [ ] **Protect Document and History (2026-11-16)**: in the desktop app:
+      - Encrypt a document with a password, save, close and reopen it: it asks for the password, and a wrong one
+        says so. Open the saved file in Word on Windows with the same password.
+      - Always Open Read-Only: reopening asks. Mark as Final: it saves, and reopening shows the MARKED AS FINAL bar.
+      - Save a few times, then File > History: the versions are listed (and still there after a restart). Open
+        version opens a new window, and Restore brings the old text back into the file.
+
+- [ ] **Quick Parts (2026-11-16)**: in the desktop app, Insert > Quick Parts: save a selection to the gallery and to
+      AutoText (they are still there after a restart), insert them, and open the Field… dialog and the Building
+      Blocks Organizer; the Document Property flyout opens to the left when the menu is at the window's right edge.
+
+- [ ] **Symbol dialog (2026-11-15)**: on Windows (fonts installed), Insert > Symbol > More Symbols… with Wingdings:
+      the grid shows Wingdings' pictures, and an inserted one shows as that picture in the page. Ctrl+Alt+C types ©,
+      and a key assigned with Shortcut Key… types its symbol after a restart.
+
+- [ ] **KeyTips (2026-11-15)**: in the desktop app (WebKitGTK, and on Windows), press and release Alt: badges on
+      File, the tabs and the Quick Access Toolbar, and the window manager does not take the Alt key; H, then 1 bolds;
+      Alt+H opens Home directly; Esc steps back. Compare the letters with Word's own on the Home and Insert tabs.
+
+- [ ] **Outline view in the desktop webview (2026-11-14)** — the symbols, the wave under a collapsed heading and Show
+      First Line Only's ellipsis draw in WebKitGTK; a click and a double click on a symbol select and collapse.
+
+- [ ] **Paste Special in the desktop app (2026-11-14)** — in the Tauri app on Linux, copy formatted text from Word
+      (or a browser) and use Paste Special: the list shows HTML Format, Unformatted Text, Unformatted Unicode Text and
+      Picture (PNG); Picture pastes a sharp picture of the text at its size (WebKitGTK may refuse to draw it, in which
+      case nothing is pasted); a copied screenshot offers Picture (PNG) only.
+
+- [ ] **Word 97–2003 files (2026-11-14)** — in the desktop app, File > Open a real .doc with LibreOffice installed
+      (opens as an unsaved .docx; Save asks where), and once without it (the older-Word-file message). Until 2026-11-16 Tauri refused the command (missing from `build.rs`), so this could not work in the desktop app before.
+- [ ] **New splash screen (2026-11-14)** — start the desktop app with the system in light, then dark: the card matches, the bar fills smoothly with no jump or stale frame, and the start screen shows at once after it, with no blend.
 - [ ] **Google Docs form (2026-11-12)** — open a .docx exported from Google Docs whose tables are wider than the
       text and pulled into the left margin: the page has the file's margins (not 1 in) and every table ends inside
       the paper, as in Word.
@@ -314,8 +480,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       jump after settling (checked in WebKitGTK on a software display; confirm with the GPU).
       Every tab slides in, not only Home; the scroll arrows follow the tab in front on a narrow window.
 - [ ] **Open Containing Folder (21.34)** — the file manager actually opens (`ShowItems`); macOS and Windows
-      branches untested.
-- [ ] **First-run setup wizard (21.42)** — `system_defaults` returns the real author and locale live.
+      branches untested. Until 2026-11-16 Tauri refused the command (missing from `build.rs`), so this could not work in the desktop app before.
+- [ ] **Share by email attaches the document (2026-11-16)** — in the desktop app, Share > Email opens the mail
+      client with the .docx attached (it fell back to a plain message while Tauri refused `email_document`).
+- [ ] **First-run setup wizard (21.42)** — `system_defaults` returns the real author and locale live. Until 2026-11-16 Tauri refused the command (missing from `build.rs`), so this could not work in the desktop app before.
 
 - [ ] **Narrow / Wide cell margins in Word (2026-10-27)** — set Wide on a table, save, open in Word: Table
       Properties → Options shows 0.26 cm top/bottom and 0.37 cm left/right; reopened in the app, Cell Margins is Wide.
@@ -459,7 +627,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Customization Import/Export (2026-10-27)
 
-- Desktop app: Export all customizations to a folder with a non-ASCII name, then Reset, then Import the file.
+- Desktop app: Export all customizations to a folder with a non-ASCII name, then Reset, then Import the file. Until 2026-11-16 Tauri refused the command (missing from `build.rs`), so this could not work in the desktop app before.
   The toolbar and tabs come back after OK.
 - Desktop app: choosing a non-.json file is refused with a message.
 
@@ -613,6 +781,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Save and reopen in the app: the effects and outline come back.
 
 ## Needs the Android tablet (the APK on a touch screen)
+
+- [ ] **Spelling suggestions by long press (2026-11-15)**: a long press on a red-underlined word opens the menu
+      with its suggestions at the top (a tap no longer does); choosing one replaces the word.
 
 - [ ] **Stock 3D models (2026-10-28)** — the 3D Models library's Electronics, Anatomy, Furniture and Symbols tiles
       show their pictures on the tablet; an inserted model turns smoothly with a finger.

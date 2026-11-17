@@ -5,6 +5,1492 @@ wrong or missing, what changed, where (files, tests), how it was checked, and wh
 story of each feature stays in `next-todo.md` under its section; `verify-list.md` holds what still needs a check
 in Word, Chrome or the desktop app.
 
+## 2026-11-17
+
+### A table of contents keeps Word's empty line where its field closes; v0.3.3
+
+- **What was wrong:** Word usually closes a TOC field in a paragraph of its own after the entries, and draws that
+  paragraph as an empty line. Inkspire took it into the table of contents and drew nothing, so everything after a
+  table of contents sat one line higher than in Word (`f12`, next-todo item 2).
+- **What changed:** `docx/toc.ts` reads `endLine` when the field's last paragraph shows nothing (only the field end,
+  bookmarks, empty runs). The editor's table of contents (`editor/toc.ts`) draws it as an empty Normal paragraph
+  (`p.toc-end-line`, Normal's line and space after; the block's own bottom margin goes, `index.css`). An unchanged
+  table is still saved as it was read. A table that was updated is written with the field end in its own paragraph
+  again. Tables inserted in Inkspire keep the end in their last entry, as before. Version 0.3.3 with its release
+  notes.
+- **Checked:** `f12` rendered by Word in the VM next to Inkspire in Chrome: the empty line is there. The gap from the
+  entry to the date is 63 px in Word and 61 px in Inkspire. Tests: `docx/toc.test.ts` (read, drawn,
+  not added when the field closes in the last entry, kept after an update); 1650 pass.
+- **Open:** the TOC entries themselves sit about 6 px (4.5 pt) lower than Word's. They are drawn as flex rows with their
+  own margins, not with their TOCn style's spacing and Word's line placement (new next-todo item 7). Whether
+  Word's own gallery puts the field end in a paragraph of its own for a new table was not checked. The end line is drawn
+  in Normal even when the file gives it another style.
+
+### Line spacing as Word places it: text at the top of a taller line; v0.3.2
+
+- **What was wrong:** with any line spacing over single (1.08, 1.15, 1.5, double, Exactly, At least), CSS centres the
+  text in its line, while Word keeps it where a single line has it and puts the extra space below (Exactly: the
+  baseline at 80% of the line; At least, when taller than the text: the extra space above). Measured in Word on a test
+  page: Inkspire's text sat up to 12.7 pt off (3 lines), 6 pt at double, about 0.5–1 pt at 1.08–1.15. New documents
+  also drew Normal's 1.65 as 1.65 times the font size where Word (and Inkspire reopening the file) uses 1.65 of
+  Aptos's lines, so lines were about 17% tighter while typing than after saving.
+- **What changed:**
+  - `document/line-lead.ts`: Word's baseline for each rule (`--lead-base`) and each font's descent, measured in Word
+    for 16 fonts (Aptos, Calibri, Cambria, Times New Roman, Arial, …). Every paragraph is trimmed to its first
+    line's cap height and its last line's baseline (`text-box-trim`) and padded back by Word's distances, so its
+    height stays a whole number of lines and only the text moves; floating objects, borders and page breaks are
+    untouched. Paragraph boxes keep their own padding; a paragraph whose line holds something taller than its text
+    (an inline object, runs of different sizes) keeps the browser's placement.
+  - Word styles set their font's single line and descent and, for Exactly / At least, their baseline
+    (`docx/word-styles.ts`); a paragraph's own spacing is picked up by `index.css` (`data-word-lead`,
+    `data-line-rule`); `editor/word-lead.ts` marks paragraphs with taller content and gives a paragraph whose text is
+    all one size or font that size and font.
+  - New documents: line spacing in Aptos lines (`--word-single-line: 1.21`), the app styles' multiples too
+    (`styles.ts`); Normal's space after is 9 pt whatever the text size (was 0.75em).
+  - Version 0.3.2 with its release notes.
+- **Checked:** Word in the VM against Chrome on a page of every rule: every line within 0.25 pt of Word (was up to
+  12.7). The edited blank document from the regression pass: every line within 1.4 pt over the page (Carlito stands
+  in for Aptos). All 66 fixtures Word opens, Inkspire's pages against Word's: mean difference 0.686 → 0.629, 53
+  closer, 10 the same, page counts unchanged, the fidelity audit finds nothing; the three that score worse have the
+  same line positions as before (pixel noise from a 1–2 px shift of the whole page). WebKitGTK 2.54 (the desktop app's
+  engine, in MiniBrowser) supports and applies the trim. Line numbers follow the text (they are placed from its
+  rectangles). Tests: `document/line-lead.test.ts` (the CSS in index.css, the rules, fonts, which paragraphs are
+  taller); 1649 pass.
+- **Open:** see next-todo item 1 (mixed sizes; a picture's paragraph height; bullets in `f04`; pictures in list
+  items). Not looked at in the desktop app itself.
+
+### Core regression pass in Word; new documents drawn and saved in Aptos with Normal's spacing; v0.3.1
+
+- **Regression pass (core work first).** Every fixture opened and saved through Inkspire (73 of 80; the 7 left are
+  broken on purpose and refused) passes the Open XML validator, and Word in the VM draws all 66 that Word can open in
+  both versions exactly like their originals (page-by-page difference 0.000; a check on two different files gives
+  1.07). New local test `tools/corpus/core-edits.test.ts` makes everyday edits with the ribbon's commands (a bold
+  first line, a word made red and italic, Heading 2, bold / italic+underline / Georgia 16 pt blue / highlight,
+  centred and right, bullets, numbering, a 3 x 2 table, a page break) on a blank document and on 12 Word files: all
+  13 saves pass the validator; Word shows every edit, with the same page count as Inkspire; the fidelity audit finds
+  no differences; side by side, the Word files match Word line for line.
+- **Bug found:** a new document showed "Aptos (Body) 12" in the font box but drew its text in a serif (Iowan Old
+  Style / Palatino, the app's look from before it followed Word), and its headings in the app's UI font. Its save
+  had an empty Normal and no font, so Word drew Aptos 12 with Word's own spacing, and Inkspire, reopening the file,
+  drew yet another font and size: three looks for one document.
+- **What changed:**
+  - A document made in the app saves Normal with its size and spacing (12 pt, 9 pt after, 1.65 lines) and names the
+    theme's body font (minorHAnsi, Aptos) as its default font (`docx/project.ts`; before, Normal counted as used only
+    when a paragraph named it).
+  - A new document's body and headings are drawn in Aptos, with Carlito standing in where Aptos is not installed,
+    as for Word files that name it (`index.css`); a Design font scheme still sets its own fonts.
+  - `tools/word-render.py` resumes the VM when Linoffice's idle timer pauses it mid-render (local tool).
+  - Version 0.3.1 with its release notes.
+- **Checked:** the blank document's save in Word and reopened in Inkspire now match line for line; typing in a new
+  document in Chrome draws Aptos/Carlito at 12 pt with 9 pt after. Test: `docx/new-document-styles.test.ts` (fails
+  without the fix); 1643 pass.
+- **Not checked: the desktop app.** The Tauri build could not be driven on a private display: its transparent
+  window stays blank under Xvfb and under a headless KWin (WebKitGTK draws nothing without a GPU there). See the
+  verify list.
+
+### Draw: pen gallery, Add Pen, Eraser, Lasso Select and Ruler (U30, part 1); v0.3.0
+
+- **What was missing:** the Draw tab had one pen, one highlighter, a width field and colour swatches; no eraser,
+  lasso or ruler.
+- **What changed:**
+  - **Pens** (`ribbon/draw-pens.tsx`, `editor/drawing.ts`): Word's gallery (a black pen, a red pen, a pencil, a yellow
+    highlighter), each drawn in its colour with a bar for its thickness; a click chooses a pen, a click on the chosen
+    pen opens its menu (Word's thicknesses, 16 colours, Remove Pen); **Add Pen** adds a pen, pencil or highlighter.
+    The pens are remembered. The pencil draws an even, slightly lighter line. "Pen" and "Highlighter" from the object
+    bar and menus still mean the chosen pen of that kind.
+  - **Eraser** removes every stroke the swipe touches (tested along the swipe, not only where the pointer was seen).
+  - **Lasso Select** holds the strokes it circles (nearly all of a stroke inside), in a dashed frame: drag inside to
+    move them, Delete removes them (not the canvas), Esc lets go.
+  - **Ruler** (Stencils): a ruler across the canvas; drag to move it, the mouse wheel turns it a degree a notch (15
+    with Shift), its angle shown; a stroke begun near its edge is laid straight along it, just outside it.
+  - Strokes now keep their points and timing (for Ink to Shape and Ink Replay, part 3); older strokes work from
+    their outline (`editor/ink-geometry.ts`).
+  - **Fixes:** the drawing canvas stays white in dark mode, as the page does; the picture saved for Word leaves out the
+    canvas's frame (dashed, or blue while selected), the Ruler and the lasso (`document/object-pictures.ts`).
+  - **Version 0.3.0** with its release notes; the Flatpak's metainfo lists 0.2.0 and 0.3.0.
+- **Checked:** headless Chrome, light and dark: drawing, the eraser swipe, lasso, move, Delete, the Ruler (a stroke
+  came out level, just above its edge), the pen menu. Word in the VM: the saved canvas shows the pen and pencil ink,
+  without the Ruler or a frame; 0 validator errors. Tests: `editor/ink-geometry.test.ts` (outline, eraser hits,
+  lasso, Ruler, stroke points, the pens); 1641 pass.
+- **Left (U30 parts 2 and 3):** ink anywhere on the page, Ink to Shape, Ink Replay; Point Eraser; Word's own ink
+  (InkML) is not read or written, the canvas goes to Word as a picture.
+
+### Version 0.2.0, with release notes and What's New after an update
+
+- **What changed:** the version is 0.2.0 (package.json, tauri.conf.json, Cargo.toml; Android's versionCode follows).
+  Each version's notes, in plain words, live in `lib/release-notes.ts`; Help > What's New shows the newest, with a
+  list to show an earlier version's, and opens by itself once on the first start after an update (not on a first
+  start). The old unversioned What's New list became 0.1.6's notes.
+- **Checked:** Chrome, light and dark: What's New opens once after an earlier version ran, fits without scrolling,
+  and stays closed on the next start. Tests: `lib/release-notes.test.ts` (the newest notes are this version's, newest
+  first; one version in package.json, tauri.conf.json and Cargo.toml; shown once after an update).
+- **From now on:** raise the version and add its notes with every build (patch for fixes, minor for features).
+
+## 2026-11-16
+
+### Stock Images (U29), and pictures' alt text saved for Word
+
+- **What was missing:** Insert > Pictures had only This Device. Found on the way: a picture's alt text typed in the
+  app (Alt Text, the Format pane) was never saved to Word, and a Word picture's alt text (its description) was not
+  read; the app showed the picture's name instead.
+- **What changed:**
+  - **Insert > Pictures > Stock Images...** (`components/stock-images.tsx`, `editor/stock-images.ts`): Word's dialog
+    of photos to search, with categories (Nature, Business, Food, …), several pictures chosen at once with a tick,
+    Insert (n), and More pictures for the next 20. The photos come from Openverse (openverse.org), asked for public
+    domain photos only (CC0 and the Public Domain Mark) from Flickr and Wikimedia Commons, so no credit line is
+    needed; only the search words leave the computer, and the pictures go into the document. Each picture's alt
+    text is its title and who took it. A Commons picture wider than 1920 pixels comes as Commons' 1920-pixel copy.
+    Without a connection, or past Openverse's limit for searches without an account, the dialog says so.
+  - The desktop app's content policy lets the app reach api.openverse.org, live.staticflickr.com and
+    upload.wikimedia.org (`tauri.conf.json`).
+  - **Alt text** (`docx/inlines.ts`, `wml-read.ts`): a picture's alt text is saved as Word's description
+    (wp:docPr descr) when it was set or changed in the app, and a Word picture's description is read as its alt text
+    (its name when it has none, as before); an unchanged picture stays as written.
+- **Checked:** headless Chrome, light and dark: the Pictures menu, the dialog (categories, a typed search, More
+  pictures, two photos chosen and inserted, no overflow). The saved document: 0 validator errors; Word in the VM
+  shows both photos and keeps their descriptions when it saves the file again. Tests:
+  `editor/stock-images.test.ts` (the search asked, which results are kept, Commons' copy, names, alt text) and
+  `docx/picture-alt.test.ts` (alt text saved, read back, written once); 1632 pass.
+- **Not done:** Word's other Stock Images tabs (Icons, Cutout People, Stickers, Illustrations, Cartoon People);
+  Online Pictures (Bing). Not tried in the desktop app (the content policy above).
+
+### Quick Tables (U29), and tables made in the app keep their widths and cell margins in Word
+
+- **What was missing:** Insert > Table had no Quick Tables. Found on the way: every table made in the app (not opened
+  from Word) reached Word squeezed to its text, with no space between the text and the cell's sides.
+- **What changed:**
+  - **Quick Tables ›** (last in Insert > Table, as in Word; `ribbon/insert-tab.tsx`): a gallery of Word's built-ins
+    by Word's names and layouts (Calendar 1, Calendar 2, Double Table, Matrix, Tabular List, With Subheads 1 and 2;
+    `editor/quick-tables.ts`, own sample text), each drawn small as it looks; the tables saved to the Tables gallery
+    by category; Save Selection to Quick Tables Gallery… (the Create New Building Block dialog, gallery Tables, now one
+    of the building-block galleries in `editor/quick-parts.ts`, so the Organizer lists them). The panel opens upward
+    from its row and only the gallery scrolls.
+  - **Word fixes** (`docx/wml-write.ts`, `model.ts`): a table the editor gave no widths writes a width on each cell
+    from the even grid over the text width, as Word's Insert Table does (without it Word fits the columns to the
+    text); a new document's styles get Word's Normal Table (0.08" left and right cell margins) when they have no
+    default table style; the even grid counts merged cells' columns.
+- **Checked:** Word in the VM renders all seven across the text width with their colours, lines and shading, as the
+  app draws them (Chrome); 0 validator errors. Chrome, light and dark: the menu, the gallery, inserting a table, no
+  overflow. Tests: `editor/quick-tables.test.ts` (calendar layout, names, insert and save with borders, shading,
+  colours, cell widths and Normal Table, the Tables gallery); 1625 pass.
+- **Not done:** Word's own built-in content (from its Building Blocks template) is not used; built-ins are not listed
+  in the Building Blocks Organizer; More Quick Tables from Office.com is left out (online).
+
+### Six desktop commands Tauri refused: Open containing folder, Share by email, first-run defaults, .doc, customizations
+
+- **What was wrong:** `reveal_document`, `email_document`, `system_defaults`, `convert_legacy_document`,
+  `read_settings_file` and `write_settings_file` were registered in the shell but not listed in the app manifest
+  (`src-tauri/build.rs`) nor allowed in `capabilities/default.json`, so Tauri refused each with "<name> not allowed.
+  Command not found" since the first commit. In the desktop app: Open containing folder showed an error; Share by email
+  fell back to a message without the document; the first-run setup could not fill in the system's name and regional
+  formats; a Word 97–2003 `.doc` could not be converted; Import/Export of customizations failed.
+- **Changed:** the six are listed in `build.rs` and allowed in the capability (with their generated permission files).
+  New test `src/lib/tauri-commands.test.ts`: every command in `generate_handler!` must be listed and allowed.
+- **Checked:** the desktop app on a private virtual display with a temporary probe calling each command without
+  arguments: before, all were "not allowed"; after, `system_defaults` answered and the other five reached their own
+  argument check. The test fails on the old files and passes now; 1621 tests pass.
+- **Not done:** each feature itself still has its item in `verify-list.md` (now with the cause noted).
+
+### Edit in Cells: the Excel Spreadsheet opens in Cells and its changes come back (U29, with Cells' I7 link)
+
+- **What was missing:** Word opens an embedded worksheet in Excel; Inkspire only had the small grid on the page, and
+  Cells, the companion spreadsheet app, never saw the sheet.
+- **What changed:**
+  - **Desktop shell** (`src-tauri/src/cells_link.rs`): `edit_in_cells` writes the sheet's workbook to Inkspire's
+    edit folder (`<cache dir>/inkspire/edit/`, the real `~/.cache` in a Flatpak) and opens
+    `cells://edit?file=…&for=<document>`, the link Cells has for this (its `docs/app-links.md`); it says when Cells
+    is not installed. `edit_copy_modified` and `read_edit_copy` read only `.xlsx` files inside that folder.
+  - **Sheet** (`editor/sheet-block.ts`, `editor/sheet-cells.ts`): an Edit in Cells button (desktop app only) and a
+    double-click on the sheet's headings or frame. The copy is looked at once a second; each save Cells makes comes
+    into the sheet as one undoable change.
+  - **Cells' workbook kept** (`docx/sheet-object.ts`, `inlines.ts`, `sheet-grid.ts`): the sheet keeps the workbook
+    Word or Cells wrote (`workbook`, `workbookGrid`, `workbookValues`). While its cells are unchanged it is what goes
+    to Cells and into the saved `.docx`, so formatting made in Cells or Excel stays, and formulas show the workbook's
+    own results, so functions the editor does not calculate (ROUND, VLOOKUP…) show their value instead of #ERR; such a
+    formula keeps that result after other cells change, while its own text is the same, and a workbook the app writes
+    leaves its result out so Excel or Cells calculate it. The sheet keeps at least its size when Cells saves fewer cells.
+  - **Permissions:** the three commands are listed in `src-tauri/build.rs` and allowed in `capabilities/default.json`
+    (without that Tauri refuses them: "edit_in_cells not allowed").
+- **Checked:**
+  - **Desktop app and Cells, on a virtual display:** Insert > Table > Excel Spreadsheet, 10 in A1, Edit in Cells:
+    the running Cells came forward with the sheet; `=A1*2` and `=ROUND(A1/3,1)` typed there came back into
+    Inkspire's sheet within a second or two (20 and 3.3), the sheet kept its 4 by 4 size, and after Add Row the
+    ROUND cell still showed 3.3. Cells' own save of a typed 3 also read back with Cells' results (12, 18).
+  - **Cells' reader and writer:** Inkspire's workbook opens in Cells with no warnings; Cells' save opens in Inkspire.
+  - **Tests:** `sheet-object.test.ts` (Cells' saved workbook as a fixture, `tests/docx-fixtures/cells/`: kept
+    byte for byte in the saved `.docx`, ROUND's result kept until a cell changes, a Cells save taken into the sheet
+    it was sent from and undone, Word's own workbook sent while unchanged); `cells_link.rs` (copy names, the link).
+- **Not done:** in Cells, the first formula typed after the link opened the sheet was kept as text (`=round(a1/3,1)`
+  shown as typed) twice; typed again it calculated. Not looked into (Cells' side). Cells titles the window
+  "Chart in <document>", as its link was made for chart data; a worksheet
+  should read "Worksheet in <document>" (a change in Cells). The picture Word shows is drawn by Inkspire from the
+  values, without Cells' formatting. The browser build has no Edit in Cells.
+
+### Excel Spreadsheet as Word's: an embedded Excel worksheet that opens and saves (U29, part 2)
+
+- **What was missing:** Insert > Table had no Excel Spreadsheet. The app's own Spreadsheet (Insert > Spreadsheet and
+  Object > Spreadsheet) was a fixed 4 by 4 grid that saving dropped, and an Excel worksheet embedded by Word
+  (`w:object` with `o:OLEObject ProgID="Excel.Sheet.12"`) did not open as one.
+- **What changed:**
+  - **Menu** (`ribbon/insert-tab.tsx`): Excel Spreadsheet is the last entry of Insert > Table, as in Word; the
+    separate Spreadsheet button and Object > Spreadsheet go.
+  - **Sheet** (`editor/sheet-grid.ts`, `editor/sheet-block.ts`): any size of grid with Excel's column names (A…Z,
+    AA…), Add Row and Add Column, formulas with cell references, ranges and SUM / AVERAGE / MIN / MAX / COUNT;
+    numbers sit to the right of their cell.
+  - **Saving** (`docx/sheet-object.ts`, `inlines.ts`, `object-pictures.ts`): written as Word writes it: a
+    `w:object` holding the sheet's picture (drawn as Excel shows it: Calibri 11 on 64 by 20 pixel cells, no
+    gridlines) and an embedded workbook (`word/embeddings/Microsoft_Excel_Worksheet*.xlsx`) with text, numbers and
+    formulas with their values. A sheet opened from Word and not changed is written back as Word wrote it.
+  - **Opening** (`wml-read.ts`, `io.ts`, `project.ts`): a `w:object` is kept as it was; an Excel worksheet opens as
+    the sheet, read from the first worksheet of its workbook (shared and inline strings, booleans, formulas).
+- **Checked:**
+  - **Word in the VM:** the app's save (made in headless Chrome by Insert > Table > Excel Spreadsheet and typing)
+    renders in Word as in the app: the cells' text, numbers right-aligned, formulas worked out (6, 6, 7, 12). Word
+    re-saves it as an embedded `Excel.Sheet.12` object, and the app opens Word's save with the same grid, an edited
+    cell included. 0 validator errors.
+  - **Chrome, light and dark:** the menu entry, typing with Enter between cells, the formula results.
+  - **Tests:** `docx/sheet-object.test.ts` (cell names and formulas, the workbook, save, reopen, untouched save as
+    it was, a changed cell written anew).
+- **Not done:** double-clicking does not open Excel (the sheet is edited in place); cell formatting, column widths,
+  other worksheets and Excel functions beyond the five above are not read. After a sheet opened from Word is
+  changed, its old workbook stays in the file without a relationship (Word drops it on its next save). Quick Tables
+  and Stock Images are still open.
+
+### Drop Cap as Word's: Word's drop caps open and save, Drop Cap Options… (U29, part 1)
+
+- **What was wrong:** Insert > Drop Cap only changed the look of the paragraph's first letter, at a fixed size, and
+  saving dropped it. A Word drop cap (a framed paragraph holding the big letter, `w:framePr w:dropCap`) opened as
+  a separate paragraph with a huge letter above the text. Drop Cap Options… was missing.
+- **What changed:**
+  - **Opening** (`docx/drop-cap.ts`, `wml-read.ts`, `project.ts`): the frame paragraph and the paragraph it starts
+    open as one paragraph. The letter comes first, and the paragraph keeps the cap's kind, lines (`w:lines`),
+    distance from the text (`w:hSpace`) and font.
+  - **Saving:** a paragraph with a drop cap is written as Word writes it: a frame paragraph (`keepNext`, `framePr`,
+    an exact line, baseline alignment) with the first letter, then the rest. The letter's size, line and drop are
+    Word's 3-line numbers, scaled by the lines and the text's size.
+  - **Drawing:** CSS `initial-letter` drops the letter over its lines, in its own font and at its distance. In
+    margin hangs the letter wholly left of the text, as Word does. Its width is measured after each draw and kept as
+    a decoration (`editor/drop-cap-width.ts`).
+  - **Menu and dialog:** the menu has None, Dropped and In margin as pictures, then Drop Cap Options…
+    (`components/drop-cap-dialog.tsx`): Position, Font, Lines to drop (1 to 10) and Distance from text. None
+    clears everything; switching between Dropped and In margin keeps the options.
+- **Checked:**
+  - **Word in the VM:** Word's own markup (three kinds) renders and re-saves unchanged. The app opens it with the
+    same line breaks beside the letter. The app's file (5 lines in Georgia, 0.3 cm; In margin at 0.5 cm; None)
+    renders in Word as in the app and re-saves both frames. 0 validator errors.
+  - **Chrome, light and dark:** the menu and the dialog driven by the mouse and keyboard, and the overflow crawl.
+  - **Tests:** `docx/drop-cap.test.ts` (open Word's three kinds, save untouched, app-made drop cap round trip, None).
+- **Not done:** formatting of the letter itself (bold, colour) set in Word is not kept on open; the letter takes the
+  paragraph's. Excel Spreadsheet, Quick Tables and Stock Images are part 2.
+
+### Select Objects and the Selection pane as Word's: names, Show All / Hide All, rename, reorder (U28)
+
+- **What was missing:** Home > Select had only Select All and Select Text with Similar Formatting. The Selection
+  pane (on Layout and the object tabs only) listed objects in document order with made-up names. It could hide one
+  object at a time, but it couldn't rename, reorder, show all or hide all. Nothing of it was saved: Word's object
+  names were lost on open, and a hidden object came back shown.
+- **What changed:**
+  - **Home > Select** (both ribbon layouts) adds Select Objects and Selection Pane…, as Word's.
+  - **Select Objects** (`components/select-objects-mode.tsx`): while it is on, a click on the page takes the topmost
+    object under the pointer, behind the text too. Dragging draws a rectangle and picks every object inside it.
+    Text selection is off until Esc or choosing it again.
+  - **The pane** (`components/selection-pane.tsx`): Show All, Hide All, Bring Forward and Send Backward along the
+    top, then the objects, top of the stack first and in-line objects last. The eye is on the right. Click selects,
+    and Ctrl or Shift+click adds to the picked objects. Double-click or F2 renames (Enter keeps the name, Esc puts
+    the old one back). Dragging a row moves the object in the stack. Behind-text objects move only among
+    themselves, as they stay under the text.
+  - **Model** (`editor/object-group.ts`): `objectName` on every object; `listObjects` sorted by layer;
+    `renameObject`, `setAllObjectsHidden` (one undo step) and `moveObjectInStack` (numbers the stack again,
+    bottom up, like Word's `relativeHeight`).
+  - **.docx** (`docx/inlines.ts`): `wp:docPr` `name` and `hidden` are read onto the object and written back on
+    every drawing the app saves (`patchDocPr`). The app's own objects keep them through `restoreObjects`.
+  - **Fixed on the way:** saving dropped an app object (shape, text box…) that was hidden, because its picture was
+    taken from a `display: none` element. It is now measured shown within one synchronous step, so the page never
+    draws it (`object-pictures.ts`).
+- **Checked:**
+  - **Word in the VM:** Word's file with Frame 6 and Heart 7, one renamed and one hidden. Saved from the test and
+    from the app in Chrome: Word hides the frame, shows "Big heart", and re-saves both. 0 validator errors.
+  - **Chrome, light and dark:** the menu, the pane with Word's names, rename by double-click, Hide All / Show All,
+    Send Backward and Undo, and a Select Objects rectangle that picks both shapes. The overflow crawl shows only
+    the baseline items.
+  - **Tests:** `selection-pane.test.ts` (order, rename, stack moves and layers, Hide All with Undo, hit tests,
+    `wp:docPr`, opening and saving names and Hide).
+- **Not done:** groups are not shown nested in the pane (a "Grouped" tag marks them). Drag to reorder was checked
+  through the function, not driven by a mouse.
+
+### Home > Borders as Word's: Outside, Inside, Inside Horizontal/Vertical, diagonals, boxes that join (U27)
+
+- **What was missing:** Home > Borders had six choices and set only one side of a paragraph at a time. It did
+  nothing in a table, and Horizontal Line, Draw Table and View Gridlines were only on Table Design. Word's line
+  between paragraphs (`w:between`) was neither read, saved nor drawn. Paragraphs in a row with the same borders
+  each drew a box of their own, where Word draws one box around them all.
+- **What changed:**
+  - **The menu** (both ribbon layouts) is Word's list, each row with a 16-grid picture: Bottom, Top, Left, Right,
+    No Border, All, Outside, Inside, Inside Horizontal, Inside Vertical, Diagonal Down and Diagonal Up. Then
+    Horizontal Line, Draw Table, View Gridlines and Borders and Shading…. Rows that are on show pressed.
+  - **In a table** the rows set the selected cells' borders, as Table Design's menu does, with the default pen.
+    View Gridlines is the table's.
+  - **On paragraphs** (`setBlockBorder`): a side toggles and keeps the others. Outside toggles the box. Inside and
+    Inside Horizontal toggle the line between. All draws both, and No Border takes every line off. Inside
+    Vertical and the diagonals are off outside tables.
+  - **`w:between`** (`borderBetween`): read, written in the schema's order, and drawn.
+  - **Boxes that join** (`editor/paragraph-box-groups.ts`): neighbours with the same borders and indents are drawn
+    as one box. The top line goes over the first, the bottom line under the last, and the between line between
+    each two. The sides run through the space between paragraphs; that space is measured after each draw and
+    kept as a decoration, so ProseMirror's DOM is never touched.
+- **Checked:**
+  - **Word in the VM:** a file with three paragraphs inside Outside Borders, three with All Borders and one bottom
+    border. The app draws the same boxes as Word: one box, the lines between, about the same height.
+  - **Saved from the app:** 0 validator errors, and Word re-saves all three `w:between`.
+  - **Chrome, light and dark:** the menu in a paragraph (states, table-only rows off) and in a table (all on).
+  - **Tests:** `paragraph-borders.test.ts` (toggles, joins, cells in a table, `w:between` open and save).
+- **Not done:** paragraphs that take their borders from a style are not joined (only direct borders are).
+
+### Underline menu as Word's: every underline type, Underline Color, More Underlines…, Ctrl+Shift+W (U26)
+
+- **What was missing:** Home > Underline offered five lines. Underline types and colours from Word files opened as
+  a plain single line, and every underline saved as single. The reader also had two of Word's names wrong
+  (`dotDashHeavy` and `dotDotDashHeavy` for Word's `dashDotHeavy` and `dashDotDotHeavy`), so those underlines
+  were dropped on open.
+- **What changed:**
+  - **One list of Word's 17 types** (`document/underlines.ts`): Word's value, the editor's id (the five older ids
+    keep their names), and how CSS draws each one. Heavy lines draw thicker. CSS has no dot-dash, long dash or
+    double wave, so those draw as the nearest line and save as what they are. The ribbon menu, the Font dialog,
+    shape text, opening and saving all use it.
+  - **Words only:** the mark draws no line of its own. A decoration puts one under each word, so the spaces stay
+    clear. It is cached and rebuilt only on edits.
+  - **Opening and saving:** `w:u` keeps its type and `w:color` both ways, including text typed in the app and
+    formatting changes (`formatChange`).
+  - **Underline menu** (both ribbon layouts): Underline, Double, Thick, Dotted, Dashed, Dot-dash, Dot-dot-dash and
+    Wave, each drawn as it looks. Then More Underlines… (the Font dialog) and Underline Color as a flyout with
+    Automatic. A colour picked on text that is not underlined underlines it, as in Word.
+  - **Font dialog:** Underline style lists (none), Words only and all of Word's types. The preview draws heavy
+    lines thicker.
+  - **Ctrl+Shift+W:** Words only on, or off again.
+- **Checked:**
+  - **Word in the VM:** a file saved by the app with every type, two colours, an edited run and typed text passes
+    the Open XML validator. Word opens it, draws every type, and saves all the values and colours back unchanged.
+  - **Chrome, light and dark:** the same file in the app, the menu and its colour flyout, More Underlines… opening
+    the Font dialog at the type and colour in use, and Ctrl+Shift+W. No overflow.
+  - **Tests:** `underlines.test.ts` (every type opened as itself, saved back, a type and colour set in the editor,
+    new text, the CSS, the words-only decoration).
+
+### Optional fonts to download: Carlito, Caladea, Arimo, Tinos, Cousine, Gelasio (U39)
+
+- **What was missing:** documents written in Office's fonts (Calibri, Cambria, Georgia…) broke their lines
+  differently where those fonts are missing (Linux, the web build, Android), and there was no way to get stand-ins.
+- **What changed:**
+  - **Fonts list** (`document/optional-fonts.ts`): free fonts with the same widths as Office's. Carlito stands in
+    for Calibri and Calibri Light, Caladea for Cambria, Arimo for Arial, Tinos for Times New Roman, Cousine for
+    Courier New and Gelasio for Georgia. They come from Google Fonts' repository at a pinned commit, and each file
+    is checked against its SHA-256. They are kept in IndexedDB (the app's data folder in the desktop app).
+  - **Drawing:** each font is registered under its own name and under the Office names it stands in for, with
+    `local()` first, so a real Calibri still wins where it is installed. Documents keep their own font names when
+    saved. Downloaded fonts join the font list.
+  - **File > Options > Fonts** (a page Word does not have): each font with what it stands in for, its size and
+    licence, Download / Remove, Download All, and an error that says a connection is needed. Aptos may not be
+    passed on, so the page links to Microsoft's own download.
+  - **First-run setup:** an opt-in "Fonts with Office's widths" under Optional downloads.
+  - **Message bar:** when an opened document uses an Office font the page cannot draw and a stand-in is not
+    downloaded yet: "This document uses Georgia, which is not installed. Download Gelasio…?". The check measures
+    text, so it works on the web without the font-list permission. A stand-in the system already has (Carlito,
+    Liberation on many Linux systems) counts as drawn.
+  - The desktop app's CSP allows `raw.githubusercontent.com` (connect) and `blob:` fonts, and the opener allows
+    Microsoft's Aptos page.
+- **Checked:** in Chrome, light and dark. A document in Georgia shows the hint. Download replaces Noto Serif with
+  Gelasio, and the lines then break at exactly the words Word's do (Word in the VM: 7 lines, the same last word on
+  every line; before, 6 lines). The fonts come back after a reload. Tests: names, CSS parsing, checksums refused,
+  offline failure.
+- **Known difference:** Arial drawn with Liberation Sans (installed here) wraps one word differently from Word's
+  Arial in a 7-line paragraph; turning kerning off made it worse. That is not about U39.
+- **Not done:** Symbol and Wingdings stand-ins (whether OpenSymbol covers their code points is still to check).
+
+### Mailings tab: recipient lists, merge fields, Preview Results, Finish & Merge, Envelopes and Labels (U25)
+
+- **What was missing:** there was no Mailings tab (an earlier one was removed in d16e459). Mail merge fields read
+  from Word showed only their names.
+- **What changed:**
+  - **Mailings tab** (`components/ribbon/mailings-tab.tsx`, both ribbon layouts, KeyTips as Word's). It has
+    Word's groups:
+    - **Create:** Envelopes and Labels.
+    - **Start Mail Merge:** Letters, Envelopes…, Labels…, Directory and Normal Word Document.
+    - **Select Recipients:** Type a New List, Use an Existing List, and Choose from Outlook Contacts.
+    - **Edit Recipient List.**
+    - **Write & Insert Fields:** Highlight Merge Fields, Address Block, Greeting Line, Insert Merge Field, Rules
+      (If…Then…Else, Merge Record #, Merge Sequence #, Next Record, Next Record If, Skip Record If), Match Fields
+      and Update Labels.
+    - **Preview Results:** Preview Results with record navigation, Find Recipient and Check for Errors.
+    - **Finish & Merge:** Edit Individual Documents and Print Documents, for All, Current record or From–To.
+  - **Recipient lists** (`document/merge-sources.ts`):
+    - CSV and text files: commas, semicolons or tabs, quotes, UTF-8 or Windows-1252.
+    - Excel workbooks: shared and inline strings, dates, and Select Table when there are several sheets.
+    - Outlook contacts exported as vCard (2.1/3.0, quoted-printable) or Outlook CSV, read into Outlook's field names.
+    - A list typed in New Address List.
+    - The desktop app now reads .csv, .tsv, .xlsx and .vcf; it never writes them.
+  - **Field results** (`document/merge-fields.ts`, wired into `field-results.ts` and `editor/word-field.ts`):
+    MERGEFIELD with \b and \f, ADDRESSBLOCK and GREETINGLINE formats, MERGEREC, MERGESEQ, NEXT, NEXTIF, SKIPIF,
+    and IF with merge fields inside it. Preview Results refreshes merge fields only, so a Word document's other
+    fields keep Word's results.
+  - **Fields in .docx** (`docx/inlines.ts`): fields with line breaks or fields inside them are written as Word's
+    complex fields (nested begin/end, `<w:cr/>` for the Address Block's lines).
+  - **Merged output** (`document/merge-output.ts`, `finishMerge` in `commands.ts`): the main document once per
+    recipient, opened unsaved in a new window as Letters1. Print Documents opens File > Print on it.
+- **Word's behaviour the merge copies**, each found by merging in Word in the VM:
+  - an Address Block's lines become paragraphs of their own, and empty lines drop out;
+  - a paragraph holding only empty merge fields is removed, except a copy's last paragraph;
+  - with a suffix in the name format and no last name, the title is left out ("Kim", not "Dr. Kim");
+  - the greeting falls back to first and last name;
+  - NEXT moves to the next record inside one copy (labels), and SKIPIF leaves a record out.
+- **Tests:** `merge-sources.test.ts` and `merge-fields.test.ts` (16 tests, including a Word-made fixture,
+  `tests/docx-fixtures/mail-merge/word-merge-fields.docx`).
+- **How it was checked:**
+  - **Word, VM:** a main document saved by the app (Address Block, Greeting Line, MERGEFIELD \b \f, MERGEREC,
+    an IF made by the Rules dialog) opens in Word with the same field codes. Word's merge with the same list gives
+    the same text as the app's merge, line for line. The Open XML validator reports 0 errors.
+  - **Chrome, light and dark:**
+    - a CSV picked through Use an Existing List;
+    - Address Block, Greeting Line and Insert Merge Field put in;
+    - Preview Results showing record 1, then record 2;
+    - Edit Individual Documents opening Letters1 with all three letters;
+    - every dialog looked at, plus the overflow crawl.
+- **Differences from Word:**
+  - Match Fields matches a "Postal Code" column, where Word's own matching did not.
+  - Envelopes and Labels makes a new document; Word's Add to Document is not offered.
+  - A typed list is kept with the window, not saved as an .mdb.
+  - Left out: Send Email Messages, and the Rules' Ask, Fill-in and Set Bookmark.
+
+### Options > Advanced: whole words, smart paragraph selection, smart cursoring, click and type, Paste Options, AutoComplete (U24, part 2)
+
+- **What was wrong or missing:** eight of Options > Advanced's editing options were greyed out as not available.
+- **What changed** (`editor/smart-editing.ts`, `components/paste-options-button.tsx`). Each is on by default as in
+  Word, and kept with the other editing options:
+  - **When selecting, automatically select entire word:** a drag that reaches past one word selects whole words
+    at both ends. A drag inside one word still selects part of it.
+  - **Use smart paragraph selection:** Delete or Backspace on whole selected paragraphs removes the paragraphs,
+    marks and all, instead of leaving empty ones. The last paragraph of the document or of a cell stays.
+  - **Use smart cursoring:** after scrolling away from the cursor, an arrow key or Page Up/Down puts it on the
+    page in view instead of jumping back.
+  - **Enable click and type:** a double click in the empty part of the page below the text adds empty paragraphs
+    down to there and puts the cursor in the last one: centred in the middle of the page, right-aligned near its
+    right edge, left elsewhere.
+  - **Show Paste Options button when content is pasted:**
+    - After a paste, a "(Ctrl)" button sits at the end of what was pasted. Its menu (or Ctrl pressed alone, then
+      K, M or T) pastes the same clipboard again as Keep Source Formatting, Merge Formatting or Keep Text Only.
+    - Set Default Paste… opens Options > Advanced.
+    - The button goes when the document changes or on Esc. It works in headers and footers too.
+  - **Show AutoComplete suggestions:** after four letters of a month, a weekday or an AutoText entry's name, a tip
+    above the cursor offers the whole of it ("October (Press ENTER to Insert)"). Enter or F3 puts it in, and Esc
+    hides it.
+- **Checked:**
+  - `editor/smart-editing.test.ts` (5 tests): whole words both ways; deleting whole paragraphs, the option off,
+    the last paragraph; completions and Enter; the pasted range kept until the document changes, and off with
+    the option. The full suite passes. Typecheck and ESLint are clean.
+  - Headless Chrome, light and dark, with real mouse and key events:
+    - Dragging from "ick" to "bro" selected "quick brown".
+    - Deleting a whole paragraph removed it.
+    - "Octo" offered October, and Enter put it in.
+    - A paste showed the button. Ctrl opened the menu, and Keep Text Only took the colour and font off.
+    - A double click in the middle of the page, lower down, put the cursor in a centred paragraph there.
+    - After scrolling down, ArrowDown moved the cursor to the line in view.
+    - The overflow crawl shows only the 3 known galleries.
+  - Word (VM) not needed: these change how editing behaves, not what is saved. Click and type writes ordinary
+    empty paragraphs.
+- **Still open:**
+  - Prompt to update style and Keep track of formatting stay greyed: both need the Styles pane to track direct
+    formatting as styles.
+  - Click and type does not yet set a left indent or tab for clicks between the zones, or work beside text.
+  - Smart paragraph selection does not change Cut.
+
+### Options: Proofing and Language as Word's, Custom Dictionaries, grammar options (U24, part 1)
+
+- **What was wrong or missing:**
+  - Options > Proofing listed "Mark grammar errors as you type" as not available, though the app checks grammar
+    as you type; its only switch was in the Editor pane.
+  - There were no grammar settings, no Frequently confused words, no Recheck Document, and no exceptions for one
+    document.
+  - There were no Custom Dictionaries: added words went into a hidden list per language.
+  - The Language page showed only the first-run locale.
+- **What changed:**
+  - **Proofing** is laid out in Word's sections: AutoCorrect options; When correcting spelling (the Ignore… and
+    Flag repeated words options, Suggest from main dictionary only, Custom Dictionaries…); When correcting
+    spelling and grammar (Check spelling as you type, Mark grammar errors as you type, Frequently confused words,
+    Check grammar and refinements in the Editor Pane, readability statistics, Writing Style: Grammar with
+    Settings…, Recheck Document); Exceptions for the document.
+  - **Frequently confused words** (`editor/grammar-rules.ts`): could/would/should of, more/less/rather… then,
+    your welcome / your not, its a / its not, it's own, their is / their are, alot. Only where the words around
+    decide which is meant. Off with the option.
+  - **Grammar Settings…** switches rule groups on and off (capitalization, punctuation, space between words, a/an,
+    "I", confused words), with Reset All. The choices are kept with the Editor pane's (`editor/grammar.ts`).
+  - **Check grammar and refinements in the Editor Pane** off: the pane lists spelling only.
+  - **Recheck Document** asks as Word does, then checks the ignored words and grammar again.
+  - **Hide spelling / grammar errors in this document only** (`document/proofing-exceptions.ts`) are kept in the
+    document, as Word keeps them: `w:hideSpellingErrors` and `w:hideGrammaticalErrors` in settings.xml, read on open.
+  - **Custom Dictionaries…** (`editor/custom-dictionaries.ts`, `components/proofing-dialogs.tsx`):
+    - Word's model: named dictionaries, each for all languages or one, each on or off, and a default that Add to
+      Dictionary writes to.
+    - The dialog has Edit Word List… (Add, Delete, Delete all), Change Default, New…, Add… (reads a Word .dic file
+      in UTF-16 or UTF-8), Remove, and Dictionary language.
+    - Words added before move into CUSTOM.DIC. A word taken out, or a dictionary switched off, is taken out of the
+      spelling checker at once.
+  - **Language** (`document/language-settings.ts`): the display language (English only, said so), and the
+    authoring languages with "Proofing installed", Add a Language… (with "Set as your preferred authoring
+    language"), Remove and Set as Preferred. A preferred language set here proofs new documents.
+- **Checked:**
+  - Tests:
+    - `editor/proofing-options.test.ts` (5 tests): confused words and their right uses; dictionaries on, off, per
+      language and default; reading a Word .dic; the preferred language for new documents.
+    - `docx/file-protection.test.ts`: the two exceptions written and read.
+    - `options-pages.test.tsx` now checks grammar as you type is a real switch.
+    - The full suite passes. Typecheck and ESLint are clean.
+  - **Word (VM):** the file with both exceptions validates (0 errors), and Word keeps both elements when it saves
+    the file again. The VM's headless Word has its own proofing off and writes these elements into every file it
+    saves, so it can't show whether it hides the underlines.
+  - Headless Chrome, light and dark:
+    - Confused words are underlined, and the underlines go when the option is turned off.
+    - Grammar Settings, Custom Dictionaries (New… "Place names", Edit Word List, adding Zeebrugge) and Recheck
+      Document work. Hide grammar errors removes every grammar underline.
+    - On Language, adding Dutch as preferred makes new documents Dutch.
+    - No dialog scrolls or overflows.
+- **Still open:**
+  - Writing Style has Grammar only; Word's Refinements (clarity, conciseness…) are not checked by rules (the AI pass
+    in the Editor pane does that).
+  - The display language is English only.
+  - Dictionaries are kept in the app, not as .dic files on disk, so Word does not see them.
+
+### Info: Protect Document, Manage Document, History (U23)
+
+- **What was wrong or missing:**
+  - Info's Protect Document card only toggled a read-only state that was never saved.
+  - Manage Document did nothing.
+  - History was a placeholder.
+  - An encrypted .docx could not be opened, and the app could not write one.
+  - Open's "Recover Unsaved Documents" opened the file picker.
+- **What changed:**
+  - **Info** is laid out as Word's rows: Protect Document, Inspect Document (Check for Issues), Version History
+    and Manage Document, each a square button with its explanation beside it. A row whose protection is on is
+    highlighted and says what is on.
+  - **Protect Document ▾** (Word's items):
+    - **Always Open Read-Only:** saved as `w:writeProtection w:recommended="1"` in settings.xml, and read back. On
+      open the app asks, as Word does, whether to open read-only (Yes / No / Cancel).
+    - **Encrypt with Password…:** Encrypt Document, then Confirm Password. An empty password takes the encryption
+      off. Saving writes the file encrypted as Word does (MS-OFFCRYPTO Agile: AES-256-CBC, SHA-512 with 100,000
+      spins, data integrity HMAC), in a compound file with Word's DataSpaces.
+      - New modules: `docx/encryption.ts`, `docx/cfb.ts` (compound file reader and writer, mini stream and DIFAT
+        included), and `docx/sha512.ts` (synchronous, so the 100,000 spins take a fraction of a second).
+      - Opening an encrypted file asks for its password; a wrong one says so and offers Try Again. The password is
+        kept for later saves.
+    - **Restrict Editing:** opens the Restrict Editing pane.
+    - **Mark as Final:** "will be marked as final and then saved", then saves. It is written as Word writes it
+      (`_MarkAsFinal` in custom.xml, keeping the other custom properties, and Status "Final").
+      - A file marked final opens read-only, with Word's MARKED AS FINAL bar and Edit Anyway.
+  - **Digital signatures** in an opened file are counted. Info and a SIGNATURES bar say a save here removes them,
+    and the save does leave them out, as Word drops them when the document changes.
+  - **Manage Document ▾ > Recover Unsaved Documents** (and the button on Open) opens the Unsaved Documents pane, or
+    says there is nothing to recover.
+  - **History:** every save of a Word document keeps a copy of the file as written (`document/versions.ts`,
+    IndexedDB, the last 20 per file; an encrypted file's copies stay encrypted). History lists them by day with
+    time, author and size.
+    - **Open version** opens a copy in a new window, named with the time it was saved.
+    - **Restore** makes it the document again and saves it over the file, as Word's Restore does.
+    - **Delete all versions…** clears them.
+  - The read-only and Password questions come before anything of the open document is let go, so Cancel leaves
+    it as it was.
+  - A settings.xml made from scratch is now in schema order. Track Changes and Restrict Editing used to come
+    after `w:defaultTabStop`. The validator found this when it rejected the first Always Open Read-Only file.
+  - `tools/word-render.py --password / --save-password / --info` (local): opens or saves with a password and
+    prints HasPassword, ReadOnlyRecommended, Final and the signature count.
+- **Checked:**
+  - Tests:
+    - `docx/encryption.test.ts` (6 tests): SHA-512 against Node's, compound files with small, large and 8 MB
+      streams, encryption round trips at every segment boundary, wrong passwords, and a file Word encrypted.
+    - `docx/file-protection.test.ts` (5 tests): read-only, final with another custom property kept, encrypted,
+      all three together, signatures left out.
+    - The full suite: 1567 tests pass. Typecheck and ESLint are clean.
+  - **Real Word (office-runner VM):**
+    - Files the app encrypted open in Word with the password, including a non-ASCII one, and report
+      HasPassword=True. A wrong password gets "The password is incorrect".
+    - A file Word encrypted opens in the app with its password.
+    - The app's Always Open Read-Only file reports ReadOnlyRecommended=True, and its Mark as Final file
+      Final=True.
+    - A file with all three, saved again by Word with its password, reads back in the app with all three.
+    - The validator reports 0 errors.
+  - Headless Chrome, light and dark:
+    - Every Protect Document item, a mismatched confirmation, the flagged row, Manage Document with nothing to
+      recover, and History with three versions all work.
+    - The MARKED AS FINAL bar stops editing, and Edit Anyway lets it go again.
+    - Opening Word's encrypted file works: the Password dialog, a wrong password, Try Again, then the text.
+    - The read-only question shows.
+    - No dialog or menu scrolls or overflows, and the overflow crawl shows only the 3 known galleries.
+- **Still open:**
+  - **Add a Digital Signature** is left out: signing needs a certificate and its key (a .pfx), which the app
+    cannot read yet. Signatures already in a file are shown and dropped on save.
+  - The READ-ONLY bar (opened read-only on the author's advice) stops editing until Edit Anyway. Word lets you edit
+    and asks for a new name when you save.
+  - Word 2007's Standard encryption and certificate-only encryption are not read (the error says so).
+  - Versions are kept in this app's storage only, not beside the file or on OneDrive as Word's are.
+  - A draft recovered from Unsaved Documents comes back without its password.
+
+### Quick Parts: Field…, Document Property, AutoText, Building Blocks Organizer (U22)
+
+- **What was wrong or missing:** Insert > Quick Parts was a list of saved snippets with a name box. There was no
+  Field… dialog, no Document Property or AutoText, no Building Blocks Organizer, and no category or description
+  for a saved part. Fields other than captions, cross-references and dates had no result in the app. Category and
+  Company were not saved to the .docx, so Word's DOCPROPERTY fields had nothing to show.
+- **What changed:**
+  - **Field… dialog** (`components/quick-parts-dialogs.tsx`):
+    - Layout: Categories and Field names on the left, Field properties in the middle (date formats with
+      today's date as an example, text and number formats, numeric pictures, a name, bookmark, style, property or
+      Info category), Field options on the right (each field's switches, with a value box where one is needed), and
+      Preserve formatting during updates (`\* MERGEFORMAT`). Description below.
+    - Field Codes edits the instruction by hand.
+    - The catalog (`document/field-catalog.ts`) has Word's 9 categories and 74 fields, each with its description
+      and switches.
+  - **Field results** (`document/field-results.ts`, used by `editor/word-field.ts`):
+    - Fields with results: AUTHOR, TITLE, SUBJECT, KEYWORDS, COMMENTS, DOCPROPERTY, INFO, FILENAME, NUMPAGES,
+      NUMWORDS, NUMCHARS, PAGE, SECTION, SECTIONPAGES, CREATEDATE, SAVEDATE, PRINTDATE, EDITTIME, DATE, TIME,
+      USERNAME, USERINITIALS, QUOTE, SYMBOL, STYLEREF, MERGEFIELD («name»), MACROBUTTON / GOTOBUTTON, FILLIN / ASK
+      defaults.
+    - Word's general switches: Upper, Lower, FirstCap, Caps; roman, ALPHABETIC, Ordinal, CardText, OrdText, Hex,
+      DollarText; `\#` numeric pictures (unused # places become spaces, as in Word); and `\@` date pictures.
+    - A field the app has no result for shows its code faintly.
+  - **Quick Parts menu** (Word's order):
+    - The Quick Parts gallery by category, with a small picture of each block.
+    - AutoText › (its entries, Save Selection to AutoText Gallery).
+    - Document Property › (Author, Category, Comments, Company, Keywords, Subject, Title, inserted as their fields).
+    - Field…, Building Blocks Organizer…, and Save Selection to Quick Part Gallery…
+  - **Create New Building Block** (Name, Gallery, Category, Description) and the **Building Blocks Organizer**:
+    - The Organizer lists Name / Gallery / Category / Template, sortable by column, with a preview, Edit
+      Properties…, Delete and Insert.
+    - Blocks keep a gallery, category and description (`editor/quick-parts.ts`). Older saved parts become Quick
+      Parts in General.
+  - `docx/io.ts`: Category is saved in core.xml and Company in app.xml, and both are read on open. A file's existing
+    app.xml stays byte for byte unless Company changed.
+  - `MenuFlyout` opens to the left when the window has no room on the right, for every menu that uses it.
+  - `tools/word-render.py --fields` (local): has Word update every field and prints each code with Word's result.
+- **Checked:**
+  - Tests:
+    - `document/field-results.test.ts` (6 tests) and `components/quick-parts.test.ts` (5 tests): results, formats,
+      instructions built from the dialog, blocks, the saves, and Company in an existing app.xml.
+    - The full suite: 1556 tests pass. Typecheck and ESLint are clean.
+  - **Real Word (office-runner VM), with every field updated by Word:**
+    - 26 fields with formats (CardText, OrdText, Ordinal, Hex, DollarText, ROMAN, ALPHABETIC, numeric pictures,
+      FirstCap, Caps, CREATEDATE with and without a picture, STYLEREF, SECTION, PAGE, NUMPAGES, MACROBUTTON, SYMBOL,
+      the document properties). Word gives the same text as the app for every one.
+    - DOCPROPERTY Company and Category read the saved properties. A file saved by Word, then by the app with a new
+      Company, shows the new one.
+    - The validator reports 0 errors.
+    - This found two differences, both fixed: Word's default date-and-time uses AM/PM in capitals, and an unquoted
+      number in QUOTE is a character code (QUOTE 65 is "A").
+  - Headless Chrome, light and dark:
+    - Saving a selection as a block, the gallery, Document Property › Author, the Field dialog (Date formats, Seq's
+      options, Field Codes, NUMWORDS \* CardText) and the Organizer with Modify Building Block all work.
+    - No dialog or menu scrolls or overflows.
+- **Still open:**
+  - Word's own building blocks (cover pages, headers, page numbers… in Building Blocks.dotx) are not in the
+    Organizer, and "Save in" is fixed to the app.
+  - Fields Word inserts through a dialog of their own (TOC, Index, Hyperlink, Citation, AddressBlock…) go in as a
+    plain field with their switches, without that dialog.
+  - Document Property inserts fields, where Word inserts content controls bound to the property.
+  - REVNUM, FILESIZE, TEMPLATE's path, USERADDRESS, LINK and INCLUDETEXT have no result in the app.
+  - The dialog's layout follows Word from memory; there is no screenshot of it in the repo.
+
+## 2026-11-15
+
+### Symbol dialog: font and subset, character code, Special Characters, Shortcut Key (U21)
+
+- **What was wrong or missing:** More Symbols… was a search box over about 60 fixed characters. There was no font,
+  no subset, no character code or name, no Special Characters tab, and no way to give a symbol a key. Insert >
+  Symbol showed a fixed set rather than the symbols last used. Word's symbol keys (Ctrl+Alt+C ©…) were not bound.
+- **What changed:**
+  - `components/symbol-dialog.tsx` (new), Word's Symbol dialog:
+    - **Symbols tab:** Font ((normal text), the app's fonts, and Symbol / Wingdings / Webdings with their 32–255
+      codes) and Subset (24 Unicode blocks; it follows the grid as it scrolls and scrolls the grid when chosen). A
+      16-column grid scrolling whole rows (arrows, Page Up/Down, Home/End, Enter, double click), and Recently used
+      symbols. The Unicode name, Character code with from: Unicode (hex) / ASCII (decimal) / ASCII (hex) (typing a
+      code selects it), AutoCorrect… (opens AutoCorrect with With: filled in), Shortcut Key… and the symbol's keys.
+    - **Special Characters tab:** Word's 20 characters with the keys the app binds.
+    - Insert keeps the dialog open and Cancel becomes Close, as in Word.
+  - **Customize Keyboard** (Shortcut Key…): current keys, Press new shortcut key, Currently assigned to, Assign and
+    Remove. A key moves from the command that had it; the app's own keys (Ctrl+S…) cannot be taken.
+  - **Data:** `components/symbol-names.json` (3186 names in 24 blocks, loaded when the dialog opens), generated by
+    `tools/gen-symbol-names.py` from Unicode 15.1's UnicodeData.txt.
+  - `editor/symbols.ts` (new): recently used symbols (Word's 20 to start with, kept in this browser), inserting in
+    a symbol's font, Word's Special Characters, and `symbol:` shortcut commands.
+  - `editor/shortcuts.ts`: Word's Ctrl+Alt+C ©, Ctrl+Alt+R ®, Ctrl+Alt+T ™, Ctrl+Alt+. … and Ctrl+Alt+Num - (em
+    dash). Keys assigned to symbols run from the same lookup.
+  - Insert > Symbol shows the 20 most recently used symbols, five to a row, each in its own font.
+- **Checked:**
+  - `editor/symbols.test.ts` (6 tests): names, codes, inserting twice in a font, a symbol key moving to and from ©,
+    Word's keys, the saved runs. The full suite: 1545 tests pass. Typecheck and ESLint are clean.
+  - Headless Chrome, light and dark: the subset jumps to Currency Symbols; typing 20AC selects € (Euro Sign); Insert
+    twice gives "€€" and Close; Recently used then starts with €; Special Characters shows Copyright with
+    Ctrl+Alt+C; Customize Keyboard opens on ©. No dialog scrolls or overflows, and the crawl finds nothing new.
+  - **Real Word (office-runner VM):** a save with € © ™ — … → ★ (non-breaking space) Ω, and Wingdings J, Symbol p,
+    Wingdings ü. Word draws ☺ π ✓ for the font glyphs and embeds Wingdings and Symbol. The validator reports 0
+    errors.
+- **Still open:**
+  - Symbol, Wingdings and Webdings are not installed on Linux, so the app shows their letters where Word shows the
+    glyphs (the saved file is right).
+  - The Subset list is fixed: it does not check which blocks a font has.
+  - Ctrl+- and Ctrl+Num - zoom out in this app, so the en dash, nonbreaking hyphen and optional hyphen have no
+    default key.
+  - Customize Keyboard has no Categories / Commands lists and no "Save changes in" (keys stay in this browser or
+    app). Word's Alt+X code toggle is not built.
+  - The dialog's layout follows Word from memory; there is no screenshot of it in the repo.
+
+### Spelling in the right-click menu: Ignore All, AutoCorrect, Language (U20)
+
+- **What was wrong or missing:** a left click on a red underline opened a small menu of its own (suggestions, Add
+  to dictionary, Ignore), which Word does not have, and the right-click menu knew nothing about spelling. There was
+  no AutoCorrect or Language choice for a misspelling. The checker's suggestions came in its own order, so "wrods"
+  offered prods, woods, rods, then words.
+- **What changed:**
+  - `components/text-context-menu.tsx`: a right-click on a misspelling starts the menu with Word's spelling section:
+    up to five suggestions in bold (or "(no spelling suggestions)"), Ignore All, Add to Dictionary, AutoCorrect ›
+    (each suggestion adds an AutoCorrect entry and fixes the word; AutoCorrect Options…) and Language › Set
+    Proofing Language… (the Language dialog). A line separates it from Cut, Copy…. Menu rows can open any submenu
+    (Paste Options was the only one), on the left when the window has no room on the right.
+  - The left-click spelling popup (`components/spell-menu.tsx`) and its styles are gone.
+  - `editor/spellcheck.ts`: `rankSuggestions` puts suggestions made of the typo's own letters first (a swap), the
+    rest in the checker's order; the Editor pane gets the same order.
+- **Checked:** `components/text-context-menu.test.ts` (3 new tests); the full suite, 1539 tests pass; typecheck and
+  ESLint clean. Headless Chrome with the real checker, light and dark: right-click "wrods" shows words, prods,
+  woods, rods, then Ignore All… ; the AutoCorrect submenu lists them and AutoCorrect Options…; Ignore All clears
+  both "wrods" underlines; Set Proofing Language… opens the Language dialog; a suggestion replaces the word; a left
+  click opens no menu; nothing in the menu scrolls or sits off screen.
+- **Still open:**
+  - Word 365 shows the spelling part as a card with "See More" (the Editor pane); this follows the classic list,
+    from memory (no screenshot of Word's spelling menu in the repo).
+  - Ignore All lasts for the session in this app; Word keeps it with the document.
+  - Language › Language Preferences… (needs Options > Language, U24). Grammar marks stay with the Editor pane item.
+  - On the tablet, suggestions now need a long press (the right-click menu) instead of a tap.
+
+### KeyTips: Alt or F10 shows letters on the ribbon (U18)
+
+- **What was missing:** Word's KeyTips. Alt did nothing, so the ribbon could not be used from the keyboard.
+- **What changed:**
+  - `components/ribbon/keytips-layer.tsx` (new, mounted in `workspace.tsx`): Alt pressed and released on its own,
+    or F10, badges File, the tabs and the Quick Access Toolbar (1–9, then 09, 08…). A tab's letters open it and
+    badge its commands; a command's letters press it (a split button's arrow when Word's key opens its menu: Paste
+    V, Font Color FC, Bullets U…; text boxes are focused, check boxes ticked). Alt+letter goes straight to a tab
+    (Alt+H). Backspace takes a letter back, Esc goes back a level, and Alt, F10, a click, the wheel, resizing or
+    leaving the window hides them. Not shown while a modal dialog is open. Alt with Shift, Ctrl or a symbol
+    (Alt+Shift+X, Alt+=) stays a shortcut.
+  - The layer reads the ribbon from the page (the tab panel in front, each control's name), so every tab, contextual
+    tab and the user's own tabs get KeyTips without each button being tagged. Style thumbnails get none; the
+    gallery's More button gets L, launchers their own letters (FO, FN, PG, FY).
+  - `components/ribbon/keytips.ts` (new): Word's letters for the tabs and for Home, Insert, Design, Layout,
+    References, Review and View; every other control gets two letters of its name. Keys on one level never start
+    another key, so typing stops at the first full match.
+  - Badges use theme tokens (`--app-keytip-*`) in light and dark.
+- **Checked:** `components/ribbon/keytips.test.ts` (4 tests); the full suite, 1536 tests pass; typecheck and ESLint
+  clean. Headless Chrome with real key events, light and dark: Alt badges File, the tabs and the toolbar; H then 1
+  bolds the selection with the text unchanged; Alt, N opens Insert; Esc goes back to the tabs and then hides them;
+  Alt+W opens View with Ruler R, Gridlines G, Navigation Pane K; F10 shows and hides; Alt+Shift shows nothing.
+- **Still open:**
+  - Word's letters come from memory (Word 365); there is no screenshot of Word's KeyTips in the repo, and the Word
+    in the VM runs hidden (PDF export only), so it cannot show them.
+  - No KeyTips inside the menus and galleries a key opens (Word goes on badging their items); arrows work there.
+  - Tabs with no Word letters known (Draw, Mailings commands, contextual tabs' commands) use generated letters.
+  - Controls scrolled out of a narrow ribbon get no badge until it is scrolled.
+
+### Lists made in the app save their own formats and nested levels to Word
+
+- **What was wrong or missing:** every list made in the app was saved against one Word numbering with a single
+  level, "1." or "•", and no indents. A nested item was written at `ilvl` 1, 2… that the numbering did not define, so
+  Word drew nested lists its own way. A list's own marker (a., I., 1), ✓…), Legal 1.1. numbering and bullets inside
+  a numbered list were all lost, and the text sat at the margin with no hanging indent.
+- **What changed:**
+  - **Save** (`document/docx/project.ts`, `appListDefinition` / `appListNumId`): each app-made list gets a
+    nine-level Word numbering built from what the editor draws at each depth: that depth's list's own kind and
+    marker, else 1. a. i. / • ○ ■, or 1. 1.1. 1.1.1. (with `w:isLgl`) for Legal. Indents are Word's: the text 0.5" in
+    a level, the marker hanging 0.25" (Legal's hang grows a part a level so its numbers fit). Nested lists share
+    their parent's `w:num` at their own level. A definition already in the file is reused when identical; numbered
+    lists still each get their own `w:num` and restart as before (U19).
+  - **Drawing** (`index.css`, `editor/indent.ts`): the app's own lists step 36 pt (0.5") a level instead of 1.75em,
+    so the screen and Word put the text in the same place, before and after a save. Adjust List Indents now reads
+    Word's defaults for them.
+  - `editor/word-markers.ts`: `appLevel`, one level of an app list as a Word format and text.
+- **Checked:**
+  - `document/docx/app-lists.test.ts` (7 tests): nested 1. a. i. as one list with Word's indents, nested bullets,
+    own markers also on a nested list, Legal, bullets in a numbered list, reuse with separate restarts, reopening.
+  - The full suite: 1532 tests pass. Typecheck and ESLint are clean.
+  - The validator: 0 errors on all seven saves.
+  - **Real Word (office-runner VM)** rendered all seven: 1. a. i., • ○ ■, I. / 1) / ✓, 1. 1.1. 1.1.1., ○ under a
+    number, two lists each from 1. Word's text positions (from the PDF) are 36 / 72 / 108 pt from the margin; the
+    editor's, measured in headless Chrome, are the same.
+- **Still open:**
+  - The editor draws an app list's marker right before the text (CSS markers); Word left-aligns it 0.25" before.
+  - Spacing: the editor still puts 0.75em below an app list; Word's list paragraphs keep only their own spacing.
+  - An item indented with Tab inside a list with its own marker draws that marker; the save uses the level's
+    default format there.
+
+### Text right-click menu: fits the window; Search names the caret's word (U19 follow-up)
+
+- **What was wrong or missing:** the text right-click menu was clamped to a fixed 360 px from the window's bottom,
+  but with the list commands it is 486 px tall, so a right-click low on the page drew its last rows (Translate,
+  Link…, New Comment) below the window. With nothing selected it offered Search “show”, a placeholder word.
+- **What changed:** `components/text-context-menu.tsx` measures the menu after it renders and opens it below and to
+  the right of the click when it fits, else above / to the left, always 8 px inside the window (`placeMenu`). With
+  no selection Search names the word the caret is in (`selectedWord`), or reads just "Search" between words.
+- **Checked:** `components/text-context-menu.test.ts` (4 tests); the full suite, 1525 tests pass; typecheck and
+  ESLint clean. Headless Chrome, light and dark, 1300 × 900: the menu on a list item low on the page opens above it
+  and nothing is off screen.
+
+### List right-click menu: Restart at 1, Continue Numbering, Set Numbering Value, Adjust List Indents (U19)
+
+- **What was wrong or missing:** right-clicking a list gave no list commands. Set Numbering Value (from the
+  Numbering gallery) only changed the list's start, and Continue Numbering counted every list before it, whatever
+  list it belonged to. The save was also wrong: lists the app made all shared one Word numbering, so Word counted
+  them as one list. Two separate lists showed 1, 2 and 3, 4 in Word, while the app showed 1, 2 and 1, 2.
+- **What changed:**
+  - **Menu** (`components/text-context-menu.tsx`): Adjust List Indents… on any list. On a numbered list also Restart
+    at 1, Continue Numbering (greyed out when no numbered list comes before) and Set Numbering Value…. Menu rows can
+    now be disabled.
+  - **Commands** (`editor/list-numbering.ts`, new):
+    - Restart at 1 splits the list at the caret's item, so the items above it keep their numbers.
+    - Continue Numbering makes the whole list count on from the numbered list before it, and takes that list's
+      format.
+    - A list that continues another keeps its numbers right as items above it are added or removed. The fix is part
+      of the same undo step.
+  - **List attributes** (`editor/lists.ts`):
+    - `continueList`, plus `listFamily` (the Word list it counts with).
+    - `openedAs` (how it was opened), so an opened list whose numbering was not touched is saved as Word wrote it.
+    - `listIndent` for Adjust List Indents.
+  - **Dialogs** (`components/list-numbering-dialogs.tsx`, new):
+    - Set Numbering Value, as Word's: Start new list / Continue from previous list, Advance value (skip numbers), Set
+      value to, Preview. The Numbering gallery now opens this one too; the old dialog and the old start-number helpers
+      in `editor/home-actions.ts` are gone.
+    - Adjust List Indents: Number position, Text indent, Follow number with (Tab character / Space / Nothing) and Add
+      tab stop at, in cm. It applies to the list's first level. An app list adjusted this way is drawn with
+      Word-style markers (`appListLevels` in `editor/word-markers.ts`, `editor/indent.ts`).
+  - **Save** (`document/docx/project.ts`):
+    - Each numbered list that starts again (Restart at 1, Set Numbering Value, or just a new list) gets its own
+      `w:num` with a `w:startOverride`.
+    - A list that continues shares the numbering of the list it continues.
+    - Lists opened from Word with unchanged numbering keep their own `w:num`.
+    - The app's own numbering definition is only added when a list made in the app needs it, so untouched Word
+      documents gain nothing.
+    - On open, lists carry where they start and whether they continue (`listStart` / `listAttributes`).
+    - Adjust List Indents is saved as the first-level items' own `w:ind` (and a `num` tab stop). Follow number with
+      Space / Nothing gives the list its own copy of its numbering with `w:suff`.
+- **Checked:**
+  - `editor/list-numbering.test.ts` (7 tests): restart splits and saves a `w:startOverride`; two lists save
+    separately; continue shares the numbering; numbers follow edits above, undone in one step; Advance value; an
+    opened unchanged list keeps its numbering; Adjust List Indents drawn and saved (`w:ind`, `num` tab, `w:suff`).
+  - The full suite: 1521 tests pass. Typecheck and ESLint are clean.
+  - **Real Word (office-runner VM)** on five saves: separate lists; restart at item 3, continue, advance to 10; the
+    same file opened and saved again; then restart at 5; and indents with tab, space and nothing after the number.
+    Word showed the same numbers as the app in each, and the app shows those numbers again when it opens the files.
+  - The validator: 0 errors on all five.
+  - Chrome: the menu items run with no console errors (light and dark).
+  - Screenshots in headless Chrome, light and dark: the menu on a second list (all four items), on the first list
+    (Continue Numbering greyed out) and on a bullet (only Adjust List Indents…); both dialogs fit with no scrolling.
+    The dialog overflow crawl finds nothing new (only the font, SmartArt and equation galleries Word also scrolls).
+- **Still open:**
+  - Adjust List Indents for deeper levels (it changes the first level only), and drawing the added tab stop in the
+    editor (it is saved).
+  - Lists made in the app saving as one level of "1." / "•": fixed the same day (entry above).
+  - Word's list menu items come from memory; there is no screenshot of Word's list right-click menu in the repo.
+
+## 2026-11-14
+
+### Status bar: Go To, Word Count, Zoom, Language and Customize Status Bar (U17)
+
+- **What was wrong or missing:** the status bar's page number, word count and zoom were plain text. A selection
+  had no count of its own. The language button changed the whole document's language, and there was no way to
+  mark some text as another language or as not to be checked. There was no Track Changes indicator and no Customize
+  Status Bar.
+- **What changed:**
+  - **Clicks** (`components/status-bar.tsx`): the page number opens Go To, the word count Word Count, the language
+    the Language dialog, and the zoom percentage the Zoom dialog. The book icon opens the Editor pane (a tick, or a
+    cross when there are spelling errors).
+  - **Selection counts:** "3 of 43 words" while text is selected, the character count likewise.
+  - **Customize Status Bar** on right-click: Word's items with ticks and current values, saved per user
+    (`document/status-bar.ts`). Section, Character Count, Track Changes (click to turn on or off), Caps Lock and
+    Overtype are off by default, as in Word.
+  - **Shared dialogs** (`components/status-dialogs.tsx`), now also used by Review > Word Count and View > Zoom:
+    - Word Count with Word's statistics (pages, words, characters with and without spaces, paragraphs, lines) for
+      the selection or the document, and "Include textboxes, footnotes and endnotes" (`editor/word-count.ts`).
+    - Zoom with 200 / 100 / 75 %, Page width, Whole page, Many pages, Percent and a preview.
+    - Language: marks the selection (or the word at the caret) with a language, or "Do not check spelling or
+      grammar"; Set As Default changes the document's language. Review > Language now opens it through Set Proofing
+      Language….
+  - **Language on text:** a new `proofing` mark (`editor/proofing.ts`) carries `w:lang` and `w:noProof`. It is
+    read from and written to .docx (`docx/inlines.ts`), and an opened run keeps its other properties when only its
+    language changes.
+  - **Spelling:** `editor/spellcheck.ts` skips "do not check" text and checks text in another language with that
+    language's dictionary, loading it when needed. Text in a language the app has no dictionary for is not checked,
+    as in Word. Suggestions come from the word's language.
+  - **Startup fix** (`editor/document-editor.tsx`): the editor is now made after the first render
+    (`immediatelyRender: false`). TipTap destroyed an editor made during render 1 ms later unless the app had
+    mounted by then, and the app's first render is split into chunks by React. Components then started with a
+    destroyed editor and the first one to read its view took the window down. Until now, the status bar's start-up
+    error (logged in U16) happened to force React to finish the render in one go. Start-up now logs no errors.
+- **Checked:**
+  - `editor/proofing.test.ts` (8 tests): marking a selection, the word at the caret, noProof saved and opened,
+    changing an opened run's language, word and selection counts.
+  - The full suite: 1514 tests pass. Typecheck and ESLint are clean.
+  - The validator: 0 errors on a save with `w:lang` and `w:noProof`.
+  - Chrome, light and dark: each click opens its dialog; "3 of 43 words"; marking "een Nederlandse zin" as Dutch
+    takes its three red underlines off and shows "Dutch"; Zoom 75 % applies; Customize Status Bar turns on
+    Section, Character Count and Track Changes, and Track Changes then toggles from the bar; start-up has no console
+    errors (four runs).
+  - The dialog overflow crawl.
+- **Still open:**
+  - Formatted Page Number, Vertical Page Position, Line Number and Column in Customize Status Bar.
+  - Text width in the Zoom dialog.
+  - Detect language automatically.
+  - Language Preferences… (Options > Language, U24).
+  - The Customize Status Bar list follows Word from memory; there is no screenshot of it in the repo.
+
+### Design tab: Style Sets, Paragraph Spacing, Customize Colors / Fonts, Save Current Theme (U16)
+
+- **What was wrong or missing:** the Design tab had a short list of app-made themes and colour/font choices that
+  only changed CSS on screen. There was no Style Set gallery, the Paragraph Spacing presets were not Word's, colours
+  and fonts could not be customized, and a theme could not be saved or loaded. A saved .docx kept none of it, and
+  theme colours on borders, shading and runs (`w:themeColor`, `w:themeFill` with tint/shade) were lost.
+- **What changed:** Word's own design data, generated from Word's files by `tools/word-design-extract.py`
+  (`document/word-design-data.ts`: themes, colour and font schemes, the Office theme part;
+  `document/word-style-sets.ts`: the 18 Style Sets). `document/design.ts` holds the logic: themes,
+  custom schemes and themes (kept in local storage), the theme part written with the chosen colours and fonts,
+  `.thmx` save and load, Style Set catalogs, and the Paragraph Spacing values. On the Design tab
+  (`components/ribbon/design-tab.tsx`), classic and single-line ribbon:
+  - **Themes** menu: Office and Custom thumbnails, Reset to Theme from Template, Browse for Themes… (`.thmx`),
+    Save Current Theme….
+  - **Style Set** gallery: each thumbnail drawn in the current theme, with scroll arrows and a More panel.
+  - **Colors** and **Fonts** menus: Word's schemes plus Custom ones. Customize Colors… opens Create New Theme
+    Colors (twelve colours with a light and dark sample); Customize Fonts… opens Create New Theme Fonts
+    (`components/theme-dialogs.tsx`).
+  - **Paragraph Spacing**: Default plus Word's six built-in presets, each with a sample.
+
+  The page is drawn from the chosen Style Set and theme (`docx/session.ts` `showDocumentDesign` /
+  `designStyleSheet`). Saving writes the Style Set and spacing into `styles.xml` and the theme into the theme part,
+  changing an opened document's theme in place (`docx/io.ts`). Theme colour references on runs, borders and
+  shading are read and written (`wml-read.ts`, `wml-write.ts`, `model.ts`). The choices survive the app's own HTML
+  (`header.ts`, `page-setup.ts`), and the desktop app can open `.thmx` (`src-tauri/src/lib.rs`).
+
+- **Checked:**
+  - `document/design.test.ts` (10 tests).
+  - Typecheck, ESLint and the full suite: 1506 tests pass.
+  - The Open XML SDK validator: 0 errors on four saves (Lines (Distinctive) + Ion; Shaded + Relaxed + Slipstream
+    colours; Double; f02 opened and saved with Casual + Facet).
+  - **Word (VM)** renders all four with the set's headings, the theme's fonts and colours, and the spacing; the
+    Lines + Ion page matches the app's screen.
+  - Chrome, light and dark: the Themes, Colors, Fonts and Paragraph Spacing menus, both Customize dialogs, and
+    applying a theme, a Style Set and Double spacing.
+  - The dialog overflow crawl.
+- **Still open:**
+  - Save as a New Style Set… (needs a Word template the app does not write).
+  - Custom Paragraph Spacing… (needs Manage Styles).
+  - Editing or deleting a custom scheme from its right-click menu.
+  - Save Current Theme… and Browse for Themes… were not run in the desktop app (`verify-list.md`).
+  - At startup the status bar's word count read an editor that was not ready yet (before this change too); found
+    and fixed with U17 (the editor is made after the first render).
+
+### Outline view and the Outlining tab (U15)
+
+- **What was wrong or missing:** View > Outline only hid every paragraph that was not a heading; there was no
+  Outlining tab, nothing could be collapsed, promoted or moved as an outline, and Heading 7 to 9 could not be reached.
+- **What changed:** Word's **Outline view**: each paragraph a step in per level after its symbol (⊕ heading with text
+  under it, ⊖ heading without, a dot for body text), a grey wave under a collapsed heading, paragraph indents and the
+  ruler not shown. The **Outlining** tab opens in front of Home with the view: Promote to Heading 1, Promote, the
+  Outline Level box (Level 1-9, Body Text), Demote, Demote to Body Text, Move Up / Move Down, Expand / Collapse (a
+  level at a time, body text first), Show Level (Level 1-9, All Levels), Show Text Formatting, Show First Line Only and
+  Close Outline View, on the classic and the single line ribbon. A click on a symbol selects the heading with what is
+  under it, a double click collapses or expands it all; a collapsed heading moves, promotes and demotes with what is
+  under it, also through Undo and Redo, and the caret never stops in collapsed text. Keys as in Word: Tab / Shift+Tab,
+  Alt+Shift+Left/Right/Up/Down, Alt+Shift+Plus/Minus, Alt+Shift+1-9, Alt+Shift+A, Alt+Shift+L, and Ctrl+Alt+P / O / N
+  for Print Layout, Outline and Draft; Tell Me finds Outline and Draft. Levels 7-9 are paragraphs with
+  `w:outlineLvl` (the editor's headings stop at 6). What is collapsed is the view's own state, as in Word: not saved,
+  forgotten on leaving (`editor/outline-view.ts`, `components/ribbon/outlining-tab.tsx`, `ribbon.tsx`,
+  `editor/shortcuts.ts`, `index.css`).
+- **Checked:** unit tests (`editor/outline-view.test.ts`: symbols and indents, collapse / expand steps, Show Level,
+  promote and demote with a collapsed subtree, Heading 6 to level 7 saved as `w:outlineLvl`, move with Undo / Redo,
+  the caret kept out of collapsed text, the state forgotten on leaving); Chrome light and dark: the tab opens with the
+  view, Collapse x3 / Expand, Show Level 1, Alt+Shift+Up, Tab, the Outline Level box, double click and click on a
+  symbol, First Line Only and plain text, the single line ribbon and its More menu, Close back to Print Layout with
+  Home in front; every menu fits; typecheck, lint, the full suite, the overflow crawl (nothing new); **in Word (VM)**
+  the app's level-7 paragraph reads as outline level 7 (validator: 0 errors), and Word's level-8 paragraph opens in
+  the app at level 8.
+- **Still open:** dragging a symbol to move a heading (Move Up / Down and the keys do it); Word's Master Document
+  group (the app has no subdocuments); Word's own look for Heading 7-9 (they are drawn as their paragraph style).
+
+### Source Manager, Create Source, Edit Citation and placeholders (U14)
+
+- **What was wrong or missing:** sources were a flat author/title/year list kept only in the app; citations were
+  plain text, not Word's CITATION fields; a Word document's sources (customXml `b:Sources`) and its bibliography were
+  not understood, so neither could be updated; there was no Source Manager, no Edit Citation and no placeholders.
+- **What changed:** Word's **Create Source** with all 17 source types and their fields (Show All Bibliography Fields
+  in two columns, Corporate Author, Edit Name, a tag with a duplicate warning), **Source Manager** (Master List kept
+  across documents and Current List, search, sort, Copy / Delete / Edit / New, ✓ cited and ? placeholder marks,
+  preview), **Insert Citation** menu (sources, Add New Source…, Add New Placeholder…), **Style** (APA, Chicago,
+  Harvard - Anglia, IEEE, MLA, Turabian), the **Bibliography** gallery (Bibliography / References / Works Cited, Insert
+  Bibliography), and on a citation's right-click menu Edit Citation… (pages, suppress author / year / title), Edit
+  Source…, Convert Citation to Static Text and Update Citations and Bibliography. Citations are saved as Word's
+  citation content controls around a CITATION field; the bibliography as a BIBLIOGRAPHY field over "Bibliography"
+  paragraphs; the sources and style as Word's custom XML part. An untouched Word citation or bibliography is written
+  back as read. CSL-JSON and BibTeX imports (add-in) now make full sources (`document/bibliography.ts`,
+  `document/bibliography-store.ts`, `document/docx/bibliography-field.ts`, `document/docx/sources-part.ts`,
+  `editor/bibliography.ts`, `editor/word-field.ts`, `components/source-dialogs.tsx`, `ribbon/references-tab.tsx`,
+  `text-context-menu.tsx`). The editor's empty paragraph after a final bibliography is no longer saved.
+- **Checked:** unit tests against Word's own output for every source type in all 6 styles
+  (`document/bibliography.test.ts`, fixtures `tests/bibliography/` and `f25_citations_word.docx` made by Word), the
+  editor round trip, style switch, Edit Citation and placeholders (`editor/citations.test.ts`), edit-fidelity on the
+  new fixture; the Open XML SDK validator passes the app's file in each style; **in Word (VM)** each app-made file
+  opens with the right style and sources, all 71 field results match Word's after updating fields (IEEE: same text,
+  Word draws it as a table), and Word keeps the app's citations when it saves; Chrome light and dark: menus, Create
+  Source (short and Show All), Edit Name, Source Manager, Placeholder and Edit Citation fit without scrolling;
+  typecheck, lint, the full suite, the overflow crawl (nothing new).
+- **Still open:** IEEE is written as paragraphs (Word uses a table); the Language list; Browse… for another master
+  list; Search Libraries; the other styles (GB7714, GOST, ISO 690, SIST02); the Bibliographies gallery wrapper control
+  on insert; Save Selection to Bibliography Gallery.
+
+### Footnote and Endnote dialog, note numbering and Convert (U13)
+
+- **What was wrong or missing:** the References > Footnotes launcher did nothing; notes were always numbered 1, 2, 3
+  and i, ii, iii, whatever the document said; notes made in the app were **not saved to .docx at all**; a custom mark
+  (`w:customMarkFollows`) and the numbering options in settings.xml were dropped on save; Word's own notes ignored
+  their number format.
+- **What changed:** Word's **Footnote and Endnote** dialog (launcher, single line ribbon, Tell Me): Location
+  (footnotes Bottom of page / Below text, endnotes End of document / End of section), Convert… (all footnotes to
+  endnotes, all endnotes to footnotes, swap; one Undo step), Number format, Custom mark, Start at (with the number as
+  it will show), Numbering (Continuous, Restart each section, Restart each page), Insert and Apply. App notes and
+  Word's notes are numbered together, in Word's formats (a…z aa, I II, *, †, ‡, §), on the page and in the note area.
+  The options are read from settings.xml and the last section, saved to both when changed, and app notes are saved
+  as real footnotes/endnotes (with separators, FootnoteText/Reference styles, next free ids); a converted Word note's
+  text moves to the other part (`document/note-numbering.ts`, `document/note-settings.ts`, `editor/note-labels.ts`,
+  `editor/note-convert.ts`, `components/footnote-dialog.tsx`, `docx/project.ts`, `docx/wml-write.ts`).
+- **Checked:** unit tests (`editor/footnote-options.test.ts`: formats, numbering with start / restart / custom marks,
+  save of app notes, options round trip, Convert moving Word's note text); the Open XML SDK validator passes a saved
+  file with converted notes, a custom mark and changed options; LibreOffice draws its notes; typecheck, lint, the
+  full suite; Chrome light and dark: Apply (a, b, c from 3) relabels the text and the note area to c, d, Convert turns
+  them into i, ii endnotes; both dialogs fit without scrolling and the overflow crawl finds nothing new.
+- **Still open:** notes are still drawn only at the page bottom and the document end (Below text and End of section
+  are saved, not drawn); one set of options per document (no "This section"); no footnote layout columns; no
+  Symbol… button for the custom mark; the note text is typed in the dialog (app notes hold plain text).
+
+### Paste Special, Paste as Picture and Set Default Paste (U12)
+
+- **What was wrong or missing:** there was no Paste Special or Set Default Paste; Merge Formatting from the Paste
+  menu pasted plain text; the Paste button always kept the source formatting, whatever Options said.
+- **What changed:** the Paste menu has Word's Paste Options (Keep Source Formatting, Merge Formatting, Picture, Keep
+  Text Only), Paste Special… and Set Default Paste… (Options > Advanced, Cut, copy, and paste). **Paste Special**
+  (Ctrl+Alt+V, Tell Me) shows the source and lists what the clipboard holds: HTML Format, Unformatted Text,
+  Unformatted Unicode Text, Picture (PNG), with Word's Result text; Paste link is shown disabled. **Picture** pastes
+  copied text as a PNG of how it looks, at the text's size; a copied picture pastes as itself. Merge Formatting now
+  keeps bold, italic, links and lists and drops fonts, sizes and colours, through the editor's own paste handling;
+  the Paste button, Ctrl+V's menu twin and the object menus follow the default paste options
+  (`editor/paste-special.ts`, `components/paste-special-dialog.tsx`, `editor/editing-behavior.ts`,
+  `editor/home-actions.ts`).
+- **Checked:** unit tests (`editor/paste-special.test.ts`: the formats list, the source, keep / merge / unformatted,
+  lines as paragraphs); typecheck, lint, the full suite; Chrome light and dark with formatted HTML on the clipboard:
+  each option pastes as described, the picture keeps the list and the text size, Ctrl+Alt+V opens the dialog, Set
+  Default Paste opens Options at Cut, copy, and paste; the menu and dialog fit without scrolling and the overflow
+  crawl finds nothing new.
+- **Still open:** Paste link and Display as icon, RTF and metafile formats (not readable from a web view's
+  clipboard); the Paste Options button after a paste; Picture in the desktop app's WebKitGTK is not yet checked.
+
+### Track Changes options, Show Markup and Restrict Editing (U11)
+
+- **What was wrong or missing:** formatting made with Track Changes on was not tracked, and Word's formatting changes
+  (`w:rPrChange`) were lost; Track Changes was not saved with the document; there was no No Markup, Show Markup menu,
+  Lock Tracking or Track Changes Options; Restrict Editing and Block Authors only turned editing off for the session.
+- **What changed:** bold, italic, fonts, sizes, colours and the like made while tracking become a formatting change
+  ("Formatted: Bold", "Not Italic", "Font size: 18 pt") that the Reviewing Pane lists and Accept / Reject settle
+  (Reject puts the old formatting back); they are read from and saved as `w:rPrChange`, and Word's own are written
+  back as read. Track Changes is a split button: For Everyone, Just Mine, Lock Tracking (with an optional password).
+  The markup list gains No Markup, and the dropdown shows the current mode. Show Markup has Comments, Ink,
+  Insertions and Deletions, Formatting, Specific People (hide one reviewer's changes) and Track Changes Options…,
+  which is also the Tracking group's launcher (Comments, Ink, Insertions and Deletions, Formatting, Reviewing Pane,
+  Change User Name…). Restrict Editing opens Word's pane: limit formatting to styles, allow only Tracked changes /
+  Comments / Filling in forms / No changes, Yes, Start Enforcing Protection with an optional password (stored as
+  Word's salted SHA-512 hash, 100 000 spins) and Stop Protection asking for it. Enforced, Read only and forms make the
+  editor read-only, Comments lets only comments through, Tracked changes locks Track Changes on, and limited
+  formatting refuses direct formatting. Protection and Track Changes are read from and saved to settings.xml
+  (`w:documentProtection`, `w:trackRevisions`); an opened file's settings apply after its content has loaded, and a
+  new document starts with neither (`document/review.ts`, `document/protection.ts`, `editor/protection.ts`,
+  `editor/track-changes.ts`, `components/protect-pane.tsx`, `components/ribbon/review-tab.tsx`).
+- **Checked:** unit tests (`editor/track-format.test.ts`, `editor/protection.test.ts`, `document/protection.test.ts`,
+  the f10 fixture now also expects its bold formatting changes and keeps them on save); typecheck, lint, the full
+  suite; Chrome light and dark: tracked bold, insertion and deletion drawn in All Markup, No Markup shows the result,
+  Show Markup > Formatting hides the format line, Comments-only protection with a password blocks typing, a wrong
+  password is refused and the right one stops protection (hashing takes about half a second); every new menu, pane
+  and dialog fits without scrolling, and the overflow crawl finds nothing new. A saved file with formatting changes
+  and SHA-512 protection passes the Open XML SDK validator with 0 errors.
+- **Still open:** not yet opened in Word (see `verify-list.md`). Balloons are left out (no revision balloons here);
+  Filling in forms leaves nothing editable; Word 2007–2019 passwords can't be checked (Stop Protection offers to stop
+  anyway); no exceptions, styles list or per-reviewer colours.
+
+### Dialogs and popups fit without scrolling
+
+- **What was wrong or missing:** the font size list, the styles gallery's More menu and Borders and Shading's style
+  list scrolled though the window had room; the Table of Figures and Index dialogs cut off their last rows and the
+  Mark Index Entry cross-reference box ran past the dialog (fixed with U10).
+- **What changed:** those lists take the window's height before scrolling; `tools/dialog-overflow.mjs` opens every
+  ribbon button and every "…" item of its menu in headless Chrome and reports any dialog or popup that scrolls
+  sideways, clips its content, sits off screen, or scrolls vertically outside a list or gallery.
+- **Checked:** the crawl, light and dark, at 1300 × 900: nothing scrolls sideways or sits off screen; only the long
+  galleries Word also scrolls remain (fonts, SmartArt, equations, theme colours and fonts).
+- **Still open:** the crawl does not reach dialogs opened from other dialogs, the File view or the single-line
+  ribbon; it runs at one window size.
+
+### Table of Figures, Index and Mark Index Entry (U10, part 2)
+
+- **What was wrong or missing:** Insert Table of Figures and Insert Index dropped placeholder blocks that listed
+  captions and marked words live (the index only counted them, with no pages), neither was saved to .docx, a Word
+  table of figures opened as a table of contents that Update refilled with headings, and Mark Entry only underlined
+  the selection.
+- **What changed:** a **Table of Figures** is the table of contents node with Word's `TOC \h \z \c "Figure"`
+  instruction (`\a` without label and number): it lists the captions of its label with their pages, links to them,
+  shows "Update Table…", and is saved as Word writes it (Table of Figures paragraphs in the field, `_Toc` bookmarks
+  on the captions, no content control). Insert Table of Contents no longer replaces it and Update Table of Contents
+  leaves it alone; the ribbon's Update Table of Figures (disabled without one) and its own tab ask "Update Table of
+  Figures". Its dialog has Word's print preview, Show / Right align page numbers, Tab leader, Use hyperlinks,
+  Caption label and Include label and number (`components/toc-dialogs.tsx`). **Mark Index Entry** (Mark Entry,
+  Alt+Shift+X, Tell Me; `components/index-dialogs.tsx`) puts an XE field after the selection: main entry, subentry,
+  Cross-reference, Current page or Page range (a bookmark), bold / italic page numbers; Mark All marks every
+  paragraph where the selected word occurs (whole word, matching case); the dialog stays open. XE fields are hidden
+  text, shown as `{ XE "…" }` with formatting marks on. **Insert Index** lists the entries sorted, with merged pages,
+  subentries indented or run-in, 1–4 columns, page numbers after a comma or right-aligned after a leader; it shows
+  what it was last updated to and Update Index recomputes it. It is saved as Word's INDEX field over index 1 / index 2
+  paragraphs, and a Word index opens as one (saved back as read while untouched). Pure parts in
+  `document/index-field.ts` and `document/docx/index-field.ts`; the editor node in `editor/index-entry.ts`.
+- **Checked:** `editor/figures-index.test.ts` (figure tables with and without labels, beside a table of contents,
+  update by kind, .docx round trip with resolved PAGEREFs; XE parsing and writing, sorting, merged pages, indented /
+  run-in / right-aligned lines, Mark and Mark All, Update Index, XE and INDEX round trip); in Chrome, light and dark:
+  two captions, Insert Table of Figures, Alt+Shift+X with Mark All, a subentry, Insert Index right-aligned in two
+  columns; a saved file with a table of figures, a table of contents, three XE fields and an index passes the Open
+  XML validator with unique bookmarks and every PAGEREF resolving.
+- **Still open:** the index is not put in its own section, so Word lays it out in two columns only after an update;
+  a Word index that sits in its own section (the usual case) still opens as plain paragraphs; no AutoMark, Modify…
+  or letter headings; Mark Index Entry is modal, so the main entry does not follow a new selection as in Word; Table
+  of Figures has no Options… (style-based tables) or Modify…. Not yet opened in Word.
+
+### Insert Caption and Cross-reference as Word fields (U10, part 1)
+
+- **What was wrong or missing:** Insert Caption only typed "Figure n" as plain text (it never renumbered) and
+  Cross-reference was a short menu of headings that inserted links. Nothing was saved as Word's SEQ / REF / PAGEREF
+  fields, and the editor's own bookmarks were not written to .docx at all.
+- **What changed:** a `wordField` inline node (`editor/word-field.ts`, pure parsing in
+  `document/field-instructions.ts`) holds a field's instruction and result and keeps the results up to date as the
+  document changes: SEQ numbers per label (`\r`, `\s`, `\c`, `\h`, `\*` ARABIC / ALPHABETIC / ROMAN…), REF to a
+  bookmark's text or above/below (`\p`), PAGEREF to its page. Ctrl+click on one inserted as a hyperlink (`\h`) goes
+  to its target; F9 / Update Field refreshes them and Ctrl+Shift+F9 unlinks them. Fields read from Word keep Word's
+  result until F9, and are saved as they were read while untouched. The **Caption dialog** (References, Insert, a
+  picture's right-click menu, Tell Me; `components/caption-dialogs.tsx`, logic in `editor/captions.ts`) shows
+  "Figure 1" before the text, has Label, Position (above/below the selected picture or table), Exclude label, New
+  Label…, Delete Label and Numbering…; the caption gets the built-in Caption style. The **Cross-reference dialog**
+  lists headings, bookmarks or the captions of a label, inserts the text, page number, above/below, label and
+  number, or caption text, as a hyperlink or not, with "Include above/below", and stays open for more (Cancel turns
+  into Close). Targets get hidden `_Ref…` bookmarks; bookmarks may now overlap, and every bookmark is saved as
+  `w:bookmarkStart` / `w:bookmarkEnd`. Also fixed: Insert > Bookmark threw "Applying a mismatched transaction";
+  in dark mode disabled fields in every dialog looked enabled.
+- **Checked:** `editor/word-field.test.ts` (parsing and number formats, numbering and renumbering, Exclude label,
+  caption above a table, references to captions / headings / bookmarks following renumbering, .docx round trip);
+  in Chrome, light and dark, two captions through the dialog (the earlier one inserted second, so the first
+  renumbers) and a cross-reference to Figure 2; a saved file with SEQ, REF `\h`, REF `\p` and PAGEREF passes the Open
+  XML validator with every reference resolving to a bookmark.
+- **Still open:** references to footnotes/endnotes and numbered items, chapter numbers in captions, AutoCaption;
+  Table of Figures, Index and Mark Index Entry come next (part 2). Not yet opened in Word.
+
+### Styles pane, Apply Styles box, Style Inspector and Reveal Formatting
+
+- **What was wrong or missing:** styles could only be applied from the gallery; there was no Styles pane, no Apply
+  Styles box, no way to see which formatting came from the style and which was added, and Ctrl+Shift+S was Save As.
+- **What changed:** `components/styles-pane.tsx` (state in `document/style-panes.ts`, logic in
+  `editor/style-inspect.ts`). The **Styles pane** (Home's Styles launcher, Alt+Ctrl+Shift+S) lists the shown styles
+  with Word's ¶ / a / ¶a marks, outlines the selection's style as the caret moves, applies on click, offers Clear All,
+  and each style's ▾ menu (Update to Match Selection, Modify…, Remove from Style Gallery, Delete); Show Preview draws
+  the names in their styles; Disable Linked Styles makes Heading 1/2, Title, Subtitle and Quote paragraph-only (with
+  it off, as in Word, they format just the selected words when applied to part of a paragraph). Its buttons are New
+  Style, Style Inspector and Manage Styles; the two options are remembered. The **Apply Styles box** (Ctrl+Shift+S,
+  and the gallery's More menu, which now ends Create a Style / Clear Formatting / Apply Styles as Word's does) takes a
+  style name with completion; Enter applies (Reapply when it is the current style), Modify… and Styles. The **Style
+  Inspector** shows the paragraph style and "Plus:" its direct formatting, the character style and its direct
+  formatting, with an eraser for each and Clear All; it floats and moves by its title. **Reveal Formatting** (Shift+F1)
+  lists the selection's Font, Paragraph and Section; Font and Paragraph open their dialogs. Save As keeps F12 (also on
+  the macOS menu); Ctrl+Shift+S is free in Customize Keyboard.
+- **Checked:** `editor/style-inspect.test.ts` (style names incl. Heading 3, direct paragraph and character formatting,
+  Clear Paragraph Formatting, Reveal sections, pane order, linked styles both ways, the keys); in Chrome, light and
+  dark, with real key presses: Alt+Ctrl+Shift+S, Shift+F1, the Inspector on a centred paragraph, Ctrl+Shift+S then
+  "Title" + Enter, and Heading 2 on two words from the pane.
+- **Still open:** no Options… (which styles to show, sort order), no "Select All n instances", Style Inspector's
+  character-style eraser also clears direct character formatting; Reveal Formatting has no Compare to another
+  selection and no Distinguish style source.
+
+### Insert > Table: Insert Table…, Convert Text to Table…, Draw Table and Word's 10 × 8 grid
+
+- **What was wrong or missing:** the Table menu was only an 8 × 8 grid: no Insert Table dialog, no way to turn
+  text into a table, and Draw Table only on the Table Design tab.
+- **What changed:** the menu is Word's: a 10 × 8 grid named "3x2 Table" as you point, then Insert Table…, Draw
+  Table and Convert Text to Table… (with a selection only). `editor/table-insert.ts` builds the tables with Word's
+  AutoFit behaviours: Fixed column width Auto (equal columns over the text width), a fixed width (every column that
+  wide, automatic resizing off, saved as `w:tblLayout fixed`), AutoFit to contents (columns measured after the
+  table is drawn) and AutoFit to window (100% of the text width, `w:tblW pct 5000`). Convert Text to Table splits
+  at paragraphs, tabs (typed or the editor's own tab nodes), commas or any character, guesses tabs when the text
+  has them, counts columns and rows as Word does, keeps the text's formatting and is one undo step. Insert Table
+  opens on 5 × 2 or the size kept with "Remember dimensions for new tables". The dialogs are
+  `components/insert-table-dialog.tsx`; the dialog spin box gained an "Auto" value and a greyed value that stays
+  shown. Tell Me lists Insert Table…, Convert Text to Table… and Draw Table.
+- **Checked:** `editor/table-insert.test.ts` (sizes and limits, caret in the first cell, fixed and window widths in
+  the saved XML, remembered size, tabs/commas/other/paragraphs, tab nodes, marks kept, undo); in Chrome, light and
+  dark: the menu, both dialogs, a 3 × 4 AutoFit-to-window table, and a tab-separated selection turned into a 3 × 3
+  table; the saved .docx passes the Open XML validator.
+- **Still open:** Excel Spreadsheet and Quick Tables are left out of the menu (no embedded workbook or building
+  block gallery); an AutoFit-to-contents table is fitted once, when made, and does not grow as you type.
+
+### Word's missing shortcuts: F12, Ctrl+F2, F4 / Ctrl+Y, Shift+F5, Alt+Shift+arrows, notes, fields, bookmark, thesaurus
+
+- **What was wrong or missing:** many of Word's keys did nothing: no Repeat, no Go Back, no moving paragraphs or
+  promoting headings from the keyboard, no keys for notes, fields, bookmarks or the thesaurus, and F12 / Ctrl+F2
+  were not bound.
+- **What changed:** new commands in `editor/word-keys.ts`, bound in the shortcut registry (`editor/shortcuts.ts`,
+  so File > Options > Customize Keyboard lists and rebinds them): Alt+Shift+Up/Down moves the paragraphs (or list
+  items) with the selection past their neighbour, one undo step; Alt+Shift+Left/Right promotes and demotes a
+  heading, a list item (list level) or body text (to the heading level above it); F4 repeats the last keyboard
+  command or the last typed text, and Ctrl+Y redoes while there is something to redo and repeats otherwise;
+  Shift+F5 cycles the caret through the last four places edited; Alt+Ctrl+F / Alt+Ctrl+D insert a footnote /
+  endnote; F9 updates the fields in the selection (dates, formulas, IF, tables of contents), Ctrl+Shift+F9 turns
+  them into plain text, Shift+F9 shows field codes; Ctrl+Shift+F5 opens the Bookmark dialog (now drawn once by the
+  workspace, `document/bookmark-dialog.ts`, so it opens from any tab); Shift+F7 opens the Thesaurus. F12 is Save As
+  and Ctrl+F2 opens File > Print (`document/app-menu.ts`); both are reserved in Customize Keyboard, and arrow keys
+  show there as Up/Down/Left/Right.
+- **Checked:** `editor/word-keys.test.ts` (moves and their undo, list items, promote/demote of headings, body text
+  and list levels, Repeat and Ctrl+Y, Go Back, every key bound); in Chrome with real key presses: Alt+Shift+Up,
+  Alt+Shift+Right, Ctrl+B then F4, Shift+F5, Ctrl+Alt+F, Ctrl+Shift+F5, Ctrl+F2, light and dark.
+- **Still open:** Shift+F9 shows the codes of every field rather than the selected one; Ctrl+Alt+V (Paste
+  Special, U12) and Ctrl+Shift+S as Apply Styles (U9; it stays Save As until then) come with their dialogs; Repeat
+  covers keyboard commands and typing, not ribbon buttons yet.
+
+### Word templates, macro-enabled documents and Word 97–2003 files
+
+- **What was wrong or missing:** only .docx opened; a .docm, .dotx or .dotm was refused, a .doc showed "can't
+  open", and Save As had no template or macro-enabled types. A .docm's VBA project was not kept at all.
+- **What changed:** .docx, .docm, .dotx and .dotm all open with the Word reader and save as themselves: the main
+  part's content type follows the file's extension (`mainContentTypeFor` in `docx/opc.ts`). The VBA project and its
+  data are kept as written while the file stays .docm/.dotm and left out of a .docx/.dotx (`dropMacros` in
+  `wml-write.ts`); before that, Save As asks as Word does ("cannot be saved in a macro-free document", No goes back
+  to Save As with .docm offered; `macro-prompt-dialog.tsx`). Save As (dialog filters and the File > Save As list)
+  offers Word Macro-Enabled Document, Word Template and Word Macro-Enabled Template, starts on the open file's own
+  type, and keeps an extension the person typed instead of forcing the filter's. A .doc or .dot opens on the
+  desktop through LibreOffice when it is installed (`convert_legacy_document` in `src-tauri/src/lib.rs`, run with a
+  private profile in a temporary folder); like Word's Convert, it opens as an unsaved .docx, so Save asks where.
+  Without LibreOffice, or in the browser, the older-Word-file message now says so.
+- **Checked:** `docx/word-types.test.ts` (macros kept in .docm, dropped from .docx, .dotx gets the template type and
+  reopens); Rust tests for the extensions and the profile URL; Open XML SDK validator: 0 errors on a saved .docm,
+  .docx-from-.docm and .dotx; a mock .doc made by LibreOffice converted with the app's arguments (name with a
+  space) and opened by the reader; Save As list and the macro prompt in Chrome, light and dark.
+- **Still open:** opening a template from the system (double-click) should start a new document from it, as Word
+  does; a .doc cannot be saved back as .doc. Not checked in Word itself yet (verify list).
+
+### Navigation pane: search with Results, page thumbnails, collapsible headings you can drag
+
+- **What was wrong or missing:** the pane was a flat list of headings; Ctrl+F opened the Find dialog; there was no
+  way to see every match at once, see the pages, fold the outline or move a section.
+- **What changed:** `components/navigation-pane.tsx` is rebuilt as Word's pane: a "Search document" box (Enter /
+  Shift+Enter and the arrows step through the matches, "Result N of M"), Headings, Pages and Results tabs. Every
+  match is highlighted in the document by `editor/search-highlight.ts` (a decoration that follows edits and goes
+  when the pane closes). Results lists each match in its sentence with the match in bold. Headings is a tree with
+  collapse arrows; the heading the caret is in is marked, and headings whose sections hold a match are yellow, as
+  in Word. Dragging a heading moves its whole section (subheadings included) before another heading or to the end,
+  as one undo step (`editor/heading-sections.ts`). Pages shows thumbnails drawn from the print copy of each page,
+  only while in view, refreshed after a pause in typing. Ctrl+F and Home > Find now open the pane and put the
+  selected text in the search box (`document/nav-search.ts`); Advanced Find… and Ctrl+H keep the dialog, and
+  Read Mode keeps its own Find.
+- **Checked:** `heading-sections.test.ts` (sections, move, refusing a move into itself, highlight following
+  edits); in Chrome in light and dark: Ctrl+F on a selected word, stepping results, collapsing, dragging a
+  section, page thumbnails.
+- **Still open:** Word's pane also filters Pages to pages with matches and offers search for graphics, tables and
+  equations from its menu; not done.
+
+### Find and Replace: Word's More >> options, special characters and matches across formatting
+
+- **What was wrong or missing:** Find searched each run of text on its own, so a word half in bold was not found;
+  only Match case existed; Find Next went through the matches from the first, not from the caret.
+- **What changed:** `editor/find.ts` searches each paragraph's whole text (paragraph marks, tabs and line breaks as
+  characters, mapped back to document positions) with Word's options: Match case, Find whole words only, Use
+  wildcards (? * [] [!] {n,m} @ < > ( ) and \ escapes, \1–\9 in Replace with), Sounds like (Soundex), Find all
+  word forms (plurals, -ed, -ing, common irregular verbs), Match prefix and suffix, Ignore punctuation and white
+  space. Special characters in Find what (^p ^t ^l ^? ^# ^$ ^w ^s ^~ ^- ^= ^+ ^g ^^) and Replace with (^p splits the
+  paragraph, ^t ^l ^& ^^ and the dashes and spaces); a replacement keeps the formatting where the match starts.
+  The dialog (`find-dialog.tsx`) has More >> / << Less with Search All/Down/Up, the options (disabled as Word
+  disables them together) and the Special menu; Find Next starts at the caret (All goes round, Down/Up stop with
+  "finished searching"), and the count shows "2 of 5". Tests: `find.test.ts`.
+- **How it was checked:** headless Chrome: wildcards "(<[A-Z]_>), (<[A-Z]_>)" replaced with "\2 \1" turned
+  "Doe, Jane and Smith, John" into "Jane Doe and John Smith" ("Replaced 2 occurrences").
+- **Open:** Format… (find by font, paragraph, style), Reading Highlight, Find In, ^c and ^m.
+
+### Insert Hyperlink dialog and link commands on the context menu
+
+- **What was missing:** Ctrl+K, Insert > Link and the context menu asked only for an address; there was no text to
+  display, ScreenTip, place in the document or e-mail address, and no way to edit, open, copy or remove a link. The
+  Insert menu built the link's HTML from the typed address without escaping it.
+- **What changed:** `link-dialog.tsx` (Insert Hyperlink / Edit Hyperlink) and `editor/links.ts`: Text to display
+  (or "<<Selection in Document>>" over paragraphs), ScreenTip…, Link to Existing File or Web Page (a bare
+  "www.…" gets http://, an e-mail address mailto:, a file name stays as typed), Place in This Document (Top of the
+  Document, the headings by level, the shown bookmarks; a heading gets a hidden `_Ref` bookmark, or keeps its own),
+  E-mail Address with Subject, and Remove Link when editing. The context menu has Edit Link…, Open Link, Copy Link,
+  Remove Link on a link and Link… elsewhere. The ScreenTip is saved as `w:hyperlink w:tooltip` and read back.
+  Tests: `links.test.ts`.
+- **How it was checked:** headless Chrome, light and dark: Ctrl+K over a word, Place in This Document, a heading,
+  OK gave a link to a new `_Ref` bookmark on that heading.
+- **Open:** Browse for a file, Recent Files, Create New Document, Target Frame.
+- Also: the corpus write test (`preservation.test.ts`) gets a 60 s timeout; it passed 5 s with every file running.
+
+### AutoCorrect and AutoFormat As You Type, as Word's; Markdown typing rules gone
+
+- **What was missing:** nothing was corrected as you type, while TipTap's Markdown rules turned "# " into a heading,
+  "> " into a quote and `**text**` into bold, which Word never does.
+- **What changed:** `editor/autocorrect.ts` (plugin and settings), `editor/autocorrect-rules.ts` (the rules): smart
+  quotes; the Replace list (symbols such as (c) © and --> →, replaced as their last character is typed, and common
+  slips such as teh, dont, i, in the case they were typed); TWo INitial CApitals; capitals at a sentence's and a table
+  cell's start (not after Word's abbreviation exceptions or in addresses); names of days; ordinals in superscript;
+  "--" to an em dash and " - " to an en dash; bulleted lists from "* ", "- ", "> " and numbered ones from "1. ", "1)",
+  "a.", "i." (starting at the typed value). Each correction is its own undo step, so Ctrl+Z brings back what was
+  typed. AutoCorrect Options… (File > Options > Proofing, `autocorrect-dialog.tsx`) has the AutoCorrect tab
+  (options, Replace/With, Add/Replace/Delete over the list) and AutoFormat As You Type; the autolink option drives the
+  link extension's autolink. The body editor allows only the "---" line rule and the link paste rule.
+  Test: `autocorrect.test.ts` (rules, and typing through a real editor including Undo).
+- **How it was checked:** headless Chrome with real key events: "teh meeting is on monday. its the 21st -- not
+  "the 22nd" (c) 2026" then Enter and "* first point" gave "The meeting is on Monday. Its the 21st – not “the 22nd” ©
+  2026" and a bulleted "First point"; the dialog in light and dark.
+- **Open:** the lightning AutoCorrect Options button under a correction; Math AutoCorrect; AutoFormat (the
+  on-demand pass). The header and footer editors drop the Markdown rules too.
+
+### Inspect Document inspects instead of wiping formatting: Word's Document Inspector
+
+- **What was wrong:** File > Info > Inspect Document ran `unsetAllMarks()` on the selection, or on the whole
+  document when nothing was selected: one click removed every bold, font, colour, link and comment mark. Its card
+  always claimed "Document properties and author's name, Custom XML data".
+- **What changed:** the card opens a Document Inspector (`inspect-dialog.tsx`, `document/inspect.ts`), as Word's:
+  tick what to look for, Inspect, then per kind what was found with Remove All, and Reinspect. Kinds: comments and
+  tracked changes (Remove All accepts the changes and deletes the comments, as Word does), document properties
+  (title, subject, tags, comments, author, company, category), headers, footers (every section's) and the watermark,
+  and hidden text (deleted). The card lists what the inspector would find now.
+  Test: `inspect.test.ts`.
+- **How it was checked:** headless Chrome, light and dark: a document with hidden text shows it on the card and in
+  the results, the rest "No items were found".
+- **Open:** Word also inspects custom XML, invisible objects, collapsed headings, embedded documents and macros;
+  the app keeps none of those it could remove yet.
+
+### A new splash screen: Word's card, drawn art, a progress bar, the system's light or dark
+
+- **What was wrong:** the splash was a 1024×682 marketing picture ("Write better. With AI.", feature list) with an
+  endless sliding bar; it stayed light in dark mode and its card waited for the picture to load.
+- **What changed:** a Word-style card (`splash-screen.tsx`, `splash-art.tsx`): the app mark redrawn as SVG from the
+  app icon, the name, a picture of two pages with the orbit and spark on the right, and the status over a thin bar.
+  Colours are tokens on `.splash-screen`, switched by `prefers-color-scheme` (the splash shows before the app's own
+  choice is read). The bar is determinate: `setSplashLoadingStatus(text, progress)` sets the stage (start, modules
+  0.25, workspace loaded 0.7, ready 1); it is drawn from script a frame at a time, creeps while a stage takes long,
+  never goes back, and runs to the end before the splash goes at once (no fade). `splash.png` is removed.
+  Test: `splash-screen.test.tsx`.
+- **How it was checked:** headless Chrome at 1100×820 in light and dark, workspace held back so the splash stays.
+- **Open:** not yet looked at in the desktop app (WebKitGTK); see `verify-list.md`.
+
+### Word comparison fixes: lists in cells, notes, border sides, line numbers, styles, fields, Word's defaults
+
+- **What was wrong:** comparing every fixture with Word's own render found 13 differences on opening (listed in
+  `next-todo.md` the same day): list markers in table cells drawn in the previous cell and a cell's last column
+  losing its borders; endnotes and footnotes not drawn; a list item's own indent ignored; a paragraph's bottom border
+  drawn in the top border's style; line numbers small and grey; a style's own font lost under the theme font; preset
+  shapes drawn by hand; TOC leaders a thin line and DATE fields showing the cached value; content control
+  placeholders black; display equations too large; Word's fallback defaults (no styles part, no `w:pPrDefault`)
+  unknown; header text faded; files Word refuses kept their invalid values on save.
+- **What changed:**
+  - Lists: a cell's list measures tab stops and markers from the cell's text edge and clips a marker hung outside
+    the cell; an item's own `w:ind` moves it (`data-word-shift`) and its own first-line indent sets its hang
+    (`data-word-own-hang`) (`project.ts`, `indent.ts`). Rowspan cells reaching the last row keep their bottom border.
+  - Notes: each referenced footnote and endnote is projected with its label (`noteTexts`, `inlines.ts`); the
+    paginator keeps room for a page's footnotes and draws them with Word's separator at the page's foot, and the
+    endnotes after the last paragraph (`page-notes.ts`, `pages.ts`). Superscript character styles are drawn raised.
+  - Paragraph borders keep each side's own line (`data-border-sides`, `paragraph-sides.ts`); a double is drawn at
+    Word's width (each line the border's width).
+  - Line numbers use the LineNumber style; a style's own `w:ascii` replaces an inherited theme font (`mergeFonts`).
+  - Preset shapes use the ECMA geometry for every preset but rect and ellipse.
+  - TOC leaders are dots (also hyphens, underscores); DATE and TIME fields show the moment the file opens, formatted
+    by their `\@` picture (`field-date.ts`).
+  - Content controls show their content with its run styles (PlaceholderText grey).
+  - Display equations at the paragraph's size with no extra margin; the paragraph is one line tall.
+  - Word's fallback defaults, taken from Word's own re-save: no styles part → Aptos 12 pt, 8 pt after, line 278/240 (1.16);
+    styles without `w:pPrDefault` → the same paragraph spacing (`wml-read.ts`, `defaultsOf`).
+  - Contextual spacing also drops the space at a cell's first and last paragraph and before a table.
+  - Save leaves out values Word refuses (`w:sz="abc"`, `w:jc="sideways"`), so Word opens the file (`x12`, `r08`).
+  - Tests: `word-comparison.test.ts` (12), `preset-geometry.test.ts` updated.
+- **How it was checked:** all fixtures re-rendered by Word in the VM and re-captured in Inkspire; mean page
+  difference 0.133 → 0.080 (e.g. `w03`/`w04` 0.42/0.46 → 0, `f16` 0.40 → 0.05, `f05` 0.23 → 0.03, `f23` 0.53 → 0.23,
+  `f17` 0.45 → 0.19). Word opens all 72 saves (was 70), each identical to the original in Word. Unit tests, typecheck,
+  lint and the fidelity audit are clean.
+- **Open:** `w13` 0.01 → 0.26: with Word's paragraph defaults now applied, multiple line spacing shows that Word puts
+  the extra space below the text and CSS splits it. That and the rest are in `next-todo.md`.
+
+### Saving keeps the settings part's own links (attached template); corpus checked against Word itself
+
+- **What was wrong:** a document with an attached template (`w:attachedTemplate r:id` in settings.xml) saved
+  without `word/_rels/settings.xml.rels`, so settings.xml pointed at a relationship that did not exist and Word
+  refused the saved file as corrupt.
+- **What changed:** the reader keeps the settings part's external relationships (`Settings.relationships`,
+  `wml-read.ts` `attachSettingsLinks`) and the writer writes them back with settings.xml (`wml-write.ts`).
+  Test: `settings-links.test.ts`.
+- **How it was checked:** every fixture in `tests/docx-fixtures` was opened in Word (Microsoft 365, in a local VM,
+  through COM) and exported to PDF, then opened in Inkspire and saved through the regenerating path and exported by
+  Word again. All 70 saves Word opens render identically to the originals in Word; the attached-template fixture now
+  validates with 0 errors. Inkspire's own screen was compared with Word's PDF page by page; the differences found
+  are listed in `next-todo.md` ("Word comparison, 2026-11-14").
+- **Open:** see that list.
+
+## 2026-11-13
+
+### Runs that turn off their style's formatting open as Word draws them; a fidelity audit for any .docx
+
+- **What was wrong:** a conference registration form opened with nearly all its text bold and italic, no
+  highlights, black text on its dark header cells, no borders on its first table, and left paragraphs centred.
+  Its paragraphs use heading styles (bold italic, centred) and every run turns them off (`<w:b w:val="0"/>`,
+  `<w:i w:val="0"/>`, `<w:jc w:val="left"/>`). The projection only ever emitted formatting that is _on_, so a
+  style's bold showed through; `w:highlight` was read but never drawn (nor saved from the editor); automatic text
+  stayed black on dark shading, where Word draws it white; a row's own borders (`w:tblPrEx/w:tblBorders`) were
+  kept for saving but not drawn; and an explicit left alignment was dropped as the editor's default. A run's own
+  colour and size also lost to its character style (`blue_title1`): the style's span sat inside the direct
+  formatting's span, so the style rule beat the inherited direct values.
+- **What changed:**
+  - `word-styles.ts` `runOffTokens`: Word's resolved run (`resolveRunProperties`, with the toggle rule) against
+    what the stylesheet shows (paragraph style, then character style); each toggle the styles show and Word does
+    not (b, i, caps, smallCaps, u and strike from a character style, a style colour set back to auto) becomes a
+    token in `data-run-off` on the run's span (`inlines.ts`; `DocxRun.off` in `docx-preserved.ts`, never saved);
+    `index.css` draws the tokens, while bold or italic set in the editor still win.
+  - `DocxRun` has priority 200, so its span (which carries the character style) wraps the formatting marks and a
+    run's direct formatting wins over its character style, as in Word.
+  - Highlight: `w:highlight` opens as the editor's highlight mark (`wrapText`); a highlight set in the editor saves
+    as `w:highlight` in one of Word's sixteen colours, any other colour as the run's `w:shd`
+    (`propsFromMarks`, `runPropertiesFromEdit`).
+  - Automatic colour: the stylesheet writes it as `var(--word-auto-color, #000000)`; a dark fill (luminance below 128) on a cell (`cellCss`, the cell's `backgroundColor`) or a paragraph (`shading`) sets the variable to white
+    (`autoColorRule`).
+  - Row exceptions: `TableRow.exceptionBorders` (`wml-read.ts`) is drawn as the row's `--wb-*` variables
+    (`data-word-frame` on `<tr>`, `SizedTableRow.wordFrame`, display only); saving still writes `w:tblPrEx` from
+    its source.
+  - `blockHtmlAttributes` writes `text-align: left` when the paragraph sets left itself.
+  - `model.ts`: `resolveRunProperties` treats a font name and its theme font as one setting (a run's
+    `w:ascii="Arial"` now beats an inherited `w:asciiTheme`), and merges run shading and borders (`shd`, `bdr`).
+  - New `tools/fidelity-audit.mjs` (`npm run audit:docx -- file.docx …`) with `src/document/docx/fidelity-audit.ts`:
+    opens each file in the running app (headless Chrome against the dev server), resolves every run and
+    paragraph through Word's style rules and compares with the computed style of the element drawn for it
+    (bold, italic, size, colour with automatic colour on shading, highlight or shading, underline, strike, caps,
+    font, alignment). It prints each mismatch with the style and text and exits 1 when there is any.
+- **Tests:** `style-overrides.test.ts` (6): off tokens and the toggle rule, tokens/highlight/alignment through the
+  editor, a run's own size inside its character style's span, save keeps `b=0`/`i=0`/`highlight` and writes an
+  editor highlight, row borders and white automatic text, `autoColorRule`, a named font over a theme font.
+  `word-display.test.ts`: the table style's dark header fill now also sets the automatic colour (updated on
+  purpose). 199 files, 1363 tests pass; typecheck, lint and Prettier clean.
+- **Checked:** in headless Chrome, before and after, against a LibreOffice render of the form: the audit went from
+  well over a hundred mismatches (mostly bold and italic, then alignment, highlight and colour) to none, and the page looks like
+  the reference in light and dark mode. The audit also reports no differences on every authored fixture and two other
+  real documents (it found the theme-font merge bug in three of them). An edited save of the form passes the
+  Open XML SDK validator (0 errors) and audits clean when reopened.
+- **Open:** not opened in Word itself (verify list). Whether Word also turns automatic text white on a dark
+  _highlight_ (not only shading), and Word's exact dark threshold, are not settled; the audit only judges
+  automatic text against paragraph and cell shading. Table-style run formatting (conditional `tblStylePr` rPr)
+  is not yet part of the audit's resolution.
+
 ## 2026-11-12
 
 ### v0.1.6: Google Docs forms keep their margins; no personal name in the installers

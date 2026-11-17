@@ -22,7 +22,10 @@ export type WindowRequest =
  * or a template's HTML.
  */
 export type Handoff =
-  { kind: "file"; file: OpenedFile } | { kind: "dropped"; file: File } | { kind: "html"; html: string }
+  /** `then: "print"`: File > Print opens on it once it has opened (Finish & Merge > Print Documents). */
+  | { kind: "file"; file: OpenedFile; then?: "print" }
+  | { kind: "dropped"; file: File }
+  | { kind: "html"; html: string }
 
 export type OpenWindow = {
   id: string

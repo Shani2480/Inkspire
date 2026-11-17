@@ -1,10 +1,12 @@
 import { parseCitations } from "@/addins/citations"
+import { makeTag } from "@/document/bibliography"
 import { useAddins } from "@/addins/store"
 import { useProofing } from "@/ai/proofing"
 import { useEditorPane } from "@/editor/grammar"
 import { openDocument, reportError, saveDocumentAsFormat } from "@/document/commands"
 import { useBackstage } from "@/document/backstage"
-import { loadSources, saveSource } from "@/document/sources"
+import { loadMasterList, putMasterSource, useBibliography } from "@/document/bibliography-store"
+import { useDocumentStore } from "@/document/store"
 
 export type AddInCommand = { id: string; label: string; run: () => void | Promise<void> }
 
@@ -38,10 +40,24 @@ async function importCitations() {
     return
   }
   const found = parseCitations(text)
-  const known = new Set(loadSources().map((source) => `${source.author}|${source.title}|${source.year}`))
-  const fresh = found.filter((entry) => !known.has(`${entry.author}|${entry.title}|${entry.year}`))
-  for (const entry of fresh.reverse()) {
-    saveSource(entry)
+  // A source already in the lists (same type, people and fields) is left alone; the rest go into the document's
+  // list and the Master List, as Word's Create Source does.
+  const sameAs = (a: (typeof found)[number], b: (typeof found)[number]) =>
+    JSON.stringify([a.type, a.names, a.fields]) === JSON.stringify([b.type, b.names, b.fields])
+  const bibliography = useBibliography.getState()
+  const known = [...bibliography.sources, ...loadMasterList()]
+  const fresh = found.filter((entry) => !known.some((item) => sameAs(item, entry)))
+  const taken = known.map((item) => item.tag)
+  for (const entry of fresh) {
+    if (taken.some((tag) => tag.toLowerCase() === entry.tag.toLowerCase())) {
+      entry.tag = makeTag(entry, taken)
+    }
+    taken.push(entry.tag)
+    useBibliography.getState().putSource(entry)
+    putMasterSource(entry)
+  }
+  if (fresh.length > 0) {
+    useDocumentStore.setState({ isDirty: true })
   }
   useAddins
     .getState()

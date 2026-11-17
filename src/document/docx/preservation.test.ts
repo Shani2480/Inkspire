@@ -43,6 +43,7 @@ describe("preserved parts", () => {
     })
     expect(written.zipEntries[written.zipEntries.length - 1]?.normalizedName).toBe("probe/root.xml")
   })
+  // Writes the whole corpus; with every test file running at once it can pass the default 5 s.
 
   it("writes every document the reader accepts", async () => {
     rmSync(WRITTEN, { recursive: true, force: true })
@@ -71,5 +72,5 @@ describe("preserved parts", () => {
       count += 1
     }
     expect(count).toBeGreaterThan(20)
-  })
+  }, 60_000)
 })

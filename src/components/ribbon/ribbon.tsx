@@ -1,3 +1,4 @@
+import { OutliningTab } from "@/components/ribbon/outlining-tab"
 import { HIDEABLE_TABS, useCustomize } from "@/document/customize"
 import { emptyLayout, tabName, tabOrder, type CustomGroup } from "@/document/ribbon-layout"
 import { CustomGroups, MainTabGroups, RibbonTabContext, useCustomLineGroups } from "@/components/ribbon/custom-groups"
@@ -17,6 +18,7 @@ import { ReviewTab } from "@/components/ribbon/review-tab"
 import { HelpTab } from "@/components/ribbon/help-tab"
 import { ViewTab } from "@/components/ribbon/view-tab"
 import { ReferencesTab } from "@/components/ribbon/references-tab"
+import { MailingsTab } from "@/components/ribbon/mailings-tab"
 import { SmartArtDesignTab } from "@/components/ribbon/smartart-tab"
 import { SmartArtFormatTab } from "@/components/ribbon/smartart-format-tab"
 import { EquationTab } from "@/components/ribbon/equation-tab"
@@ -65,6 +67,7 @@ const MAIN_TABS: [string, ComponentType][] = (
     ["design", DesignTab],
     ["layout", LayoutTab],
     ["references", ReferencesTab],
+    ["mailings", MailingsTab],
     ["review", ReviewTab],
     ["view", ViewTab],
     ["help", HelpTab],
@@ -159,6 +162,7 @@ function tabLabel(id: string) {
     "ctx-table-layout": "Table Layout",
     "ctx-chart-format": "Chart Format",
     "ctx-smartart-format": "SmartArt Format",
+    outlining: "Outlining",
   }
   return fixed ?? tool ?? extra[id] ?? id
 }
@@ -345,6 +349,8 @@ function useLayoutAnimation(card: RefObject<HTMLDivElement | null>, layout: stri
 export function Ribbon() {
   const editor = useDocumentEditor()
   const editingChrome = useViewStore((state) => state.editingChrome)
+  // Outline view brings Word's Outlining tab, in front of Home and opened with the view.
+  const outlining = useViewStore((state) => state.layoutMode === "outline")
   const ribbonLayout = useViewStore((state) => state.ribbonLayout)
   const bodyContext =
     useEditorState({
@@ -400,9 +406,17 @@ export function Ribbon() {
   }, [startTabMotion])
 
   useEffect(() => {
+    startTabMotion()
+    setTab((current) => (outlining ? "outlining" : current === "outlining" ? "home" : current))
+  }, [outlining, startTabMotion])
+
+  useEffect(() => {
     // A tab the user hid or removed in Customize Ribbon cannot stay the open one.
     setTab((current) =>
-      current === "home" || current.startsWith("ctx-") || ribbonTabs.some((item) => item.id === current)
+      current === "home" ||
+      current === "outlining" ||
+      current.startsWith("ctx-") ||
+      ribbonTabs.some((item) => item.id === current)
         ? current
         : "home",
     )
@@ -454,6 +468,11 @@ export function Ribbon() {
         <div className="relative flex items-end gap-2 bg-transparent px-3">
           <FileMenu className="ribbon-file-tab mb-px inline-flex h-8 items-center rounded-none px-3 text-[13px] font-semibold text-[var(--app-theme-primary)] hover:bg-[var(--app-hover)] data-popup-open:bg-[var(--app-hover)]" />
           <TabsList variant="line" className="h-8 flex-1 items-end justify-start gap-0 bg-transparent p-0">
+            {outlining ? (
+              <TabsTrigger value="outlining" className={ribbonTabClassName}>
+                Outlining
+              </TabsTrigger>
+            ) : null}
             <TabsTrigger value="home" className={ribbonTabClassName}>
               {tabNames.home ?? "Home"}
             </TabsTrigger>
@@ -551,6 +570,11 @@ export function Ribbon() {
               </TabsContent>
             </Activity>
           ))}
+          {outlining && tab === "outlining" && (
+            <TabsContent value="outlining" data-ribbon-tab="outlining" data-ribbon-tab-label="Outlining">
+              <OutliningTab />
+            </TabsContent>
+          )}
           {tab === "ctx-table-design" && (
             <TabsContent
               value="ctx-table-design"

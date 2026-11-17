@@ -8,12 +8,19 @@ import { CellSelection, TableMap, addColumn, addRow, cellAround, findTable } fro
 import type { EditorView } from "@tiptap/pm/view"
 import { applyTableProps, cellPropsAttributes, rowPropsAttributes, tablePropsAttributes } from "@/editor/table-props"
 import { drawTableFloat, tableFloatAttributes } from "@/editor/table-float"
+import { autoColorRule } from "@/document/docx/word-styles"
 
 const backgroundColor = {
   default: null as string | null,
   parseHTML: (element: HTMLElement) => element.style.backgroundColor || null,
-  renderHTML: (attributes: { backgroundColor?: string | null }) =>
-    attributes.backgroundColor ? { style: `background-color: ${attributes.backgroundColor}` } : {},
+  renderHTML: (attributes: { backgroundColor?: string | null }) => {
+    if (!attributes.backgroundColor) {
+      return {}
+    }
+    // Text of automatic colour turns white on a dark fill, as in Word.
+    const auto = autoColorRule(attributes.backgroundColor)
+    return { style: `background-color: ${attributes.backgroundColor}${auto ? `; ${auto}` : ""}` }
+  },
 }
 
 /**
@@ -374,6 +381,8 @@ export const SizedTableRow = TableRow.extend({
         renderHTML: (attributes: { height?: number | null }) =>
           attributes.height ? { style: `height: ${attributes.height}px` } : {},
       },
+      /** The Word row's own borders (w:tblPrEx) as --wb-* variables; only read, never saved. */
+      wordFrame: wordTableAttributes.wordFrame,
       ...rowPropsAttributes,
     }
   },

@@ -1,5 +1,6 @@
 import { FONT_FAMILIES } from "@/components/ribbon/options"
 import { invoke } from "@tauri-apps/api/core"
+import { OPTIONAL_FONTS, useOptionalFonts } from "@/document/optional-fonts"
 import { useEffect, useState } from "react"
 
 export type FontChoice = {
@@ -12,7 +13,32 @@ const bundled: FontChoice[] = FONT_FAMILIES.map((font) => ({ label: font.label, 
 let choices = bundled
 let loaded = false
 let loading: Promise<FontChoice[]> | null = null
+let systemNames: string[] = []
 const listeners = new Set<(fonts: FontChoice[]) => void>()
+
+/** The fonts the system has, once read (empty before): an Office font missing from it can have a stand-in. */
+export function systemFontNames() {
+  return systemNames
+}
+
+/** The optional fonts downloaded (U39) join the font list under their own names. */
+function installedOptional() {
+  const status = useOptionalFonts.getState().status
+  return OPTIONAL_FONTS.filter((font) => status[font.id] === "installed").map((font) => font.family)
+}
+
+function publish() {
+  choices = mergeFonts([...systemNames, ...installedOptional()])
+  for (const listener of listeners) {
+    listener(choices)
+  }
+}
+
+useOptionalFonts.subscribe((state, previous) => {
+  if (state.status !== previous.status) {
+    publish()
+  }
+})
 
 export function useFontChoices() {
   const [fonts, setFonts] = useState(choices)
@@ -45,11 +71,9 @@ async function loadFonts() {
   if (!names || names.length === 0) {
     return choices
   }
-  choices = mergeFonts(names)
+  systemNames = names
   loaded = true
-  for (const listener of listeners) {
-    listener(choices)
-  }
+  publish()
   return choices
 }
 

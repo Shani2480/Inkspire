@@ -50,6 +50,9 @@ declare module "@tiptap/core" {
 import type { Node as ProseNode } from "@tiptap/pm/model"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view"
+import { createNotesBox, notesHeight, notesIn, noteTextsVersion, type NoteRef } from "@/editor/page-notes"
+import { labelsForView } from "@/editor/note-labels"
+import { useNoteSettings } from "@/document/note-settings"
 
 export const PAGE_GAP = 40
 
@@ -105,6 +108,8 @@ type PageBreak = {
   foot?: number
   /** A break between a table's rows that draws the table's header row again at the top of the next page. */
   header?: boolean
+  /** The page's footnotes, drawn in the gap `top` px below where it starts: at the foot of the page's text. */
+  notes?: { refs: NoteRef[]; top: number }
   /**
    * A break inside a table row (Allow row to break across pages): a gap in each cell that goes on, at the line that
    * starts the next page, the first `keep` px of it still on this page (the cell runs on to the page's foot).
@@ -315,9 +320,10 @@ function paginationPlugin(storage: PaginationStorage) {
                 delete view.dom.dataset.columns
                 view.dom.style.removeProperty("--column-gap")
                 // The web frame is one endless page: there is no empty rest of a page to pad out.
+                // The last page's footnotes are drawn in the room kept for them below its text.
                 view.dom.style.paddingBottom = web
                   ? "0"
-                  : `${Math.max(0, Math.round(laid.contentHeight - laid.lastUsed))}px`
+                  : `${Math.max(0, Math.round(laid.contentHeight + laid.notes.room - laid.lastUsed))}px`
               }
               const lines = pageSetup.lineNumbers
                 ? collectLineNumbers(view, pageSetup.lineNumberRestart, metrics.contentHeight, {
@@ -372,6 +378,7 @@ function paginationPlugin(storage: PaginationStorage) {
                         laid.sectionCells,
                         laid.endFiller,
                         laid.columnBreaks,
+                        laid.notes,
                       ),
                       signature,
                     } satisfies PaginationSnapshot)
@@ -499,6 +506,14 @@ function paginationPlugin(storage: PaginationStorage) {
         applied = ""
         schedule()
       })
+      const unsubscribeNotes = useNoteSettings.subscribe((state, previous) => {
+        // New note numbers (format, start, restart) change the note areas' text, and so their heights.
+        if (state.settings !== previous.settings) {
+          forceFull = true
+          applied = ""
+          schedule()
+        }
+      })
       const unsubscribeContour = onContourReady(() => {
         // A picture's or shape's outline finished loading: text wraps to it from now on.
         forceFull = true
@@ -526,6 +541,7 @@ function paginationPlugin(storage: PaginationStorage) {
           unsubscribeView()
           unsubscribeContour()
           unsubscribeReach()
+          unsubscribeNotes()
         },
       }
     },
@@ -565,8 +581,19 @@ function decorationsFor(
   sectionBoxes: SectionCell[] = [],
   endFiller = 0,
   columnBreaks: number[] = [],
+  notes?: Layout["notes"],
 ) {
   const decorations: Decoration[] = []
+  if (notes && (notes.endnotes.length > 0 || notes.footnotes.length > 0)) {
+    const key = `${notes.top}:${notesKey(notes.footnotes)}:${notesKey(notes.endnotes)}:${noteTextsVersion()}`
+    decorations.push(
+      Decoration.widget(doc.content.size, () => createEndNotes(notes), {
+        side: 2,
+        ignoreSelection: true,
+        key: `end-notes-${key}`,
+      }),
+    )
+  }
   for (const pos of columnBreaks) {
     decorations.push(
       Decoration.widget(pos, createColumnStart, { side: -1, ignoreSelection: true, key: `column-start-${pos}` }),
@@ -644,10 +671,10 @@ function decorationsFor(
       )
     }
     decorations.push(
-      Decoration.widget(item.pos, () => createGap(height, manual, lift, item.foot), {
+      Decoration.widget(item.pos, () => createGap(height, manual, lift, item.foot, item.notes), {
         side: -1,
         ignoreSelection: true,
-        key: `gap-${item.pos}-${height}-${manual ? 1 : 0}-${lift}-${item.foot ?? ""}`,
+        key: `gap-${item.pos}-${height}-${manual ? 1 : 0}-${lift}-${item.foot ?? ""}-${item.notes ? `${item.notes.top}:${notesKey(item.notes.refs)}:${noteTextsVersion()}` : ""}`,
       }),
     )
   }
@@ -700,6 +727,26 @@ function decorationsFor(
   }
   decorations.sort((left, right) => left.from - right.from)
   return DecorationSet.create(doc, decorations)
+}
+
+/** The document's end: its endnotes in the flow, and the last page's footnotes at the page's foot below. */
+function createEndNotes(notes: Layout["notes"]) {
+  const end = document.createElement("div")
+  end.className = "page-end-notes"
+  end.contentEditable = "false"
+  if (notes.endnotes.length > 0) {
+    end.append(createNotesBox(notes.endnotes, "endnote"))
+  }
+  if (notes.footnotes.length > 0) {
+    const box = createNotesBox(notes.footnotes, "footnote")
+    box.style.top = `${notes.top}px`
+    end.append(box)
+  }
+  return end
+}
+
+function notesKey(refs: NoteRef[]) {
+  return refs.map((ref) => `${ref.key}=${ref.label}`).join(";")
 }
 
 function createBand(height: number) {
@@ -953,10 +1000,17 @@ function createColumnStart() {
   return mark
 }
 
-function createGap(height: number, manual: boolean, lift = 0, foot?: number) {
+function createGap(height: number, manual: boolean, lift = 0, foot?: number, notes?: PageBreak["notes"]) {
   const gap = document.createElement("span")
   gap.className = manual ? "page-gap page-gap-manual" : "page-gap"
   gap.style.height = `${height}px`
+  if (notes) {
+    // The page's footnotes at the foot of its text, which the paginator kept room for.
+    const box = createNotesBox(notes.refs, "footnote")
+    box.style.top = `${notes.top}px`
+    gap.style.position = "relative"
+    gap.append(box)
+  }
   if (foot !== undefined) {
     gap.dataset.foot = String(foot)
   }
@@ -998,6 +1052,8 @@ type Layout = {
   /** Blocks of columns: where each column after the first starts on the pages they run on from. */
   columnBreaks: number[]
   contentHeight: number
+  /** The document's endnotes, and the last page's footnotes: the room they take and how far below the end they go. */
+  notes: { endnotes: NoteRef[]; footnotes: NoteRef[]; room: number; top: number }
   pageCount: number
   /** Each page's section key and whether it starts its section (see `PaginationStorage`). */
   /** How many columns the editor is drawn in (the most any section has) and their gap (cm). */
@@ -1143,6 +1199,15 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   pending.sort((a, b) => a.page - b.page || a.y - b.y)
   const mirrors: Layout["mirrors"] = []
   const seen = new Set<number>()
+  // Footnotes: those referred to on this page so far and the room they take at its foot (taken off `contentHeight`),
+  // and those of the block being placed, which go with it to the next page if it moves there.
+  let pageNotes: NoteRef[] = []
+  let noteHeight = 0
+  let placingNotes: NoteRef[] = []
+  const endnotes: NoteRef[] = []
+  // Each note reference's number in the document's options, from the pages laid out last (Restart each page).
+  const noteNumbers = labelsForView(view)
+  const footnoteRoom = (refs: NoteRef[]) => notesHeight(view, refs, "footnote")
   let used = 0
   // The bottom margin of the last block placed: the next block's top margin collapses into it.
   let trailing = 0
@@ -1225,15 +1290,25 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       columnBreaks.push(...block.starts)
       block.starts = []
     }
+    // The footnotes of the page that ends; those of a block moving on to the next page go with it.
+    const kept = pageNotes.filter((ref) => !placingNotes.includes(ref))
+    const keptHeight = kept.length > 0 ? footnoteRoom(kept) : 0
+    const fullHeight = contentHeight + noteHeight
+    const startNotes = () => {
+      pageNotes = [...placingNotes]
+      noteHeight = pageNotes.length > 0 ? footnoteRoom(pageNotes) : 0
+      contentHeight -= noteHeight
+    }
     if (breaks.some((item) => item.pos === pos)) {
       used = 0
       spilled = 0
       section = following
       contentHeight = sectionMetrics[section]!.contentHeight
       columnCount = block?.columns ?? columns.counts[section]!
+      startNotes()
       return
     }
-    const fill = Math.max(0, contentHeight - used)
+    const fill = Math.max(0, fullHeight - used)
     // Space after that ran past the foot is already drawn above the gap: the next page starts where it would have.
     const over = spilled
     spilled = 0
@@ -1256,12 +1331,14 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       ...(filler > 0 ? { filler: { height: Math.round(filler), fill, pos: fillAt } } : {}),
       ...(unequal ? { page: breaks.length + 1, column: ended } : {}),
       ...(blockHeight > 0 ? { foot: below } : {}),
+      ...(kept.length > 0 ? { notes: { refs: kept, top: Math.max(0, Math.round(fill - keptHeight - over)) } } : {}),
     })
     used = 0
     section = following
     contentHeight = sectionMetrics[section]!.contentHeight
     columnCount = block?.columns ?? columns.counts[section]!
     pageSections.push(section)
+    startNotes()
   }
 
   const overflow = (pos: number) => {
@@ -1827,7 +1904,19 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   view.state.doc.forEach((node, offset, index) => {
     track.starting = null
     track.top = offset
+    const refs = notesIn(node, offset, noteNumbers)
+    endnotes.push(...refs.filter((ref) => ref.kind === "endnote"))
+    const footnotes = web ? [] : refs.filter((ref) => ref.kind === "footnote")
+    if (footnotes.length > 0) {
+      // Room at the page's foot for the block's footnotes, before the block is laid out above them.
+      pageNotes = [...pageNotes, ...footnotes]
+      const room = footnoteRoom(pageNotes)
+      contentHeight -= room - noteHeight
+      noteHeight = room
+      placingNotes = footnotes
+    }
     visit(node, offset, () => followingNeed(view.state.doc, index, 0))
+    placingNotes = []
     // Set while `visit` placed the block, which the narrowing above cannot see.
     const starting = track.starting as Starting | null
     if (starting && node.type.name !== "columnSection") {
@@ -1855,8 +1944,20 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     }
   }
 
+  // Endnotes follow the document's last paragraph, on the page it ends, or start the next if they do not fit.
+  const endnoteHeight = endnotes.length > 0 ? notesHeight(view, endnotes, "endnote") : 0
+  if (endnoteHeight > 0) {
+    place(view.state.doc.content.size, endnoteHeight)
+  }
   const sectionBoxes = unequal ? [] : sectionCells(view, sectionMetrics, columns.counts)
   const lastUsed = Math.min(Math.max(used, 0), contentHeight)
+  const notes: Layout["notes"] = {
+    endnotes,
+    footnotes: pageNotes,
+    room: noteHeight,
+    // The last page's footnotes, from where the document's end (its endnotes) starts.
+    top: Math.max(0, Math.round(contentHeight - lastUsed + endnoteHeight)),
+  }
   // The last page's columns are filled from the first too, as Word does (only a continuous break balances them).
   const endFiller =
     !web && !unequal && columns.editor > 1 && columns.counts[section]! > 1
@@ -1882,6 +1983,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     endFiller,
     columnBreaks,
     contentHeight,
+    notes,
     pageCount: breaks.length + 1,
     columns: columns.editor,
     unequal,
@@ -1907,6 +2009,8 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
         .join(","),
       endFiller,
       columnBreaks.join(","),
+      breaks.map((item) => (item.notes ? `${item.notes.top}:${notesKey(item.notes.refs)}` : "")).join(","),
+      `${notes.top}:${notesKey(notes.footnotes)}:${notesKey(notes.endnotes)}:${noteTextsVersion()}`,
       bands.map((item) => `${item.pos}:${item.height}`).join(","),
       sideKey,
       placements.map((item) => `${item.pos}:${item.page}:${item.y}`).join(","),

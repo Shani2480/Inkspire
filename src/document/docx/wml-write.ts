@@ -1,3 +1,5 @@
+import type { NoteProps } from "@/document/note-numbering"
+import { protectionXml } from "@/document/protection"
 import { ORDER, writeChildren } from "@/document/docx/element-source"
 import { MC_NS, REL_NS, WORD_NS } from "@/document/docx/mce"
 import {
@@ -40,6 +42,7 @@ import {
   type RunProperties,
   type SectionProps,
   type Shading,
+  type ThemeColorRef,
   type Settings,
   type Spacing,
   type Style,
@@ -50,7 +53,7 @@ import {
   type TableRow,
   type WordDocument,
 } from "@/document/docx/model"
-import { CONTENT_TYPE_DOCUMENT, type OpcPackage, type OpcRelationship } from "@/document/docx/opc"
+import { allowsMacros, mainContentTypeFor, type OpcPackage, type OpcRelationship } from "@/document/docx/opc"
 import { escapeXml, escapeXmlText, xmlBytes } from "@/document/docx/xml"
 
 const CONTENT_TYPE_STYLES = "application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"
@@ -97,7 +100,7 @@ export function writeDocument(doc: WordDocument, fileName = "document.docx"): Op
   const parts = [
     {
       name: "/word/document.xml",
-      contentType: CONTENT_TYPE_DOCUMENT,
+      contentType: mainContentTypeFor(fileName),
       data: xmlBytes(writeDocumentElement(doc)),
     },
     {
@@ -148,6 +151,9 @@ export function writeDocument(doc: WordDocument, fileName = "document.docx"): Op
   const mediaGroups = addMedia(parts, relationships, doc.media)
   const glossaryGroups = addGlossary(parts, relationships, doc.glossary)
   const preservedGroups = addPreserved(parts, relationships, doc)
+  if (!allowsMacros(fileName)) {
+    dropMacros(parts, relationships, preservedGroups)
+  }
   relationships.push(...hyperlinkRelationships(doc))
   const storyGroups = storyPackages(doc, stories, parts)
   return {
@@ -166,10 +172,36 @@ export function writeDocument(doc: WordDocument, fileName = "document.docx"): Op
       ...glossaryGroups,
       ...preservedGroups,
       ...storyGroups,
+      ...(doc.settings.relationships?.length
+        ? [{ source: "/word/settings.xml", items: doc.settings.relationships }]
+        : []),
     ],
     warnings: [],
     zipEntries: [],
   }
+}
+
+/**
+ * A .docx or .dotx may not hold macros: Word refuses a macro-free file with a VBA project in it. The project (and
+ * the data parts behind it) is kept while the file stays .docm/.dotm, and left out when it is saved as one without.
+ */
+function dropMacros(
+  parts: PackPart[],
+  relationships: OpcRelationship[],
+  groups: { source: string; items: OpcRelationship[] }[],
+) {
+  const macro = (part: PackPart) => /vbaProject|vbaData|wordVbaData/i.test(`${part.contentType ?? ""} ${part.name}`)
+  const dropped = new Set(parts.filter(macro).map((part) => part.name.toLowerCase()))
+  if (dropped.size === 0) {
+    return
+  }
+  const keep = (item: OpcRelationship) => !(item.partName && dropped.has(item.partName.toLowerCase()))
+  parts.splice(0, parts.length, ...parts.filter((part) => !dropped.has(part.name.toLowerCase())))
+  relationships.splice(0, relationships.length, ...relationships.filter(keep))
+  const kept = groups
+    .filter((group) => !dropped.has(group.source.toLowerCase()))
+    .map((group) => ({ ...group, items: group.items.filter(keep) }))
+  groups.splice(0, groups.length, ...kept)
 }
 
 function relationship(id: string, name: string, target: string, partName: string): OpcRelationship {
@@ -718,6 +750,11 @@ function writeBlock(block: Block, styles: StyleCatalog, section: SectionProps | 
   return writeTable(block, styles, section, ids)
 }
 
+/** Inlines as WordprocessingML, for markup built around them (a citation's content control). */
+export function inlinesXml(inlines: Inline[]) {
+  return inlines.map((inline) => writeInline(inline)).join("")
+}
+
 /** Paragraphs that go inside a drawing (a text box's `w:txbxContent`): no styles of their own, no paragraph ids. */
 export function looseParagraphsXml(paragraphs: Paragraph[]) {
   const styles: StyleCatalog = { docDefaults: { pPr: {}, rPr: {} }, styles: [] }
@@ -777,6 +814,9 @@ function writeInline(inline: Paragraph["inlines"][number]): string {
     if (inline.anchor) {
       attributes.push(`w:anchor="${escapeXml(inline.anchor)}"`)
     }
+    if (inline.tooltip) {
+      attributes.push(`w:tooltip="${escapeXml(inline.tooltip)}"`)
+    }
     if (inline.history !== undefined) {
       attributes.push(`w:history="${inline.history ? "1" : "0"}"`)
     }
@@ -834,11 +874,11 @@ function writeRunContent(content: Run["content"][number]) {
   if (content.kind === "raw") {
     return content.xml
   }
-  if (
-    content.kind === "footnoteReference" ||
-    content.kind === "endnoteReference" ||
-    content.kind === "commentReference"
-  ) {
+  if (content.kind === "footnoteReference" || content.kind === "endnoteReference") {
+    const custom = content.customMarkFollows ? ` w:customMarkFollows="1"` : ""
+    return `<w:${content.kind}${custom} w:id="${content.id}"/>`
+  }
+  if (content.kind === "commentReference") {
     return `<w:${content.kind} w:id="${content.id}"/>`
   }
   if (
@@ -863,20 +903,31 @@ function writeText(tag: "t" | "delText" | "instrText", text: string) {
 }
 
 function writeTable(table: Table, styles: StyleCatalog, section: SectionProps | null, ids: ParaIds): string {
-  const grid = tableGrid(table, section)
-    .map((column) => `<w:gridCol w:w="${column}"/>`)
-    .join("")
+  const columns = tableGrid(table, section)
+  const grid = columns.map((column) => `<w:gridCol w:w="${column}"/>`).join("")
+  // A table the editor gave no widths (one made in the app) is spread over the text width, as on the page. Word keeps
+  // grid columns only with a width on each cell (its own Insert Table writes them), else it fits them to the text.
+  const spread = table.grid.length === 0
+  const widthOf = (cells: TableCell[], index: number) => {
+    const at = cells.slice(0, index).reduce((sum, cell) => sum + (cell.gridSpan ?? 1), 0)
+    return columns.slice(at, at + (cells[index]?.gridSpan ?? 1)).reduce((sum, column) => sum + column, 0)
+  }
   const rows: TableRow[] = table.rows.length > 0 ? table.rows : [{ cells: [{ blocks: [emptyParagraph()] }] }]
   const written = rows
     .map((row) => {
       const exceptions = writeChildren(rowExceptionsInput(row), row.exceptionSource, writeRowExceptions, ORDER.tblPrEx)
       const properties = writeChildren(rowPropertiesInput(row), row.source, writeRowProperties, ORDER.trPr)
       const cells = row.cells
-        .map((cell) => {
+        .map((cell, index) => {
           const blocks = writeBlocks(cell.blocks, styles, section, ids)
           // A cell must end with a paragraph.
           const closing = cell.blocks[cell.blocks.length - 1]?.kind === "paragraph" ? "" : "<w:p/>"
-          return `<w:tc>${wrap("tcPr", writeCellProperties(cell))}${blocks}${closing}</w:tc>`
+          const width = widthOf(row.cells, index)
+          const sized: TableCell =
+            spread && !cell.width && !cell.source && width > 0
+              ? { ...cell, width: { value: width, type: "dxa" } }
+              : cell
+          return `<w:tc>${wrap("tcPr", writeCellProperties(sized))}${blocks}${closing}</w:tc>`
         })
         .join("")
       return `<w:tr>${wrap("tblPrEx", exceptions)}${wrap("trPr", properties)}${cells}</w:tr>`
@@ -973,6 +1024,9 @@ function writeBorder(name: string, border: Border | undefined) {
   if (border.color) {
     attributes.push(`w:color="${border.color}"`)
   }
+  if (border.colorTheme) {
+    attributes.push(themeRefXml(border.colorTheme, "themeColor", "themeTint", "themeShade").trim())
+  }
   if (border.shadow) {
     attributes.push(`w:shadow="1"`)
   }
@@ -1012,9 +1066,7 @@ function generateCellProperties(cell: ReturnType<typeof cellPropertiesInput>) {
     .map((side) => writeBorder(side, cell.borders?.[side]))
     .join("")
   const borders = sides ? `<w:tcBorders>${sides}</w:tcBorders>` : ""
-  const shading = cell.shading
-    ? `<w:shd w:val="${cell.shading.value}"${cell.shading.color ? ` w:color="${cell.shading.color}"` : ""}${cell.shading.fill ? ` w:fill="${cell.shading.fill}"` : ""}/>`
-    : ""
+  const shading = cell.shading ? shadingXml(cell.shading) : ""
   const vAlign = cell.vAlign ? `<w:vAlign w:val="${cell.vAlign}"/>` : ""
   const noWrap = cell.noWrap ? "<w:noWrap/>" : ""
   const margins = writeCellMargins(cell.margins, "tcMar")
@@ -1145,6 +1197,8 @@ function generateSection(section: SectionProps) {
     const tag = ref.kind === "header" ? "headerReference" : "footerReference"
     parts.push(`<w:${tag} w:type="${ref.type}" r:id="${escapeXml(ref.relId)}"/>`)
   }
+  parts.push(writeNotePr("footnote", undefined, section.footnoteProps))
+  parts.push(writeNotePr("endnote", undefined, section.endnoteProps))
   if (section.type) {
     parts.push(`<w:type w:val="${section.type}"/>`)
   }
@@ -1257,6 +1311,7 @@ function generateParagraphProperties(paragraph: ReturnType<typeof paragraphPrope
     onOff("keepNext", paragraph.pPr.keepNext),
     onOff("keepLines", paragraph.pPr.keepLines),
     onOff("pageBreakBefore", paragraph.pPr.pageBreakBefore),
+    writeDropCapFrame(paragraph.pPr.dropCap),
     onOff("widowControl", paragraph.pPr.widowControl),
     writeNumbering(paragraph.pPr),
     onOff("suppressLineNumbers", paragraph.pPr.suppressLineNumbers),
@@ -1268,6 +1323,8 @@ function generateParagraphProperties(paragraph: ReturnType<typeof paragraphPrope
     onOff("contextualSpacing", paragraph.pPr.contextualSpacing),
     onOff("mirrorIndents", paragraph.pPr.mirrorIndents),
     paragraph.pPr.jc ? `<w:jc w:val="${paragraph.pPr.jc}"/>` : "",
+    // A drop cap's letter sits on the baseline of its frame, as Word writes it.
+    paragraph.pPr.dropCap ? `<w:textAlignment w:val="baseline"/>` : "",
     paragraph.pPr.textboxTightWrap ? `<w:textboxTightWrap w:val="${paragraph.pPr.textboxTightWrap}"/>` : "",
     paragraph.pPr.outlineLvl !== undefined ? `<w:outlineLvl w:val="${paragraph.pPr.outlineLvl}"/>` : "",
     wrapRunProperties(paragraph.markRPr),
@@ -1275,18 +1332,41 @@ function generateParagraphProperties(paragraph: ReturnType<typeof paragraphPrope
   ].join("")
 }
 
+/** A drop cap's frame (w:framePr), as Word writes it: around the text, from the text (or the page, in the margin). */
+function writeDropCapFrame(dropCap: ParagraphProperties["dropCap"]) {
+  if (!dropCap) {
+    return ""
+  }
+  const space = dropCap.hSpace ? ` w:hSpace="${Math.round(dropCap.hSpace)}"` : ""
+  const anchor = dropCap.kind === "margin" ? "page" : "text"
+  return `<w:framePr w:dropCap="${dropCap.kind}" w:lines="${dropCap.lines}"${space} w:wrap="around" w:vAnchor="text" w:hAnchor="${anchor}"/>`
+}
+
 /** w:pBdr and w:shd of a paragraph, in the order the schema wants them. */
 function writeParagraphBox(props: ParagraphProperties) {
-  const sides = (["top", "left", "bottom", "right"] as const)
+  const sides = (["top", "left", "bottom", "right", "between"] as const)
     .map((side) => writeBorder(side, props.borders?.[side]))
     .join("")
   return `${sides ? `<w:pBdr>${sides}</w:pBdr>` : ""}${writeShading(props.shading)}`
 }
 
 function writeShading(shading: Shading | undefined) {
-  return shading
-    ? `<w:shd w:val="${shading.value}"${shading.color ? ` w:color="${shading.color}"` : ""}${shading.fill ? ` w:fill="${shading.fill}"` : ""}/>`
+  return shading ? shadingXml(shading) : ""
+}
+
+/** w:shd with its theme colour and fill references, which Word draws from the theme. */
+function shadingXml(shading: Shading) {
+  const color = shading.color ? ` w:color="${shading.color}"` : ""
+  const colorTheme = shading.colorTheme ? themeRefXml(shading.colorTheme, "themeColor", "themeTint", "themeShade") : ""
+  const fill = shading.fill ? ` w:fill="${shading.fill}"` : ""
+  const fillTheme = shading.fillTheme
+    ? themeRefXml(shading.fillTheme, "themeFill", "themeFillTint", "themeFillShade")
     : ""
+  return `<w:shd w:val="${shading.value}"${color}${colorTheme}${fill}${fillTheme}/>`
+}
+
+function themeRefXml(ref: ThemeColorRef, name: string, tint: string, shade: string) {
+  return ` w:${name}="${ref.name}"${ref.tint ? ` w:${tint}="${ref.tint}"` : ""}${ref.shade ? ` w:${shade}="${ref.shade}"` : ""}`
 }
 
 function writeTabs(tabs: ParagraphProperties["tabs"]) {
@@ -1365,7 +1445,7 @@ function generateRunProperties(props: RunProperties): string {
     onOff("imprint", props.imprint),
     onOff("noProof", props.noProof),
     onOff("vanish", props.vanish),
-    props.color ? `<w:color w:val="${props.color}"/>` : "",
+    props.color ? `<w:color w:val="${props.color}"${themeColorAttributes(props.colorTheme)}/>` : "",
     props.spacing !== undefined ? `<w:spacing w:val="${props.spacing}"/>` : "",
     props.w !== undefined ? `<w:w w:val="${props.w}"/>` : "",
     props.kern !== undefined ? `<w:kern w:val="${props.kern}"/>` : "",
@@ -1456,6 +1536,12 @@ function writeLanguage(props: RunProperties) {
   return attributes.length > 0 ? `<w:lang ${attributes.join(" ")}/>` : ""
 }
 
+const TABLE_NORMAL =
+  '<w:style w:type="table" w:default="1" w:styleId="TableNormal"><w:name w:val="Normal Table"/>' +
+  '<w:uiPriority w:val="99"/><w:semiHidden/><w:unhideWhenUsed/><w:tblPr><w:tblInd w:w="0" w:type="dxa"/>' +
+  '<w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="108" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/>' +
+  '<w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr></w:style>'
+
 function writeStyles(catalog: StyleCatalog) {
   if (catalog.raw) {
     return writeStylesFromSource(catalog, catalog.raw)
@@ -1465,7 +1551,10 @@ function writeStyles(catalog: StyleCatalog) {
   if (!defaults && !styles) {
     return ""
   }
-  return `<w:styles xmlns:w="${WORD_NS}">${defaults}${styles}</w:styles>`
+  // Word's Normal Table, as in its Normal template: the cell margins every table without its own takes. Without it
+  // Word draws the app's tables with no space between the text and the cell's sides.
+  const tableNormal = catalog.styles.some((style) => style.type === "table" && style.default) ? "" : TABLE_NORMAL
+  return `<w:styles xmlns:w="${WORD_NS}">${defaults}${styles}${tableNormal}</w:styles>`
 }
 
 /** Keeps latentStyles and every unedited style as Word wrote it; edited and added styles come from the model. */
@@ -1557,13 +1646,36 @@ function writeSettings(settings: Settings) {
     ["w:alignBordersAndEdges", settings.alignBordersAndEdges ? "<w:alignBordersAndEdges/>" : ""],
     ["w:bordersDoNotSurroundHeader", settings.bordersDoNotSurroundHeader ? "<w:bordersDoNotSurroundHeader/>" : ""],
     ["w:bordersDoNotSurroundFooter", settings.bordersDoNotSurroundFooter ? "<w:bordersDoNotSurroundFooter/>" : ""],
-    ["w:footnotePr", writeNotePr("footnote", settings.footnotePr)],
-    ["w:endnotePr", writeNotePr("endnote", settings.endnotePr)],
+    ["w:footnotePr", writeNotePr("footnote", settings.footnotePr, settings.footnoteProps)],
+    ["w:endnotePr", writeNotePr("endnote", settings.endnotePr, settings.endnoteProps)],
     ["w:compat", writeCompat(settings.raw?.children.find((child) => child.name === "w:compat")?.xml)],
     ["w:rsids", writeRsids(settings)],
   ])
+  // Only when the editor said so: a document saved without review settings keeps the ones it had.
+  if (settings.trackRevisions !== undefined) {
+    modelled.set("w:trackRevisions", settings.trackRevisions ? "<w:trackRevisions/>" : "")
+  }
+  if (settings.protection !== undefined) {
+    modelled.set("w:documentProtection", protectionXml(settings.protection))
+  }
+  for (const name of ["hideSpellingErrors", "hideGrammaticalErrors"] as const) {
+    if (settings[name] !== undefined) {
+      modelled.set(`w:${name}`, settings[name] ? `<w:${name}/>` : "")
+    }
+  }
+  if (settings.readOnlyRecommended !== undefined) {
+    modelled.set(
+      "w:writeProtection",
+      writeProtectionXml(
+        settings.raw?.children.find((child) => child.name === "w:writeProtection")?.xml,
+        settings.readOnlyRecommended,
+      ),
+    )
+  }
   if (!settings.raw) {
-    return `<w:settings xmlns:w="${WORD_NS}">${[...modelled.values()].join("")}</w:settings>`
+    // In schema order, as with a source's settings below.
+    const ordered = [...modelled].sort((a, b) => settingsRank(a[0]) - settingsRank(b[0]))
+    return `<w:settings xmlns:w="${WORD_NS}">${ordered.map(([, xml]) => xml).join("")}</w:settings>`
   }
   const children = settings.raw.children.map((child) => {
     const replacement = modelled.get(child.name)
@@ -1586,6 +1698,18 @@ function writeSettings(settings: Settings) {
     (item) => `${item.prefix ? `${item.prefix}:` : ""}${item.local}="${escapeXml(item.value)}"`,
   )
   return `<w:settings ${attributes.join(" ")}>${children.map((child) => child.xml).join("")}</w:settings>`
+}
+
+/**
+ * Always Open Read-Only, in w:writeProtection. Any other attribute the source had (a password to modify, from Word's
+ * Save Options) is kept; the element goes when nothing is left in it.
+ */
+function writeProtectionXml(source: string | undefined, recommended: boolean) {
+  const attributes = (source ? (/^<w:writeProtection\b([^>]*?)\/?>/.exec(source)?.[1] ?? "") : "")
+    .replace(/\s*w:recommended="[^"]*"/, "")
+    .trim()
+  const all = [recommended ? 'w:recommended="1"' : "", attributes].filter(Boolean).join(" ")
+  return all ? `<w:writeProtection ${all}/>` : ""
 }
 
 /** Writes compatibilityMode 15 and keeps every other compat setting from the source. */
@@ -1716,13 +1840,26 @@ function settingsRank(name: string) {
   return rank < 0 ? SETTINGS_ORDER.length : rank
 }
 
-function writeNotePr(local: "footnote" | "endnote", ids: number[] | undefined) {
-  if (!ids || ids.length === 0) {
+/** w:footnotePr / w:endnotePr: position and numbering first, then (in settings) the separator notes' ids. */
+function writeNotePr(local: "footnote" | "endnote", ids: number[] | undefined, props?: NoteProps) {
+  const items = noteProps(props) + (ids ?? []).map((id) => `<w:${local} w:id="${id}"/>`).join("")
+  if (!items) {
     return ""
   }
-  const items = ids.map((id) => `<w:${local} w:id="${id}"/>`).join("")
   const tag = local === "footnote" ? "footnotePr" : "endnotePr"
   return `<w:${tag}>${items}</w:${tag}>`
+}
+
+function noteProps(props: NoteProps | undefined) {
+  if (!props) {
+    return ""
+  }
+  return [
+    props.pos ? `<w:pos w:val="${props.pos}"/>` : "",
+    props.numFmt ? `<w:numFmt w:val="${escapeXml(props.numFmt)}"/>` : "",
+    props.numStart !== undefined ? `<w:numStart w:val="${props.numStart}"/>` : "",
+    props.numRestart ? `<w:numRestart w:val="${props.numRestart}"/>` : "",
+  ].join("")
 }
 
 function onOff(name: string, value: boolean | undefined) {
@@ -1776,4 +1913,13 @@ function validParaId(value: string | undefined) {
   }
   const hex = value.toUpperCase()
   return Number.parseInt(hex, 16) < 0x80000000 ? hex : undefined
+}
+
+function themeColorAttributes(theme: RunProperties["colorTheme"]) {
+  if (!theme) {
+    return ""
+  }
+  const tint = theme.tint ? ` w:themeTint="${theme.tint}"` : ""
+  const shade = theme.shade ? ` w:themeShade="${theme.shade}"` : ""
+  return ` w:themeColor="${theme.name}"${tint}${shade}`
 }

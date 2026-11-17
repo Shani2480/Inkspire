@@ -1,4 +1,5 @@
-import { comboFromEvent, shortcutFor } from "@/editor/shortcuts"
+import { comboFromEvent, NOT_REPEATED, shortcutFor } from "@/editor/shortcuts"
+import { noteRepeatable } from "@/editor/word-keys"
 import { Extension } from "@tiptap/core"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
 
@@ -26,7 +27,14 @@ export const ShortcutKeymap = Extension.create({
               return false
             }
             event.preventDefault()
-            return found.blocked ? true : found.def.run(editor)
+            if (found.blocked) {
+              return true
+            }
+            const done = found.def.run(editor)
+            if (done && !NOT_REPEATED.has(found.def.id)) {
+              noteRepeatable(found.def.run)
+            }
+            return done
           },
         },
       }),

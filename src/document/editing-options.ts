@@ -45,6 +45,13 @@ export type EditingOptions = {
   overtype: boolean
   /** Advanced > Cut, copy, paste: "keep" the source formatting, "merge" it with the destination, or keep "text" only. */
   pasteSameDocument: string
+  /** Options > Advanced > Editing options that change selecting, moving the cursor, clicking and pasting. */
+  selectEntireWord: boolean
+  smartParagraphSelection: boolean
+  smartCursoring: boolean
+  clickAndType: boolean
+  pasteOptionsButton: boolean
+  autoComplete: boolean
   pasteOtherPrograms: string
   /** The status bar keeps checking accessibility as you edit; off, it waits to be asked. */
   keepAccessibilityRunning: boolean
@@ -95,6 +102,12 @@ export const EDITING_DEFAULTS: EditingOptions = {
   insertKeyOvertype: false,
   overtype: false,
   pasteSameDocument: "keep",
+  selectEntireWord: true,
+  smartParagraphSelection: true,
+  smartCursoring: true,
+  clickAndType: true,
+  pasteOptionsButton: true,
+  autoComplete: true,
   pasteOtherPrograms: "keep",
   showBackgrounds: true,
   picturePlaceholders: false,
