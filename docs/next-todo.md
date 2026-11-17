@@ -26,9 +26,10 @@ Phases 1 and 2 are approved; phase 3 waits for a go-ahead.
       reports a dialog drawn below 85% ("scaled"). Borders and Shading (Page Borders, was 62%) has a phone layout and
       shows at full size (next build). Left: Font (83%) and Paragraph (85%) keep Word's layout scaled down; dialogs
       the phone's ribbon line does not reach in the tool are not measured.
-- [ ] A8. Hover-only controls (the TOC's Update Table tab) show on tap. A long press on text no longer opens Inkspire's
+- [x] A8. (next build) Hover-only controls (the TOC's Update Table tab) show on tap: on a touch screen the tab hangs
+      under the table at a finger's size at any zoom (`--page-zoom`); it was 10 px tall in the left margin. A long press on text no longer opens Inkspire's
       context menu (v0.9.1, B20): it selects and shows Android's Cut / Copy / Paste bar, the other commands are in the
-      ribbon. Left: the TOC tab on tap not checked.
+      ribbon.
 - [ ] A9. Checked on the Pixel and on the tablet (OnePlus Pad): open, type, format, insert a table and picture, save.
 
 ### Phase 2 — features that fail on Android

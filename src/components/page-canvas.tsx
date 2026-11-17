@@ -438,7 +438,11 @@ export function PageCanvas() {
 
   return (
     <div className="page-stage relative mx-auto mt-10" style={{ width: pageWidth }}>
-      <div className="page-zoom relative" style={{ width: pageWidth, height: pageVisualHeight }}>
+      {/* `--page-zoom`: for marks on the page that keep their size on screen at any zoom (the TOC's tab on touch). */}
+      <div
+        className="page-zoom relative"
+        style={{ width: pageWidth, height: pageVisualHeight, ["--page-zoom" as string]: zoom }}
+      >
         <article
           ref={pageRef}
           onMouseDown={clearFloatingSelection}

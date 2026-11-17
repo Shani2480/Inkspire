@@ -389,7 +389,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       Recent and save again; rename an opened document from the title (in Documents: renamed; from Downloads or a
       mail attachment: the message); open a .docx that ends in a table: the cursor is at the top, no table toolbar;
       select a picture, Read Mode: no picture toolbar over the text; File > Home and Open > Recent show each
-      document's date modified (also on Linux: today a time, this year a day and month, before a full date).
+      document's date modified (also on Linux: today a time, this year a day and month, before a full date);
+      Design > Page Borders fits the phone at full size; tap a table of contents: Update Table under it, tap it.
 - [ ] **v0.9.1 on the Pixel and the tablet (2026-11-17)** — hold a finger on a word: it is selected and Android's
       Cut / Copy / Paste bar shows, not Inkspire's menu; with a mouse on Linux, right-click still opens the menu.
 - [ ] **v0.9.0 on the Pixel and the tablet (2026-11-17)** — the new launcher icon (round, squircle, and themed icons

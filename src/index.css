@@ -2980,6 +2980,29 @@ button.line-menu-row:focus-visible {
   background: var(--app-hover);
 }
 
+/* On a touch screen the tab hangs under the table, big enough for a finger at any zoom, and shows once the table is
+   tapped: a phone's page margin is too narrow for it, and above the table the header's zone would take the tap. */
+@media (pointer: coarse) {
+  .page-editor .toc-update-tab {
+    top: 100%;
+    right: auto;
+    bottom: auto;
+    left: -1px;
+    z-index: 2;
+    padding: 0 calc(12px / var(--page-zoom, 1));
+    border-top: 0;
+    border-right: 1px solid #93c5fd;
+    border-radius: 0 0 calc(6px / var(--page-zoom, 1)) calc(6px / var(--page-zoom, 1));
+    font-size: calc(14px / var(--page-zoom, 1));
+    line-height: calc(36px / var(--page-zoom, 1));
+  }
+
+  /* An out-of-date table's tab too waits for a tap: shown all the time it would cover the text under the table. */
+  .page-editor .toc-block.is-stale:not(:hover, .ProseMirror-selectednode) .toc-update-tab {
+    display: none;
+  }
+}
+
 .page-editor .toc-block:hover:not(.ProseMirror-selectednode) {
   outline: 1px solid #bfdbfe;
   outline-offset: 1px;

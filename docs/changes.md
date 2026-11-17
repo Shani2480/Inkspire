@@ -33,6 +33,10 @@ in Word, Chrome or the desktop app.
   Borders and Shading dialog (`.bs-grid`: Setting beside Style, the preview below), so it shows at full size and
   scrolls down. The local check `tools/dialog-overflow.mjs` now reports any dialog drawn below 85% ("scaled"); Font (83%) and
   Paragraph (85%) are left as they are.
+- **TOC's Update Table tab on touch (A8):** it showed on a tap but was 10 px tall in the left margin at a phone's
+  zoom. On a touch screen it now hangs under the table, 36 px tall on screen at any zoom (`--page-zoom` on the page,
+  from `page-canvas.tsx`); above the table the header's zone took the tap. An out-of-date table's tab waits for a tap
+  there too, not to cover the text under it. Checked in emulation: tapped, it opens Update Table of Contents.
 - Not built or checked on a device yet (verify list).
 
 ### A long press on text no longer opens the full right-click menu on a touch screen; v0.9.1
