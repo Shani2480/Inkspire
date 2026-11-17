@@ -24,6 +24,10 @@ in Word, Chrome or the desktop app.
   was 77, in the table).
 - **Read Mode (B21):** a picture left selected kept its toolbar floating over the text being read; hidden in Read
   Mode.
+- **Date modified in Recent (B9):** the column showed "—" on every platform. `useModifiedDates` fills it: the
+  desktop app reads the files' dates (`documents_modified`, tested; at most 200, only full paths), Android asks the
+  document's place (`InkspireFiles.lastModified`, `COLUMN_LAST_MODIFIED`). `formatModified` writes it as Word's
+  lists do: a time for today, day and month this year, the full date before (tested).
 - Not built or checked on a device yet (verify list).
 
 ### A long press on text no longer opens the full right-click menu on a touch screen; v0.9.1

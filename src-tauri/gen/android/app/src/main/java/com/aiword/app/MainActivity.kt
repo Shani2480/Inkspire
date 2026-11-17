@@ -243,6 +243,17 @@ class AndroidFiles(private val activity: MainActivity) {
       null
     }
 
+  /** When a picked document was last changed (milliseconds since 1970), for Recent; -1 when its place does not say. */
+  @JavascriptInterface
+  fun lastModified(uri: String): Long =
+    try {
+      activity.contentResolver
+        .query(Uri.parse(uri), arrayOf(DocumentsContract.Document.COLUMN_LAST_MODIFIED), null, null, null)
+        ?.use { cursor -> if (cursor.moveToFirst() && !cursor.isNull(0)) cursor.getLong(0) else -1L } ?: -1L
+    } catch (error: Exception) {
+      -1L
+    }
+
   /** Shows the document picker for these MIME types (a JSON array); the choice comes back to `__inkspirePicked`. */
   @JavascriptInterface
   fun openDocument(mimeTypesJson: String) {

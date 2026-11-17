@@ -44,8 +44,9 @@ Phases 1 and 2 are approved; phase 3 waits for a go-ahead.
       desktop-only local model.
 - [x] B8. (2026-11-17, next build; device check pending) Save As goes through MainActivity's picker
       (`ACTION_CREATE_DOCUMENT`, `pickAndroidNewDocument`) and keeps read and write access across restarts, as Open.
-- [ ] B9. Recent shows where a document is ("Phone storage", "Downloads") rather than its content link. Done
-      2026-11-17 (`pathPlace`). Left: a real date modified for content links.
+- [x] B9. Recent shows where a document is ("Phone storage", "Downloads") rather than its content link (2026-11-17,
+      `pathPlace`), and its real date modified (next build; `modified-dates.ts`: the file's date on the desktop,
+      `COLUMN_LAST_MODIFIED` on Android; it showed "—" everywhere).
 - [x] B11. (2026-11-17, v0.7.0) Read Mode's page turn follows the finger during a swipe (scrub the View Transition's animations), as a
       book app's page curl does; now it turns once the swipe ends.
 - [x] B12. (2026-11-17, v0.9.0) The status bar's page count in Read Mode said the editor's pages: on a phone Read Mode

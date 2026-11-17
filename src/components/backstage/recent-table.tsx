@@ -1,4 +1,5 @@
 import { shownPath } from "@/lib/paths"
+import { formatModified, useModifiedDates } from "@/document/modified-dates"
 import { openRecentDocument } from "@/document/commands"
 import { useBackstage } from "@/document/backstage"
 import { documentName, useDocumentStore } from "@/document/store"
@@ -32,6 +33,7 @@ export function RecentTable({
       return `${documentName(path)} ${path}`.toLowerCase().includes(needle)
     })
   }, [filter, pinnedFiles, query, recentFiles])
+  const modified = useModifiedDates(rows)
 
   return (
     <div className="backstage-recent">
@@ -97,7 +99,7 @@ export function RecentTable({
                     </span>
                   </span>
                 </button>
-                <span className="backstage-table-date">—</span>
+                <span className="backstage-table-date">{formatModified(modified.get(path))}</span>
                 <span className="backstage-table-actions">
                   <button
                     type="button"

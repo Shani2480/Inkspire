@@ -19,6 +19,7 @@ fn main() {
             "tools_cancel_install",
             "tools_remove",
             "list_system_fonts",
+            "documents_modified",
             "open_window",
             "rename_document",
             "edit_in_cells",

@@ -1,4 +1,5 @@
 import { shownPath } from "@/lib/paths"
+import { formatModified, useModifiedDates } from "@/document/modified-dates"
 import { AddInsManager } from "@/components/addins"
 import { openCustomize } from "@/components/customize-dialog"
 import { ShortcutSettings } from "@/components/backstage/shortcut-settings"
@@ -316,6 +317,7 @@ function OpenFileSection({
   onOpen: (path: string) => void
   onTogglePin: (path: string) => void
 }) {
+  const modified = useModifiedDates(paths)
   return (
     <section className="backstage-card">
       <h2 className="backstage-card-title">{title}</h2>
@@ -345,7 +347,7 @@ function OpenFileSection({
                   <span className="block truncate text-[11px] opacity-60">{shownPath(path)}</span>
                 </span>
               </button>
-              <span className="backstage-table-date">—</span>
+              <span className="backstage-table-date">{formatModified(modified.get(path))}</span>
             </div>
           )
         })}

@@ -31,6 +31,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             import_document,
+            documents_modified,
             export_document,
             convert_legacy_document,
             read_document,
@@ -344,6 +345,22 @@ async fn open_window(app: tauri::AppHandle, request: String) -> Result<String, S
 #[tauri::command]
 async fn open_window(_app: tauri::AppHandle, _request: String) -> Result<String, String> {
     Err("Separate windows are not available on this device.".into())
+}
+
+/// When each document was last changed (milliseconds since 1970), for Recent's "Date modified"; None for one that
+/// is gone or is not a plain file path (Android's content links are asked of the content resolver instead).
+#[tauri::command]
+fn documents_modified(paths: Vec<String>) -> Vec<Option<u64>> {
+    paths
+        .iter()
+        .take(200)
+        .map(|path| {
+            let path = assert_user_document_path(path).ok()?;
+            let modified = std::fs::metadata(path).ok()?.modified().ok()?;
+            let since = modified.duration_since(std::time::UNIX_EPOCH).ok()?;
+            u64::try_from(since.as_millis()).ok()
+        })
+        .collect()
 }
 
 /// Android has no `fc-list`: its font families, and the aliases the web view also knows them by (arial, times …),
@@ -1007,12 +1024,27 @@ mod legacy_tests {
 mod tests {
     use super::{
         android_font_names, assert_local_document_path, assert_settings_path,
-        assert_user_document_path, document_body, export_format, font_families, import_format,
-        is_local_document_extension, is_recipient_list_extension, percent_decode,
+        assert_user_document_path, document_body, documents_modified, export_format, font_families,
+        import_format, is_local_document_extension, is_recipient_list_extension, percent_decode,
         typst_project_root,
     };
     use super::{existing_file_path, file_uri, gecos_name};
     use std::path::Path;
+
+    #[test]
+    fn documents_modified_reads_files_and_skips_the_rest() {
+        let file =
+            std::env::temp_dir().join(format!("inkspire-modified-{}.txt", std::process::id()));
+        std::fs::write(&file, "x").unwrap();
+        let found = documents_modified(vec![
+            file.to_string_lossy().into_owned(),
+            "relative.docx".into(),
+            "content://media/external/file/1".into(),
+        ]);
+        std::fs::remove_file(&file).unwrap();
+        assert!(found[0].is_some_and(|ms| ms > 1_600_000_000_000));
+        assert_eq!(&found[1..], &[None, None]);
+    }
 
     #[test]
     fn android_font_names_are_the_named_families_and_aliases() {
