@@ -384,6 +384,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **Line spacing (2026-11-17)** — open a Word document with double-spaced and 1.15-spaced text in the desktop
+      app: the text sits at the top of each line, as in Word (checked in Chrome and in WebKitGTK's MiniBrowser only).
 - [ ] **New documents in Aptos, and core edits (2026-11-17)** — in the desktop app: File > New > Blank document
       shows Aptos (or its stand-in) at 12 pt; type, make text bold, red, Heading 2, a list and a table; save, reopen,
       and open the file in Word: the same lines and spacing. Not run in the desktop build: it cannot be driven on a

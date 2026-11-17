@@ -9,6 +9,20 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "0.3.2",
+    date: "2026-11-17",
+    notes: [
+      {
+        title: "Line spacing as in Word",
+        text: "With 1.15, 1.5 or double spacing, Word keeps the text at the top of each line and puts the extra space below it; with Exactly it sits a little lower. Inkspire now does the same, so pages line up with Word's, especially with wide spacing.",
+      },
+      {
+        title: "New documents",
+        text: "A new document's line spacing now matches what Word shows when you open it.",
+      },
+    ],
+  },
+  {
     version: "0.3.1",
     date: "2026-11-17",
     notes: [

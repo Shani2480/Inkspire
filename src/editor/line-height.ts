@@ -30,7 +30,8 @@ export const WordLineHeight = LineHeight.extend({
                 return {}
               }
               return /^\d*\.?\d+$/.test(text)
-                ? { style: `line-height: calc(var(--word-single-line, 1) * ${text})` }
+                ? // data-word-lead: index.css places the text in the line as Word does (document/line-lead.ts).
+                  { style: `line-height: calc(var(--word-single-line, 1) * ${text})`, "data-word-lead": "" }
                 : { style: `line-height: ${text}` }
             },
           },

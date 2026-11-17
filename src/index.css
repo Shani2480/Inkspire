@@ -1866,10 +1866,14 @@ button.line-menu-row:focus-visible {
   max-width: 100%;
   overflow-wrap: break-word;
   /* A new document's body is the theme's body font, Aptos, as the font box says and Word shows; Carlito stands in
-     (same widths as Calibri, close to Aptos) where Aptos is not installed, as for Word files that name it. */
+     (same widths as Calibri, close to Aptos) where Aptos is not installed, as for Word files that name it. Line
+     spacing is in Aptos's lines (Word's single line is 1.21 times its size), as Word reads Normal's 1.65 when saved;
+     an opened Word document sets these from its own body font. */
+  --word-single-line: 1.21;
+  --word-descent: 0.282;
   font-family: var(--doc-body-font, "Aptos", "Carlito", sans-serif);
   font-size: 12pt;
-  line-height: 1.65;
+  line-height: calc(var(--word-single-line) * 1.65);
   color: #1c1c1c;
   caret-color: #1c1c1c;
 }
@@ -1883,7 +1887,34 @@ button.line-menu-row:focus-visible {
 }
 
 .page-editor p {
-  margin: 0 0 0.75em;
+  /* Normal's 9 pt after (styles.ts), whatever size a paragraph's text is. */
+  margin: 0 0 9pt;
+}
+
+/*
+ * Word's place for the text in each line (document/line-lead.ts, which line-lead.test.ts keeps this the same as).
+ */
+.page-editor :is(p, h1, h2, h3, h4, h5, h6) {
+  --lead-base: calc(1em * (var(--word-single-line, 1.17) - var(--word-descent, 0.22)));
+}
+
+.page-editor :is(p, h1, h2, h3, h4, h5, h6):not([data-word-tall]) {
+  text-box-trim: trim-both;
+  text-box-edge: cap alphabetic;
+  padding-top: max(0pt, calc(var(--lead-base) - 1cap));
+  padding-bottom: max(0pt, calc(1lh - var(--lead-base)));
+}
+
+:root:root .page-editor :is(p, h1, h2, h3, h4, h5, h6)[data-word-lead]:not([data-border], [data-border-between="1"]) {
+  --lead-base: calc(1em * (var(--word-single-line, 1.17) - var(--word-descent, 0.22)));
+}
+
+:root:root .page-editor :is(p, h1, h2, h3, h4, h5, h6)[data-line-rule="exact"]:not([data-border], [data-border-between="1"]) {
+  --lead-base: 0.8lh;
+}
+
+:root:root .page-editor :is(p, h1, h2, h3, h4, h5, h6)[data-line-rule="at-least"]:not([data-border], [data-border-between="1"]) {
+  --lead-base: max(1lh - var(--word-descent, 0.22) * 1em, 1em * (var(--word-single-line, 1.17) - var(--word-descent, 0.22)));
 }
 
 /* Keep imported spacer paragraphs from collapsing to zero height. */
@@ -1898,7 +1929,7 @@ button.line-menu-row:focus-visible {
   /* The saved headings name no font of their own, so Word draws them in the body font: so does the page. */
   font-family: var(--doc-heading-font, var(--doc-body-font, "Aptos", "Carlito", sans-serif));
   color: var(--doc-heading-color, inherit);
-  line-height: 1.25;
+  line-height: calc(var(--word-single-line) * 1.25);
   font-weight: 650;
   margin: 0 0 0.45em;
 }
@@ -2245,9 +2276,11 @@ button.line-menu-row:focus-visible {
  * beside by default) plus its line away from the text. Above and below, the paragraph grows by that much; beside,
  * the box reaches out into the indent or margin, so the text keeps its place. The lines are a layer behind the text.
  */
-:is(p, h1, h2, h3, h4, h5, h6):is([data-border], [data-border-between="1"]) {
+/* :root:root:root: above the style sheets' paddings that place the text in its line (document/line-lead.ts). */
+:root:root:root :is(p, h1, h2, h3, h4, h5, h6):is([data-border], [data-border-between="1"]) {
   --para-line: var(--para-border-width, 1px);
   position: relative;
+  text-box-trim: none;
   padding-top: calc(var(--para-top-on, 0) * (var(--para-space-top, 1pt) + var(--para-line-top, var(--para-line))));
   padding-bottom: calc(
     var(--para-bottom-on, 0) * (var(--para-space-bottom, 1pt) + var(--para-line-bottom, var(--para-line)))

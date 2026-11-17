@@ -13,10 +13,12 @@ next to Word's render of Inkspire's save. Saving: Word opens all 72 saves and ea
 Opening: the 13 differences found first are fixed (see `changes.md`, 2026-11-14); mean page difference 0.133 →
 0.080, 20 files closer to Word, 1 further (w13, below). Still different from Word, most visible first:
 
-1. Multiple line spacing (1.15, 1.5, exact 20 pt over a smaller font): Word puts a line's extra space below its text,
-   CSS splits it above and below, so text sits 3–5 px higher in Word (`w13`, `f03`, `w12`). A fix needs each line's
-   text moved down (e.g. a `padding-top`/negative `margin-bottom` pair per paragraph from its spacing), checked against
-   line numbers and floating objects positioned from the paragraph.
+1. ~~Multiple line spacing~~ — done 2026-11-17 (`document/line-lead.ts`, see `changes.md`). Still different: a
+   line that mixes text sizes (or holds an inline object) keeps the browser's placement, up to about 1 pt off.
+   Found on the way, already there before: a picture's paragraph is shorter than Word's (Word gives it its line
+   spacing and space after; the text after it sits about 10 pt higher in Inkspire, `f13`); bullet lines in `f04` are
+   1 pt further apart in Word; a picture in a list item drops below its bullet, and the empty bullet after a table
+   sits higher than Word's (`combined`).
 2. A TOC's field-end paragraph: Word keeps it as an empty line after the entries; Inkspire folds it into the TOC
    block (`f12`).
 3. Endnotes: the space above the endnote separator is a little larger than Word's (`combined`).

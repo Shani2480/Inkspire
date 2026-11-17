@@ -6,7 +6,8 @@ import {
   type StyleCatalog,
   type WordDocument,
 } from "@/document/docx/model"
-import { fontOf, resolvedStyle, themeFontsOf } from "@/document/docx/word-styles"
+import { fontOf, resolvedStyle, singleLine, themeFontsOf } from "@/document/docx/word-styles"
+import { wordDescent } from "@/document/line-lead"
 import { create } from "zustand"
 
 /**
@@ -301,6 +302,8 @@ export function fontCss(font: StyleFont) {
   const css: string[] = []
   if (font.family) {
     css.push(`font-family: ${quoteFamily(font.family)}`)
+    // Line spacing is in this font's lines, as in Word (index.css, document/line-lead.ts).
+    css.push(`--word-single-line: ${singleLine(font.family)}`, `--word-descent: ${wordDescent(font.family)}`)
   }
   if (font.size) {
     css.push(`font-size: ${font.size}pt`)
@@ -332,7 +335,7 @@ export function paragraphCss(para: StyleParagraph) {
     css.push(`margin-bottom: ${para.after}pt`)
   }
   if (para.line !== undefined) {
-    css.push(`line-height: ${para.line}`)
+    css.push(`line-height: calc(var(--word-single-line, 1) * ${para.line})`)
   }
   if (para.indent !== undefined) {
     css.push(`margin-left: ${para.indent}cm`)

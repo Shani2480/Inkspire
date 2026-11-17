@@ -1,3 +1,4 @@
+import { leadBase, wordDescent } from "@/document/line-lead"
 import { patternImage, patternValue } from "@/document/docx/shading-pattern"
 import { decodeXml } from "@/document/docx/xml"
 import {
@@ -449,6 +450,22 @@ function paragraphCss(props: ParagraphProperties, complete: boolean, line: numbe
   } else if (complete) {
     rules.push(`line-height: ${line}`)
   }
+  // Word's place for the text in a taller line; not on a paragraph with a top or bottom line, which pads itself.
+  const ruled = [props.borders?.top, props.borders?.bottom].some(
+    (border) => border && border.value !== "none" && border.value !== "nil",
+  )
+  if (ruled) {
+    // The box pads itself: no trim, and no room for the text's place on the sides without a line.
+    rules.push("text-box-trim: none")
+    for (const side of ["top", "bottom"] as const) {
+      const border = props.borders?.[side]
+      if (!border || border.value === "none" || border.value === "nil") {
+        rules.push(`padding-${side}: 0`)
+      }
+    }
+  } else if (spacing?.lineRule === "exact" || spacing?.lineRule === "atLeast") {
+    rules.push(`--lead-base: ${leadBase(spacing.lineRule)}`)
+  }
   if (props.jc) {
     const align = { both: "justify", distribute: "justify", center: "center", right: "right", end: "right" }[
       props.jc as string
@@ -535,7 +552,11 @@ export function documentStyleSheet(doc: WordDocument, themeFonts?: ThemeFonts): 
   const page = ":root .page-editor"
   const line = singleLine(fontOf(base.rPr.rFonts, theme))
   const css = [
-    rule(page, [...runCss(base.rPr, theme, true), `--word-single-line: ${line}`]),
+    rule(page, [
+      ...runCss(base.rPr, theme, true),
+      `--word-single-line: ${line}`,
+      `--word-descent: ${wordDescent(fontOf(base.rPr.rFonts, theme))}`,
+    ]),
     rule(`${page} p, ${page} li > p`, paragraphCss(base.pPr, true, line, theme.colors)),
     rule(`${page} :is(h1, h2, h3, h4, h5, h6)`, [
       ...runCss(base.rPr, theme, true),
@@ -561,9 +582,13 @@ export function documentStyleSheet(doc: WordDocument, themeFonts?: ThemeFonts): 
     }
     if (style.type === "paragraph" && style.id !== normal?.id) {
       const resolved = resolveStyle(style.id, styles, defaults)
-      const own = singleLine(fontOf(resolved.rPr.rFonts, theme))
+      const face = fontOf(resolved.rPr.rFonts, theme)
+      const own = singleLine(face)
       const declarations = [
         ...runCss(resolved.rPr, theme, true),
+        // A multiple of lines is of this style's font, as in Word.
+        `--word-single-line: ${own}`,
+        `--word-descent: ${wordDescent(face)}`,
         ...paragraphCss(resolved.pPr, true, own, theme.colors),
       ]
       const heading = /^Heading([1-6])$/i.exec(style.id)?.[1]

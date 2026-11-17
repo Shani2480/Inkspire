@@ -7,6 +7,39 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-17
 
+### Line spacing as Word places it: text at the top of a taller line; v0.3.2
+
+- **What was wrong:** with any line spacing over single (1.08, 1.15, 1.5, double, Exactly, At least), CSS centres the
+  text in its line, while Word keeps it where a single line has it and puts the extra space below (Exactly: the
+  baseline at 80% of the line; At least, when taller than the text: the extra space above). Measured in Word on a test
+  page: Inkspire's text sat up to 12.7 pt off (3 lines), 6 pt at double, about 0.5–1 pt at 1.08–1.15. New documents
+  also drew Normal's 1.65 as 1.65 times the font size where Word (and Inkspire reopening the file) uses 1.65 of
+  Aptos's lines, so lines were about 17% tighter while typing than after saving.
+- **What changed:**
+  - `document/line-lead.ts`: Word's baseline for each rule (`--lead-base`) and each font's descent, measured in Word
+    for 16 fonts (Aptos, Calibri, Cambria, Times New Roman, Arial, …). Every paragraph is trimmed to its first
+    line's cap height and its last line's baseline (`text-box-trim`) and padded back by Word's distances, so its
+    height stays a whole number of lines and only the text moves; floating objects, borders and page breaks are
+    untouched. Paragraph boxes keep their own padding; a paragraph whose line holds something taller than its text
+    (an inline object, runs of different sizes) keeps the browser's placement.
+  - Word styles set their font's single line and descent and, for Exactly / At least, their baseline
+    (`docx/word-styles.ts`); a paragraph's own spacing is picked up by `index.css` (`data-word-lead`,
+    `data-line-rule`); `editor/word-lead.ts` marks paragraphs with taller content and gives a paragraph whose text is
+    all one size or font that size and font.
+  - New documents: line spacing in Aptos lines (`--word-single-line: 1.21`), the app styles' multiples too
+    (`styles.ts`); Normal's space after is 9 pt whatever the text size (was 0.75em).
+  - Version 0.3.2 with its release notes.
+- **Checked:** Word in the VM against Chrome on a page of every rule: every line within 0.25 pt of Word (was up to
+  12.7). The edited blank document from the regression pass: every line within 1.4 pt over the page (Carlito stands
+  in for Aptos). All 66 fixtures Word opens, Inkspire's pages against Word's: mean difference 0.686 → 0.629, 53
+  closer, 10 the same, page counts unchanged, the fidelity audit finds nothing; the three that score worse have the
+  same line positions as before (pixel noise from a 1–2 px shift of the whole page). WebKitGTK 2.54 (the desktop app's
+  engine, in MiniBrowser) supports and applies the trim. Line numbers follow the text (they are placed from its
+  rectangles). Tests: `document/line-lead.test.ts` (the CSS in index.css, the rules, fonts, which paragraphs are
+  taller); 1649 pass.
+- **Open:** see next-todo item 1 (mixed sizes; a picture's paragraph height; bullets in `f04`; pictures in list
+  items). Not looked at in the desktop app itself.
+
 ### Core regression pass in Word; new documents drawn and saved in Aptos with Normal's spacing; v0.3.1
 
 - **Regression pass (core work first).** Every fixture opened and saved through Inkspire (73 of 80; the 7 left are
