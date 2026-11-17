@@ -7,6 +7,25 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-17
 
+### A table of contents keeps Word's empty line where its field closes; v0.3.3
+
+- **What was wrong:** Word usually closes a TOC field in a paragraph of its own after the entries, and draws that
+  paragraph as an empty line. Inkspire took it into the table of contents and drew nothing, so everything after a
+  table of contents sat one line higher than in Word (`f12`, next-todo item 2).
+- **What changed:** `docx/toc.ts` reads `endLine` when the field's last paragraph shows nothing (only the field end,
+  bookmarks, empty runs). The editor's table of contents (`editor/toc.ts`) draws it as an empty Normal paragraph
+  (`p.toc-end-line`, Normal's line and space after; the block's own bottom margin goes, `index.css`). An unchanged
+  table is still saved as it was read. A table that was updated is written with the field end in its own paragraph
+  again. Tables inserted in Inkspire keep the end in their last entry, as before. Version 0.3.3 with its release
+  notes.
+- **Checked:** `f12` rendered by Word in the VM next to Inkspire in Chrome: the empty line is there. The gap from the
+  entry to the date is 63 px in Word and 61 px in Inkspire. Tests: `docx/toc.test.ts` (read, drawn,
+  not added when the field closes in the last entry, kept after an update); 1650 pass.
+- **Open:** the TOC entries themselves sit about 6 px (4.5 pt) lower than Word's. They are drawn as flex rows with their
+  own margins, not with their TOCn style's spacing and Word's line placement (new next-todo item 7). Whether
+  Word's own gallery puts the field end in a paragraph of its own for a new table was not checked. The end line is drawn
+  in Normal even when the file gives it another style.
+
 ### Line spacing as Word places it: text at the top of a taller line; v0.3.2
 
 - **What was wrong:** with any line spacing over single (1.08, 1.15, 1.5, double, Exactly, At least), CSS centres the

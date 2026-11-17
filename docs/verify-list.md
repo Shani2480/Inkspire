@@ -384,6 +384,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **TOC end line (2026-11-17)** — open `f12_fields_toc.docx` in the desktop app: an empty line below the table
+      of contents, as in Word; update the table (Update Table…) and save: Word still shows the line (checked in
+      Chrome and the unit tests only).
 - [ ] **Line spacing (2026-11-17)** — open a Word document with double-spaced and 1.15-spaced text in the desktop
       app: the text sits at the top of each line, as in Word (checked in Chrome and in WebKitGTK's MiniBrowser only).
 - [ ] **New documents in Aptos, and core edits (2026-11-17)** — in the desktop app: File > New > Blank document

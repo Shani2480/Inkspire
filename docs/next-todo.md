@@ -19,14 +19,16 @@ Opening: the 13 differences found first are fixed (see `changes.md`, 2026-11-14)
    spacing and space after; the text after it sits about 10 pt higher in Inkspire, `f13`); bullet lines in `f04` are
    1 pt further apart in Word; a picture in a list item drops below its bullet, and the empty bullet after a table
    sits higher than Word's (`combined`).
-2. A TOC's field-end paragraph: Word keeps it as an empty line after the entries; Inkspire folds it into the TOC
-   block (`f12`).
+2. ~~A TOC's field-end paragraph~~ — done 2026-11-17 (see `changes.md`). Still different: the line is drawn in
+   Normal whatever its style; a table inserted in Inkspire closes in its last entry (Word's gallery not checked).
 3. Endnotes: the space above the endnote separator is a little larger than Word's (`combined`).
 4. Footnotes are not placed on page breaks inside a table or in unequal columns (they move to the next ordinary
    break), and endnotes that do not fit the last page are not split across pages.
 5. The heart preset sits about 2 px off Word's (`f20`).
 6. Header text is faded while the header is closed, as Word does on screen; Word's PDF draws it in full colour, so the
    comparison shows a difference that is not one (`f07`).
+7. TOC entries sit about 6 px (4.5 pt) lower than Word's: they are flex rows with their own margins, not drawn with
+   their TOCn style's spacing and Word's line placement (`f12`).
 
 Environment notes: Aptos (the Office default font) is not installed on the Linux host, so Inkspire's text uses a
 fallback and widths differ (tab positions too); the VM's background Word draws no 3D models; Word's first start can

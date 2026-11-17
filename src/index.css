@@ -2938,6 +2938,11 @@ button.line-menu-row:focus-visible {
   margin: 0 0 0.75em;
 }
 
+/* Word's empty paragraph where the field closes: a Normal line with Normal's space after, in place of the margin. */
+.page-editor .toc-block[data-toc-end-line] {
+  margin-bottom: 0;
+}
+
 /* Word's content control tab, shown on the table of contents the cursor is on or under the pointer. It sits in the
    left margin: above the block it would be under the header zone when the table opens a page. */
 .page-editor .toc-update-tab {

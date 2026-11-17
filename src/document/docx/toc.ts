@@ -29,6 +29,11 @@ export type TocRead = {
   title: string
   leader: TocLeader
   rightAlign: boolean
+  /**
+   * The field closes in a paragraph of its own after the entries, as Word writes it: Word draws that paragraph as an
+   * empty line below the table.
+   */
+  endLine: boolean
   /** The blocks as read, with what they showed, written back while the table of contents is unchanged. */
   source: string
 }
@@ -142,6 +147,7 @@ export function readLooseTocAt(blocks: Block[], index: number, doc: WordDocument
     instruction,
     title,
     ...layout,
+    endLine: false,
     source: JSON.stringify({ signature, blocks: blocks.slice(index, end) } satisfies TocSource),
   }
 }
@@ -261,6 +267,7 @@ export function tocBlocks(
   }
   const options = tocOptions({ ...attrs, instruction })
   const tabs = options.pageNumbers && options.rightAlign ? [rightTab(options.leader, textWidth)] : undefined
+  const endLine = attrs?.endLine === true
   // Without a right tab stop the page number follows the text after a space.
   const separator: RunContent = tabs ? { kind: "tab" } : { kind: "text", text: " " }
   const paragraphs: Paragraph[] = entries.map((entry, index) => {
@@ -303,7 +310,11 @@ export function tocBlocks(
     fieldRun({ kind: "instrText", text: ` ${instruction} ` }),
     fieldRun({ kind: "fldChar", fieldType: "separate" }),
   )
-  paragraphs[paragraphs.length - 1]!.inlines.push(fieldRun({ kind: "fldChar", fieldType: "end" }))
+  if (endLine) {
+    paragraphs.push({ kind: "paragraph", pPr: {}, markRPr: {}, inlines: [fieldRun({ kind: "fldChar", fieldType: "end" })] })
+  } else {
+    paragraphs[paragraphs.length - 1]!.inlines.push(fieldRun({ kind: "fldChar", fieldType: "end" }))
+  }
   if (figures) {
     return paragraphs
   }
@@ -342,6 +353,8 @@ function tocRead(
     return entry ? [entry] : []
   })
   const layout = entryLayout(paragraphs, doc)
+  const last = paragraphs[paragraphs.length - 1]
+  const endLine = paragraphs.length > 1 && last !== undefined && closesOnly(last)
   const signature = tocSignature({ entries, instruction, title, ...layout })
   return {
     end,
@@ -349,6 +362,7 @@ function tocRead(
     instruction,
     title,
     ...layout,
+    endLine,
     source: JSON.stringify({ signature, blocks: source } satisfies TocSource),
   }
 }
@@ -426,6 +440,16 @@ function fieldInstruction(paragraph: Paragraph, kind = "TOC"): string | null {
     }
   }
   return null
+}
+
+/** The paragraph shows nothing: it holds the field's end and at most bookmarks, empty runs and run marks. */
+function closesOnly(paragraph: Paragraph) {
+  return paragraph.inlines.every(
+    (inline) =>
+      inline.kind === "bookmarkStart" ||
+      inline.kind === "bookmarkEnd" ||
+      (inline.kind === "run" && inline.content.every((content) => content.kind === "fldChar")),
+  )
 }
 
 function readEntry(paragraph: Paragraph, doc: WordDocument): TocEntry | null {

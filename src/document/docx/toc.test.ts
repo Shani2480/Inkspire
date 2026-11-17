@@ -137,6 +137,20 @@ describe("tables of contents in Word documents", () => {
     ])
   })
 
+  it("keeps Word's empty line where the field closes in a paragraph of its own", () => {
+    const html = wordToEditor(fieldToc()).html
+    expect(html).toContain("data-toc-end-line")
+    const editor = editorWith(html)
+    expect(tocNodes(editor)[0]?.endLine).toBe(true)
+    const nav = editor.view.dom.querySelector("nav")!
+    expect(nav.hasAttribute("data-toc-end-line")).toBe(true)
+    expect(nav.lastElementChild?.matches("p.toc-end-line")).toBe(true)
+    // Closed in the last entry: no line after it.
+    const control = editorWith(wordToEditor(controlToc()).html)
+    expect(tocNodes(control)[0]?.endLine).toBe(false)
+    expect(control.view.dom.querySelector(".toc-end-line")).toBeNull()
+  })
+
   it("saves an untouched table of contents exactly as it was read", async () => {
     for (const [word, control] of [
       [fieldToc(), false],
@@ -162,7 +176,9 @@ describe("tables of contents in Word documents", () => {
     ])
     const { doc, xml } = await save(editor, word)
     const control = tocControl(doc.blocks)
-    expect(paragraphsIn(control.blocks!).map((paragraph) => paragraph.styleId)).toEqual(["TOC1", "TOC2"])
+    // The field still closes in its own paragraph after the entries, as it did in the file.
+    expect(paragraphsIn(control.blocks!).map((paragraph) => paragraph.styleId)).toEqual(["TOC1", "TOC2", undefined])
+    expect(paragraphText(paragraphsIn(control.blocks!)[2]!)).toBe("")
     expect(xml).toContain('<w:hyperlink w:anchor="_Toc200"')
     expect(xml).toContain("PAGEREF _Toc200 \\h")
     // The headings keep their one bookmark each.

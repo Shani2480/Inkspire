@@ -9,6 +9,16 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "0.3.3",
+    date: "2026-11-17",
+    notes: [
+      {
+        title: "Tables of contents",
+        text: "A table of contents from Word now keeps the empty line Word shows below its entries, so the text after it starts where it does in Word.",
+      },
+    ],
+  },
+  {
     version: "0.3.2",
     date: "2026-11-17",
     notes: [

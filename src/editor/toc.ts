@@ -86,6 +86,12 @@ export const TableOfContents = Node.create({
         parseHTML: (element) => element.getAttribute("data-toc-right-align") !== "false",
         renderHTML: (attributes) => ({ "data-toc-right-align": String(attributes.rightAlign !== false) }),
       },
+      /** Word's empty paragraph after the entries, where the field closes (docx/toc.ts). */
+      endLine: {
+        default: false,
+        parseHTML: (element) => element.hasAttribute("data-toc-end-line"),
+        renderHTML: (attributes) => (attributes.endLine ? { "data-toc-end-line": "" } : {}),
+      },
       /** The Word markup it was opened from, saved again while the table of contents is unchanged. */
       source: {
         default: "",
@@ -128,6 +134,7 @@ export const TableOfContents = Node.create({
                 ]
               : []),
           ])),
+      ...(node.attrs.endLine ? [["p", { class: "toc-end-line" }, ["br"]]] : []),
     ]
   },
 
@@ -471,6 +478,7 @@ function renderToc(dom: HTMLElement, node: ProseNode) {
   const options = tocOptions(node.attrs)
   dom.className = layoutClass(options)
   dom.dataset.leader = options.leader
+  dom.toggleAttribute("data-toc-end-line", node.attrs.endLine === true)
   dom.replaceChildren()
   const tab = document.createElement("button")
   tab.type = "button"
@@ -492,6 +500,7 @@ function renderToc(dom: HTMLElement, node: ProseNode) {
       ? "No table of figures entries found."
       : "No headings in this document."
     dom.append(empty)
+    appendEndLine(dom, node)
     return
   }
   entries.forEach((entry, index) => {
@@ -516,6 +525,17 @@ function renderToc(dom: HTMLElement, node: ProseNode) {
     }
     dom.append(row)
   })
+  appendEndLine(dom, node)
+}
+
+/** The empty paragraph Word shows below the entries when the field closes in a paragraph of its own. */
+function appendEndLine(dom: HTMLElement, node: ProseNode) {
+  if (node.attrs.endLine) {
+    const line = document.createElement("p")
+    line.className = "toc-end-line"
+    line.append(document.createElement("br"))
+    dom.append(line)
+  }
 }
 
 /** The page number (as the page shows it) of a document position, from the last layout; null before one. */
