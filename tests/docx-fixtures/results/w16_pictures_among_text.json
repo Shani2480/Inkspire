@@ -1,0 +1,8 @@
+{
+    "input":  "w16_pictures_among_text.docx",
+    "open":  {
+                 "ok":  true
+             },
+    "repair":  null,
+    "note":  "Opened and rendered to PDF by Word (office-runner VM, tools/word-render.py) on 2026-11-19; its save through Inkspire renders pixel-identical."
+}

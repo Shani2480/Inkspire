@@ -1934,6 +1934,17 @@ button.line-menu-row:focus-visible {
   margin-top: -1em;
 }
 
+/* The pieces of one Word paragraph cut around an in-line picture (document/docx/project.ts aroundPictures): one
+   paragraph in Word, so no paragraph spacing between them, and only the first line indented. */
+.page-editor :is(p, h1, h2, h3, h4, h5, h6):is([data-docx-part="before"], [data-docx-part="between"]) {
+  margin-bottom: 0 !important;
+}
+
+.page-editor :is(p, h1, h2, h3, h4, h5, h6):is([data-docx-part="next"], [data-docx-part="between"]) {
+  margin-top: 0 !important;
+  text-indent: 0 !important;
+}
+
 /* Runs in an exact or at-least line (document/line-lead.ts ruleLineHeight): unset elsewhere, so they inherit. No
    specificity, so an inline widget's own line height wins. */
 :where(.page-editor :is(p, h1, h2, h3, h4, h5, h6) *) {

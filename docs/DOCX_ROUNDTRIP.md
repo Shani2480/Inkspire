@@ -40,6 +40,7 @@ cells) is kept as written and shown as text (`word-markup.test.ts`).
 | Content controls, equations, shapes                              | yes                | shown as text, saved as the original markup                        |
 | Hyperlinks                                                       | yes                | relationship and history kept; new links get the Hyperlink style   |
 | Pictures                                                         | yes                | the drawing is reused while the picture and its size are unchanged |
+| Pictures in line among a paragraph's text                        | yes                | shown on their own line; saved back inside their paragraph         |
 | Headers, footers, page setup                                     | yes                | through the page chrome                                            |
 
 ## How an opened document is shown

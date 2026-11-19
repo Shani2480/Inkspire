@@ -95,8 +95,12 @@ Opening: the 13 differences found first are fixed (see `changes.md`, 2026-11-14)
    14). ~~Word keeps a line on the page when its single line fits, the multiple's extra running past the bottom
    margin, Inkspire moves it on~~ — done 2026-11-19 (see `changes.md`; triple-spaced pages break as in Word, a table
    cell broken across pages still counts the whole line). ~~A run in a taller font (Segoe UI) does not raise its line~~ — done 2026-11-19 (see `changes.md`: within 0.8 pt of
-   Word, was 2.6). Still different: a line with an
-   inline object keeps the browser's placement.
+   Word, was 2.6). Still different: a picture among a
+   paragraph's text stands on a line of its own (the editor's pictures are blocks); since 2026-11-19 the paragraph is
+   saved whole (see `changes.md`). Word puts it in the line: the line is the picture's height plus the font's descent
+   plus (multiple − 1) × the text's single line, the picture on the baseline at the line's top, the extra below
+   (measured 2026-11-19, a 72 pt picture in Calibri 11 pt at 1, 1.5 and 2 lines); at least: the picture's own line;
+   exact: the line stays exact and Word shows only the part of the picture that fits (Inkspire shows all of it).
    Found on the way, already there before: ~~a picture's paragraph is shorter than Word's~~ — done 2026-11-17 (see
    `changes.md`; `f13` and `f21` within 0.6–1.6 pt of Word, were 10–12); ~~bullet lines in `f04` are
    1 pt further apart in Word~~ (done 2026-11-17: Symbol's bullet makes the line taller, see `changes.md`; 17.75 pt,

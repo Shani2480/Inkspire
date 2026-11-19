@@ -7,6 +7,31 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-19
 
+### A picture among a paragraph's text is saved back inside its paragraph
+
+- **What was wrong:** the editor's pictures are blocks, so a Word paragraph with an in-line picture among its text
+  ("text [picture] text") was cut by the editor's parser: the text after the picture became a new paragraph without
+  the paragraph's properties (spacing, style, numbering), and saving wrote it so. In Word the saved file showed two
+  paragraphs where there had been one. A numbered item that opened with its picture lost the picture out of the list.
+- **What changed:** `docx/project.ts` `aroundPictures`: opening cuts such a paragraph itself, around each in-line
+  picture, every piece keeping the paragraph's attributes and anchor, marked `data-docx-part` (`before`, `between`,
+  `next`); a list item whose text starts after its picture opens with the blank paragraph a list item needs.
+  `editor/docx-source.ts`: the `docxPart` attribute (not copied on Enter). Saving (`joinPiece`, in the body and in
+  lists) joins `between` and `next` pieces back into the paragraph before them, or into the picture that opened it
+  (keeping its numbering). `index.css`: no paragraph spacing between the pieces and the first-line indent only on
+  the first. `DOCX_ROUNDTRIP.md` lists it. The pictures still show on lines of their own in Inkspire (agreed: keep
+  pictures as blocks for now).
+- **Checked in Word (VM):** a file with a picture first, last, two in one paragraph, in two numbered items and in a
+  spaced, first-line-indented paragraph, and the picture file from the line comparison: saved through Inkspire (opened
+  as the app opens Word files), each renders pixel-identical to the original in Word; 0 validator errors. The fixtures
+  draw as before; the fidelity audit finds nothing in the new file.
+- **Tests:** `docx/pictures-among-text.test.ts` on the new fixture `cases/w16_pictures_among_text.docx` (Word's
+  verdict in `results/`).
+- **Open:** in Inkspire the pictures still stand on lines of their own (Word draws them in the line, on the baseline,
+  a multiple's extra below: measured, see next-todo); a heading cut around a picture is saved whole too but not
+  checked; shapes and charts in line among text are not cut (they open as before). A picture in an exactly spaced
+  paragraph: Word shows only what fits the line, Inkspire all of it. Not looked at in the desktop app or on Android.
+
 ### A line holding a taller font is as tall as that font's line
 
 - **What was wrong:** a paragraph whose runs were all one size but in several fonts took no font's line: its lines

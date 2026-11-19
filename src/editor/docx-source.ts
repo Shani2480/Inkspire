@@ -22,6 +22,21 @@ export const DocxSource = Extension.create({
         },
       },
       {
+        // A piece of a Word paragraph the editor cut around an in-line picture (it has no inline pictures): the text
+        // "before" the first picture, "between" two, or "next" after the last; saving joins the later pieces back
+        // into the paragraph (document/docx/project.ts aroundPictures). Not copied on Enter.
+        types: ["paragraph", "heading"],
+        attributes: {
+          docxPart: {
+            default: null as string | null,
+            keepOnSplit: false,
+            parseHTML: (element: HTMLElement) => element.getAttribute("data-docx-part"),
+            renderHTML: (attributes: { docxPart?: string | null }) =>
+              attributes.docxPart ? { "data-docx-part": attributes.docxPart } : {},
+          },
+        },
+      },
+      {
         // The Word paragraph style, which the opened document's stylesheet shows. Saving takes the style from
         // the source paragraph, so this only affects how the paragraph looks.
         types: ["paragraph"],

@@ -968,10 +968,13 @@ function listItemHtml(paragraph: Paragraph, numId: number, items: Paragraph[], c
   // A list item has to open with a paragraph; without a blank one the picture would be pushed out of the list.
   // In the picture's paragraph style, so it is spaced as that paragraph (a List Paragraph's contextual spacing); it
   // has no key, so a save still leaves it out.
-  const opening = picturesOnly(paragraph, ctx.doc)
-    ? `<p${paragraph.styleId ? ` data-word-style="${escapeAttribute(paragraph.styleId)}"` : ""}></p>`
-    : ""
-  return `<li${attributes}>${opening}${paragraphHtml(paragraph, ctx)}</li>`
+  // So does an item whose text starts after an in-line picture (cut around it, `aroundPictures`).
+  const html = paragraphHtml(paragraph, ctx)
+  const opening =
+    picturesOnly(paragraph, ctx.doc) || /^<img (?![^>]*data-wrap=)/.test(html)
+      ? `<p${paragraph.styleId ? ` data-word-style="${escapeAttribute(paragraph.styleId)}"` : ""}></p>`
+      : ""
+  return `<li${attributes}>${opening}${html}</li>`
 }
 
 const breakTypes = new WeakMap<WordDocument, Map<Paragraph, SectionProps["type"]>>()
@@ -1219,7 +1222,69 @@ function paragraphInnerHtml(paragraph: Paragraph, ctx: Projection) {
     floats.push(img)
     return ""
   })
-  return `${floats.join("")}<${tag}${attrs}${style}${tabs}>${inner}</${tag}>`
+  return `${floats.join("")}${aroundPictures(`<${tag}${attrs}${style}${tabs}>${inner}</${tag}>`)}`
+}
+
+/** An in-line picture among a paragraph's text: not one placed on the page, which the editor draws apart. */
+const LINE_PICTURE = "img:not([data-wrap])"
+
+/**
+ * A paragraph holding an in-line picture among its text, cut into the text before the picture, the picture, and the
+ * text after it, as the editor's pictures are blocks (the browser's parser would otherwise cut it, the part after
+ * losing the paragraph). Every piece keeps the paragraph's attributes; `data-docx-part` says which it is, so the
+ * pieces are drawn without the paragraph's spacing between them and saving joins them back into one paragraph.
+ */
+export function aroundPictures(html: string) {
+  if (!/<img (?![^>]*data-wrap=)/.test(html) || typeof document === "undefined") {
+    return html
+  }
+  const holder = document.createElement("template")
+  holder.innerHTML = html
+  const paragraph = holder.content.firstElementChild
+  if (!paragraph || !paragraph.querySelector(LINE_PICTURE)) {
+    return html
+  }
+  const pieces: { text?: Element; picture?: string }[] = []
+  let rest: Element = paragraph
+  for (let picture = rest.querySelector(LINE_PICTURE); picture; picture = rest.querySelector(LINE_PICTURE)) {
+    const range = document.createRange()
+    range.setStart(rest, 0)
+    range.setEndBefore(picture)
+    const before = range.extractContents()
+    range.setStartAfter(picture)
+    range.setEnd(rest, rest.childNodes.length)
+    const after = range.extractContents()
+    if (hasContent(before)) {
+      const piece = paragraph.cloneNode(false) as Element
+      piece.append(before)
+      pieces.push({ text: piece })
+    }
+    pieces.push({ picture: picture.outerHTML })
+    rest = paragraph.cloneNode(false) as Element
+    rest.append(after)
+  }
+  if (hasContent(rest)) {
+    pieces.push({ text: rest })
+  }
+  return pieces
+    .map((piece, index) => {
+      if (!piece.text) {
+        return piece.picture
+      }
+      const last = index === pieces.length - 1
+      piece.text.setAttribute("data-docx-part", index === 0 ? "before" : last ? "next" : "between")
+      return piece.text.outerHTML
+    })
+    .join("")
+}
+
+/** Whether a piece of a paragraph holds anything: text, a break, a field; not just the empty runs a cut leaves. */
+function hasContent(node: Node) {
+  const element = node as Element | DocumentFragment
+  return (
+    (node.textContent ?? "") !== "" ||
+    element.querySelector?.("br, img, [data-type], [contenteditable=false], sup, sub") != null
+  )
 }
 
 /**
@@ -2501,6 +2566,9 @@ function blocksFromNodes(nodes: JsonNode[], build: Build, level: number, top = f
       previous.inlines.push(...block.inlines)
       continue
     }
+    if (joinPiece(blocks, block, node, home)) {
+      continue
+    }
     if (block) {
       blocks.push(block)
     }
@@ -2521,6 +2589,41 @@ function blocksFromNodes(nodes: JsonNode[], build: Build, level: number, top = f
     }
   }
   return blocks
+}
+
+/** The Word paragraph a picture that opened its paragraph came from, for the text after it (`joinPiece`). */
+const pictureHomes = new WeakMap<Block, string>()
+
+/**
+ * The text after an in-line picture, which the editor holds as a paragraph of its own (`aroundPictures`), goes back
+ * into the paragraph it was cut from: the one before it with the same anchor, or the picture that opened it. Whether
+ * it was joined. A picture block records where it came from for the text that follows it.
+ */
+function joinPiece(blocks: Block[], block: Block | null, node: JsonNode, home: string | undefined) {
+  if (block?.kind !== "paragraph") {
+    return false
+  }
+  const previous = blocks[blocks.length - 1]
+  const part = node.attrs?.docxPart
+  if ((part === "next" || part === "between") && block.key && previous?.kind === "paragraph") {
+    if (previous.key === block.key) {
+      previous.inlines.push(...block.inlines)
+      return true
+    }
+    if (pictureHomes.get(previous) === block.key) {
+      block.inlines.unshift(...previous.inlines)
+      if (previous.pPr.numPr && !block.pPr.numPr) {
+        // A list item's numbering, which went on the picture that opened it.
+        block.pPr = { ...block.pPr, numPr: previous.pPr.numPr }
+      }
+      blocks[blocks.length - 1] = block
+      return true
+    }
+  }
+  if (node.type === "image" && home && block.key === undefined) {
+    pictureHomes.set(block, home)
+  }
+  return false
 }
 
 function blocksFromList(node: JsonNode, build: Build, level: number, parentNumId?: number): Block[] {
@@ -2582,6 +2685,24 @@ function blocksFromList(node: JsonNode, build: Build, level: number, parentNumId
           }
         }
         first = false
+      }
+      const runKey =
+        child.type === "image" && typeof child.attrs?.docxKey === "string" ? child.attrs.docxKey : undefined
+      const home = runKey ? build.origins.runParagraphs.get(runKey)?.key : undefined
+      const previous = blocks[blocks.length - 1]
+      if (
+        child.type === "image" &&
+        block?.kind === "paragraph" &&
+        previous?.kind === "paragraph" &&
+        previous.key !== undefined &&
+        previous.key === home
+      ) {
+        // As in the body: a picture among a list item's text goes back into its paragraph.
+        previous.inlines.push(...block.inlines)
+        continue
+      }
+      if (joinPiece(blocks, block, child, home)) {
+        continue
       }
       if (block) {
         blocks.push(block)
