@@ -92,6 +92,12 @@ export const TableOfContents = Node.create({
         parseHTML: (element) => element.hasAttribute("data-toc-end-line"),
         renderHTML: (attributes) => (attributes.endLine ? { "data-toc-end-line": "" } : {}),
       },
+      /** That paragraph's Word style id ("" for Normal), so it is drawn and saved in it. */
+      endStyle: {
+        default: "",
+        parseHTML: (element) => element.getAttribute("data-toc-end-style") ?? "",
+        renderHTML: (attributes) => (attributes.endStyle ? { "data-toc-end-style": String(attributes.endStyle) } : {}),
+      },
       /** The Word markup it was opened from, saved again while the table of contents is unchanged. */
       source: {
         default: "",
@@ -134,7 +140,7 @@ export const TableOfContents = Node.create({
                 ]
               : []),
           ])),
-      ...(node.attrs.endLine ? [["p", { class: "toc-end-line" }, ["br"]]] : []),
+      ...(node.attrs.endLine ? [["p", endLineAttrs(node), ["br"]]] : []),
     ]
   },
 
@@ -535,11 +541,20 @@ function renderToc(dom: HTMLElement, node: ProseNode) {
   appendEndLine(dom, node)
 }
 
+function endLineAttrs(node: ProseNode): Record<string, string> {
+  return node.attrs.endStyle
+    ? { class: "toc-end-line", "data-word-style": String(node.attrs.endStyle) }
+    : { class: "toc-end-line" }
+}
+
 /** The empty paragraph Word shows below the entries when the field closes in a paragraph of its own. */
 function appendEndLine(dom: HTMLElement, node: ProseNode) {
   if (node.attrs.endLine) {
     const line = document.createElement("p")
     line.className = "toc-end-line"
+    if (node.attrs.endStyle) {
+      line.dataset.wordStyle = String(node.attrs.endStyle)
+    }
     line.append(document.createElement("br"))
     dom.append(line)
   }

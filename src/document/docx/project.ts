@@ -758,7 +758,9 @@ function blocksToHtml(blocks: Block[], ctx: Projection) {
         toc.instruction,
       )}" data-toc-title="${escapeAttribute(toc.title)}" data-toc-leader="${toc.leader}" data-toc-right-align="${
         toc.rightAlign
-      }"${toc.endLine ? " data-toc-end-line" : ""} data-toc-source="${escapeAttribute(toc.source)}"></nav>`
+      }"${toc.endLine ? " data-toc-end-line" : ""}${
+        toc.endStyle ? ` data-toc-end-style="${escapeAttribute(toc.endStyle)}"` : ""
+      } data-toc-source="${escapeAttribute(toc.source)}"></nav>`
       index = toc.end
       continue
     }

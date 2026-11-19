@@ -84,15 +84,17 @@ const STYLES =
   '<w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/><w:pPr><w:outlineLvl w:val="0"/></w:pPr></w:style>' +
   '<w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/><w:pPr><w:outlineLvl w:val="1"/></w:pPr></w:style>' +
   '<w:style w:type="paragraph" w:styleId="TOC1"><w:name w:val="toc 1"/></w:style>' +
-  '<w:style w:type="paragraph" w:styleId="TOC2"><w:name w:val="toc 2"/></w:style></w:styles>'
+  '<w:style w:type="paragraph" w:styleId="TOC2"><w:name w:val="toc 2"/></w:style>' +
+  '<w:style w:type="paragraph" w:styleId="BodyText"><w:name w:val="Body Text"/></w:style></w:styles>'
 
 /** A TOC field over paragraphs, the way Word writes one without a content control. */
-function fieldToc() {
+function fieldToc(endStyle?: string) {
+  const endPPr = endStyle ? `<w:pPr><w:pStyle w:val="${endStyle}"/></w:pPr>` : ""
   const body =
     "<w:p><w:r><w:t>Table of Contents</w:t></w:r></w:p>" +
     fieldParagraph("Purpose", "3", "_Toc100", "TOC1", FIELD_START) +
     fieldParagraph("Scope", "iv", "_Toc200", "TOC2") +
-    '<w:p><w:r><w:fldChar w:fldCharType="end"/></w:r></w:p>' +
+    `<w:p>${endPPr}<w:r><w:fldChar w:fldCharType="end"/></w:r></w:p>` +
     HEADINGS
   return readWordXml({ documentXml: `<w:document ${W}><w:body>${body}</w:body></w:document>`, stylesXml: STYLES })
 }
@@ -149,6 +151,22 @@ describe("tables of contents in Word documents", () => {
     const control = editorWith(wordToEditor(controlToc()).html)
     expect(tocNodes(control)[0]?.endLine).toBe(false)
     expect(control.view.dom.querySelector(".toc-end-line")).toBeNull()
+  })
+
+  it("draws and saves that empty line in its own paragraph style", async () => {
+    const word = fieldToc("BodyText")
+    const editor = editorWith(wordToEditor(word).html)
+    expect(tocNodes(editor)[0]?.endStyle).toBe("BodyText")
+    const line = editor.view.dom.querySelector<HTMLElement>("nav p.toc-end-line")
+    expect(line?.dataset.wordStyle).toBe("BodyText")
+    // Without a style of its own it is Normal: no style id on the line.
+    const plain = editorWith(wordToEditor(fieldToc()).html)
+    expect(plain.view.dom.querySelector("nav p.toc-end-line")?.hasAttribute("data-word-style")).toBe(false)
+    // Updated, the field's closing paragraph keeps the style.
+    editor.commands.updateTableOfContents()
+    const { doc } = await save(editor, word)
+    const styles = paragraphsIn(tocControl(doc.blocks).blocks!).map((paragraph) => paragraph.styleId)
+    expect(styles).toEqual(["TOC1", "TOC2", "BodyText"])
   })
 
   it("saves an untouched table of contents exactly as it was read", async () => {

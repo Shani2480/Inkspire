@@ -34,6 +34,8 @@ export type TocRead = {
    * empty line below the table.
    */
   endLine: boolean
+  /** The paragraph style of that closing paragraph ("" for the document's default), drawn and saved in it. */
+  endStyle: string
   /** The blocks as read, with what they showed, written back while the table of contents is unchanged. */
   source: string
 }
@@ -148,6 +150,7 @@ export function readLooseTocAt(blocks: Block[], index: number, doc: WordDocument
     title,
     ...layout,
     endLine: false,
+    endStyle: "",
     source: JSON.stringify({ signature, blocks: blocks.slice(index, end) } satisfies TocSource),
   }
 }
@@ -268,6 +271,7 @@ export function tocBlocks(
   const options = tocOptions({ ...attrs, instruction })
   const tabs = options.pageNumbers && options.rightAlign ? [rightTab(options.leader, textWidth)] : undefined
   const endLine = attrs?.endLine === true
+  const endStyle = typeof attrs?.endStyle === "string" && attrs.endStyle ? attrs.endStyle : undefined
   // Without a right tab stop the page number follows the text after a space.
   const separator: RunContent = tabs ? { kind: "tab" } : { kind: "text", text: " " }
   const paragraphs: Paragraph[] = entries.map((entry, index) => {
@@ -311,7 +315,13 @@ export function tocBlocks(
     fieldRun({ kind: "fldChar", fieldType: "separate" }),
   )
   if (endLine) {
-    paragraphs.push({ kind: "paragraph", pPr: {}, markRPr: {}, inlines: [fieldRun({ kind: "fldChar", fieldType: "end" })] })
+    paragraphs.push({
+      kind: "paragraph",
+      ...(endStyle ? { styleId: endStyle } : {}),
+      pPr: {},
+      markRPr: {},
+      inlines: [fieldRun({ kind: "fldChar", fieldType: "end" })],
+    })
   } else {
     paragraphs[paragraphs.length - 1]!.inlines.push(fieldRun({ kind: "fldChar", fieldType: "end" }))
   }
@@ -363,6 +373,7 @@ function tocRead(
     title,
     ...layout,
     endLine,
+    endStyle: endLine ? (last?.styleId ?? "") : "",
     source: JSON.stringify({ signature, blocks: source } satisfies TocSource),
   }
 }

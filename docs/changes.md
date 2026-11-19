@@ -5,6 +5,23 @@ wrong or missing, what changed, where (files, tests), how it was checked, and wh
 story of each feature stays in `next-todo.md` under its section; `verify-list.md` holds what still needs a check
 in Word, Chrome or the desktop app.
 
+## 2026-11-19
+
+### A table of contents' closing line takes its own style
+
+- **What was wrong:** when Word closes a TOC field in a paragraph of its own, Inkspire drew that empty line in Normal
+  whatever its style, and an updated table wrote it back without its style. A closing line in a larger style or with
+  more space after left the text below too high.
+- **What changed:** `docx/toc.ts` reads the closing paragraph's style (`endStyle`) and writes it back on the field's
+  closing paragraph after an update; `docx/project.ts` passes it as `data-toc-end-style`; `editor/toc.ts` keeps it as
+  an attribute and draws `p.toc-end-line` with `data-word-style`, so the document's style sheet gives it the style's
+  font, spacing and line.
+- **Checked in Word (VM):** `f12` with its closing line in a 20 pt style with 48 pt after: Word moves the next line
+  down 51.24 pt from the Normal one, Inkspire 51.32 (it did not move before); `f12` itself unchanged.
+- **Tests:** `docx/toc.test.ts` (read, drawn in the style, Normal without one, kept after an update).
+- **Open:** a closing line in a heading style is drawn as a paragraph, so heading-only rules (on `h1`–`h6`) do not
+  reach it.
+
 ## 2026-11-17
 
 ### "At least" line spacing is at least the text's line; exact lines stay exact with larger runs
