@@ -817,6 +817,8 @@ export function InsertTab() {
               instruction: DEFAULT_TOC_INSTRUCTION,
               leader: "dot",
               rightAlign: true,
+              // Word's gallery closes the field in an empty Normal paragraph: a blank line below the table.
+              endLine: true,
             })
             .run(),
       },

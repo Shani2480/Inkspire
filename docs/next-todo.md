@@ -102,8 +102,9 @@ Opening: the 13 differences found first are fixed (see `changes.md`, 2026-11-14)
    sits higher than Word's (`combined`)~~ (done 2026-11-17: the table's last row lost its List Paragraph space after;
    contextual spacing in tables now follows Word, `combined` within 1.8 pt to the page's end).
 2. ~~A TOC's field-end paragraph~~ — done 2026-11-17 (see `changes.md`); ~~drawn in Normal whatever its style~~ —
-   done 2026-11-19 (it takes its own style, checked in Word within 0.1 pt). Still different: a table inserted in
-   Inkspire closes in its last entry (Word's gallery not checked).
+   done 2026-11-19 (it takes its own style, checked in Word within 0.1 pt); ~~a table inserted in Inkspire closes in
+   its last entry~~ — done 2026-11-19: Word's gallery closes it in an empty Normal paragraph, Inkspire's gallery now
+   does too (within 0.6 pt of Word).
 3. ~~Endnotes: the space above the endnote separator is a little larger than Word's~~ — done 2026-11-17 (see
    `changes.md`): `f08` and `combined` within about 1 pt of Word (`combined` was 24 pt). The last page's footnotes:
    `f08` 0.7 pt (was 2.2, fixed with the endnote split below), `combined` 1.2 pt low.

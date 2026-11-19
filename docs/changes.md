@@ -7,6 +7,21 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-19
 
+### A table of contents from the gallery ends with Word's blank line
+
+- **What was wrong:** a table inserted from References > Table of Contents (or Insert > Table of Contents) closed its
+  field in its last entry, so the text below sat a line higher than under a table Word inserts.
+- **Measured in Word (VM):** Automatic Table 1 and 2, inserted through Word's building blocks and saved: the field
+  ends in an empty Normal paragraph of its own inside the content control, drawn as a blank line. The Custom Table of
+  Contents (`TablesOfContents.Add`) has no such paragraph.
+- **What changed:** `editor/toc.ts` `TocSettings.endLine`; the two gallery buttons (`ribbon/references-tab.tsx`,
+  `ribbon/insert-tab.tsx`) insert with it, so the table is drawn with the blank line and saved with the field end in
+  its own paragraph. The Custom dialog is unchanged.
+- **Checked in Word (VM):** Inkspire's save passes the Open XML validator; Word draws it with the blank line, the last
+  entry to the next heading 62.44 pt in Word and 61.90 in Inkspire. Word's own gallery file opened in Inkspire:
+  56.87 pt (Word 56.77).
+- **Tests:** `docx/toc.test.ts` (inserted with the end line, saved as an empty Normal paragraph with the field end).
+
 ### A table of contents' closing line takes its own style
 
 - **What was wrong:** when Word closes a TOC field in a paragraph of its own, Inkspire drew that empty line in Normal

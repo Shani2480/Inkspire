@@ -1,4 +1,5 @@
 import { Editor } from "@tiptap/core"
+import { writeFileSync } from "node:fs"
 import { afterEach, describe, expect, it } from "vitest"
 import { emptyChrome } from "@/document/header"
 import { openDocxBytes, saveDocxBytes } from "@/document/docx/io"
@@ -220,6 +221,21 @@ describe("tables of contents made in the editor", () => {
       "Background",
       "Detail",
     ])
+  })
+
+  it("closes a gallery table's field in an empty Normal paragraph, as Word's Automatic Table does", async () => {
+    const editor = editorWith(HTML)
+    editor.chain().setTextSelection(1).insertTableOfContents({ endLine: true }).run()
+    expect(editor.view.dom.querySelector("nav p.toc-end-line")).not.toBeNull()
+    const { doc, bytes } = await save(editor, null)
+    if (process.env.TOC_GALLERY_OUT) {
+      writeFileSync(process.env.TOC_GALLERY_OUT, bytes)
+    }
+    const paragraphs = paragraphsIn(tocControl(doc.blocks).blocks!)
+    expect(paragraphs.map((paragraph) => paragraph.styleId)).toEqual(["TOCHeading", "TOC1", "TOC2", "TOC3", undefined])
+    const last = paragraphs[paragraphs.length - 1]!
+    expect(paragraphText(last)).toBe("")
+    expect(JSON.stringify(last.inlines)).toContain('"fieldType":"end"')
   })
 
   it("saves a Word table of contents that links to bookmarked headings", async () => {

@@ -29,7 +29,14 @@ export type { TocEntry } from "@/document/toc"
 export const TOC_UPDATE_EVENT = "inkspire-toc-update"
 
 /** What Automatic Table 1, Automatic Table 2, and Custom Table of Contents set. */
-export type TocSettings = { title?: string; instruction?: string; leader?: TocLeader; rightAlign?: boolean }
+export type TocSettings = {
+  title?: string
+  instruction?: string
+  leader?: TocLeader
+  rightAlign?: boolean
+  /** Closes the field in an empty paragraph of its own, as Word's Automatic Table gallery does. */
+  endLine?: boolean
+}
 
 /** Update Table of Contents: Update page numbers only, or Update entire table. */
 export type TocUpdate = "pages" | "entire"
