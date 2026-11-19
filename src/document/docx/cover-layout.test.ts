@@ -201,6 +201,28 @@ describe("the room Word gives a picture alone in its paragraph", () => {
     expect(lineRoom("6 0 0 36", 32)).toEqual({ top: 8, bottom: 16 })
     expect(lineRoom("", 32)).toEqual({ top: 0, bottom: 0 })
   })
+
+  it("keeps an exact line exact: the picture on its baseline, cut at the line's top (Word, 2026-11-19)", () => {
+    // A 72 pt (96 px) picture in exact lines: Word showed its bottom 12 pt in a 15 pt line, its bottom 40 pt in a
+    // 50 pt one, and all of it 8 pt below the top of a 100 pt one.
+    expect(lineRoom("0 0 0 0 15", 96)).toEqual({ top: 0, bottom: 0, exact: 20, lift: -80 })
+    expect(lineRoom("0 0 0 0 50", 96).lift).toBeCloseTo(-42.67)
+    expect(lineRoom("6 3 0 0 100", 96)).toEqual({ top: 8, bottom: 4, exact: 133.33, lift: 10.67 })
+  })
+
+  it("reads an exact line's height for its picture", async () => {
+    const { pictureLineSpace } = await import("@/document/docx/word-styles")
+    const { readWordXml } = await import("@/document/docx/wml-read")
+    const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+    const doc = readWordXml({
+      documentXml: `<w:document ${W}><w:body><w:p><w:pPr><w:spacing w:line="300" w:lineRule="exact"/></w:pPr></w:p></w:body></w:document>`,
+    })
+    const paragraph = doc.blocks[0]
+    expect(paragraph?.kind).toBe("paragraph")
+    if (paragraph?.kind === "paragraph") {
+      expect(pictureLineSpace(doc, paragraph)).toMatchObject({ exact: 15, extra: 0, least: 0 })
+    }
+  })
 })
 
 describe("a picture alone in a list item", () => {

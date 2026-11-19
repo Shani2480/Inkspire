@@ -298,14 +298,27 @@ function parseImageDimension(element: HTMLElement, name: "width" | "height") {
 
 /**
  * The margins (px) that give an in-line picture its paragraph's room in Word (`lineSpace`: before, after, the line's
- * extra height, an at-least line height, in pt): its line's extra height goes below it, on the baseline the picture
- * stands on, then the space after.
+ * extra height, an at-least line height, an exact line height, in pt): its line's extra height goes below it, on the
+ * baseline the picture stands on, then the space after. An exact line (`exact`, px) keeps its height: Word stands the
+ * picture on the line's baseline, 80% down, and cuts off what rises above the line's top (`lift`: how far the
+ * picture moves down, negative when it is cut; checked in Word 2026-11-19).
  */
 export function lineRoom(lineSpace: string, height: number) {
-  const [before = 0, after = 0, extra = 0, least = 0] = lineSpace.split(" ").map((value) => Number(value) || 0)
+  const [before = 0, after = 0, extra = 0, least = 0, exact = 0] = lineSpace
+    .split(" ")
+    .map((value) => Number(value) || 0)
   const px = (pt: number) => (pt * 4) / 3
+  const round = (value: number) => Math.round(value * 100) / 100
+  if (exact > 0) {
+    return {
+      top: round(px(before)),
+      bottom: round(px(after)),
+      exact: round(px(exact)),
+      lift: round(px(exact) * 0.8 - height),
+    }
+  }
   const taller = Math.max(px(extra), px(least) - height, 0)
-  return { top: Math.round(px(before) * 100) / 100, bottom: Math.round((taller + px(after)) * 100) / 100 }
+  return { top: round(px(before)), bottom: round(taller + px(after)) }
 }
 
 export const PositionedImage = Image.extend({
@@ -1310,6 +1323,19 @@ function paintImage(dom: HTMLElement, node: ProseNode) {
     const room = lineRoom(String(node.attrs.lineSpace ?? ""), height > 0 ? height : dom.offsetHeight)
     dom.style.marginTop = turnedBy || room.top ? `${Math.round(turnedBy) + room.top}px` : ""
     dom.style.marginBottom = turnedBy || room.bottom ? `${Math.round(turnedBy) + room.bottom}px` : ""
+    // In an exact line the box is the line, the picture standing on its baseline and cut at its top.
+    if (room.exact !== undefined && room.lift !== undefined) {
+      dom.style.height = `${room.exact}px`
+      // A block, as the line holds nothing else: an inline box would add the font's descent below it.
+      dom.style.display = "block"
+      image.style.position = "relative"
+      image.style.top = `${room.lift}px`
+      image.style.clipPath = room.lift < 0 ? `inset(${-room.lift}px 0 0 0)` : ""
+    } else if (image.style.clipPath || image.style.top) {
+      image.style.position = ""
+      image.style.top = ""
+      image.style.clipPath = ""
+    }
     if (width > 0) {
       image.setAttribute("width", String(width))
     }

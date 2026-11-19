@@ -408,6 +408,8 @@ export function pictureLineSpace(
     after: contextual ? 0 : round((spacing.after ?? 0) / 20),
     extra: !rule || rule === "auto" ? round(Math.max(0, ((spacing.line ?? 240) / 240 - 1) * line)) : 0,
     least: rule === "atLeast" ? round((spacing.line ?? 0) / 20) : 0,
+    // An exact line keeps its height whatever it holds: the picture stands on its baseline and is cut at its top.
+    exact: rule === "exact" ? round((spacing.line ?? 0) / 20) : 0,
   }
 }
 

@@ -384,6 +384,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **A picture in an exact line (2026-11-19)** — WebKitGTK: a picture alone in a paragraph at exact 15 pt: only
+  its bottom strip shows, the next line 15 pt below; selecting it shows its handles.
 - [ ] **Pictures among a paragraph's text (2026-11-19)** — open `w16_pictures_among_text.docx` in the desktop app,
   type a word in the text after a picture, save, open in Word: each paragraph whole with its picture in the line.
 - [ ] **A line holding a taller font (2026-11-19)** — WebKitGTK: Calibri text with a Segoe UI word, single and

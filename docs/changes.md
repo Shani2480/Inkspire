@@ -7,6 +7,23 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-19
 
+### A picture in an exactly spaced line is cut as Word cuts it
+
+- **What was wrong:** a picture alone in a paragraph with exact line spacing showed whole, its line as tall as the
+  picture. Word keeps the line exact: in a 15 pt line a 72 pt picture shows only its bottom 12 pt.
+- **Measured in Word (VM):** a 72 pt picture (blue top, red bottom) alone in paragraphs at exact 15, 50 and 100 pt:
+  the line keeps its height, the picture's bottom on the line's baseline (80% down), what rises above the line's top
+  cut off (15 pt: the bottom 12 pt; 50 pt: the bottom 40 pt; 100 pt: all of it, 8 pt below the line's top).
+- **What changed:** `docx/word-styles.ts` `pictureLineSpace` gives an exact line's height, written as the fifth value
+  of the picture's `data-line-space` (`docx/project.ts`); `editor/objects.ts` `lineRoom` gives the line (`exact`) and
+  how far the picture moves down (`lift`), and the picture's box becomes a block of the line's height with the picture
+  moved and cut at its top (`clip-path`). A block, as an inline box added the font's descent below the line.
+- **Checked in Word (VM):** the three lines and the text after them within one 96-dpi pixel (0.8 pt) of Word's (were
+  57 pt off for the 15 pt line). The fixtures draw as before.
+- **Tests:** `docx/cover-layout.test.ts` (`lineRoom` for the three lines, the exact height read from a paragraph).
+- **Open:** a picture among text in an exact line (it stands on its own line, see the entry below). Not looked at in
+  the desktop app or on Android.
+
 ### A picture among a paragraph's text is saved back inside its paragraph
 
 - **What was wrong:** the editor's pictures are blocks, so a Word paragraph with an in-line picture among its text

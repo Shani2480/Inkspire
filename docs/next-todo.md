@@ -100,7 +100,8 @@ Opening: the 13 differences found first are fixed (see `changes.md`, 2026-11-14)
    saved whole (see `changes.md`). Word puts it in the line: the line is the picture's height plus the font's descent
    plus (multiple − 1) × the text's single line, the picture on the baseline at the line's top, the extra below
    (measured 2026-11-19, a 72 pt picture in Calibri 11 pt at 1, 1.5 and 2 lines); at least: the picture's own line;
-   exact: the line stays exact and Word shows only the part of the picture that fits (Inkspire shows all of it).
+   exact: the line stays exact and Word shows only the part of the picture that fits (~~Inkspire shows all of it~~ —
+   done 2026-11-19 for a picture alone in its paragraph, within 0.8 pt, see `changes.md`).
    Found on the way, already there before: ~~a picture's paragraph is shorter than Word's~~ — done 2026-11-17 (see
    `changes.md`; `f13` and `f21` within 0.6–1.6 pt of Word, were 10–12); ~~bullet lines in `f04` are
    1 pt further apart in Word~~ (done 2026-11-17: Symbol's bullet makes the line taller, see `changes.md`; 17.75 pt,

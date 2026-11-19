@@ -1199,10 +1199,12 @@ function paragraphInnerHtml(paragraph: Paragraph, ctx: Projection) {
     const align = pictureAlign(paragraph, ctx.doc.styles.styles)
     // And the room the paragraph gives it: its spacing and the extra height of its line.
     const space = pictureLineSpace(ctx.doc, paragraph)
-    const room = space.before || space.after || space.extra || space.least
+    const room = space.before || space.after || space.extra || space.least || space.exact
     const attrs = [
       align === "center" || align === "right" ? `style="text-align: ${align}"` : "",
-      room ? `data-line-space="${space.before} ${space.after} ${space.extra} ${space.least}"` : "",
+      room
+        ? `data-line-space="${space.before} ${space.after} ${space.extra} ${space.least}${space.exact ? ` ${space.exact}` : ""}"`
+        : "",
     ].filter(Boolean)
     const html = inlinesHtml(paragraph.inlines, ctx)
     return attrs.length ? html.replace(/<img (?![^>]*data-wrap=)/g, `<img ${attrs.join(" ")} `) : html
