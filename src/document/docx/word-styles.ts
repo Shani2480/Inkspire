@@ -1,4 +1,4 @@
-import { leadBase, ruleLineHeight, wordDescent } from "@/document/line-lead"
+import { leadBase, multipleLineVars, ruleLineHeight, wordDescent } from "@/document/line-lead"
 import { patternImage, patternValue } from "@/document/docx/shading-pattern"
 import { decodeXml } from "@/document/docx/xml"
 import {
@@ -486,10 +486,14 @@ function paragraphCss(props: ParagraphProperties, complete: boolean, line: numbe
     rules.push(
       ...(rule === "exact" || rule === "atLeast"
         ? ruleLineHeight(rule, spacing.line / 20)
-        : [`line-height: ${Math.round((spacing.line / 240) * line * 1000) / 1000}`, "--word-run-line: initial"]),
+        : [
+            `line-height: ${Math.round((spacing.line / 240) * line * 1000) / 1000}`,
+            "--word-run-line: initial",
+            ...multipleLineVars(Math.round((spacing.line / 240) * 1000) / 1000),
+          ]),
     )
   } else if (complete) {
-    rules.push(`line-height: ${line}`)
+    rules.push(`line-height: ${line}`, ...multipleLineVars(1))
   }
   // Word's place for the text in a taller line; not on a paragraph with a top or bottom line, which pads itself.
   const ruled = [props.borders?.top, props.borders?.bottom].some(

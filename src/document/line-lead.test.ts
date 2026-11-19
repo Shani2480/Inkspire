@@ -47,6 +47,6 @@ describe("paragraphs with taller content", () => {
   })
 
   it("marks runs of different sizes as taller content", () => {
-    expect(first('<p>Small <span style="font-size: 20pt">big</span></p>')).toEqual({ tall: true })
+    expect(first('<p>Small <span style="font-size: 20pt">big</span></p>')).toEqual({ tall: true, mixed: true })
   })
 })

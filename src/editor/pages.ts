@@ -2749,7 +2749,7 @@ function boxEdge(style: CSSStyleDeclaration, edge: "top" | "bottom") {
 
 function measureLines(view: EditorView, dom: HTMLElement) {
   const zoom = zoomOf(dom)
-  const found: { pos: number; top: number; height: number }[] = []
+  const found: { pos: number; top: number; height: number; bottom: number; lead: number }[] = []
   const walker = document.createTreeWalker(dom, NodeFilter.SHOW_TEXT)
   let current = walker.nextNode()
   while (current) {
@@ -2760,6 +2760,15 @@ function measureLines(view: EditorView, dom: HTMLElement) {
       current = walker.nextNode()
       continue
     }
+    // In a paragraph mixing sizes each run's box is its own line (document/line-lead.ts multipleLineVars), its top
+    // half the difference between the run's single line and its text above the text's top: lines are measured from
+    // there, not from the tallest text's top (a line of a font that rises less is otherwise taken as taller).
+    const run = text.parentElement?.closest<HTMLElement>(".word-lead-run")
+    const runStyle = run ? getComputedStyle(run) : null
+    const lead = runStyle ? parseFloat(runStyle.lineHeight) || 0 : 0
+    const single = runStyle
+      ? (parseFloat(runStyle.getPropertyValue("--word-single-line")) || 1.17) * (parseFloat(runStyle.fontSize) || 0)
+      : 0
     for (const index of lineStarts(text)) {
       const rect = charRect(text, index)
       if (!rect) {
@@ -2769,7 +2778,8 @@ function measureLines(view: EditorView, dom: HTMLElement) {
       if (pos < 0) {
         continue
       }
-      found.push({ pos, top: rect.top, height: rect.height / zoom })
+      const top = run && lead > 0 ? rect.top + (rect.height - single * zoom) / 2 : rect.top
+      found.push({ pos, top, height: rect.height / zoom, bottom: rect.bottom, lead })
     }
     current = walker.nextNode()
   }
@@ -2779,16 +2789,26 @@ function measureLines(view: EditorView, dom: HTMLElement) {
   const inColumns = dom.closest(".column-section-body, .page-editor[data-columns]") !== null
   found.sort((a, b) => (inColumns ? a.pos - b.pos || a.top - b.top : a.top - b.top || a.pos - b.pos))
   const lines: { pos: number; height: number }[] = []
+  // The foot of the line being gathered: text of another size in it (smaller, lower on the page) has its middle
+  // above that foot, the next line's text below it.
+  let lineBottom = -Infinity
+  let lineLead = 0
   for (const line of found) {
     const previous = lines[lines.length - 1]
     const previousFound = previous ? found.find((item) => item.pos === previous.pos) : undefined
     if (inColumns && previousFound && (line.top - previousFound.top) / zoom <= -1) {
       lines.push({ pos: line.pos, height: line.height })
+      lineBottom = line.bottom
+      lineLead = line.lead
       continue
     }
-    if (previousFound && (line.top - previousFound.top) / zoom < 1) {
+    if (previousFound && ((line.top - previousFound.top) / zoom < 1 || (line.top + line.bottom) / 2 < lineBottom)) {
+      lineBottom = Math.max(lineBottom, line.bottom)
+      lineLead = Math.max(lineLead, line.lead)
       continue
     }
+    lineBottom = line.bottom
+    lineLead = line.lead
     if (previous && previousFound) {
       const between = gapBetween(dom, previousFound.top, line.top)
       previous.height = Math.max(1, (line.top - previousFound.top) / zoom - between)
@@ -2797,7 +2817,7 @@ function measureLines(view: EditorView, dom: HTMLElement) {
   }
 
   const last = lines[lines.length - 1]
-  const step = lineStep(dom)
+  const step = Math.max(lineStep(dom), lineLead)
   if (last && step > 0) {
     last.height = Math.max(last.height, step)
   }

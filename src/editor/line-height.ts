@@ -1,4 +1,5 @@
 import { LineHeight } from "@tiptap/extension-text-style"
+import { multipleLineVars } from "@/document/line-lead"
 
 /**
  * Word measures line spacing in lines of the font (Calibri's single line is about 1.22 times its size), CSS in
@@ -32,7 +33,11 @@ export const WordLineHeight = LineHeight.extend({
               return /^\d*\.?\d+$/.test(text)
                 ? // data-word-lead: index.css places the text in the line as Word does (document/line-lead.ts).
                   {
-                    style: `line-height: calc(var(--word-single-line, 1) * ${text}); --word-run-line: initial`,
+                    style: [
+                      `line-height: calc(var(--word-single-line, 1) * ${text})`,
+                      "--word-run-line: initial",
+                      ...multipleLineVars(text),
+                    ].join("; "),
                     "data-word-lead": "",
                   }
                 : { style: `line-height: ${text}` }

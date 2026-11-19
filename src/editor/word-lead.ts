@@ -10,8 +10,9 @@ import { isFloating } from "@/editor/objects"
  * index.css places the text in its lines as Word does by trimming each paragraph to its own font
  * (document/line-lead.ts). A paragraph whose text all has one size or font of its own takes it on here, so the trim
  * is measured from that text; one whose lines hold something taller than the rest (an inline picture or object,
- * runs of different sizes) is marked data-word-tall and keeps the browser's placement, as a taller first line would
- * otherwise spill over the paragraph above.
+ * runs of different sizes) is marked data-word-tall and not trimmed, as a taller first line would otherwise spill
+ * over the paragraph above. One with an object keeps the browser's placement; one with runs of different sizes is
+ * also marked data-word-mixed, its text in .word-lead-run boxes that index.css places as Word does.
  */
 const TEXT_LIKE = new Set([
   "text",
@@ -32,7 +33,9 @@ const TEXT_LIKE = new Set([
  * picture or object, or runs of different sizes); otherwise the size and font all of its text has, if any, which
  * the paragraph takes on so the line placement is measured from that text.
  */
-export function leadOf(block: ProseNode): { tall: true } | { tall: false; size?: string; family?: string } {
+export function leadOf(
+  block: ProseNode,
+): { tall: true; mixed?: true } | { tall: false; size?: string; family?: string } {
   let tall = false
   const sizes = new Set<string | undefined>()
   const families = new Set<string | undefined>()
@@ -49,8 +52,12 @@ export function leadOf(block: ProseNode): { tall: true } | { tall: false; size?:
     }
     return false
   })
-  if (tall || sizes.size > 1) {
+  if (tall) {
     return { tall: true }
+  }
+  if (sizes.size > 1) {
+    // Only text of different sizes: each run is placed as Word does (document/line-lead.ts multipleLineVars).
+    return { tall: true, mixed: true }
   }
   const [size] = sizes
   const [family] = families.size === 1 ? families : [undefined]
@@ -65,7 +72,7 @@ function firstFamily(list: string) {
 function attributesFor(block: ProseNode): Record<string, string> | null {
   const lead = leadOf(block)
   if (lead.tall) {
-    return { "data-word-tall": "" }
+    return lead.mixed ? { "data-word-tall": "", "data-word-mixed": "" } : { "data-word-tall": "" }
   }
   const style: string[] = []
   if (lead.size) {
@@ -78,6 +85,15 @@ function attributesFor(block: ProseNode): Record<string, string> | null {
   return style.length > 0 ? { style: style.join("; ") } : null
 }
 
+function leadBox(line: number | null) {
+  const box = document.createElement("span")
+  box.className = "word-lead-run"
+  if (line !== null) {
+    box.style.setProperty("--word-single-line", String(line))
+  }
+  return box
+}
+
 function decorate(doc: ProseNode, from = 0, to = doc.content.size, set = DecorationSet.empty) {
   const added: Decoration[] = []
   doc.nodesBetween(from, to, (node, pos) => {
@@ -87,6 +103,30 @@ function decorate(doc: ProseNode, from = 0, to = doc.content.size, set = Decorat
     const attributes = attributesFor(node)
     if (attributes) {
       added.push(Decoration.node(pos, pos + node.nodeSize, attributes))
+    }
+    if (attributes && "data-word-mixed" in attributes) {
+      // Each piece of text in a box of its own, so the page can place it in its line (.word-lead-run, index.css).
+      node.forEach((child, offset) => {
+        const from = pos + 1 + offset
+        // A run in another font has that font's single line, as in Word.
+        const family = child.marks.find((mark) => mark.type.name === "textStyle")?.attrs.fontFamily as
+          | string
+          | null
+          | undefined
+        const line = family ? singleLine(firstFamily(family)) : null
+        if (child.isText) {
+          const own = line === null ? {} : { style: `--word-single-line: ${line}` }
+          added.push(Decoration.inline(from, from + child.nodeSize, { class: "word-lead-run", ...own }))
+        } else if (child.type.name === "hardBreak") {
+          // A line break alone on its line gives it no height: an empty box after it does, in the break's font.
+          added.push(
+            Decoration.widget(from + child.nodeSize, () => leadBox(line), {
+              side: -1,
+              key: `word-lead-break-${line ?? ""}`,
+            }),
+          )
+        }
+      })
     }
     return false
   })

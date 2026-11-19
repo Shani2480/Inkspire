@@ -7,6 +7,39 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-19
 
+### Lines mixing text sizes are placed as Word places them
+
+- **What was wrong:** a paragraph whose text has several sizes kept the browser's placement: CSS splits a multiple's
+  extra space above and below each run, where Word keeps the text where a single line has it and puts all the extra
+  below. A 24 pt word in 12 pt text at double spacing put its line's text 12.6 pt lower than Word's and the next line
+  6.7 pt higher (`mixed` test file below, worst 12.6–14.1 pt, mean 2.9 pt over Arial, Aptos and Calibri).
+- **Measured in Word (VM):** paragraphs at 1, 1.16, 1.5 and 2 lines with a 24 pt, a 20 pt and an 8 pt word, on one
+  line and over line breaks, in Arial, Aptos and Calibri; and `combined`'s mixed paragraph without Arial, without bold
+  and italic, without its tab and without its mark's formatting. Word's line: the tallest run's single line (in its own
+  font) times the multiple, the baseline where that run's single line has it, the extra all below; a run in another
+  font has that font's single line.
+- **What changed:** `editor/word-lead.ts` marks such paragraphs `data-word-mixed` and puts each piece of text in a
+  `.word-lead-run` (with its font's `--word-single-line`), and an empty one after each line break (a break alone on
+  its line gave the line no height). `line-lead.ts` `multipleLineVars` (written with every multiple by
+  `word-styles.ts` and `editor/line-height.ts`; `ruleLineHeight` writes the exact and at-least counterparts):
+  `--word-lines` and the paragraph's strut, none under a multiple. `index.css`: each run's box is its own line,
+  lowered by its extra above and its text drawn back up (`position: relative`), so the line box gets the extra below;
+  a tab's 1 em box is left out of the line. `editor/pages.ts` `measureLines`: text of another size on the same line is
+  no longer taken for a line of its own (it is gathered while its middle is above the line's foot), lines are measured
+  from their runs' box tops, and the last line is as tall as its tallest run's line.
+- **Checked in Word (VM):** the `mixed` file in three fonts: line gaps within a page worst 0.7–1.3 pt, mean 0.3–0.5
+  (were 12.6–14.1 and 2.9). `combined`: the text after the mixed paragraph 1.1 pt closer to Word (`bullet one` −0.1 pt,
+  was +1.0), the last page's footnote −0.1 (was +1.8). `f01` lines 0.3 pt closer. Every other authored fixture draws
+  as before (page images compared). Typing in a mixed line keeps the cursor on the letters.
+- **Tests:** `docx/word-comparison.test.ts` (the variables, the CSS, the runs and the box after a break),
+  `line-lead.test.ts`.
+- **Open:** Word fits a line on a page when its single line fits and lets the multiple's extra run past the bottom
+  margin (an Aptos 24 pt line at double spacing kept with 11.7 pt below the margin); Inkspire counts the whole line,
+  so a double-spaced paragraph at a page's foot can go to the next page earlier than in Word (also for lines of one
+  size, not checked). The baseline is up to 1.3 pt off where the browser's rounded font metrics differ from Word's.
+  A line with an inline picture keeps the browser's placement. Not looked at in the desktop app or on Android
+  (verify list).
+
 ### A table of contents from the gallery ends with Word's blank line
 
 - **What was wrong:** a table inserted from References > Table of Contents (or Insert > Table of Contents) closed its

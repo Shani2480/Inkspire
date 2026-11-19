@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs"
+import { Editor } from "@tiptap/core"
 import path from "node:path"
 import { describe, expect, it } from "vitest"
 import { formatPicture, dateFieldResult } from "@/document/field-date"
@@ -10,6 +11,10 @@ import { wordLines } from "@/document/docx/project"
 import { decodeXml } from "@/document/docx/xml"
 import { borderSidesStyle } from "@/document/paragraph-sides"
 import { NOTE_MARK } from "@/document/note-numbering"
+import { readWordXml } from "@/document/docx/wml-read"
+import { createExtensions } from "@/editor/extensions"
+
+const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
 
 /** What the fixtures look like in Word itself (rendered in Word, 2026-11-14), and Inkspire drawing them so. */
 const AUTHORED = path.resolve(process.cwd(), "tests/docx-fixtures/authored")
@@ -192,10 +197,48 @@ describe("exact and at-least line spacing", () => {
   it("keeps an exact line whatever its runs' size, and an at-least line at least the text's own (Word, 2026-11-17)", async () => {
     const { ruleLineHeight } = await import("@/document/line-lead")
     // Exact 18 pt: 18 pt apart even with a 20 pt word, runs do not stretch the line.
-    expect(ruleLineHeight("exact", 18)).toEqual(["line-height: 18pt", "--word-run-line: 0"])
+    expect(ruleLineHeight("exact", 18)).toEqual([
+      "line-height: 18pt",
+      "--word-run-line: 0",
+      // A paragraph mixing sizes keeps the exact line as its strut, its runs not shifted.
+      "--word-lines: 1",
+      "--word-mixed-strut: 18pt",
+    ])
     // At least 12 pt under Aptos 12 pt: Word's lines are 14.64 pt (the font's single line), not 12.
     expect(ruleLineHeight("atLeast", 12)[0]).toBe("line-height: max(12pt, calc(var(--word-single-line, 1.17) * 1em))")
     const css = readFileSync(path.resolve(process.cwd(), "src/index.css"), "utf8")
     expect(css).toContain("line-height: var(--word-run-line);")
+  })
+
+  it("places runs of different sizes under a multiple as Word does (Word, 2026-11-19)", async () => {
+    const { multipleLineVars } = await import("@/document/line-lead")
+    const { leadOf } = await import("@/editor/word-lead")
+    // Word: the tallest run's single line times the multiple, the baseline where a single line has it, the extra all
+    // below. Each run's box is its own line, lowered by its extra above; the paragraph's own strut is none.
+    expect(multipleLineVars(2)).toEqual(["--word-lines: 2", "--word-mixed-strut: 0"])
+    const css = readFileSync(path.resolve(process.cwd(), "src/index.css"), "utf8")
+    expect(css).toContain("line-height: var(--word-mixed-strut, 0) !important;")
+    expect(css).toContain("--lead-shift: calc((1 - var(--word-lines, 1)) * var(--word-single-line, 1.17) * 0.5em);")
+    // The style sheet and the editor's own spacing both say how many lines.
+    const doc = readWordXml({
+      documentXml: `<w:document ${W}><w:body><w:p><w:r><w:t>x</w:t></w:r></w:p></w:body></w:document>`,
+      stylesXml: `<w:styles ${W}><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:pPr><w:spacing w:line="480" w:lineRule="auto"/></w:pPr></w:style></w:styles>`,
+    })
+    expect(documentStyleSheet(doc)).toContain("--word-lines: 2")
+    const editor = new Editor({
+      extensions: createExtensions().filter((extension) => extension.name !== "spellcheck"),
+      content: '<p style="line-height: 1.5">Small <span style="font-size: 20pt">big</span><br>next</p>',
+    })
+    const paragraph = editor.view.dom.querySelector("p")!
+    expect(paragraph.getAttribute("style")).toContain("--word-lines: 1.5")
+    expect(leadOf(editor.state.doc.firstChild!)).toEqual({ tall: true, mixed: true })
+    expect(paragraph.hasAttribute("data-word-mixed")).toBe(true)
+    expect([...paragraph.querySelectorAll(".word-lead-run")].map((run) => run.textContent)).toEqual([
+      "Small ",
+      "big",
+      "",
+      "next",
+    ])
+    editor.destroy()
   })
 })

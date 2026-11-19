@@ -384,6 +384,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **Lines mixing text sizes (2026-11-19)** — WebKitGTK: a paragraph at double spacing with a 24 pt word in 12 pt
+  text: the big word's line is as tall as two of its lines with the text at its top, the text not clipped or shifted,
+  the cursor on the letters while typing in it.
 - [x] **v0.10.0 on the Pixel (2026-11-17)** — checked by the user: the font list shows the system's fonts; Save
       As, then reopened from Recent after a restart and saved again; rename from the title; Design > Page Borders at
       full size; a tapped table of contents' Update Table tab; dates in Recent. Left below: the cursor at the top
@@ -812,6 +815,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the Android tablet (the APK on a touch screen)
 
+- [ ] **Lines mixing text sizes (2026-11-19)** — the same paragraph on the Pixel and the tablet: the text at the top
+  of the big word's line, selection handles on the letters.
 - [ ] **Spelling suggestions by long press (2026-11-15)**: a long press on a red-underlined word opens the menu
       with its suggestions at the top (a tap no longer does); choosing one replaces the word.
 

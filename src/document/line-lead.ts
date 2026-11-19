@@ -33,12 +33,24 @@ export function leadBase(rule: LeadRule) {
  * height, or the text's own single line where it is taller, and a larger run's line where that is taller still.
  */
 export function ruleLineHeight(rule: "exact" | "atLeast", points: number) {
-  return rule === "exact"
-    ? [`line-height: ${points}pt`, "--word-run-line: 0"]
-    : [
-        `line-height: max(${points}pt, calc(var(--word-single-line, 1.17) * 1em))`,
-        "--word-run-line: calc(var(--word-single-line, 1.17) * 1em)",
-      ]
+  const height = rule === "exact" ? `${points}pt` : `max(${points}pt, calc(var(--word-single-line, 1.17) * 1em))`
+  return [
+    `line-height: ${height}`,
+    rule === "exact" ? "--word-run-line: 0" : "--word-run-line: calc(var(--word-single-line, 1.17) * 1em)",
+    // A paragraph mixing sizes keeps this line (its strut); its runs are not shifted.
+    "--word-lines: 1",
+    `--word-mixed-strut: ${height}`,
+  ]
+}
+
+/**
+ * A multiple of lines, for a paragraph whose text mixes sizes (data-word-mixed): Word makes such a line the tallest
+ * run's single line times the multiple, with the baseline where the highest run's ascent puts it and all the extra
+ * below. Each run's box is that run's own line (single line times the multiple), lowered by its extra above and its
+ * text drawn back up (index.css); the paragraph's own strut is none, as it would split its extra above and below.
+ */
+export function multipleLineVars(lines: number | string) {
+  return [`--word-lines: ${lines}`, "--word-mixed-strut: 0"]
 }
 
 const TEXT_BLOCKS = ":is(p, h1, h2, h3, h4, h5, h6)"
@@ -47,7 +59,8 @@ const UNBOXED = ':not([data-border], [data-border-between="1"])'
 /**
  * The page's rules (index.css holds a copy; line-lead.test.ts keeps them the same). Each paragraph's --lead-base is
  * a multiple's unless a Word style (its style sheet) or its own spacing says otherwise; paragraphs with a box pad
- * themselves, and those holding something taller than their text (editor/word-lead.ts) keep the browser's place.
+ * themselves, and those holding something taller than their text (editor/word-lead.ts) are not trimmed: one with an
+ * object keeps the browser's place, one mixing sizes places each run as Word does (multipleLineVars).
  */
 export function leadStyleSheet() {
   return [
@@ -56,6 +69,10 @@ export function leadStyleSheet() {
     `:root:root .page-editor ${TEXT_BLOCKS}[data-word-lead]${UNBOXED} {\n  --lead-base: ${leadBase("multiple")};\n}`,
     `:root:root .page-editor ${TEXT_BLOCKS}[data-line-rule="exact"]${UNBOXED} {\n  --lead-base: ${leadBase("exact")};\n}`,
     `:root:root .page-editor ${TEXT_BLOCKS}[data-line-rule="at-least"]${UNBOXED} {\n  --lead-base: ${leadBase("atLeast")};\n}`,
+    `:root:root .page-editor ${TEXT_BLOCKS}[data-word-mixed] {\n  line-height: var(--word-mixed-strut, 0) !important;\n}`,
+    `.page-editor ${TEXT_BLOCKS}[data-word-mixed] .word-lead-run {\n  --lead-shift: calc((1 - var(--word-lines, 1)) * var(--word-single-line, 1.17) * 0.5em);\n  position: relative;\n  top: var(--lead-shift);\n  vertical-align: var(--lead-shift);\n  line-height: var(--word-run-line, calc(var(--word-single-line, 1.17) * var(--word-lines, 1) * 1em));\n}`,
+    // A tab is a box of 1em on the baseline, above the runs' text: it is left out of the line's height.
+    `.page-editor ${TEXT_BLOCKS}[data-word-mixed] .doc-tab {\n  margin-top: -1em;\n}`,
   ].join("\n\n")
 }
 

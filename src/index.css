@@ -1918,6 +1918,22 @@ button.line-menu-row:focus-visible {
   --lead-base: max(1lh - var(--word-descent, 0.22) * 1em, 1em * (var(--word-single-line, 1.17) - var(--word-descent, 0.22)));
 }
 
+:root:root .page-editor :is(p, h1, h2, h3, h4, h5, h6)[data-word-mixed] {
+  line-height: var(--word-mixed-strut, 0) !important;
+}
+
+.page-editor :is(p, h1, h2, h3, h4, h5, h6)[data-word-mixed] .word-lead-run {
+  --lead-shift: calc((1 - var(--word-lines, 1)) * var(--word-single-line, 1.17) * 0.5em);
+  position: relative;
+  top: var(--lead-shift);
+  vertical-align: var(--lead-shift);
+  line-height: var(--word-run-line, calc(var(--word-single-line, 1.17) * var(--word-lines, 1) * 1em));
+}
+
+.page-editor :is(p, h1, h2, h3, h4, h5, h6)[data-word-mixed] .doc-tab {
+  margin-top: -1em;
+}
+
 /* Runs in an exact or at-least line (document/line-lead.ts ruleLineHeight): unset elsewhere, so they inherit. No
    specificity, so an inline widget's own line height wins. */
 :where(.page-editor :is(p, h1, h2, h3, h4, h5, h6) *) {
