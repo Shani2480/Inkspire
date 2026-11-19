@@ -94,7 +94,8 @@ Opening: the 13 differences found first are fixed (see `changes.md`, 2026-11-14)
    multiple is centred by the browser~~ — done 2026-11-19 (see `changes.md`: within 0.7–1.3 pt of Word, was up to
    14). ~~Word keeps a line on the page when its single line fits, the multiple's extra running past the bottom
    margin, Inkspire moves it on~~ — done 2026-11-19 (see `changes.md`; triple-spaced pages break as in Word, a table
-   cell broken across pages still counts the whole line). Still different: a run in a taller font (Segoe UI) does not raise its line; a line with an
+   cell broken across pages still counts the whole line). ~~A run in a taller font (Segoe UI) does not raise its line~~ — done 2026-11-19 (see `changes.md`: within 0.8 pt of
+   Word, was 2.6). Still different: a line with an
    inline object keeps the browser's placement.
    Found on the way, already there before: ~~a picture's paragraph is shorter than Word's~~ — done 2026-11-17 (see
    `changes.md`; `f13` and `f21` within 0.6–1.6 pt of Word, were 10–12); ~~bullet lines in `f04` are

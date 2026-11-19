@@ -7,6 +7,25 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-19
 
+### A line holding a taller font is as tall as that font's line
+
+- **What was wrong:** a paragraph whose runs were all one size but in several fonts took no font's line: its lines
+  were the paragraph style's single line. A Segoe UI word in Calibri text left its line 13.42 pt high (Word 14.76),
+  and a paragraph of Segoe UI or Arial runs over a Calibri style drew every line at Calibri's height (up to 2.6 pt
+  off per line at double spacing).
+- **Measured in Word (VM):** Calibri text with a Segoe UI word and with an Arial word, Segoe UI text with a Calibri
+  word, Arial with Segoe UI, Times New Roman with Calibri, each at single and double spacing. Word's line is the
+  tallest font's single line times the multiple (a shorter font changes nothing), the text where the highest-rising
+  font's ascent puts it: the same rule as for mixed sizes.
+- **What changed:** `editor/word-lead.ts` `leadOf`: runs in more than one font mark the paragraph `data-word-mixed`,
+  as runs of different sizes already did, so each run is placed with its own font's single line.
+- **Checked in Word (VM):** the ten paragraphs: worst 0.8 pt, mean 0.3 (were 2.6 and 0.85); each line's total height
+  within 0.2 pt (the split between above and below the text follows the stand-in fonts here: Adwaita Sans for Segoe
+  UI, Carlito, Liberation). The authored fixtures, a six-page Calibri document and two real documents (Avenir and
+  Arial Nova): every line where it was.
+- **Tests:** `docx/word-comparison.test.ts`.
+- **Open:** not looked at in the desktop app or on Android.
+
 ### A line under a multiple stays on the page when its text fits
 
 - **What was wrong:** Inkspire moved a line to the next page unless the whole line, the multiple's extra space

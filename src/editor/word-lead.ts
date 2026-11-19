@@ -30,7 +30,7 @@ const TEXT_LIKE = new Set([
 
 /**
  * How a paragraph's lines are placed: "tall" when they hold something taller than the paragraph's text (an inline
- * picture or object, or runs of different sizes); otherwise the size and font all of its text has, if any, which
+ * picture or object, or runs of different sizes or fonts); otherwise the size and font all of its text has, if any, which
  * the paragraph takes on so the line placement is measured from that text.
  */
 export function leadOf(
@@ -55,8 +55,10 @@ export function leadOf(
   if (tall) {
     return { tall: true }
   }
-  if (sizes.size > 1) {
-    // Only text of different sizes: each run is placed as Word does (document/line-lead.ts multipleLineVars).
+  if (sizes.size > 1 || families.size > 1) {
+    // Only text of different sizes or fonts: each run is placed as Word does (document/line-lead.ts
+    // multipleLineVars). A line holding a font whose single line is taller (Segoe UI in Calibri text) is as tall as
+    // that font's line, its text where that font's ascent puts it (checked in Word 2026-11-19).
     return { tall: true, mixed: true }
   }
   const [size] = sizes
@@ -66,7 +68,10 @@ export function leadOf(
 
 /** The first family of a CSS font list, unquoted: the Word font it stands for. */
 function firstFamily(list: string) {
-  return list.split(",")[0]!.trim().replace(/^["']|["']$/g, "")
+  return list
+    .split(",")[0]!
+    .trim()
+    .replace(/^["']|["']$/g, "")
 }
 
 function attributesFor(block: ProseNode): Record<string, string> | null {
@@ -110,9 +115,7 @@ function decorate(doc: ProseNode, from = 0, to = doc.content.size, set = Decorat
         const from = pos + 1 + offset
         // A run in another font has that font's single line, as in Word.
         const family = child.marks.find((mark) => mark.type.name === "textStyle")?.attrs.fontFamily as
-          | string
-          | null
-          | undefined
+          string | null | undefined
         const line = family ? singleLine(firstFamily(family)) : null
         if (child.isText) {
           const own = line === null ? {} : { style: `--word-single-line: ${line}` }

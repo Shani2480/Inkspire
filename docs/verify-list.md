@@ -384,6 +384,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **A line holding a taller font (2026-11-19)** — WebKitGTK: Calibri text with a Segoe UI word, single and
+  double spacing: that line a little taller than the others, the text not clipped, the cursor on the letters.
 - [ ] **A multiple's last line at the page's foot (2026-11-19)** — WebKitGTK: 30 triple-spaced Calibri 11 pt lines on a
   page with 14.5 pt left after 16 of them: line 17 stays on page 1 (as in Word), its text whole, and page 2 starts at
   its top margin.

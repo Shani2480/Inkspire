@@ -241,4 +241,24 @@ describe("exact and at-least line spacing", () => {
     ])
     editor.destroy()
   })
+
+  it("makes a line holding a taller font as tall as that font's line (Word, 2026-11-19)", async () => {
+    const { leadOf } = await import("@/editor/word-lead")
+    // Word: a Segoe UI word (single line 1.33 em) in Calibri text (1.22) makes its line 14.76 pt apart from the line
+    // above, not 13.43: the paragraph's runs are placed one by one, each with its font's single line.
+    const editor = new Editor({
+      extensions: createExtensions().filter((extension) => extension.name !== "spellcheck"),
+      content:
+        '<p>Above<br>Text <span style="font-family: \'Segoe UI\'">Other</span> text</p><p><span style="font-family: Arial">All Arial</span></p>',
+    })
+    const [mixed, plain] = [...editor.view.dom.querySelectorAll("p")]
+    expect(leadOf(editor.state.doc.firstChild!)).toEqual({ tall: true, mixed: true })
+    expect(mixed!.hasAttribute("data-word-mixed")).toBe(true)
+    const other = [...mixed!.querySelectorAll<HTMLElement>(".word-lead-run")].find((run) => run.textContent === "Other")
+    expect(other?.style.getPropertyValue("--word-single-line")).toBe("1.33")
+    // One font throughout: the paragraph takes it on, its runs are not split.
+    expect(leadOf(editor.state.doc.child(1))).toMatchObject({ tall: false, family: "Arial" })
+    expect(plain!.hasAttribute("data-word-mixed")).toBe(false)
+    editor.destroy()
+  })
 })
