@@ -7,6 +7,33 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-19
 
+### A line under a multiple stays on the page when its text fits
+
+- **What was wrong:** Inkspire moved a line to the next page unless the whole line, the multiple's extra space
+  included, fitted above the bottom margin. Word keeps the line when its text (its single line) fits and lets the
+  extra, which it draws below the text, run past the margin. A double-spaced or triple-spaced page could end a line
+  early in Inkspire (open in the 2026-11-19 entry below, for mixed sizes and for lines of one size).
+- **Measured in Word (VM):** 30 triple-spaced Calibri 11 pt lines (40.29 pt apart, single line 13.43 pt), as separate
+  paragraphs and as one paragraph of line breaks without widow control, with 10, 14.5, 20 and 30 pt left on the page
+  after 16 lines: Word keeps a 17th line with 14.5, 20 and 30 pt left and moves it on with 10. In a double-spaced Times
+  New Roman 12 pt document Word moved the line whose text would reach 0.6 pt past the margin: the text must fit, with
+  no rounding slack.
+- **What changed:** `editor/page-breaking.ts`: `lineSpill` (the part of a line below its text under a multiple), and
+  `linesOnPage` and `overrunsFoot` let it run past the foot; `slackOf` gives such a line 0.25 px of slack instead of
+  the usual 1 px. `editor/pages.ts`: each measured line of a paragraph under a multiple (`--word-lines`) carries its
+  `extra`, cached with the lines; `placeLines` passes it to `place` as spill, so the page's gap is shortened by what ran
+  past (the next page starts at its top margin). A paragraph with an inline object (`data-word-tall`, browser
+  placement, extra split above and below) gets none.
+- **Checked in Word (VM):** the eight triple-spaced files break as Word does (were all one line early); the kept line
+  1.5 pt above Word's (earlier lines' rounding), page 2's first line at 75.0 pt in both. Four generated six-to-eight
+  page documents (Calibri 1.08 lines with 8 pt after, Arial 1.15 with 10 pt after, Calibri 12 pt at 1.5, Times New
+  Roman 12 pt at 2): every page starts as before; 1.08 and 1.15 as in Word. The 1.5 and double ones differ from Word
+  at a page where Inkspire's text wraps a line longer (fonts: Carlito and Liberation Serif here), as before. The
+  authored fixtures' page breaks are unchanged.
+- **Tests:** `editor/page-breaking.test.ts` (Word's four cases, the Times line moved on, the slack).
+- **Open:** lines in a table cell broken across pages (`splitRow`) still count the whole line. Not looked at in the
+  desktop app or on Android.
+
 ### Lines mixing text sizes are placed as Word places them
 
 - **What was wrong:** a paragraph whose text has several sizes kept the browser's placement: CSS splits a multiple's

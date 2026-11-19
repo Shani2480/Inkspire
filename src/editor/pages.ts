@@ -1,5 +1,12 @@
 import { contourOf, contourPolygon, onContourReady } from "@/editor/wrap-contour"
-import { keepWithNextMustMove, linesOnPage, overrunsFoot, spillPastFoot } from "@/editor/page-breaking"
+import {
+  keepWithNextMustMove,
+  lineSpill,
+  linesOnPage,
+  overrunsFoot,
+  slackOf,
+  spillPastFoot,
+} from "@/editor/page-breaking"
 import { useChromeExtent } from "@/document/chrome-extent"
 import { pageMetrics, setupColumns, type LineNumberRestart } from "@/document/page-setup"
 import { drawnPageSetup, setDrawnPageKeys } from "@/document/page-frames"
@@ -168,8 +175,11 @@ export const Pagination = Extension.create<unknown, PaginationStorage>({
 
 /** `top` and `bottom` are the block's outer margins, which collapse with its neighbours' as CSS does. */
 type MeasureCacheEntry =
-  | { kind: "text"; node: ProseNode; lines: { pos: number; height: number }[]; top: number; bottom: number }
+  | { kind: "text"; node: ProseNode; lines: PageLine[]; top: number; bottom: number }
   | { kind: "block"; node: ProseNode; height: number; top: number; bottom: number }
+
+/** A paragraph's line as pagination places it; `extra`, a multiple's space below its text, may run past the foot. */
+type PageLine = { pos: number; height: number; extra?: number }
 
 /** First document position where `before` and `after` differ. */
 export function firstContentDiff(before: ProseNode, after: ProseNode): number {
@@ -1465,13 +1475,13 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
    * `collapse` is how much of `height` is a top margin shared with the block above; a page's first block keeps it.
    * `spill` is how much of it (a paragraph's space after) may run past the page's foot, as Word lets it.
    */
-  const place = (pos: number, height: number, collapse = 0, spill = 0) => {
+  const place = (pos: number, height: number, collapse = 0, spill = 0, slack = 1) => {
     if (height <= 0) {
       return
     }
     reserveBands(pos, height)
     let size = used > 0 ? height - collapse : height
-    if (overrunsFoot(used, size, spill, contentHeight)) {
+    if (overrunsFoot(used, size, spill, contentHeight, slack)) {
       overflow(pos)
       reserveBands(pos, height)
       size = height
@@ -1493,13 +1503,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     trailing = bottom
   }
 
-  const placeLines = (
-    lines: { pos: number; height: number }[],
-    pos: number,
-    top: number,
-    bottom: number,
-    widowControl = false,
-  ) => {
+  const placeLines = (lines: PageLine[], pos: number, top: number, bottom: number, widowControl = false) => {
     // Widow/orphan control (22.8): where the page end would leave one line alone, the break moves to keep two. Only
     // when the lines land as predicted (no band or column change in between), or the extra break would be wrong.
     let forced = -1
@@ -1510,8 +1514,9 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
           (index === 0 && used > 0 ? line.height - Math.min(trailing, top) : line.height) -
           (index === lines.length - 1 ? bottom : 0),
       )
-      const fitting = linesOnPage(heights, used, contentHeight, false)
-      const wanted = linesOnPage(heights, used, contentHeight, true)
+      const spills = lines.map((line) => line.extra ?? 0)
+      const fitting = linesOnPage(heights, used, contentHeight, false, spills)
+      const wanted = linesOnPage(heights, used, contentHeight, true, spills)
       if (wanted < fitting && wanted < lines.length && !(wanted === 0 && used === 0)) {
         forced = wanted
       }
@@ -1528,7 +1533,8 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
         index === 0 ? pos : line.pos,
         line.height,
         index === 0 ? Math.min(trailing, top) : 0,
-        index === lines.length - 1 ? bottom : 0,
+        (line.extra ?? 0) + (index === lines.length - 1 ? bottom : 0),
+        slackOf(line.extra),
       )
       trailing = 0
     })
@@ -1967,7 +1973,14 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
         measured[measured.length - 1].height += bottom
         return measured
       }
-      lines = withMargins(lines)
+      // Under a multiple of lines each line's extra, below its text, may run past the page's foot (as in Word). Not
+      // where the browser places the line (an inline object, data-word-tall): its extra is split above and below.
+      const multiple = dom.matches("[data-word-tall]:not([data-word-mixed])")
+        ? 1
+        : parseFloat(style.getPropertyValue("--word-lines")) || 1
+      const withExtra = (measured: typeof lines) =>
+        multiple > 1 ? measured.map((line) => ({ ...line, extra: lineSpill(line.height, multiple) })) : measured
+      lines = withMargins(withExtra(lines))
       const at = whereNow()
       keepLinesTogether(node, pos, lines, bottom)
       keepWhole(pos, lines, top, bottom)
@@ -1976,7 +1989,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
         sizeTo(node, pos, dom)
         const again = measureLines(view, dom)
         if (again.length > 0) {
-          lines = withMargins(again)
+          lines = withMargins(withExtra(again))
         }
       }
       remember(pos, { kind: "text", node, lines, top, bottom })

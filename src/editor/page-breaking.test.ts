@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest"
-import { keepWithNextMustMove, linesOnPage, overrunsFoot, spillPastFoot } from "@/editor/page-breaking"
+import {
+  keepWithNextMustMove,
+  lineSpill,
+  linesOnPage,
+  overrunsFoot,
+  slackOf,
+  spillPastFoot,
+} from "@/editor/page-breaking"
 
 const lines = (count: number) => Array.from({ length: count }, () => 20)
 
@@ -75,5 +82,34 @@ describe("space after at the page's foot", () => {
     expect(spillPastFoot(990, 60, 1000)).toBe(0)
     // A block taller than the page is not space after: nothing is taken off the gap for it.
     expect(spillPastFoot(1500, 0, 1000)).toBe(0)
+  })
+})
+
+describe("a multiple's extra at the page's foot (Word, 2026-11-19)", () => {
+  it("keeps a line whose single line fits, its extra running past the foot", () => {
+    // Triple-spaced Calibri 11 pt: lines 40.29 pt apart, the text's own line 13.43 pt.
+    const line = 13.43 * 3
+    expect(lineSpill(line, 3)).toBeCloseTo(13.43 * 2)
+    expect(lineSpill(20, 1)).toBe(0)
+    const heights = Array.from({ length: 30 }, () => line)
+    const spills = heights.map((height) => lineSpill(height, 3))
+    // Word kept 17 with 14.5 pt left after 16 lines (and with 20 or 30), 16 with 10 pt left.
+    expect(linesOnPage(heights, 0, 16 * line + 14.5, false, spills)).toBe(17)
+    expect(linesOnPage(heights, 0, 16 * line + 10, false, spills)).toBe(16)
+    expect(linesOnPage(heights, 0, 16 * line + 14.5, false)).toBe(16)
+    // The line past the foot ends the page: the next one does not fit after it.
+    expect(linesOnPage(heights, 0, 16 * line + 30, false, spills)).toBe(17)
+  })
+
+  it("moves a line on whose text would reach past the foot, however little", () => {
+    // Double-spaced Times New Roman 12 pt (27.6 pt lines, 13.8 pt text): Word moved the 24th line, whose text reached
+    // 0.6 pt (0.8 px) past the foot, which the usual 1 px of rounding would have kept.
+    const px = 4 / 3
+    const heights = Array.from({ length: 30 }, () => 27.6 * px)
+    const spills = heights.map((height) => lineSpill(height, 2))
+    expect(linesOnPage(heights, 0, 648 * px, false, spills)).toBe(23)
+    expect(slackOf(spills[0])).toBeLessThan(0.8)
+    expect(overrunsFoot(23 * 27.6 * px, 27.6 * px, spills[0]!, 648 * px, slackOf(spills[0]))).toBe(true)
+    expect(slackOf()).toBe(1)
   })
 })

@@ -384,6 +384,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **A multiple's last line at the page's foot (2026-11-19)** — WebKitGTK: 30 triple-spaced Calibri 11 pt lines on a
+  page with 14.5 pt left after 16 of them: line 17 stays on page 1 (as in Word), its text whole, and page 2 starts at
+  its top margin.
 - [ ] **Lines mixing text sizes (2026-11-19)** — WebKitGTK: a paragraph at double spacing with a 24 pt word in 12 pt
   text: the big word's line is as tall as two of its lines with the text at its top, the text not clipped or shifted,
   the cursor on the letters while typing in it.
