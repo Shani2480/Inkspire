@@ -9,6 +9,20 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "1.0.1",
+    date: "2026-11-20",
+    notes: [
+      {
+        title: "Inkspire 1.0",
+        text: "Open, edit and save Word documents on your computer, phone and tablet, looking as they do in Word, and saved so Word opens them as they were. This version brings together everything since 0.12: documents in their own fonts, 3D models you turn with a finger, and spelling suggestions on touch screens.",
+      },
+      {
+        title: "Spelling menu clear of the handles",
+        text: "On a phone or tablet, the spelling suggestions open below the word, so the selection handles no longer cover the first one.",
+      },
+    ],
+  },
+  {
     version: "0.12.1",
     date: "2026-11-20",
     notes: [

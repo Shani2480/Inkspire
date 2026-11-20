@@ -7,6 +7,12 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-20
 
+### Version 1.0.1
+
+- The version chosen for Inkspire 1.0 (it builds for the Windows MSI, which a pre-release tag such as `-rc.1` does
+  not). Release notes in the app; Android versionCode 1000001. The last tablet check passed: a turned 3D model
+  reopens as it was left. Open from `V1_SCOPE.md`: the 20-document comparison and the phone and desktop checks.
+
 ### Tablet checks on the OnePlus Pad (v0.12.1)
 
 - **Checked on the Pad (0.12.0):** Google Fonts download (Lato fetched, text redrawn, kept after a restart),

@@ -1,6 +1,6 @@
 # Inkspire 1.0 — scope and release-candidate criteria
 
-Draft, 2026-11-20. What 1.0 promises, what it does not, and what must be true before a release candidate is marked.
+2026-11-20. Released as **1.0.1** (version chosen 2026-11-20). What 1.0 promises, what it does not, and what must be true before a release candidate is marked.
 
 ## The promise
 
@@ -38,9 +38,9 @@ they do in Word, and Word opens Inkspire's saves as they were.
    save as the original. *Met on 2026-11-20 (77 of 77).*
 2. **Real documents look as in Word:** a set of at least 20 real, varied documents (letters, forms, contracts,
    reports, a thesis, a CV, documents from Google Docs and LibreOffice) is compared page by page with Word. Every
-   difference is fixed or listed under known limits. *Not met: 3 real documents so far, with 3 open bugs below.*
+   difference is fixed or listed under known limits. *Not met: 3 real documents so far (their 3 bugs fixed).*
 3. **Checked where it runs:** the core items of `verify-list.md` (open, type, format, table, picture, save, print)
-   are ticked in the desktop app on Linux and Windows and on an Android phone and tablet. *Not met: 144 items open.*
+   are ticked in the desktop app on Linux and Windows and on an Android phone and tablet. *Partly met: the Android tablet checks pass on a OnePlus Pad (2026-11-20); the phone and the desktop app on Linux and Windows are open.*
 4. **Tests, typecheck, lint and the Open XML validator are clean.** *Met.*
 
 ## Open bugs found on real documents (2026-11-20)
