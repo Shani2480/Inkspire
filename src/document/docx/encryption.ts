@@ -104,7 +104,9 @@ async function aesKey(raw: Uint8Array) {
 
 /** AES-CBC without padding (the input is a whole number of blocks); WebCrypto always pads, so the pad is cut off. */
 async function encryptBlocks(key: CryptoKey, iv: Uint8Array, data: Uint8Array) {
-  const out = new Uint8Array(await subtle().encrypt({ name: "AES-CBC", iv: iv as BufferSource }, key, padTo(data, 16) as BufferSource))
+  const out = new Uint8Array(
+    await subtle().encrypt({ name: "AES-CBC", iv: iv as BufferSource }, key, padTo(data, 16) as BufferSource),
+  )
   return out.subarray(0, out.length - 16)
 }
 
@@ -115,11 +117,16 @@ async function decryptBlocks(key: CryptoKey, iv: Uint8Array, data: Uint8Array) {
   }
   const last = data.subarray(data.length - 16)
   const pad = new Uint8Array(16).fill(16)
-  const extra = (await subtle().encrypt({ name: "AES-CBC", iv: last as BufferSource }, key, pad as BufferSource)).slice(0, 16)
+  const extra = (await subtle().encrypt({ name: "AES-CBC", iv: last as BufferSource }, key, pad as BufferSource)).slice(
+    0,
+    16,
+  )
   const joined = new Uint8Array(data.length + 16)
   joined.set(data)
   joined.set(new Uint8Array(extra), data.length)
-  return new Uint8Array(await subtle().decrypt({ name: "AES-CBC", iv: iv as BufferSource }, key, joined as BufferSource))
+  return new Uint8Array(
+    await subtle().decrypt({ name: "AES-CBC", iv: iv as BufferSource }, key, joined as BufferSource),
+  )
 }
 
 function base64(bytes: Uint8Array) {
@@ -213,7 +220,13 @@ export async function encryptPackage(pkg: Uint8Array, password: string): Promise
 
   // Data integrity: an HMAC of the encrypted stream, its key and value encrypted with the secret key.
   const hmacKey = random(64)
-  const hmacCrypto = await subtle().importKey("raw", hmacKey as BufferSource, { name: "HMAC", hash: "SHA-512" }, false, ["sign"])
+  const hmacCrypto = await subtle().importKey(
+    "raw",
+    hmacKey as BufferSource,
+    { name: "HMAC", hash: "SHA-512" },
+    false,
+    ["sign"],
+  )
   const hmacValue = new Uint8Array(await subtle().sign("HMAC", hmacCrypto, encrypted as BufferSource))
   const encryptedHmacKey = await encryptBlocks(key, fit(sha512(keySalt, BLOCK_HMAC_KEY), 16), hmacKey)
   const encryptedHmacValue = await encryptBlocks(key, fit(sha512(keySalt, BLOCK_HMAC_VALUE), 16), hmacValue)
@@ -244,7 +257,14 @@ export async function encryptPackage(pkg: Uint8Array, password: string): Promise
   return writeCompoundFile(streams)
 }
 
-type KeyParams = { salt: Uint8Array; keyBytes: number; hashSize: number; blockSize: number; hash: string; cipher: string }
+type KeyParams = {
+  salt: Uint8Array
+  keyBytes: number
+  hashSize: number
+  blockSize: number
+  hash: string
+  cipher: string
+}
 
 function readParams(element: string): KeyParams {
   const attr = (name: string) => new RegExp(`\\b${name}="([^"]*)"`).exec(element)?.[1] ?? ""
@@ -273,7 +293,10 @@ export async function decryptPackage(file: Uint8Array, password: string): Promis
   const major = view.getUint16(0, true)
   const minor = view.getUint16(2, true)
   if (major !== 4 || minor !== 4) {
-    throw new EncryptionError("The file uses an older kind of encryption, which Inkspire can't open yet.", "unsupported")
+    throw new EncryptionError(
+      "The file uses an older kind of encryption, which Inkspire can't open yet.",
+      "unsupported",
+    )
   }
   const xml = new TextDecoder().decode(info.subarray(8))
   const keyData = /<(?:\w+:)?keyData\b[^>]*>/.exec(xml)?.[0]
@@ -283,20 +306,35 @@ export async function decryptPackage(file: Uint8Array, password: string): Promis
   }
   const data = readParams(keyData)
   const pass = readParams(passwordKey)
-  if (data.hash !== "SHA512" || pass.hash !== "SHA512" || !data.cipher.startsWith("AES/") || data.cipher !== "AES/ChainingModeCBC") {
-    throw new EncryptionError(`The file is encrypted with ${pass.hash} and ${data.cipher}, which Inkspire can't open yet.`, "unsupported")
+  if (
+    data.hash !== "SHA512" ||
+    pass.hash !== "SHA512" ||
+    !data.cipher.startsWith("AES/") ||
+    data.cipher !== "AES/ChainingModeCBC"
+  ) {
+    throw new EncryptionError(
+      `The file is encrypted with ${pass.hash} and ${data.cipher}, which Inkspire can't open yet.`,
+      "unsupported",
+    )
   }
   const attr = (name: string) => new RegExp(`\\b${name}="([^"]*)"`).exec(passwordKey)?.[1] ?? ""
   const hash = passwordHash(password, pass.salt, Number(attr("spinCount")) || SPIN_COUNT)
   const derive = async (block: Uint8Array) => aesKey(fit(sha512(hash, block), pass.keyBytes))
   const iv = fit(pass.salt, pass.blockSize)
-  const verifier = (await decryptBlocks(await derive(BLOCK_VERIFIER_INPUT), iv, fromBase64(attr("encryptedVerifierHashInput")))).subarray(0, pass.salt.length)
-  const expected = (await decryptBlocks(await derive(BLOCK_VERIFIER_VALUE), iv, fromBase64(attr("encryptedVerifierHashValue")))).subarray(0, pass.hashSize)
+  const verifier = (
+    await decryptBlocks(await derive(BLOCK_VERIFIER_INPUT), iv, fromBase64(attr("encryptedVerifierHashInput")))
+  ).subarray(0, pass.salt.length)
+  const expected = (
+    await decryptBlocks(await derive(BLOCK_VERIFIER_VALUE), iv, fromBase64(attr("encryptedVerifierHashValue")))
+  ).subarray(0, pass.hashSize)
   const actual = sha512(verifier)
   if (!actual.every((byte, index) => byte === expected[index])) {
     throw new EncryptionError("The password is incorrect.", "wrong-password")
   }
-  const secret = (await decryptBlocks(await derive(BLOCK_KEY), iv, fromBase64(attr("encryptedKeyValue")))).subarray(0, data.keyBytes)
+  const secret = (await decryptBlocks(await derive(BLOCK_KEY), iv, fromBase64(attr("encryptedKeyValue")))).subarray(
+    0,
+    data.keyBytes,
+  )
   const key = await aesKey(secret)
   const sizeView = new DataView(encrypted.buffer, encrypted.byteOffset, 8)
   const size = sizeView.getUint32(0, true) + sizeView.getUint32(4, true) * 0x100000000
@@ -308,7 +346,11 @@ export async function decryptPackage(file: Uint8Array, password: string): Promis
     if (!chunk.length) {
       throw new EncryptionError("The encrypted document is cut short.", "damaged")
     }
-    const plain = await decryptBlocks(key, fit(sha512(data.salt, le32(index)), data.blockSize), chunk.subarray(0, chunk.length - (chunk.length % 16)))
+    const plain = await decryptBlocks(
+      key,
+      fit(sha512(data.salt, le32(index)), data.blockSize),
+      chunk.subarray(0, chunk.length - (chunk.length % 16)),
+    )
     out.set(plain, written)
     written += plain.length
   }

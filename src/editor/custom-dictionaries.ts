@@ -60,7 +60,10 @@ function load(): { dictionaries: CustomDictionary[]; defaultId: string } {
           .filter((word): word is string => typeof word === "string"),
       ),
     ]
-    const first = fresh(DEFAULT_NAME, words.sort((a, b) => a.localeCompare(b)))
+    const first = fresh(
+      DEFAULT_NAME,
+      words.sort((a, b) => a.localeCompare(b)),
+    )
     return { dictionaries: [first], defaultId: first.id }
   } catch {
     const first = fresh()
@@ -86,7 +89,12 @@ function save(state: Pick<State, "dictionaries" | "defaultId">) {
 }
 
 export const useCustomDictionaries = create<State>((set, get) => ({
-  ...(typeof localStorage === "undefined" ? (() => { const first = fresh(); return { dictionaries: [first], defaultId: first.id } })() : load()),
+  ...(typeof localStorage === "undefined"
+    ? (() => {
+        const first = fresh()
+        return { dictionaries: [first], defaultId: first.id }
+      })()
+    : load()),
   replace: (dictionaries, defaultId) => {
     const next = dictionaries.length ? dictionaries : [fresh()]
     const id = next.some((item) => item.id === defaultId) ? defaultId : next[0]!.id
@@ -132,9 +140,18 @@ export function readDicFile(bytes: Uint8Array) {
   } else if (bytes[0] === 0xfe && bytes[1] === 0xff) {
     text = new TextDecoder("utf-16be").decode(bytes.subarray(2))
   } else {
-    text = new TextDecoder().decode(bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf ? bytes.subarray(3) : bytes)
+    text = new TextDecoder().decode(
+      bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf ? bytes.subarray(3) : bytes,
+    )
   }
-  return [...new Set(text.split(/\r?\n/).map(normalizeWord).filter((word) => word && word.length <= 64))]
+  return [
+    ...new Set(
+      text
+        .split(/\r?\n/)
+        .map(normalizeWord)
+        .filter((word) => word && word.length <= 64),
+    ),
+  ]
 }
 
 export function newDictionary(name: string, words: string[] = []): CustomDictionary {

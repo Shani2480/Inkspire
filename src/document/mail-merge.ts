@@ -99,7 +99,13 @@ export const useMailMerge = create<State>((set, get) => ({
     while (source && included.length < source.records.length) {
       included.push(true)
     }
-    set({ ...patch, included, fieldMap: patch.source ? { ...autoMatch(patch.source.fields), ...keptMatches(get().fieldMap, patch.source.fields) } : get().fieldMap })
+    set({
+      ...patch,
+      included,
+      fieldMap: patch.source
+        ? { ...autoMatch(patch.source.fields), ...keptMatches(get().fieldMap, patch.source.fields) }
+        : get().fieldMap,
+    })
     get().go(get().position)
   },
   setFieldMap: (fieldMap) => set({ fieldMap }),
@@ -129,7 +135,9 @@ function matches(record: MergeRecord, filter: RecipientFilter) {
   const value = (record[filter.field] ?? "").trim()
   const wanted = filter.value.trim()
   const numeric = value !== "" && wanted !== "" && !Number.isNaN(Number(value)) && !Number.isNaN(Number(wanted))
-  const order = numeric ? Number(value) - Number(wanted) : value.localeCompare(wanted, undefined, { sensitivity: "base" })
+  const order = numeric
+    ? Number(value) - Number(wanted)
+    : value.localeCompare(wanted, undefined, { sensitivity: "base" })
   switch (filter.operator) {
     case "equal":
       return order === 0
@@ -164,7 +172,9 @@ export function listedRecords(state: Pick<State, "source" | "sort" | "filters">)
       const left = records[a]![field] ?? ""
       const right = records[b]![field] ?? ""
       const numeric = left !== "" && right !== "" && !Number.isNaN(Number(left)) && !Number.isNaN(Number(right))
-      const result = numeric ? Number(left) - Number(right) : left.localeCompare(right, undefined, { sensitivity: "base", numeric: true })
+      const result = numeric
+        ? Number(left) - Number(right)
+        : left.localeCompare(right, undefined, { sensitivity: "base", numeric: true })
       return descending ? -result : result
     })
   }

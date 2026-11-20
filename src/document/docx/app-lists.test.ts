@@ -43,7 +43,9 @@ function numPr(xml: string) {
 /** The abstract numbering's level formats and texts, "format text" per level. */
 function levels(numbering: string, abstract = 0) {
   const block = [...numbering.matchAll(/<w:abstractNum\b[\s\S]*?<\/w:abstractNum>/g)][abstract][0]
-  return [...block.matchAll(/<w:numFmt w:val="(\w+)"\/>(?:<w:isLgl\/>)?<w:lvlText w:val="([^"]*)"\/>/g)].map((m) => `${m[1]} ${m[2]}`)
+  return [...block.matchAll(/<w:numFmt w:val="(\w+)"\/>(?:<w:isLgl\/>)?<w:lvlText w:val="([^"]*)"\/>/g)].map(
+    (m) => `${m[1]} ${m[2]}`,
+  )
 }
 
 const nest = (tag: string, attrs: string, depth: number, label: string): string =>

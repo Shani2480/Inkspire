@@ -189,7 +189,19 @@ function clickAndType(view: EditorView, event: MouseEvent) {
 
 /* ---------- AutoComplete ---------- */
 
-const MONTHS = ["January", "February", "March", "April", "June", "July", "August", "September", "October", "November", "December"]
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+]
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
 export type Completion = { from: number; to: number; label: string; text?: string; html?: string }
@@ -241,7 +253,9 @@ function acceptCompletion(editor: Editor, completion: Completion) {
     const { state, view } = editor
     const marks = state.doc.resolve(completion.to).marks()
     view.dispatch(
-      state.tr.replaceWith(completion.from, completion.to, state.schema.text(completion.text, marks)).setMeta(completeKey, "done"),
+      state.tr
+        .replaceWith(completion.from, completion.to, state.schema.text(completion.text, marks))
+        .setMeta(completeKey, "done"),
     )
   }
 }
@@ -365,7 +379,10 @@ export const SmartEditing = Extension.create({
               return false
             },
             mousedown(_view, event) {
-              pointer = event.button === 0 && event.detail === 1 && !event.shiftKey ? { x: event.clientX, y: event.clientY } : null
+              pointer =
+                event.button === 0 && event.detail === 1 && !event.shiftKey
+                  ? { x: event.clientX, y: event.clientY }
+                  : null
               return false
             },
             mouseup(view, event) {
@@ -385,7 +402,9 @@ export const SmartEditing = Extension.create({
                 }
                 const next = wholeWordSelection(view.state, selection.anchor, selection.head)
                 if (next) {
-                  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, next.anchor, next.head)))
+                  view.dispatch(
+                    view.state.tr.setSelection(TextSelection.create(view.state.doc, next.anchor, next.head)),
+                  )
                 }
               }, 0)
               return false

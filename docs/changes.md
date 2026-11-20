@@ -62,7 +62,7 @@ in Word, Chrome or the desktop app.
 - **Checked:** Word in the VM saved a document with Segoe Print embedded; Inkspire decodes all four faces into valid
   TrueType, draws the text in them with Word's line breaks, and its save keeps the fonts (Word renders it the same,
   validator 0 errors). A mock document in Lato Light and Playfair Display: the bar offers both, Download fetches
-  and draws them. Word comparison over 67 fixtures: mean unchanged (0.104), no file worse. Tests: 
+  and draws them. Word comparison over 67 fixtures: mean unchanged (0.104), no file worse. Tests:
   `embedded-fonts.test.ts`, `missing-fonts.test.ts`.
 
 ### Charts take the document's theme colours
@@ -559,6 +559,7 @@ in Word, Chrome or the desktop app.
 
   Separately, Read Mode's page turn swung the page around on its edge. It did not fold like paper as on an e-reader.
   On Android, Back in Read Mode closed the app, and Back anywhere closed it without asking.
+
 - **What changed:**
   - `pages.ts`:
     - One Range is reused for all line measuring, and collapsed after each use.

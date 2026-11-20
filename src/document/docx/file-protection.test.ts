@@ -54,7 +54,9 @@ describe("Protect Document in the saved file", { timeout: 60_000 }, () => {
       fileName: "a.docx",
       protection: { readOnlyRecommended: false, markedFinal: false },
     })
-    expect(decodeXml(findPart(await openPackage(off.bytes, "a.docx"), "/word/settings.xml")!.data)).not.toContain("writeProtection")
+    expect(decodeXml(findPart(await openPackage(off.bytes, "a.docx"), "/word/settings.xml")!.data)).not.toContain(
+      "writeProtection",
+    )
   })
 
   it("writes Mark as Final as Word does (_MarkAsFinal, Status Final), keeping other custom properties", async () => {
@@ -72,7 +74,10 @@ describe("Protect Document in the saved file", { timeout: 60_000 }, () => {
     custom.data = xmlBytes(
       decodeXml(custom.data)
         .replace(/^<\?xml[^>]*\?>\s*/, "")
-        .replace("</Properties>", '<property fmtid="{D5CDD505-2E9C-101B-9397-08002B2CF9AE}" pid="3" name="Client"><vt:lpwstr>Example Ltd</vt:lpwstr></property></Properties>'),
+        .replace(
+          "</Properties>",
+          '<property fmtid="{D5CDD505-2E9C-101B-9397-08002B2CF9AE}" pid="3" name="Client"><vt:lpwstr>Example Ltd</vt:lpwstr></property></Properties>',
+        ),
     )
     const edited = await openDocxBytes(await writePackage(pkg), "a.docx")
     const again = await saveDocxBytes({
@@ -91,14 +96,20 @@ describe("Protect Document in the saved file", { timeout: 60_000 }, () => {
   })
 
   it("encrypts the file with the password", async () => {
-    const bytes = await save("encrypted", { password: "Example 1", protection: { readOnlyRecommended: false, markedFinal: false } })
+    const bytes = await save("encrypted", {
+      password: "Example 1",
+      protection: { readOnlyRecommended: false, markedFinal: false },
+    })
     expect(isEncryptedPackage(bytes)).toBe(true)
     const opened = await openDocxBytes(await decryptPackage(bytes, "Example 1"), "a.docx")
     expect(opened.view.html).toContain("Protect Document check.")
   })
 
   it("combines a password, Always Open Read-Only and Mark as Final", async () => {
-    const bytes = await save("all-three", { password: "Example 1", protection: { readOnlyRecommended: true, markedFinal: true } })
+    const bytes = await save("all-three", {
+      password: "Example 1",
+      protection: { readOnlyRecommended: true, markedFinal: true },
+    })
     const opened = await openDocxBytes(await decryptPackage(bytes, "Example 1"), "a.docx")
     expect(opened.protection).toEqual({ readOnlyRecommended: true, markedFinal: true })
   })
@@ -125,13 +136,15 @@ describe("Protect Document in the saved file", { timeout: 60_000 }, () => {
       contentType: "application/vnd.openxmlformats-package.digital-signature-origin",
       data: new Uint8Array(0),
     })
-    pkg.relationships.find((group) => group.source === "")!.items.push({
-      id: "rIdSig",
-      type: "http://schemas.openxmlformats.org/package/2006/relationships/digital-signature/origin",
-      target: "_xmlsignatures/origin.sigs",
-      targetMode: "Internal",
-      partName: "/_xmlsignatures/origin.sigs",
-    })
+    pkg.relationships
+      .find((group) => group.source === "")!
+      .items.push({
+        id: "rIdSig",
+        type: "http://schemas.openxmlformats.org/package/2006/relationships/digital-signature/origin",
+        target: "_xmlsignatures/origin.sigs",
+        targetMode: "Internal",
+        partName: "/_xmlsignatures/origin.sigs",
+      })
     pkg.relationships.push({
       source: "/_xmlsignatures/origin.sigs",
       items: [

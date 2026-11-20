@@ -229,7 +229,8 @@ export function fieldInfo(editor: Editor, doc: ProseNode): FieldInfo {
   const store = useDocumentStore.getState()
   const props = store.documentProps
   const user = useUserSettings.getState()
-  const pagination = editor.storage.pagination as { breaks?: number[]; pageCount?: number; sectionStarts?: boolean[] } | undefined
+  const pagination = editor.storage.pagination as
+    { breaks?: number[]; pageCount?: number; sectionStarts?: boolean[] } | undefined
   const pageIndex = (pos: number) => (pagination?.breaks ?? []).filter((at) => at <= pos).length
   const pageCount = () => Math.max(1, pagination?.pageCount ?? 1)
   let text: string | null = null
@@ -284,7 +285,10 @@ export function fieldInfo(editor: Editor, doc: ProseNode): FieldInfo {
         if (!node.isTextblock) {
           return true
         }
-        const id = node.type.name === "heading" ? `heading-${Number(node.attrs.level) || 1}` : String(node.attrs.namedStyle || "normal")
+        const id =
+          node.type.name === "heading"
+            ? `heading-${Number(node.attrs.level) || 1}`
+            : String(node.attrs.namedStyle || "normal")
         if (styleName(id).toLowerCase() === wanted || id.toLowerCase() === wanted) {
           if (at < pos) {
             before = node.textContent
@@ -333,7 +337,11 @@ function refresh(
       const isCitation = /^\s*CITATION\b/i.test(String(node?.attrs.instr ?? ""))
       const isMerge = merge && isMergeField(String(node?.attrs.instr ?? ""))
       // A field read from Word keeps the result Word gave it until F9, as in Word; the app's own follow every edit.
-      if (node && node.attrs.result !== result && (forced || (citations && isCitation) || isMerge || !node.attrs.source)) {
+      if (
+        node &&
+        node.attrs.result !== result &&
+        (forced || (citations && isCitation) || isMerge || !node.attrs.source)
+      ) {
         tr.setNodeMarkup(pos, undefined, { ...node.attrs, result })
         changed = true
       }

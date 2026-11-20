@@ -275,9 +275,7 @@ export function assignKeys(targets: KeyTipTarget[]): string[] {
     }
     const pick =
       candidates(target.label).find((key) => fits(key, taken)) ??
-      [..."QZXJVWYK0123456789"]
-        .flatMap((a) => [..."123456789"].map((b) => a + b))
-        .find((key) => fits(key, taken))
+      [..."QZXJVWYK0123456789"].flatMap((a) => [..."123456789"].map((b) => a + b)).find((key) => fits(key, taken))
     keys[index] = pick ?? ""
     if (pick) {
       taken.add(pick)

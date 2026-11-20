@@ -85,8 +85,8 @@ keys in the Android Keystore; touch drag-to-reorder in the panes; an AAB for Goo
 Items built but not yet checked in Word, Chrome or the desktop app are collected in `verify-list.md`; tick them there, do not re-check them here.
 
 - [x] **Fonts a document uses (2026-11-20, v0.12.0):** free fonts offered from Google Fonts on request, embedded
-  fonts shown and kept, line heights read from the font file (`changes.md`). Left: Word's cloud fonts (Arial Nova,
-  Aptos) can't be fetched; a downloaded font's line height uses the typical value unless it is in the table.
+      fonts shown and kept, line heights read from the font file (`changes.md`). Left: Word's cloud fonts (Arial Nova,
+      Aptos) can't be fetched; a downloaded font's line height uses the typical value unless it is in the table.
 
 **Word comparison (2026-11-14).** Each fixture rendered by Word itself (PDF) next to Inkspire's screen and
 next to Word's render of Inkspire's save. Saving: Word opens all 72 saves and each renders as the original.
@@ -143,6 +143,7 @@ pick other fallback fonts, so render both sides in the same warm Word. Tools (lo
 **Word comparison (2026-11-20).** Re-run of all fixtures (67 open in both): mean layout difference 0.104 after the
 default tab stops and Times New Roman fallback (see `changes.md`). Every save renders as its original in Word. Left,
 largest first:
+
 1. `f22`, `f23`, `f24`: the 3D model, which the VM's Word does not draw (not a difference). The capture also catches
    the model selected with its toolbar.
 2. `w16_pictures_among_text`: pictures drawn on their own line (in-line pictures in their line: later, see item 1
@@ -282,22 +283,18 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
       Checked against Word's own merge in the VM. Left: Add to Document for envelopes, saving a typed list to a file,
       Rules' Ask / Fill-in / Set Bookmark.
 - [x] U39. (asked 2026-11-16) Optional fonts to download, so documents written with Office's fonts look right where
-      those fonts are missing (Linux, the web build, Android).
-      - **What:** free fonts with the same widths as Office's, which Word documents use most. Carlito = Calibri,
-        Caladea = Cambria, Liberation Sans / Serif / Mono = Arial / Times New Roman / Courier New, Gelasio =
-        Georgia. Office-like faces from Google Fonts (OFL) too. Microsoft's fonts (Aptos, Calibri, Wingdings,
-        Symbol…) may not be redistributed: for Aptos, link to Microsoft's own free download instead. For Symbol /
-        Wingdings, see whether OpenSymbol covers their code points.
-      - **Where:** File > Options > Fonts ("Download fonts": a list with size, licence and Download / Remove each), an
-        opt-in step in the quick setup (per the house rule), and a hint when an opened document uses a missing font
-        that has a download ("This document uses Calibri: download Carlito, a free font with the same widths?").
-      - **How:** fetch from a fixed list of sources (Google Fonts / the projects' releases, pinned versions and
-        checksums). Desktop: save under the app's data folder and register them with the webview (FontFace) and the
-        font list (`editor/system-fonts.ts`). Web: keep them in the Cache API / IndexedDB. Map Word's font names to
-        the stand-in when drawing, but save the document's own font name unchanged.
-      - **Check:** an Office fixture (Calibri, Cambria) opened before and after the download against Word's render in
-        the VM: line breaks and page count should match. Offline: nothing breaks, and the list says the fonts need a
-        connection.
+      those fonts are missing (Linux, the web build, Android). - **What:** free fonts with the same widths as Office's, which Word documents use most. Carlito = Calibri,
+      Caladea = Cambria, Liberation Sans / Serif / Mono = Arial / Times New Roman / Courier New, Gelasio =
+      Georgia. Office-like faces from Google Fonts (OFL) too. Microsoft's fonts (Aptos, Calibri, Wingdings,
+      Symbol…) may not be redistributed: for Aptos, link to Microsoft's own free download instead. For Symbol /
+      Wingdings, see whether OpenSymbol covers their code points. - **Where:** File > Options > Fonts ("Download fonts": a list with size, licence and Download / Remove each), an
+      opt-in step in the quick setup (per the house rule), and a hint when an opened document uses a missing font
+      that has a download ("This document uses Calibri: download Carlito, a free font with the same widths?"). - **How:** fetch from a fixed list of sources (Google Fonts / the projects' releases, pinned versions and
+      checksums). Desktop: save under the app's data folder and register them with the webview (FontFace) and the
+      font list (`editor/system-fonts.ts`). Web: keep them in the Cache API / IndexedDB. Map Word's font names to
+      the stand-in when drawing, but save the document's own font name unchanged. - **Check:** an Office fixture (Calibri, Cambria) opened before and after the download against Word's render in
+      the VM: line breaks and page count should match. Offline: nothing breaks, and the list says the fonts need a
+      connection.
 
 ### Wave 3 — rare (L)
 

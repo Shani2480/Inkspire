@@ -35,13 +35,13 @@ they do in Word, and Word opens Inkspire's saves as they were.
 ## Release-candidate criteria
 
 1. **No known data loss:** every fixture and every document in the real-document set saves, and Word renders the
-   save as the original. *Met on 2026-11-20 (77 of 77).*
+   save as the original. _Met on 2026-11-20 (77 of 77)._
 2. **Real documents look as in Word:** a set of at least 20 real, varied documents (letters, forms, contracts,
    reports, a thesis, a CV, documents from Google Docs and LibreOffice) is compared page by page with Word. Every
-   difference is fixed or listed under known limits. *Not met: 3 real documents so far (their 3 bugs fixed).*
+   difference is fixed or listed under known limits. _Not met: 3 real documents so far (their 3 bugs fixed)._
 3. **Checked where it runs:** the core items of `verify-list.md` (open, type, format, table, picture, save, print)
-   are ticked in the desktop app on Linux and Windows and on an Android phone and tablet. *Partly met: the Android tablet checks pass on a OnePlus Pad (2026-11-20); the phone and the desktop app on Linux and Windows are open.*
-4. **Tests, typecheck, lint and the Open XML validator are clean.** *Met.*
+   are ticked in the desktop app on Linux and Windows and on an Android phone and tablet. _Partly met: the Android tablet checks pass on a OnePlus Pad (2026-11-20); the phone and the desktop app on Linux and Windows are open._
+4. **Tests, typecheck, lint and the Open XML validator are clean.** _Met._
 
 ## Open bugs found on real documents (2026-11-20)
 

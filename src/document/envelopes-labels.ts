@@ -35,11 +35,76 @@ export type LabelProduct = {
 }
 
 export const LABEL_PRODUCTS: LabelProduct[] = [
-  { id: "5160", vendor: "Avery US Letter", number: "5160", type: "Address Labels", paper: "letter", columns: 3, rows: 10, width: 66.7, height: 25.4, top: 12.7, side: 4.8, pitch: 69.85 },
-  { id: "5163", vendor: "Avery US Letter", number: "5163", type: "Shipping Labels", paper: "letter", columns: 2, rows: 5, width: 101.6, height: 50.8, top: 12.7, side: 4, pitch: 106.4 },
-  { id: "L7160", vendor: "Avery A4/A5", number: "L7160", type: "Address Labels", paper: "a4", columns: 3, rows: 7, width: 63.5, height: 38.1, top: 15.15, side: 7.2, pitch: 66 },
-  { id: "L7163", vendor: "Avery A4/A5", number: "L7163", type: "Address Labels", paper: "a4", columns: 2, rows: 7, width: 99.1, height: 38.1, top: 15.15, side: 4.65, pitch: 101.6 },
-  { id: "L7165", vendor: "Avery A4/A5", number: "L7165", type: "Parcel Labels", paper: "a4", columns: 2, rows: 4, width: 99.1, height: 67.7, top: 13.1, side: 4.65, pitch: 101.6 },
+  {
+    id: "5160",
+    vendor: "Avery US Letter",
+    number: "5160",
+    type: "Address Labels",
+    paper: "letter",
+    columns: 3,
+    rows: 10,
+    width: 66.7,
+    height: 25.4,
+    top: 12.7,
+    side: 4.8,
+    pitch: 69.85,
+  },
+  {
+    id: "5163",
+    vendor: "Avery US Letter",
+    number: "5163",
+    type: "Shipping Labels",
+    paper: "letter",
+    columns: 2,
+    rows: 5,
+    width: 101.6,
+    height: 50.8,
+    top: 12.7,
+    side: 4,
+    pitch: 106.4,
+  },
+  {
+    id: "L7160",
+    vendor: "Avery A4/A5",
+    number: "L7160",
+    type: "Address Labels",
+    paper: "a4",
+    columns: 3,
+    rows: 7,
+    width: 63.5,
+    height: 38.1,
+    top: 15.15,
+    side: 7.2,
+    pitch: 66,
+  },
+  {
+    id: "L7163",
+    vendor: "Avery A4/A5",
+    number: "L7163",
+    type: "Address Labels",
+    paper: "a4",
+    columns: 2,
+    rows: 7,
+    width: 99.1,
+    height: 38.1,
+    top: 15.15,
+    side: 4.65,
+    pitch: 101.6,
+  },
+  {
+    id: "L7165",
+    vendor: "Avery A4/A5",
+    number: "L7165",
+    type: "Parcel Labels",
+    paper: "a4",
+    columns: 2,
+    rows: 4,
+    width: 99.1,
+    height: 67.7,
+    top: 13.1,
+    side: 4.65,
+    pitch: 101.6,
+  },
 ]
 
 const MM_TO_PX = 96 / 25.4
@@ -51,7 +116,9 @@ function escapeHtml(value: string) {
 /** Lines of an address as paragraphs that keep together (no space after, as Word's envelope addresses). */
 function linesHtml(text: string) {
   const lines = text.split(/\r?\n/)
-  return lines.map((line) => `<p style="margin-top: 0pt; margin-bottom: 0pt">${escapeHtml(line) || "<br>"}</p>`).join("")
+  return lines
+    .map((line) => `<p style="margin-top: 0pt; margin-bottom: 0pt">${escapeHtml(line) || "<br>"}</p>`)
+    .join("")
 }
 
 /** The editor's merge field markup, for documents made with fields in them. */
@@ -60,7 +127,10 @@ export function fieldHtml(instr: string, result: string) {
 }
 
 /** Word's Address Block with its usual format: the Insert Address Block dialog's first choices. */
-export const ADDRESS_BLOCK_FIELD = fieldHtml('ADDRESSBLOCK \\f "<<_TITLE0_ >><<_FIRST0_>><< _LAST0_>><< _SUFFIX0_>>\n<<_COMPANY_\n>><<_STREET1_\n>><<_STREET2_\n>><<_CITY_>><<, _STATE_>><< _POSTAL_>><<\n_COUNTRY_>>" \\l 1033 \\c 2', "«AddressBlock»")
+export const ADDRESS_BLOCK_FIELD = fieldHtml(
+  'ADDRESSBLOCK \\f "<<_TITLE0_ >><<_FIRST0_>><< _LAST0_>><< _SUFFIX0_>>\n<<_COMPANY_\n>><<_STREET1_\n>><<_STREET2_\n>><<_CITY_>><<, _STATE_>><< _POSTAL_>><<\n_COUNTRY_>>" \\l 1033 \\c 2',
+  "«AddressBlock»",
+)
 
 export function envelopePageSetup(size: EnvelopeSize): PageSetup {
   return {
@@ -75,7 +145,12 @@ export function envelopePageSetup(size: EnvelopeSize): PageSetup {
 }
 
 /** An envelope's content: the return address, then the delivery address in from the left and down. */
-export function envelopeHtml(size: EnvelopeSize, delivery: string, returnAddress: string | null, deliveryHtml?: string) {
+export function envelopeHtml(
+  size: EnvelopeSize,
+  delivery: string,
+  returnAddress: string | null,
+  deliveryHtml?: string,
+) {
   const textWidth = size.width - 24
   const left = Math.round(textWidth * 0.42 * MM_TO_PX)
   const right = Math.round(textWidth * 0.58 * MM_TO_PX)

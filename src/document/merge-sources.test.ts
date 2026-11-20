@@ -26,7 +26,9 @@ describe("recipient lists from text files", () => {
   it("reads a CSV saved in Windows-1252, and writes one Word and Excel open", () => {
     const latin = new Uint8Array([...bytes("Name\n"), 0x4a, 0xfc, 0x72, 0x67, 0x65, 0x6e])
     expect(readDelimitedSource(latin).records[0]!.Name).toBe("Jürgen")
-    const csv = new TextDecoder("utf-8", { ignoreBOM: true }).decode(writeCsv({ fields: ["Name", "Note"], records: [{ Name: "Kim", Note: 'says "hi", ok' }] }))
+    const csv = new TextDecoder("utf-8", { ignoreBOM: true }).decode(
+      writeCsv({ fields: ["Name", "Note"], records: [{ Name: "Kim", Note: 'says "hi", ok' }] }),
+    )
     expect(csv).toBe('﻿Name,Note\r\nKim,"says ""hi"", ok"\r\n')
   })
 })
@@ -50,11 +52,15 @@ describe("recipient lists from Excel", () => {
       },
       {
         name: "xl/sharedStrings.xml",
-        ...xml('<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><si><t>Name</t></si><si><t>Joined</t></si><si><r><t>Al</t></r><r><t>ex</t></r></si></sst>'),
+        ...xml(
+          '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><si><t>Name</t></si><si><t>Joined</t></si><si><r><t>Al</t></r><r><t>ex</t></r></si></sst>',
+        ),
       },
       {
         name: "xl/styles.xml",
-        ...xml('<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cellXfs><xf numFmtId="0"/><xf numFmtId="14"/></cellXfs></styleSheet>'),
+        ...xml(
+          '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cellXfs><xf numFmtId="0"/><xf numFmtId="14"/></cellXfs></styleSheet>',
+        ),
       },
       {
         name: "xl/worksheets/sheet1.xml",
@@ -66,7 +72,10 @@ describe("recipient lists from Excel", () => {
             "</sheetData></worksheet>",
         ),
       },
-      { name: "xl/worksheets/sheet2.xml", ...xml('<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData/></worksheet>') },
+      {
+        name: "xl/worksheets/sheet2.xml",
+        ...xml('<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData/></worksheet>'),
+      },
     ])
     const sheets = await readExcelSource(zip)
     expect(sheets.map((sheet) => sheet.name)).toEqual(["Customers"])
@@ -116,12 +125,18 @@ describe("contacts as Outlook exports them", () => {
       "E-mail Address": "alex@example.com",
       Notes: "Café visit",
     })
-    expect(table.records[1]).toMatchObject({ "First Name": "Sam", "Last Name": "Lee", "Home Street": "4 Elm Road, Flat 2" })
+    expect(table.records[1]).toMatchObject({
+      "First Name": "Sam",
+      "Last Name": "Lee",
+      "Home Street": "4 Elm Road, Flat 2",
+    })
     expect(table.fields).not.toContain("Web Page")
   })
 
   it("reads Outlook's CSV export, leaving out the columns no contact uses", () => {
-    const table = readContactsSource(bytes('"First Name","Last Name","Web Page","E-mail Address"\r\nKim,Ng,,kim@example.com\r\n'))
+    const table = readContactsSource(
+      bytes('"First Name","Last Name","Web Page","E-mail Address"\r\nKim,Ng,,kim@example.com\r\n'),
+    )
     expect(table.fields).toEqual(["First Name", "Last Name", "E-mail Address"])
   })
 })

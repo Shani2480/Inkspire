@@ -271,7 +271,12 @@ export function HistoryView() {
   const [confirmClear, setConfirmClear] = useState(false)
   const groups = new Map<string, VersionSummary[]>()
   for (const version of versions ?? []) {
-    const day = new Date(version.savedAt).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+    const day = new Date(version.savedAt).toLocaleDateString(undefined, {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    })
     groups.set(day, [...(groups.get(day) ?? []), version])
   }
   return (
@@ -295,18 +300,28 @@ export function HistoryView() {
                   <div className="min-w-0">
                     <strong>
                       {new Date(version.savedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
-                      {day === [...groups.keys()][0] && index === 0 ? <span className="history-current">Current</span> : null}
+                      {day === [...groups.keys()][0] && index === 0 ? (
+                        <span className="history-current">Current</span>
+                      ) : null}
                     </strong>
                     <span>
                       {version.author || "Unknown author"} · {formatSize(version.size)}
                     </span>
                   </div>
                   <div className="history-actions">
-                    <button type="button" className="backstage-secondary-btn" onClick={() => void openVersion(version.id)}>
+                    <button
+                      type="button"
+                      className="backstage-secondary-btn"
+                      onClick={() => void openVersion(version.id)}
+                    >
                       Open version
                     </button>
                     {day === [...groups.keys()][0] && index === 0 ? null : (
-                      <button type="button" className="backstage-secondary-btn" onClick={() => void restoreVersion(version.id)}>
+                      <button
+                        type="button"
+                        className="backstage-secondary-btn"
+                        onClick={() => void restoreVersion(version.id)}
+                      >
                         Restore
                       </button>
                     )}

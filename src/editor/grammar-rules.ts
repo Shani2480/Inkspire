@@ -28,7 +28,8 @@ const CONFUSED: { pattern: RegExp; fix: (match: RegExpMatchArray) => string; mes
     message: "“have”, not “of”, after a verb such as could, would or should.",
   },
   {
-    pattern: /\b(more|less|rather|other|better|worse|greater|fewer|smaller|larger|bigger|older|younger|faster|slower|higher|lower)\s+then\b/gi,
+    pattern:
+      /\b(more|less|rather|other|better|worse|greater|fewer|smaller|larger|bigger|older|younger|faster|slower|higher|lower)\s+then\b/gi,
     fix: (match) => `${match[1]} than`,
     message: "“than” compares; “then” is about time.",
   },

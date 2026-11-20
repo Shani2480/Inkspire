@@ -12,7 +12,15 @@ import { useEditorPane } from "@/editor/grammar"
 import { recheckDocument } from "@/editor/spellcheck"
 import { useState } from "react"
 
-function Check({ checked, onChange, children }: { checked: boolean; onChange: (on: boolean) => void; children: string }) {
+function Check({
+  checked,
+  onChange,
+  children,
+}: {
+  checked: boolean
+  onChange: (on: boolean) => void
+  children: string
+}) {
   return (
     <label className="backstage-check">
       <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} /> {children}
@@ -59,7 +67,11 @@ export function ProofingPage() {
           {label}
         </Check>
       ))}
-      <button type="button" className="dialog-btn options-inline-btn" onClick={() => useProofingDialogs.getState().show("dictionaries")}>
+      <button
+        type="button"
+        className="dialog-btn options-inline-btn"
+        onClick={() => useProofingDialogs.getState().show("dictionaries")}
+      >
         Custom Dictionaries…
       </button>
 
@@ -90,8 +102,8 @@ export function ProofingPage() {
       {confirmRecheck ? (
         <div className="options-confirm" role="alert">
           <p>
-            This resets the spelling and grammar checker, so words and grammar you chose to ignore are checked again.
-            Do you want to continue?
+            This resets the spelling and grammar checker, so words and grammar you chose to ignore are checked again. Do
+            you want to continue?
           </p>
           <div className="options-row">
             <button
@@ -179,21 +191,28 @@ export function LanguagePage({ locale, dateFormat }: { locale: string; dateForma
               <span>
                 {index + 1}. {languageLabel(id)}
               </span>
-              <span className="backstage-muted">
-                {index === 0 && chosen ? "Preferred · " : ""}Proofing installed
-              </span>
+              <span className="backstage-muted">{index === 0 && chosen ? "Preferred · " : ""}Proofing installed</span>
             </div>
           ))}
         </div>
         <div className="options-language-buttons">
-          <button type="button" className="dialog-btn" onClick={() => useProofingDialogs.getState().show("add-language")}>
+          <button
+            type="button"
+            className="dialog-btn"
+            onClick={() => useProofingDialogs.getState().show("add-language")}
+          >
             Add a Language…
           </button>
           <button
             type="button"
             className="dialog-btn"
             disabled={authoring.length < 2}
-            onClick={() => replace(authoring.filter((id) => id !== current), chosen)}
+            onClick={() =>
+              replace(
+                authoring.filter((id) => id !== current),
+                chosen,
+              )
+            }
           >
             Remove
           </button>
@@ -213,7 +232,9 @@ export function LanguagePage({ locale, dateFormat }: { locale: string; dateForma
         <dt>Date format</dt>
         <dd>{dateFormat || "Not set"}</dd>
       </dl>
-      <p className="backstage-muted">The regional and date formats come from the first-run setup; run it again to change them.</p>
+      <p className="backstage-muted">
+        The regional and date formats come from the first-run setup; run it again to change them.
+      </p>
     </section>
   )
 }

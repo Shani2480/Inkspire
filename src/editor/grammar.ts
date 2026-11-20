@@ -74,7 +74,8 @@ const KINDS = new Set<string>([...GRAMMAR_RULES.map((rule) => rule.kind), "confu
 function loadChoices(): Choices {
   try {
     const parsed = JSON.parse(localStorage.getItem(KEY) || "{}") as Record<string, unknown>
-    const flag = (name: string, fallback: boolean) => (typeof parsed[name] === "boolean" ? (parsed[name] as boolean) : fallback)
+    const flag = (name: string, fallback: boolean) =>
+      typeof parsed[name] === "boolean" ? (parsed[name] as boolean) : fallback
     return {
       checkGrammar: flag("checkGrammar", true),
       aiAuto: flag("aiAuto", false),

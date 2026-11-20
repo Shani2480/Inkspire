@@ -35,7 +35,11 @@ describe("paragraphs with taller content", () => {
   }
 
   it("leaves plain text to the trim", () => {
-    expect(first("<p>Plain <strong>bold</strong> text</p>")).toEqual({ tall: false, size: undefined, family: undefined })
+    expect(first("<p>Plain <strong>bold</strong> text</p>")).toEqual({
+      tall: false,
+      size: undefined,
+      family: undefined,
+    })
   })
 
   it("gives a paragraph the one size and font all of its text has", () => {

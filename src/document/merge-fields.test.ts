@@ -2,7 +2,14 @@ import { Editor } from "@tiptap/core"
 import { readFileSync, writeFileSync } from "node:fs"
 import { describe, expect, it } from "vitest"
 import { createExtensions } from "@/editor/extensions"
-import { ENVELOPE_SIZES, envelopeHtml, envelopePageSetup, LABEL_PRODUCTS, labelsHtml, labelsPageSetup } from "@/document/envelopes-labels"
+import {
+  ENVELOPE_SIZES,
+  envelopeHtml,
+  envelopePageSetup,
+  LABEL_PRODUCTS,
+  labelsHtml,
+  labelsPageSetup,
+} from "@/document/envelopes-labels"
 import { generateJSON } from "@tiptap/core"
 import { addressBlockCode, greetingLineCode, ruleCode } from "@/components/mailings-dialogs"
 import { openDocxBytes, saveDocxBytes } from "@/document/docx/io"
@@ -23,7 +30,8 @@ const PEOPLE =
 
 const ADDRESS =
   'ADDRESSBLOCK \\f "<<_TITLE0_ >><<_FIRST0_>><< _LAST0_>>\n<<_COMPANY_\n>><<_STREET1_\n>><<_POSTAL_ >><<_CITY_>><<\n_COUNTRY_>>" \\l 1033 \\c 2 \\e "Netherlands"'
-const GREETING = 'GREETINGLINE \\f "<<_BEFORE_ Dear >><<_TITLE0_ >><<_LAST0_>><<_AFTER_ ,>>" \\l 1033 \\e "Dear Sir or Madam,"'
+const GREETING =
+  'GREETINGLINE \\f "<<_BEFORE_ Dear >><<_TITLE0_ >><<_LAST0_>><<_AFTER_ ,>>" \\l 1033 \\e "Dear Sir or Madam,"'
 const COMPANY = 'MERGEFIELD Company \\b "at " \\f "!"'
 
 function mergeState(postalMatched: boolean) {
@@ -78,7 +86,9 @@ describe("merge field results, as Word's merge gave them", () => {
   })
 
   it("puts the postal code in once Match Fields finds it, and shows names in chevrons without a list", () => {
-    expect(mergeFieldResult(ADDRESS, contexts(true)[0]!)).toBe("Ms. Alex Rivera\nContoso Ltd\n12 Harbour Street\n2611 AB Delft")
+    expect(mergeFieldResult(ADDRESS, contexts(true)[0]!)).toBe(
+      "Ms. Alex Rivera\nContoso Ltd\n12 Harbour Street\n2611 AB Delft",
+    )
     expect(mergeFieldResult(COMPANY, null)).toBe("at «Company»!")
     expect(mergeFieldResult(ADDRESS, null)).toBe("«AddressBlock»")
     expect(mergeFieldResult("NEXT", null)).toBe("«Next Record»")
@@ -93,7 +103,12 @@ describe("merge field results, as Word's merge gave them", () => {
       "<<_TITLE0_ >><<_FIRST0_>><< _MIDDLE0_>><< _LAST0_>><< _SUFFIX0_>>",
     ]
     // Word's merge in the VM: "Dr. Kim|Kim|Dr. Kim|Kim".
-    expect(formats.map((format) => mergeFieldResult(`ADDRESSBLOCK \\f "${format}" \\c 0`, kim))).toEqual(["Dr. Kim", "Kim", "Dr. Kim", "Kim"])
+    expect(formats.map((format) => mergeFieldResult(`ADDRESSBLOCK \\f "${format}" \\c 0`, kim))).toEqual([
+      "Dr. Kim",
+      "Kim",
+      "Dr. Kim",
+      "Kim",
+    ])
   })
 
   it("works out IF with a merge field inside it, NEXT and SKIPIF", () => {
@@ -101,7 +116,9 @@ describe("merge field results, as Word's merge gave them", () => {
     const rule = 'IF { MERGEFIELD City } = "Delft" "Local delivery" "By post"'
     expect(mergeFieldResult(rule, alex!)).toBe("Local delivery")
     expect(mergeFieldResult(rule, sam!)).toBe("By post")
-    expect(mergeFieldResult('IF { MERGEFIELD Company } = "" "No company" "{ MERGEFIELD Company }"', sam!)).toBe("No company")
+    expect(mergeFieldResult('IF { MERGEFIELD Company } = "" "No company" "{ MERGEFIELD Company }"', sam!)).toBe(
+      "No company",
+    )
     expect(mergeFieldResult('IF { MERGEFIELD City } = "Del*" "D" "other"', alex!)).toBe("D")
     const effect: { skip?: boolean } = {}
     mergeFieldResult('SKIPIF { MERGEFIELD Country_or_Region } = "United Kingdom"', sam!, effect)
@@ -148,7 +165,13 @@ describe("merge fields in .docx", { timeout: 60_000 }, () => {
         },
       ],
     }
-    const saved = await saveDocxBytes({ json: json as never, chrome: emptyChrome(), word: null, unchanged: false, fileName: "a.docx" })
+    const saved = await saveDocxBytes({
+      json: json as never,
+      chrome: emptyChrome(),
+      word: null,
+      unchanged: false,
+      fileName: "a.docx",
+    })
     const xml = decodeXml(findPart(await openPackage(saved.bytes, "a.docx"), "/word/document.xml")!.data)
     expect(xml).toContain("<w:cr/>")
     expect(xml).toMatch(/<w:instrText[^>]*> IF <\/w:instrText>.*<w:fldChar w:fldCharType="begin"\/>.*MERGEFIELD City/s)
@@ -165,7 +188,9 @@ const paragraph = (...content: JsonNode[]): JsonNode => ({ type: "paragraph", co
 /** The merged document's paragraphs as lines of text, "---" for each page break. */
 function lines(json: JsonNode) {
   return (json.content ?? []).map((node) =>
-    node.type === "pageBreak" ? "---" : (node.content ?? []).map((item) => (item.type === "text" ? item.text : `[${item.attrs?.instr}]`)).join(""),
+    node.type === "pageBreak"
+      ? "---"
+      : (node.content ?? []).map((item) => (item.type === "text" ? item.text : `[${item.attrs?.instr}]`)).join(""),
   )
 }
 
@@ -217,18 +242,36 @@ describe("Finish & Merge, as Word's Edit Individual Documents", () => {
     expect(mergeDocument(letter, { kind: "current" }, { ...state, position: 1 } as never).copies).toBe(1)
     expect(mergeDocument(letter, { kind: "range", from: 2, to: 3 }, state as never).copies).toBe(2)
     expect(mergeDocument(letter, { kind: "all" }, { ...state, included: [true, false, true] } as never).copies).toBe(2)
-    const skipping: JsonNode = { type: "doc", content: [paragraph(field('SKIPIF { MERGEFIELD City } = "Leeds"'), field("MERGEFIELD First_Name"))] }
+    const skipping: JsonNode = {
+      type: "doc",
+      content: [paragraph(field('SKIPIF { MERGEFIELD City } = "Leeds"'), field("MERGEFIELD First_Name"))],
+    }
     expect(lines(mergeDocument(skipping, { kind: "all" }, state as never).json)).toEqual(["Alex", "---", "Kim"])
     const labels: JsonNode = {
       type: "doc",
       content: [paragraph(field("MERGEFIELD First_Name")), paragraph(field("NEXT"), field("MERGEFIELD First_Name"))],
     }
     // Two labels a sheet: Alex and Sam on the first, Kim and an empty label on the second.
-    expect(lines(mergeDocument(labels, { kind: "all" }, state as never).json)).toEqual(["Alex", "Sam", "---", "Kim", ""])
+    expect(lines(mergeDocument(labels, { kind: "all" }, state as never).json)).toEqual([
+      "Alex",
+      "Sam",
+      "---",
+      "Kim",
+      "",
+    ])
   })
 
   it("Check for Errors finds merge fields the list does not have", () => {
-    const doc: JsonNode = { type: "doc", content: [paragraph(field("MERGEFIELD First_Name"), field("MERGEFIELD Phone"), field('IF { MERGEFIELD Phone } = "" "a" "b"'))] }
+    const doc: JsonNode = {
+      type: "doc",
+      content: [
+        paragraph(
+          field("MERGEFIELD First_Name"),
+          field("MERGEFIELD Phone"),
+          field('IF { MERGEFIELD Phone } = "" "a" "b"'),
+        ),
+      ],
+    }
     const state = mergeState(true)
     expect(missingFields(doc, state.source.fields, state.fieldMap)).toEqual([{ name: "Phone", count: 2 }])
   })
@@ -236,7 +279,13 @@ describe("Finish & Merge, as Word's Edit Individual Documents", () => {
 
 describe("a main document made with the Mailings dialogs", { timeout: 60_000 }, () => {
   it("saves the dialogs' field codes so Word merges them (MAIN_OUT writes the file for the Word VM check)", async () => {
-    const address = addressBlockCode({ name: "<<_TITLE0_ >><<_FIRST0_>><< _LAST0_>><< _SUFFIX0_>>", company: true, postal: true, country: 2, except: "Netherlands" })
+    const address = addressBlockCode({
+      name: "<<_TITLE0_ >><<_FIRST0_>><< _LAST0_>><< _SUFFIX0_>>",
+      company: true,
+      postal: true,
+      country: 2,
+      except: "Netherlands",
+    })
     const greeting = greetingLineCode("Dear", "<<_TITLE0_ >><<_LAST0_>>", ",", "Dear Sir or Madam,")
     const rule = ruleCode("IF", "City", "=", "Delft", "Local delivery", "By post")
     expect(rule).toBe('IF { MERGEFIELD City } = "Delft" "Local delivery" "By post"')
@@ -245,19 +294,35 @@ describe("a main document made with the Mailings dialogs", { timeout: 60_000 }, 
       content: [
         paragraph(field(address)),
         paragraph(field(greeting)),
-        paragraph(text("Your order "), field('MERGEFIELD Company \\b "for " \\f "!"'), text(" Record "), field("MERGEREC"), text(".")),
+        paragraph(
+          text("Your order "),
+          field('MERGEFIELD Company \\b "for " \\f "!"'),
+          text(" Record "),
+          field("MERGEREC"),
+          text("."),
+        ),
         paragraph(field(rule)),
         paragraph(field("MERGEFIELD Company")),
       ],
     }
-    const saved = await saveDocxBytes({ json: json as never, chrome: emptyChrome(), word: null, unchanged: false, fileName: "main.docx" })
+    const saved = await saveDocxBytes({
+      json: json as never,
+      chrome: emptyChrome(),
+      word: null,
+      unchanged: false,
+      fileName: "main.docx",
+    })
     if (process.env.MAIN_OUT) {
       writeFileSync(process.env.MAIN_OUT, saved.bytes)
     }
     const state = mergeState(true)
     const merged = mergeDocument(json, { kind: "all" }, state as never)
     // Word merged this file in the VM (Postal Code left unmatched, as Word's own Match Fields did): the same text.
-    expect(lines(mergeDocument(json, { kind: "all" }, mergeState(false) as never).json).join("|").replace(/\|---\|/g, "<FF>")).toBe(
+    expect(
+      lines(mergeDocument(json, { kind: "all" }, mergeState(false) as never).json)
+        .join("|")
+        .replace(/\|---\|/g, "<FF>"),
+    ).toBe(
       "Ms. Alex Rivera|Contoso Ltd|12 Harbour Street|Delft|Dear Ms. Rivera,|Your order for Contoso Ltd! Record 1.|Local delivery|Contoso Ltd" +
         "<FF>Sam Lee|4 Elm Road|Leeds|United Kingdom|Dear Sam Lee,|Your order  Record 2.|By post|" +
         "<FF>Kim|Fabrikam|Utrecht|Dear Kim,|Your order for Fabrikam! Record 3.|By post|Fabrikam",
@@ -283,7 +348,10 @@ describe("Envelopes and Labels documents", { timeout: 60_000 }, () => {
     const extensions = createExtensions().filter((e) => e.name !== "spellcheck")
     const size = ENVELOPE_SIZES[0]!
     const envelope = await saveDocxBytes({
-      json: generateJSON(envelopeHtml(size, "Alex Rivera\n12 Harbour Street\nDelft", "Sam Lee\n4 Elm Road\nLeeds"), extensions) as never,
+      json: generateJSON(
+        envelopeHtml(size, "Alex Rivera\n12 Harbour Street\nDelft", "Sam Lee\n4 Elm Road\nLeeds"),
+        extensions,
+      ) as never,
       chrome: { ...emptyChrome(), pageSetup: envelopePageSetup(size) },
       word: null,
       unchanged: false,

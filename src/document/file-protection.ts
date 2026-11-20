@@ -17,7 +17,9 @@ type FileProtectionState = {
   setReadOnlyRecommended: (on: boolean) => void
   setMarkedFinal: (on: boolean) => void
   /** A document was opened (or a new one started): its own settings, none for a new document. */
-  opened: (next?: Partial<Pick<FileProtectionState, "password" | "readOnlyRecommended" | "markedFinal" | "signatures">>) => void
+  opened: (
+    next?: Partial<Pick<FileProtectionState, "password" | "readOnlyRecommended" | "markedFinal" | "signatures">>,
+  ) => void
 }
 
 /** A change to the file's protection is a change to the document: Save writes it, as in Word. */

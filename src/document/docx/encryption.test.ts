@@ -83,7 +83,9 @@ describe("Encrypt with Password", { timeout: 60_000 }, () => {
 })
 
 describe("a document Word encrypted", { timeout: 60_000 }, () => {
-  const file = new Uint8Array(readFileSync(path.resolve(process.cwd(), "tests/docx-fixtures/encrypted/word-password-Wordpass.docx")))
+  const file = new Uint8Array(
+    readFileSync(path.resolve(process.cwd(), "tests/docx-fixtures/encrypted/word-password-Wordpass.docx")),
+  )
 
   it("opens with Word's password, and not without it", async () => {
     expect(isEncryptedPackage(file)).toBe(true)

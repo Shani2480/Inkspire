@@ -45,12 +45,35 @@ const ALIASES: Record<AddressField, string[]> = {
   Nickname: ["nickname", "nick name"],
   "Job Title": ["job title", "position", "role"],
   Company: ["company", "company name", "organization", "organisation", "business"],
-  "Address 1": ["address 1", "address line 1", "address", "street", "street address", "business street", "home street", "address1"],
+  "Address 1": [
+    "address 1",
+    "address line 1",
+    "address",
+    "street",
+    "street address",
+    "business street",
+    "home street",
+    "address1",
+  ],
   "Address 2": ["address 2", "address line 2", "address2"],
   City: ["city", "town", "business city", "home city"],
   State: ["state", "province", "region", "county", "business state", "home state"],
-  "Postal Code": ["postal code", "zip", "zip code", "postcode", "post code", "business postal code", "home postal code"],
-  "Country or Region": ["country or region", "country", "country/region", "business country/region", "home country/region"],
+  "Postal Code": [
+    "postal code",
+    "zip",
+    "zip code",
+    "postcode",
+    "post code",
+    "business postal code",
+    "home postal code",
+  ],
+  "Country or Region": [
+    "country or region",
+    "country",
+    "country/region",
+    "business country/region",
+    "home country/region",
+  ],
   "Business Phone": ["business phone", "work phone", "phone"],
   "Home Phone": ["home phone"],
   "E-mail Address": ["e-mail address", "email address", "email", "e-mail", "mail"],
@@ -189,7 +212,8 @@ export function addressBlock(instr: string, record: MergeRecord, fieldMap: Field
   // Word (VM, U25): with a suffix in the name format and no last name, the title goes too ("Kim", not "Dr. Kim");
   // without a suffix it stays ("Dr. Kim").
   const dropTitle =
-    pieces.some((piece) => "token" in piece && piece.token === "SUFFIX0") && !addressValue(record, fieldMap, "Last Name")
+    pieces.some((piece) => "token" in piece && piece.token === "SUFFIX0") &&
+    !addressValue(record, fieldMap, "Last Name")
   let text = ""
   for (const piece of pieces) {
     if ("literal" in piece) {
@@ -223,7 +247,9 @@ export function greetingLine(instr: string, record: MergeRecord, fieldMap: Field
     const field = TOKENS[token]
     return field ? addressValue(record, fieldMap, field) : ""
   }
-  const used = pieces.filter((piece): piece is Extract<Piece, { token: string }> => "token" in piece && NAME_TOKENS.has(piece.token))
+  const used = pieces.filter(
+    (piece): piece is Extract<Piece, { token: string }> => "token" in piece && NAME_TOKENS.has(piece.token),
+  )
   const whole = used.length > 0 && used.every((piece) => value(piece.token))
   const fallback = [value("FIRST0"), value("LAST0")].filter(Boolean).join(" ")
   if (!whole && !fallback) {
@@ -248,7 +274,10 @@ export function greetingLine(instr: string, record: MergeRecord, fieldMap: Field
       }
     }
   }
-  return text.replace(/\s+/g, " ").replace(/\s+([,.;:!?])/g, "$1").trim()
+  return text
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .trim()
 }
 
 /**
@@ -276,7 +305,13 @@ const OPERATORS = ["<=", ">=", "<>", "=", "<", ">"]
 export function compareValues(left: string, operator: string, right: string) {
   const op = operator === "<>" ? "≠" : operator
   if ((operator === "=" || operator === "<>") && /[*?]/.test(right)) {
-    const pattern = new RegExp(`^${right.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`, "i")
+    const pattern = new RegExp(
+      `^${right
+        .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+        .replace(/\*/g, ".*")
+        .replace(/\?/g, ".")}$`,
+      "i",
+    )
     return pattern.test(left) === (operator === "=")
   }
   const numeric = /^[-+]?(?:\d+\.?\d*|\.\d+)$/

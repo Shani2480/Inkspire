@@ -25,7 +25,16 @@ const VALUE_SWITCHES: Record<string, string[]> = {
  * Mail merge fields, which the app fills in from the recipient list (Mailings). They are kept as the editor's own
  * fields when read from Word; IF is one when it compares a merge field (Rules > If…Then…Else).
  */
-export const MERGE_KINDS = ["MERGEFIELD", "ADDRESSBLOCK", "GREETINGLINE", "MERGEREC", "MERGESEQ", "NEXT", "NEXTIF", "SKIPIF"] as const
+export const MERGE_KINDS = [
+  "MERGEFIELD",
+  "ADDRESSBLOCK",
+  "GREETINGLINE",
+  "MERGEREC",
+  "MERGESEQ",
+  "NEXT",
+  "NEXTIF",
+  "SKIPIF",
+] as const
 
 export function isMergeField(instr: string) {
   const kind = parseInstruction(instr).kind

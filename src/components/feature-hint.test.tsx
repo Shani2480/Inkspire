@@ -8,7 +8,8 @@ import { FEATURE_HINTS, HINTS_KEY, nextHint, useFeatureHints } from "@/lib/featu
 function control(label: string) {
   const button = document.createElement("button")
   button.setAttribute("aria-label", label)
-  button.getBoundingClientRect = () => ({ left: 100, top: 40, right: 160, bottom: 100, width: 60, height: 60 }) as DOMRect
+  button.getBoundingClientRect = () =>
+    ({ left: 100, top: 40, right: 160, bottom: 100, width: 60, height: 60 }) as DOMRect
   document.body.append(button)
   return button
 }

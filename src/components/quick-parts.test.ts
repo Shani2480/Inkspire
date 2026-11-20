@@ -68,11 +68,20 @@ describe("Insert > Quick Parts", () => {
   })
 
   it("keeps building blocks with a gallery, category and description, and inserts them", () => {
-    saveBuildingBlock({ name: "Sign-off", html: "<p>Kind regards</p>", gallery: "AutoText", category: "Letters", description: "Closing" })
+    saveBuildingBlock({
+      name: "Sign-off",
+      html: "<p>Kind regards</p>",
+      gallery: "AutoText",
+      category: "Letters",
+      description: "Closing",
+    })
     // Older parts (name and html only) read as Quick Parts in General.
     localStorage.setItem(
       "aiword-quick-parts",
-      JSON.stringify([...JSON.parse(localStorage.getItem("aiword-quick-parts")!), { id: "old", name: "Old", html: "<p>Old</p>" }]),
+      JSON.stringify([
+        ...JSON.parse(localStorage.getItem("aiword-quick-parts")!),
+        { id: "old", name: "Old", html: "<p>Old</p>" },
+      ]),
     )
     const parts = loadQuickParts()
     expect(parts.map((part) => `${part.name}|${part.gallery}|${part.category}|${part.description}`)).toEqual([
@@ -96,9 +105,9 @@ describe("Insert > Quick Parts", () => {
       "NUMPAGES \\* roman",
       'QUOTE "hello" \\* Caps',
       "SYMBOL 169",
-      'SECTIONPAGES \\* CardText',
-      'FILENAME \\* Lower',
-      'MERGEFIELD FirstName',
+      "SECTIONPAGES \\* CardText",
+      "FILENAME \\* Lower",
+      "MERGEFIELD FirstName",
     ]) {
       insertField(editor, instr)
       editor.commands.insertContent(" | ")
@@ -126,7 +135,7 @@ describe("Insert > Quick Parts", () => {
 
 describe("field formats, for Word in the VM", () => {
   it("saves a document of fields Word can recompute (QUICK_PARTS_OUT)", async () => {
-    const editor = make('<h1>Introduction</h1><p>Formats: </p>')
+    const editor = make("<h1>Introduction</h1><p>Formats: </p>")
     const instrs = [
       'QUOTE "123" \\* CardText',
       'QUOTE "21" \\* OrdText',

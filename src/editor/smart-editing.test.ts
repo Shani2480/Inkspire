@@ -76,7 +76,13 @@ describe("Show AutoComplete suggestions", () => {
     expect(completionFor("WEDN")?.text).toBe("WEDNESDAY")
     expect(completionFor("Sep")).toBeNull()
     expect(completionFor("September")).toBeNull()
-    saveBuildingBlock({ name: "Kind regards", html: "<p>Kind regards, Alex</p>", gallery: "AutoText", category: "General", description: "" })
+    saveBuildingBlock({
+      name: "Kind regards",
+      html: "<p>Kind regards, Alex</p>",
+      gallery: "AutoText",
+      category: "General",
+      description: "",
+    })
     expect(completionFor("kind")?.html).toContain("Kind regards, Alex")
     for (const part of loadQuickParts()) {
       deleteQuickPart(part.id)

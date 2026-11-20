@@ -49,7 +49,11 @@ function mergeParagraph(node: JsonNode, context: MergeContext, effect: MergeEffe
         lines.push([])
       }
       if (line) {
-        lines[lines.length - 1]!.push({ type: "text", text: line, ...(child.marks?.length ? { marks: child.marks } : {}) })
+        lines[lines.length - 1]!.push({
+          type: "text",
+          text: line,
+          ...(child.marks?.length ? { marks: child.marks } : {}),
+        })
       }
     })
   }
@@ -65,7 +69,11 @@ function mergeText(content: JsonNode[]) {
   const out: JsonNode[] = []
   for (const item of content) {
     const last = out[out.length - 1]
-    if (item.type === "text" && last?.type === "text" && JSON.stringify(last.marks ?? []) === JSON.stringify(item.marks ?? [])) {
+    if (
+      item.type === "text" &&
+      last?.type === "text" &&
+      JSON.stringify(last.marks ?? []) === JSON.stringify(item.marks ?? [])
+    ) {
       out[out.length - 1] = { ...last, text: (last.text ?? "") + (item.text ?? "") }
     } else if (item.type !== "text" || item.text) {
       out.push(item)
@@ -84,7 +92,10 @@ function mergeBlocks(blocks: JsonNode[], context: MergeContext, effect: MergeEff
     } else if (block.content?.length) {
       const content = mergeBlocks(block.content, context, effect)
       // A table cell keeps a paragraph, as every cell must.
-      out.push({ ...block, content: content.length || !/cell|header/i.test(block.type) ? content : [{ type: "paragraph" }] })
+      out.push({
+        ...block,
+        content: content.length || !/cell|header/i.test(block.type) ? content : [{ type: "paragraph" }],
+      })
     } else {
       out.push(block)
     }
@@ -133,7 +144,11 @@ export function mergeDocument(
     }
     content.push(...copy)
   })
-  return { json: { ...json, content: content.length ? content : [{ type: "paragraph" }] }, merged, copies: copies.length }
+  return {
+    json: { ...json, content: content.length ? content : [{ type: "paragraph" }] },
+    merged,
+    copies: copies.length,
+  }
 }
 
 /** Check for Errors: merge fields naming a column the list does not have (and Match Fields does not cover). */

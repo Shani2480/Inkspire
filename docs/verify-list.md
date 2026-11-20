@@ -9,24 +9,24 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 - [x] **Stock photos and alt text in Word (2026-11-16)** — the photos show; Word keeps their descriptions when it saves.
 - [x] **Quick Tables and app-made tables in Word (2026-11-16)** — the seven built-ins render across the text width
-  with their lines, shading and cell margins, as in the app; 0 validator errors.
+      with their lines, shading and cell margins, as in the app; 0 validator errors.
 - [x] **An ordinary Insert Table in Word (2026-11-16)** — a 3 by 3 table made in the app renders in Word across the
-  text width in even columns, its text inside the cell margins.
+      text width in even columns, its text inside the cell margins.
 - [x] **Excel Spreadsheet (2026-11-16)** — the app's sheet renders in Word as in the app and Word re-saves it as an
-  embedded `Excel.Sheet.12` object, which the app opens with the same grid; 0 validator errors.
+      embedded `Excel.Sheet.12` object, which the app opens with the same grid; 0 validator errors.
 - [ ] **Excel Spreadsheet opens in Excel** — double-click the app's sheet in Word: Excel opens the workbook with the
-  same cells and formulas.
+      same cells and formulas.
 - [x] **Drop caps (2026-11-16)** — Word's Dropped / In margin frames open as the paragraph's drop cap and re-save as
-  they were; the app's 5-line Georgia drop cap and an In margin one render in Word as in the app; 0 validator errors.
+      they were; the app's 5-line Georgia drop cap and an In margin one render in Word as in the app; 0 validator errors.
 - [x] **Selection pane names and Hide (2026-11-16)** — a Word file with Frame 6 and Heart 7, renamed and hidden in the
-  app and saved: Word hides the frame and keeps the new name, and re-saves `name` and `hidden="1"` on `wp:docPr`;
-  0 validator errors.
+      app and saved: Word hides the frame and keeps the new name, and re-saves `name` and `hidden="1"` on `wp:docPr`;
+      0 validator errors.
 - [x] **Paragraph boxes and lines between (2026-11-16)** — Outside / All Borders over three paragraphs each: the app
-  draws one box and the lines between, as Word does; Word re-saves the app's `w:between`.
+      draws one box and the lines between, as Word does; Word re-saves the app's `w:between`.
 - [x] **Underline types (2026-11-16)** — the app's file with all 17 types and two colours: Word draws each one and
-  re-saves every `w:u` value and colour unchanged; the Open XML validator reports 0 errors.
+      re-saves every `w:u` value and colour unchanged; the Open XML validator reports 0 errors.
 - [x] **Optional fonts (2026-11-16)** — a document in Georgia, rendered by Word in the VM and by the app with
-  Gelasio downloaded: the same 7 lines with the same last words. Before the download (Noto Serif) it was 6 lines.
+      Gelasio downloaded: the same 7 lines with the same last words. Before the download (Noto Serif) it was 6 lines.
 - [x] **Mail merge main documents (2026-11-16)** — checked in Word in the VM: a main document saved by the app opens
       with its merge fields, and Word's merge of it with the same CSV matches the app's merge line for line.
 - [ ] **Envelopes and labels in Word (2026-11-16)**: an envelope (Size 10, DL) and a sheet of Avery 5160 / L7160
@@ -385,29 +385,29 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 ## Needs the desktop app (Tauri build)
 
 - [ ] **Line numbers (2026-11-20)** — Layout > Line Numbers > Continuous on a document with a table and a comment:
-  no numbers inside the table, one number per line, none stacked.
+      no numbers inside the table, one number per line, none stacked.
 - [ ] **Feature hints (2026-11-20, v0.11.0)** — desktop and phone: about 20 s after start, open View: a blue "New: Read
-  Mode" hint points at Read Mode; a tap removes it; about 2 minutes later the next feature's hint shows where its
-  control is. On the phone (ribbon at the bottom) the hint sits above the control. Options > General turns them
-  off; Show hints again brings them back.
+      Mode" hint points at Read Mode; a tap removes it; about 2 minutes later the next feature's hint shows where its
+      control is. On the phone (ribbon at the bottom) the hint sits above the control. Options > General turns them
+      off; Show hints again brings them back.
 - [ ] **Default tab stops (2026-11-20)** — a tab after text in a paragraph without custom stops lands on the next
-  half-inch mark (ruler 0.5, 1, 1.5 in …), as in Word.
+      half-inch mark (ruler 0.5, 1, 1.5 in …), as in Word.
 - [ ] **A document opened in two columns (2026-11-20)** — WebKitGTK: open a two-column Word file of several pages:
-  each page's columns end at its bottom margin, none running on through the page's end.
+      each page's columns end at its bottom margin, none running on through the page's end.
 - [ ] **A triple-spaced table cell at the page's foot (2026-11-20)** — WebKitGTK: a one-cell table of 30
-  triple-spaced lines breaks after line 16, as Word does.
+      triple-spaced lines breaks after line 16, as Word does.
 - [ ] **A picture in an exact line (2026-11-19)** — WebKitGTK: a picture alone in a paragraph at exact 15 pt: only
-  its bottom strip shows, the next line 15 pt below; selecting it shows its handles.
+      its bottom strip shows, the next line 15 pt below; selecting it shows its handles.
 - [ ] **Pictures among a paragraph's text (2026-11-19)** — open `w16_pictures_among_text.docx` in the desktop app,
-  type a word in the text after a picture, save, open in Word: each paragraph whole with its picture in the line.
+      type a word in the text after a picture, save, open in Word: each paragraph whole with its picture in the line.
 - [ ] **A line holding a taller font (2026-11-19)** — WebKitGTK: Calibri text with a Segoe UI word, single and
-  double spacing: that line a little taller than the others, the text not clipped, the cursor on the letters.
+      double spacing: that line a little taller than the others, the text not clipped, the cursor on the letters.
 - [ ] **A multiple's last line at the page's foot (2026-11-19)** — WebKitGTK: 30 triple-spaced Calibri 11 pt lines on a
-  page with 14.5 pt left after 16 of them: line 17 stays on page 1 (as in Word), its text whole, and page 2 starts at
-  its top margin.
+      page with 14.5 pt left after 16 of them: line 17 stays on page 1 (as in Word), its text whole, and page 2 starts at
+      its top margin.
 - [x] **Lines mixing text sizes (2026-11-19)** — WebKitGTK: a paragraph at double spacing with a 24 pt word in 12 pt
-  text: the big word's line is as tall as two of its lines with the text at its top, the text not clipped or shifted,
-  the cursor on the letters while typing in it.
+      text: the big word's line is as tall as two of its lines with the text at its top, the text not clipped or shifted,
+      the cursor on the letters while typing in it.
 - [x] **v0.10.0 on the Pixel (2026-11-17)** — checked by the user: the font list shows the system's fonts; Save
       As, then reopened from Recent after a restart and saved again; rename from the title; Design > Page Borders at
       full size; a tapped table of contents' Update Table tab; dates in Recent. Left below: the cursor at the top
@@ -452,8 +452,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - [ ] **Stock Images in the desktop app** — the dialog finds and inserts photos (the content policy now lists
       api.openverse.org, live.staticflickr.com and upload.wikimedia.org; tried only in Chrome).
 - [ ] **Optional fonts in the desktop app (2026-11-16)** — Options > Fonts > Download in the Tauri build (CSP: raw
-  GitHub, blob: fonts). The fonts should draw after a restart, and "Get Aptos from Microsoft" should open the
-  browser.
+      GitHub, blob: fonts). The fonts should draw after a restart, and "Get Aptos from Microsoft" should open the
+      browser.
 
 - [ ] **Smart editing options (2026-11-16)**: in the desktop app, paste something from a web page: the "(Ctrl)" button
       shows at its end, and Ctrl then T pastes it again as plain text. Type "Sept" and press Enter: "September". Double
@@ -465,12 +465,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       the words are not underlined. Hide spelling errors in this document only, save, and open the file in Word on
       Windows: Word shows no red underlines in it either.
 
-- [ ] **Protect Document and History (2026-11-16)**: in the desktop app:
-      - Encrypt a document with a password, save, close and reopen it: it asks for the password, and a wrong one
-        says so. Open the saved file in Word on Windows with the same password.
-      - Always Open Read-Only: reopening asks. Mark as Final: it saves, and reopening shows the MARKED AS FINAL bar.
-      - Save a few times, then File > History: the versions are listed (and still there after a restart). Open
-        version opens a new window, and Restore brings the old text back into the file.
+- [ ] **Protect Document and History (2026-11-16)**: in the desktop app: - Encrypt a document with a password, save, close and reopen it: it asks for the password, and a wrong one
+      says so. Open the saved file in Word on Windows with the same password. - Always Open Read-Only: reopening asks. Mark as Final: it saves, and reopening shows the MARKED AS FINAL bar. - Save a few times, then File > History: the versions are listed (and still there after a restart). Open
+      version opens a new window, and Restore brings the old text back into the file.
 
 - [ ] **Quick Parts (2026-11-16)**: in the desktop app, Insert > Quick Parts: save a selection to the gallery and to
       AutoText (they are still there after a restart), insert them, and open the Field… dialog and the Building
@@ -837,25 +834,25 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 ## Fonts from Google Fonts and fonts in the document (2026-11-20, v0.12.0)
 
 - [ ] Desktop app: open a document in a free font you don't have (e.g. Lato): the yellow FONTS bar offers it;
-  Download fetches it (the app's security policy allows Google Fonts) and the text redraws in it.
+      Download fetches it (the app's security policy allows Google Fonts) and the text redraws in it.
 - [ ] Desktop app: restart: the downloaded font is still used; File > Options > Fonts lists it and Remove takes it out.
 - [x] Android tablet (OnePlus Pad, 2026-11-20): download, redraw, kept after a restart. Phone not yet.
 - [x] (tablet 2026-11-20; Word's reopen of a save checked in the VM) A document saved by Word with "Embed fonts in the file" shows in its fonts without any bar, and Word opens
-  Inkspire's save with the fonts still embedded.
+      Inkspire's save with the fonts still embedded.
 
 ## Needs the Android tablet (the APK on a touch screen)
 
 - [x] **Spelling menu below the handles (v0.12.1, Pad 2026-11-20):** a long press on a misspelling opens the suggestions below the
-  word, with no handle over the first one.
+      word, with no handle over the first one.
 
 - [x] **v0.12.1 on the Pad (2026-11-20):** long press on a misspelling shows the suggestions without a search box; selecting a
-  picture or 3D model leaves the keyboard down; after an edit below it, a line with a big word keeps its height.
+      picture or 3D model leaves the keyboard down; after an edit below it, a line with a big word keeps its height.
 - [x] **3D model turning (v0.12.1, Pad 2026-11-20; a saved document reopens with the model as it was left):** on the Pad, tap a model, then drag on it for several seconds: it keeps turning
-  with the finger; a flick spins on and settles; a swipe over an unselected model scrolls the page; reopening the
-  saved document shows the model as it was left.
+      with the finger; a flick spins on and settles; a swipe over an unselected model scrolls the page; reopening the
+      saved document shows the model as it was left.
 
 - [x] **Lines mixing text sizes (2026-11-19)** — the same paragraph on the Pixel and the tablet: the text at the top
-  of the big word's line, selection handles on the letters.
+      of the big word's line, selection handles on the letters.
 - [x] **Spelling suggestions by long press (2026-11-15)**: a long press on a red-underlined word opens the menu
       with its suggestions at the top (a tap no longer does); choosing one replaces the word.
 

@@ -23,9 +23,7 @@ export type WindowRequest =
  */
 export type Handoff =
   /** `then: "print"`: File > Print opens on it once it has opened (Finish & Merge > Print Documents). */
-  | { kind: "file"; file: OpenedFile; then?: "print" }
-  | { kind: "dropped"; file: File }
-  | { kind: "html"; html: string }
+  { kind: "file"; file: OpenedFile; then?: "print" } | { kind: "dropped"; file: File } | { kind: "html"; html: string }
 
 export type OpenWindow = {
   id: string

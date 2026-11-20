@@ -97,7 +97,10 @@ export function readCompoundFile(bytes: Uint8Array): CfbStreams {
       child: dirView.getUint32(at + 76, true),
       start: dirView.getUint32(at + 116, true),
       // Version 3 files may leave garbage in the high half of the size.
-      size: sectorSize === 512 ? dirView.getUint32(at + 120, true) : dirView.getUint32(at + 120, true) + dirView.getUint32(at + 124, true) * 0x100000000,
+      size:
+        sectorSize === 512
+          ? dirView.getUint32(at + 120, true)
+          : dirView.getUint32(at + 120, true) + dirView.getUint32(at + 124, true) * 0x100000000,
     })
   }
   const root = entries[0]
@@ -213,7 +216,10 @@ export function writeCompoundFile(streams: CfbStreams): Uint8Array {
   const directorySectors = sectorsFor(nodes.length * 128)
   const miniFatSectors = sectorsFor(miniFat.length * 4)
   const dataSectors =
-    big.reduce((total, node) => total + sectorsFor(node.size), 0) + sectorsFor(miniStream.length) + miniFatSectors + directorySectors
+    big.reduce((total, node) => total + sectorsFor(node.size), 0) +
+    sectorsFor(miniStream.length) +
+    miniFatSectors +
+    directorySectors
   let fatCount = 1
   let difatCount = 0
   for (;;) {

@@ -42,9 +42,12 @@ describe("Custom Dictionaries", () => {
     expect([...activeCustomWords("en-US")].sort()).toEqual(["inkspire", "zeebrugge"])
     expect(activeCustomWords("de").has("schnitzelhaus")).toBe(true)
     // Switched off: its words are no longer accepted.
-    useCustomDictionaries
-      .getState()
-      .replace(useCustomDictionaries.getState().dictionaries.map((item) => (item.name === "Names.dic" ? { ...item, enabled: false } : item)), defaultId)
+    useCustomDictionaries.getState().replace(
+      useCustomDictionaries
+        .getState()
+        .dictionaries.map((item) => (item.name === "Names.dic" ? { ...item, enabled: false } : item)),
+      defaultId,
+    )
     expect(activeCustomWords("en-US").has("zeebrugge")).toBe(false)
     // Change Default: Add to Dictionary goes to the new default.
     const namesId = useCustomDictionaries.getState().dictionaries.find((item) => item.name === "Names.dic")!.id

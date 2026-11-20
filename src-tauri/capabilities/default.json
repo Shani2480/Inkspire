@@ -47,7 +47,11 @@
     "dialog:default",
     {
       "identifier": "opener:allow-open-url",
-      "allow": [{ "url": "https://github.com/Shani2480/AiWord/*" }, { "url": "mailto:*" }, { "url": "https://www.microsoft.com/en-us/download/details.aspx?id=106087" }]
+      "allow": [
+        { "url": "https://github.com/Shani2480/AiWord/*" },
+        { "url": "mailto:*" },
+        { "url": "https://www.microsoft.com/en-us/download/details.aspx?id=106087" }
+      ]
     },
     "fs:allow-read-file",
     "fs:allow-write-file",

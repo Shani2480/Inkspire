@@ -17,3 +17,6 @@ tools/docx-validate/obj
 # Generated data, kept minified
 src/document/docx/preset-geometry.json
 src/editor/map-regions.json
+src/components/symbol-names.json
+# The page rules are kept as line-lead.ts writes them (line-lead.test.ts compares the text); not reformatted
+src/index.css

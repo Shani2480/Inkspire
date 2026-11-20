@@ -78,7 +78,12 @@ export function MailingsTab() {
   const startMenu = (close: () => void) => (
     <div className="mailings-menu is-wide p-1" role="menu">
       {START_TYPES.map((item) => (
-        <MenuButton key={item.id} className="h-auto py-1" selected={state.type === item.id} onClick={() => (close(), startMerge(item.id))}>
+        <MenuButton
+          key={item.id}
+          className="h-auto py-1"
+          selected={state.type === item.id}
+          onClick={() => (close(), startMerge(item.id))}
+        >
           <span className="mailings-menu-item">
             <span>{item.label}</span>
             <span className="mailings-menu-detail">{item.description}</span>
@@ -115,7 +120,9 @@ export function MailingsTab() {
   )
   const finishMenu = (close: () => void) => (
     <div className="mailings-menu p-1" role="menu">
-      <MenuButton onClick={() => (close(), show({ kind: "merge", then: "edit" }))}>Edit Individual Documents…</MenuButton>
+      <MenuButton onClick={() => (close(), show({ kind: "merge", then: "edit" }))}>
+        Edit Individual Documents…
+      </MenuButton>
       <MenuButton onClick={() => (close(), show({ kind: "merge", then: "print" }))}>Print Documents…</MenuButton>
     </div>
   )
@@ -146,29 +153,166 @@ export function MailingsTab() {
     </form>
   )
   const nav = [
-    { id: "first-record", label: "First Record", icon: <NavIcon kind="first" />, disabled: !count || state.position === 0, onClick: () => go(0) },
-    { id: "previous-record", label: "Previous Record", icon: <NavIcon kind="prev" />, disabled: !count || state.position === 0, onClick: () => go(state.position - 1) },
-    { id: "next-record", label: "Next Record", icon: <NavIcon kind="next" />, disabled: !count || state.position >= count - 1, onClick: () => go(state.position + 1) },
-    { id: "last-record", label: "Last Record", icon: <NavIcon kind="last" />, disabled: !count || state.position >= count - 1, onClick: () => go(count - 1) },
+    {
+      id: "first-record",
+      label: "First Record",
+      icon: <NavIcon kind="first" />,
+      disabled: !count || state.position === 0,
+      onClick: () => go(0),
+    },
+    {
+      id: "previous-record",
+      label: "Previous Record",
+      icon: <NavIcon kind="prev" />,
+      disabled: !count || state.position === 0,
+      onClick: () => go(state.position - 1),
+    },
+    {
+      id: "next-record",
+      label: "Next Record",
+      icon: <NavIcon kind="next" />,
+      disabled: !count || state.position >= count - 1,
+      onClick: () => go(state.position + 1),
+    },
+    {
+      id: "last-record",
+      label: "Last Record",
+      icon: <NavIcon kind="last" />,
+      disabled: !count || state.position >= count - 1,
+      onClick: () => go(count - 1),
+    },
   ]
 
   const commands = {
-    envelopes: { id: "envelopes", label: "Envelopes", description: "Create and print envelopes.", icon: (size: number) => <EnvelopeIcon size={size} />, disabled: !editor, onClick: () => show({ kind: "envelopes-labels", tab: "envelopes" }) },
-    labels: { id: "labels", label: "Labels", description: "Create and print labels.", icon: (size: number) => <LabelsIcon size={size} />, disabled: !editor, onClick: () => show({ kind: "envelopes-labels", tab: "labels" }) },
-    start: { id: "start", label: "Start Mail Merge", description: "Create one document and send it to many people: letters, envelopes, labels or a directory.", icon: (size: number) => <StartIcon size={size} />, disabled: !editor, menu: startMenu },
-    recipients: { id: "recipients", label: "Select Recipients", description: "Choose the list of people you want to send your document to.", icon: (size: number) => <RecipientsIcon size={size} />, disabled: !editor, menu: recipientsMenu },
-    edit: { id: "edit-list", label: "Edit Recipient List", description: "Choose, sort and filter the recipients, or edit a list typed here.", icon: (size: number) => <EditListIcon size={size} />, disabled: !ready, onClick: () => show({ kind: "recipients" }) },
-    highlight: { id: "highlight", label: "Highlight Merge Fields", description: "Shade the merge fields in your document, so you can see where they are.", icon: (size: number) => <HighlightIcon size={size} />, active: state.highlight, onClick: () => state.setHighlight(!state.highlight) },
-    address: { id: "address-block", label: "Address Block", description: "Add an address from your recipient list.", icon: (size: number) => <AddressIcon size={size} />, disabled: !editor, onClick: () => show({ kind: "address-block" }) },
-    greeting: { id: "greeting-line", label: "Greeting Line", description: "Add a greeting, such as \"Dear «First Name»,\".", icon: (size: number) => <GreetingIcon size={size} />, disabled: !editor, onClick: () => show({ kind: "greeting-line" }) },
-    field: { id: "merge-field", label: "Insert Merge Field", description: "Add a field from your recipient list, such as last name, phone number or company.", icon: (size: number) => <FieldIcon size={size} />, disabled: !editor, menu: fieldMenu },
-    rules: { id: "rules", label: "Rules", description: "Set rules for the merge, such as skipping a record when a field has a certain value.", icon: (size: number) => <RulesIcon size={size} />, disabled: !editor, menu: rulesMenu },
-    match: { id: "match-fields", label: "Match Fields", description: "Tell Inkspire which columns of your list are the address's parts.", icon: (size: number) => <MatchIcon size={size} />, disabled: !ready, onClick: () => show({ kind: "match-fields" }) },
-    update: { id: "update-labels", label: "Update Labels", description: "Copy the first label's layout and fields to every label on the sheet.", icon: (size: number) => <UpdateLabelsIcon size={size} />, disabled: !editor || state.type !== "labels", onClick: () => void updateLabels() },
-    preview: { id: "preview", label: "Preview Results", description: "Show each recipient's information in place of the merge fields.", icon: (size: number) => <PreviewIcon size={size} />, active: state.preview, disabled: !ready, onClick: () => state.setPreview(!state.preview) },
-    find: { id: "find-recipient", label: "Find Recipient", description: "Find and preview a recipient in your list.", icon: (size: number) => <FindIcon size={size} />, disabled: !count, onClick: () => show({ kind: "find" }) },
-    check: { id: "check-errors", label: "Check for Errors", description: "Check the merge for fields the list doesn't have.", icon: (size: number) => <CheckIcon size={size} />, disabled: !ready || !editor, onClick: () => show({ kind: "check-errors" }) },
-    finish: { id: "finish", label: "Finish & Merge", description: "Make the merged documents to edit, or print them.", icon: (size: number) => <FinishIcon size={size} />, disabled: !editor || !count || !merging, menu: finishMenu },
+    envelopes: {
+      id: "envelopes",
+      label: "Envelopes",
+      description: "Create and print envelopes.",
+      icon: (size: number) => <EnvelopeIcon size={size} />,
+      disabled: !editor,
+      onClick: () => show({ kind: "envelopes-labels", tab: "envelopes" }),
+    },
+    labels: {
+      id: "labels",
+      label: "Labels",
+      description: "Create and print labels.",
+      icon: (size: number) => <LabelsIcon size={size} />,
+      disabled: !editor,
+      onClick: () => show({ kind: "envelopes-labels", tab: "labels" }),
+    },
+    start: {
+      id: "start",
+      label: "Start Mail Merge",
+      description: "Create one document and send it to many people: letters, envelopes, labels or a directory.",
+      icon: (size: number) => <StartIcon size={size} />,
+      disabled: !editor,
+      menu: startMenu,
+    },
+    recipients: {
+      id: "recipients",
+      label: "Select Recipients",
+      description: "Choose the list of people you want to send your document to.",
+      icon: (size: number) => <RecipientsIcon size={size} />,
+      disabled: !editor,
+      menu: recipientsMenu,
+    },
+    edit: {
+      id: "edit-list",
+      label: "Edit Recipient List",
+      description: "Choose, sort and filter the recipients, or edit a list typed here.",
+      icon: (size: number) => <EditListIcon size={size} />,
+      disabled: !ready,
+      onClick: () => show({ kind: "recipients" }),
+    },
+    highlight: {
+      id: "highlight",
+      label: "Highlight Merge Fields",
+      description: "Shade the merge fields in your document, so you can see where they are.",
+      icon: (size: number) => <HighlightIcon size={size} />,
+      active: state.highlight,
+      onClick: () => state.setHighlight(!state.highlight),
+    },
+    address: {
+      id: "address-block",
+      label: "Address Block",
+      description: "Add an address from your recipient list.",
+      icon: (size: number) => <AddressIcon size={size} />,
+      disabled: !editor,
+      onClick: () => show({ kind: "address-block" }),
+    },
+    greeting: {
+      id: "greeting-line",
+      label: "Greeting Line",
+      description: 'Add a greeting, such as "Dear «First Name»,".',
+      icon: (size: number) => <GreetingIcon size={size} />,
+      disabled: !editor,
+      onClick: () => show({ kind: "greeting-line" }),
+    },
+    field: {
+      id: "merge-field",
+      label: "Insert Merge Field",
+      description: "Add a field from your recipient list, such as last name, phone number or company.",
+      icon: (size: number) => <FieldIcon size={size} />,
+      disabled: !editor,
+      menu: fieldMenu,
+    },
+    rules: {
+      id: "rules",
+      label: "Rules",
+      description: "Set rules for the merge, such as skipping a record when a field has a certain value.",
+      icon: (size: number) => <RulesIcon size={size} />,
+      disabled: !editor,
+      menu: rulesMenu,
+    },
+    match: {
+      id: "match-fields",
+      label: "Match Fields",
+      description: "Tell Inkspire which columns of your list are the address's parts.",
+      icon: (size: number) => <MatchIcon size={size} />,
+      disabled: !ready,
+      onClick: () => show({ kind: "match-fields" }),
+    },
+    update: {
+      id: "update-labels",
+      label: "Update Labels",
+      description: "Copy the first label's layout and fields to every label on the sheet.",
+      icon: (size: number) => <UpdateLabelsIcon size={size} />,
+      disabled: !editor || state.type !== "labels",
+      onClick: () => void updateLabels(),
+    },
+    preview: {
+      id: "preview",
+      label: "Preview Results",
+      description: "Show each recipient's information in place of the merge fields.",
+      icon: (size: number) => <PreviewIcon size={size} />,
+      active: state.preview,
+      disabled: !ready,
+      onClick: () => state.setPreview(!state.preview),
+    },
+    find: {
+      id: "find-recipient",
+      label: "Find Recipient",
+      description: "Find and preview a recipient in your list.",
+      icon: (size: number) => <FindIcon size={size} />,
+      disabled: !count,
+      onClick: () => show({ kind: "find" }),
+    },
+    check: {
+      id: "check-errors",
+      label: "Check for Errors",
+      description: "Check the merge for fields the list doesn't have.",
+      icon: (size: number) => <CheckIcon size={size} />,
+      disabled: !ready || !editor,
+      onClick: () => show({ kind: "check-errors" }),
+    },
+    finish: {
+      id: "finish",
+      label: "Finish & Merge",
+      description: "Make the merged documents to edit, or print them.",
+      icon: (size: number) => <FinishIcon size={size} />,
+      disabled: !editor || !count || !merging,
+      menu: finishMenu,
+    },
   }
 
   if (ribbonLayout === "single") {
@@ -183,7 +327,15 @@ export function MailingsTab() {
         groups={[
           { id: "create", commands: [line(commands.envelopes, true), line(commands.labels, true)] },
           { id: "start", commands: [line(commands.start, true), line(commands.recipients, true), line(commands.edit)] },
-          { id: "write", commands: [line(commands.address), line(commands.greeting), line(commands.field, true), line(commands.rules)] },
+          {
+            id: "write",
+            commands: [
+              line(commands.address),
+              line(commands.greeting),
+              line(commands.field, true),
+              line(commands.rules),
+            ],
+          },
           {
             id: "preview",
             commands: [

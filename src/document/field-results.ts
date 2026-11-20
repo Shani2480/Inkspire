@@ -47,7 +47,9 @@ const DATE_FIELDS = new Set(["DATE", "TIME", "CREATEDATE", "SAVEDATE", "PRINTDAT
 /** Fields the app works out a result for (here, or as captions, cross-references and citations). */
 const COMPUTED = new Set([
   ...DATE_FIELDS,
-  ..."EDITTIME AUTHOR LASTSAVEDBY TITLE SUBJECT KEYWORDS COMMENTS DOCPROPERTY FILENAME NUMPAGES NUMWORDS NUMCHARS".split(" "),
+  ..."EDITTIME AUTHOR LASTSAVEDBY TITLE SUBJECT KEYWORDS COMMENTS DOCPROPERTY FILENAME NUMPAGES NUMWORDS NUMCHARS".split(
+    " ",
+  ),
   ..."PAGE SECTION SECTIONPAGES TEMPLATE USERNAME USERINITIALS USERADDRESS QUOTE SYMBOL STYLEREF MERGEFIELD".split(" "),
   ..."MACROBUTTON GOTOBUTTON FILLIN ASK INFO SEQ REF PAGEREF CITATION XE TC TA RD".split(" "),
   ...MERGE_KINDS,
@@ -146,7 +148,9 @@ function rawResult(
       return Number.isFinite(code) && code > 0 ? String.fromCodePoint(code) : null
     }
     case "STYLEREF":
-      return parsed.argument ? (info.styleText(parsed.argument, pos) ?? "Error! No text of specified style in document.") : null
+      return parsed.argument
+        ? (info.styleText(parsed.argument, pos) ?? "Error! No text of specified style in document.")
+        : null
     case "MERGEFIELD":
     case "ADDRESSBLOCK":
     case "GREETINGLINE":
@@ -273,7 +277,8 @@ export function formatNumber(value: number, format: string) {
     }
     case "alphabetic":
     case "ALPHABETIC": {
-      const letter = whole >= 1 ? String.fromCharCode(97 + ((whole - 1) % 26)).repeat(Math.floor((whole - 1) / 26) + 1) : ""
+      const letter =
+        whole >= 1 ? String.fromCharCode(97 + ((whole - 1) % 26)).repeat(Math.floor((whole - 1) / 26) + 1) : ""
       return format === "ALPHABETIC" ? letter.toUpperCase() : letter
     }
     case "Ordinal":
@@ -303,8 +308,19 @@ function roman(value: number) {
     return String(value)
   }
   const table: [number, string][] = [
-    [1000, "m"], [900, "cm"], [500, "d"], [400, "cd"], [100, "c"], [90, "xc"],
-    [50, "l"], [40, "xl"], [10, "x"], [9, "ix"], [5, "v"], [4, "iv"], [1, "i"],
+    [1000, "m"],
+    [900, "cm"],
+    [500, "d"],
+    [400, "cd"],
+    [100, "c"],
+    [90, "xc"],
+    [50, "l"],
+    [40, "xl"],
+    [10, "x"],
+    [9, "ix"],
+    [5, "v"],
+    [4, "iv"],
+    [1, "i"],
   ]
   let out = ""
   let rest = value
@@ -325,8 +341,28 @@ function ordinalSuffix(value: number) {
   return ["th", "st", "nd", "rd"][value % 10] ?? "th"
 }
 
-const ONES = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
-  "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"]
+const ONES = [
+  "zero",
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+  "eleven",
+  "twelve",
+  "thirteen",
+  "fourteen",
+  "fifteen",
+  "sixteen",
+  "seventeen",
+  "eighteen",
+  "nineteen",
+]
 const TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"]
 
 /** A number in words, as Word's CardText writes it: lower case, hyphenated tens ("one hundred twenty-three"). */
@@ -340,7 +376,12 @@ export function cardinal(value: number): string {
   if (value < 100) {
     return TENS[Math.floor(value / 10)]! + (value % 10 ? `-${ONES[value % 10]}` : "")
   }
-  for (const [size, name] of [[1_000_000_000, "billion"], [1_000_000, "million"], [1000, "thousand"], [100, "hundred"]] as const) {
+  for (const [size, name] of [
+    [1_000_000_000, "billion"],
+    [1_000_000, "million"],
+    [1000, "thousand"],
+    [100, "hundred"],
+  ] as const) {
     if (value >= size) {
       const rest = value % size
       return `${cardinal(Math.floor(value / size))} ${name}${rest ? ` ${cardinal(rest)}` : ""}`
@@ -350,7 +391,13 @@ export function cardinal(value: number): string {
 }
 
 const ORDINAL_WORDS: Record<string, string> = {
-  one: "first", two: "second", three: "third", five: "fifth", eight: "eighth", nine: "ninth", twelve: "twelfth",
+  one: "first",
+  two: "second",
+  three: "third",
+  five: "fifth",
+  eight: "eighth",
+  nine: "ninth",
+  twelve: "twelfth",
 }
 
 /** A number as an ordinal in words ("twenty-first"), as Word's OrdText writes it. */

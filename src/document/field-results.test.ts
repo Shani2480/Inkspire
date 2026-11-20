@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest"
-import { applyTextFormats, cardinal, formatNumber, infoFieldResult, numericPicture, ordinalText, type FieldInfo } from "@/document/field-results"
+import {
+  applyTextFormats,
+  cardinal,
+  formatNumber,
+  infoFieldResult,
+  numericPicture,
+  ordinalText,
+  type FieldInfo,
+} from "@/document/field-results"
 import { buildInstruction, FIELDS } from "@/document/field-catalog"
 
 const info: FieldInfo = {
@@ -36,7 +44,7 @@ describe("field results", () => {
     expect(result("AUTHOR")).toBe("Alex Doe")
     expect(result("AUTHOR \\* Upper \\* MERGEFORMAT")).toBe("ALEX DOE")
     expect(result("TITLE \\* Caps")).toBe("Quarterly Report")
-    expect(result('DOCPROPERTY Company')).toBe("Example Ltd")
+    expect(result("DOCPROPERTY Company")).toBe("Example Ltd")
     expect(result('DOCPROPERTY "Category" \\* Lower')).toBe("reports")
     expect(result("KEYWORDS")).toBe("north, south")
     expect(result("INFO Subject")).toBe("Sales")
@@ -48,7 +56,7 @@ describe("field results", () => {
   it("counts and numbers, in Word's number formats", () => {
     expect(result("NUMPAGES")).toBe("12")
     expect(result("NUMPAGES \\* roman")).toBe("xii")
-    expect(result("NUMWORDS \\# \"#,##0\"")).toBe("1,234")
+    expect(result('NUMWORDS \\# "#,##0"')).toBe("1,234")
     expect(result("PAGE \\* ALPHABETIC")).toBe("C")
     expect(result("SECTION")).toBe("2")
     expect(result("SECTIONPAGES \\* CardText")).toBe("five")

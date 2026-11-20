@@ -236,7 +236,9 @@ export async function readExcelSource(bytes: Uint8Array): Promise<ExcelSheet[]> 
   try {
     entries = await readZip(bytes)
   } catch {
-    throw new MergeSourceError("This isn't an Excel workbook Inkspire can read (.xlsx). Older .xls files need to be saved as .xlsx in Excel first.")
+    throw new MergeSourceError(
+      "This isn't an Excel workbook Inkspire can read (.xlsx). Older .xls files need to be saved as .xlsx in Excel first.",
+    )
   }
   const parts = new Map(entries.map((entry) => [entry.normalizedName.toLowerCase(), entry.data]))
   const part = (name: string) => parts.get(name.toLowerCase())
@@ -522,7 +524,10 @@ export function readContactsSource(bytes: Uint8Array): MergeTable {
   const table = tableFromRows(parseDelimited(text))
   // Outlook's export lists every field, mostly empty; leave out the columns no contact uses.
   const fields = table.fields.filter((field) => table.records.some((record) => record[field]))
-  return { fields, records: table.records.map((record) => Object.fromEntries(fields.map((field) => [field, record[field] ?? ""]))) }
+  return {
+    fields,
+    records: table.records.map((record) => Object.fromEntries(fields.map((field) => [field, record[field] ?? ""]))),
+  }
 }
 
 /** A recipient list as CSV (Word saves a typed list as an Access file; a CSV opens anywhere, Word included). */

@@ -53,8 +53,22 @@ function block(h: Int32Array, data: Uint8Array, offset: number) {
     W[i] = hi
     W[i + 1] = lo
   }
-  let ah = h[0]!, al = h[1]!, bh = h[2]!, bl = h[3]!, ch = h[4]!, cl = h[5]!, dh = h[6]!, dl = h[7]!
-  let eh = h[8]!, el = h[9]!, fh = h[10]!, fl = h[11]!, gh = h[12]!, gl = h[13]!, hh = h[14]!, hl = h[15]!
+  let ah = h[0]!,
+    al = h[1]!,
+    bh = h[2]!,
+    bl = h[3]!,
+    ch = h[4]!,
+    cl = h[5]!,
+    dh = h[6]!,
+    dl = h[7]!
+  let eh = h[8]!,
+    el = h[9]!,
+    fh = h[10]!,
+    fl = h[11]!,
+    gh = h[12]!,
+    gl = h[13]!,
+    hh = h[14]!,
+    hl = h[15]!
   for (let i = 0; i < 160; i += 2) {
     const S1h = ((eh >>> 14) | (el << 18)) ^ ((eh >>> 18) | (el << 14)) ^ ((el >>> 9) | (eh << 23))
     const S1l = ((el >>> 14) | (eh << 18)) ^ ((el >>> 18) | (eh << 14)) ^ ((eh >>> 9) | (el << 23))

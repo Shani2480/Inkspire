@@ -116,7 +116,9 @@ function CustomDictionariesDialog({ onClose }: { onClose: () => void }) {
                 <select
                   id="dictionary-language"
                   value={current.language}
-                  onChange={(event) => update(current.id, { language: event.target.value as CustomDictionary["language"] })}
+                  onChange={(event) =>
+                    update(current.id, { language: event.target.value as CustomDictionary["language"] })
+                  }
                 >
                   <option value="all">All Languages</option>
                   {DOCUMENT_LANGUAGES.map((item) => (
@@ -155,7 +157,12 @@ function CustomDictionariesDialog({ onClose }: { onClose: () => void }) {
           ) : null}
         </div>
         <div className="dictionaries-buttons">
-          <button type="button" className="dialog-btn" disabled={!current} onClick={() => current && setEditing(current)}>
+          <button
+            type="button"
+            className="dialog-btn"
+            disabled={!current}
+            onClick={() => current && setEditing(current)}
+          >
             Edit Word List…
           </button>
           <button
@@ -173,9 +180,10 @@ function CustomDictionariesDialog({ onClose }: { onClose: () => void }) {
             type="button"
             className="dialog-btn"
             onClick={async () => {
-              const file = await openLocalFile([{ name: "Dictionary files", extensions: ["dic", "txt"] }], "Add Custom Dictionary").catch(
-                () => null,
-              )
+              const file = await openLocalFile(
+                [{ name: "Dictionary files", extensions: ["dic", "txt"] }],
+                "Add Custom Dictionary",
+              ).catch(() => null)
               if (file) {
                 const name = (file.name || file.path || "CUSTOM.DIC").split(/[/\\]/).pop()!
                 add(newDictionary(name, readDicFile(file.bytes)))
@@ -323,7 +331,9 @@ function GrammarSettingsDialog({ onClose }: { onClose: () => void }) {
               type="checkbox"
               checked={!off.includes(rule.kind)}
               onChange={(event) =>
-                setOff((list) => (event.target.checked ? list.filter((kind) => kind !== rule.kind) : [...list, rule.kind]))
+                setOff((list) =>
+                  event.target.checked ? list.filter((kind) => kind !== rule.kind) : [...list, rule.kind],
+                )
               }
             />
             <span>{rule.label}</span>

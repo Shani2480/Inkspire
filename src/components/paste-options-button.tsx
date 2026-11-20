@@ -28,7 +28,11 @@ function repaste(mode: Mode) {
     return
   }
   const size = view.state.doc.content.size
-  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, Math.min(range.from, size), Math.min(range.to, size))))
+  view.dispatch(
+    view.state.tr.setSelection(
+      TextSelection.create(view.state.doc, Math.min(range.from, size), Math.min(range.to, size)),
+    ),
+  )
   notePaste(clip)
   if (mode !== "text" && clip.html) {
     pasteHtmlAs(view, clip.html, mode)

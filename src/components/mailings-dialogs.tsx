@@ -179,7 +179,13 @@ function SelectTableDialog({ name, sheets, onClose }: { name: string; sheets: Ex
     onClose()
   }
   return (
-    <DialogFrame title="Select Table" width={440} level={110} onClose={onClose} onSubmit={(event) => (event.preventDefault(), pick())}>
+    <DialogFrame
+      title="Select Table"
+      width={440}
+      level={110}
+      onClose={onClose}
+      onSubmit={(event) => (event.preventDefault(), pick())}
+    >
       <div className="word-list-box mailings-list" role="listbox" aria-label="Tables">
         <div className="mailings-row is-head">
           <span>Name</span>
@@ -227,7 +233,9 @@ function NewAddressListDialog({ edit, onClose }: { edit: boolean; onClose: () =>
   const source = useMailMerge((state) => state.source)
   const fields = edit && source ? source.fields : NEW_LIST_FIELDS
   const [rows, setRows] = useState<MergeRecord[]>(() =>
-    edit && source ? source.records.map((record) => ({ ...record })) : [Object.fromEntries(fields.map((field) => [field, ""]))],
+    edit && source
+      ? source.records.map((record) => ({ ...record }))
+      : [Object.fromEntries(fields.map((field) => [field, ""]))],
   )
   const [current, setCurrent] = useState(0)
   const set = (row: number, field: string, value: string) =>
@@ -247,7 +255,13 @@ function NewAddressListDialog({ edit, onClose }: { edit: boolean; onClose: () =>
     onClose()
   }
   return (
-    <DialogFrame title={edit ? "Edit Data Source" : "New Address List"} width={760} level={110} onClose={onClose} onSubmit={(event) => (event.preventDefault(), save())}>
+    <DialogFrame
+      title={edit ? "Edit Data Source" : "New Address List"}
+      width={760}
+      level={110}
+      onClose={onClose}
+      onSubmit={(event) => (event.preventDefault(), save())}
+    >
       <p className="mailings-note">Type each recipient's details. To add more entries, click New Entry.</p>
       <div className="mailings-entries">
         <div className="word-list-box mailings-entry-list" role="listbox" aria-label="Entries">
@@ -265,7 +279,12 @@ function NewAddressListDialog({ edit, onClose }: { edit: boolean; onClose: () =>
         </div>
         <div className="mailings-entry-form">
           {fields.map((field) => (
-            <EntryField key={field} field={field} value={rows[current]?.[field] ?? ""} onChange={(value) => set(current, field, value)} />
+            <EntryField
+              key={field}
+              field={field}
+              value={rows[current]?.[field] ?? ""}
+              onChange={(value) => set(current, field, value)}
+            />
           ))}
         </div>
       </div>
@@ -301,7 +320,10 @@ function NewAddressListDialog({ edit, onClose }: { edit: boolean; onClose: () =>
 }
 
 function entryName(row: MergeRecord, fields: string[]) {
-  const named = fields.filter((field) => /name|company/i.test(field)).map((field) => row[field]?.trim()).filter(Boolean)
+  const named = fields
+    .filter((field) => /name|company/i.test(field))
+    .map((field) => row[field]?.trim())
+    .filter(Boolean)
   return (named.length ? named : fields.map((field) => row[field]?.trim()).filter(Boolean)).slice(0, 3).join(" ")
 }
 
@@ -349,7 +371,8 @@ function RecipientsDialog({ onClose }: { onClose: () => void }) {
       />
     )
   }
-  const toggleAll = (on: boolean) => setIncluded((list) => list.map((value, index) => (order.includes(index) ? on : value)))
+  const toggleAll = (on: boolean) =>
+    setIncluded((list) => list.map((value, index) => (order.includes(index) ? on : value)))
   return (
     <DialogFrame
       title="Mail Merge Recipients"
@@ -384,7 +407,11 @@ function RecipientsDialog({ onClose }: { onClose: () => void }) {
                     type="button"
                     className="mailings-sort"
                     aria-sort={sort?.field === field ? (sort.descending ? "descending" : "ascending") : "none"}
-                    onClick={() => setSort(sort?.field === field ? { field, descending: !sort.descending } : { field, descending: false })}
+                    onClick={() =>
+                      setSort(
+                        sort?.field === field ? { field, descending: !sort.descending } : { field, descending: false },
+                      )
+                    }
                   >
                     {field}
                     {sort?.field === field ? (sort.descending ? " ▼" : " ▲") : ""}
@@ -401,7 +428,9 @@ function RecipientsDialog({ onClose }: { onClose: () => void }) {
                     type="checkbox"
                     aria-label={`Include record ${index + 1}`}
                     checked={included[index] !== false}
-                    onChange={(event) => setIncluded((list) => list.map((value, at) => (at === index ? event.target.checked : value)))}
+                    onChange={(event) =>
+                      setIncluded((list) => list.map((value, at) => (at === index ? event.target.checked : value)))
+                    }
                   />
                 </td>
                 {shown.map((field) => (
@@ -470,7 +499,10 @@ function FilterSortDialog({
   onApply: (filters: RecipientFilter[], sort: SortOrder | null) => void
 }) {
   const blank = (): RecipientFilter => ({ field: "", operator: "equal", value: "" })
-  const [rows, setRows] = useState(() => [...filters, ...Array.from({ length: Math.max(0, 6 - filters.length) }, blank)])
+  const [rows, setRows] = useState(() => [
+    ...filters,
+    ...Array.from({ length: Math.max(0, 6 - filters.length) }, blank),
+  ])
   const [sortField, setSortField] = useState(sort?.field ?? "")
   const [descending, setDescending] = useState(sort?.descending ?? false)
   const update = (row: number, patch: Partial<RecipientFilter>) =>
@@ -496,7 +528,14 @@ function FilterSortDialog({
         <span className="mailings-note">Comparison:</span>
         <span className="mailings-note">Compare to:</span>
         {rows.map((row, index) => (
-          <FilterRow key={index} index={index} row={row} fields={fields} update={update} disabled={index > 0 && !rows[index - 1]!.field} />
+          <FilterRow
+            key={index}
+            index={index}
+            row={row}
+            fields={fields}
+            update={update}
+            disabled={index > 0 && !rows[index - 1]!.field}
+          />
         ))}
       </div>
       <p className="mt-3 text-[13px] font-semibold">Sort Records</p>
@@ -549,7 +588,12 @@ function FilterRow({
   return (
     <>
       <span className="mailings-note">{index > 0 ? "And" : ""}</span>
-      <select aria-label={`Field ${index + 1}`} disabled={disabled} value={row.field} onChange={(event) => update(index, { field: event.target.value })}>
+      <select
+        aria-label={`Field ${index + 1}`}
+        disabled={disabled}
+        value={row.field}
+        onChange={(event) => update(index, { field: event.target.value })}
+      >
         <option value="" />
         {fields.map((field) => (
           <option key={field}>{field}</option>
@@ -591,17 +635,41 @@ function usePreviewRecord() {
     <div className="mailings-preview-nav">
       <span>Preview</span>
       <span className="mailings-note">Here is a preview from your recipient list:</span>
-      <button type="button" className="dialog-btn is-icon" aria-label="First" disabled={place === 0} onClick={() => setPlace(0)}>
+      <button
+        type="button"
+        className="dialog-btn is-icon"
+        aria-label="First"
+        disabled={place === 0}
+        onClick={() => setPlace(0)}
+      >
         |◀
       </button>
-      <button type="button" className="dialog-btn is-icon" aria-label="Previous" disabled={place === 0} onClick={() => setPlace(place - 1)}>
+      <button
+        type="button"
+        className="dialog-btn is-icon"
+        aria-label="Previous"
+        disabled={place === 0}
+        onClick={() => setPlace(place - 1)}
+      >
         ◀
       </button>
       <span className="tabular-nums">{place + 1}</span>
-      <button type="button" className="dialog-btn is-icon" aria-label="Next" disabled={place >= active.length - 1} onClick={() => setPlace(place + 1)}>
+      <button
+        type="button"
+        className="dialog-btn is-icon"
+        aria-label="Next"
+        disabled={place >= active.length - 1}
+        onClick={() => setPlace(place + 1)}
+      >
         ▶
       </button>
-      <button type="button" className="dialog-btn is-icon" aria-label="Last" disabled={place >= active.length - 1} onClick={() => setPlace(active.length - 1)}>
+      <button
+        type="button"
+        className="dialog-btn is-icon"
+        aria-label="Last"
+        disabled={place >= active.length - 1}
+        onClick={() => setPlace(active.length - 1)}
+      >
         ▶|
       </button>
     </div>
@@ -632,7 +700,13 @@ function quote(text: string) {
  * The Address Block's field code, in Word's own format text: each line's break sits inside the chevrons of the line
  * it ends ("<<_COMPANY_\n>>"), so a line with nothing in it drops out.
  */
-export function addressBlockCode(options: { name: string; company: boolean; postal: boolean; country: 0 | 1 | 2; except: string }) {
+export function addressBlockCode(options: {
+  name: string
+  company: boolean
+  postal: boolean
+  country: 0 | 1 | 2
+  except: string
+}) {
   let format = options.name ? `${options.name}\n` : ""
   if (options.company) {
     format += "<<_COMPANY_\n>>"
@@ -672,7 +746,13 @@ function AddressBlockDialog({ onClose }: { onClose: () => void }) {
       <div className="mailings-two">
         <div className="min-w-0">
           <p className="text-[13px] font-semibold">Specify address elements</p>
-          <Check id="ab-name" text="Insert recipient's name in this format:" letter="r" checked={useName} onChange={setUseName} />
+          <Check
+            id="ab-name"
+            text="Insert recipient's name in this format:"
+            letter="r"
+            checked={useName}
+            onChange={setUseName}
+          />
           <div className="word-list-box mailings-formats" role="listbox" aria-label="Name format">
             {NAME_FORMATS.map((item) => (
               <div
@@ -698,7 +778,13 @@ function AddressBlockDialog({ onClose }: { onClose: () => void }) {
               ] as const
             ).map(([value, text]) => (
               <label key={value} className={`word-dialog-check${postal ? "" : " is-disabled"}`}>
-                <input type="radio" name="ab-country" disabled={!postal} checked={country === value} onChange={() => setCountry(value)} />
+                <input
+                  type="radio"
+                  name="ab-country"
+                  disabled={!postal}
+                  checked={country === value}
+                  onChange={() => setCountry(value)}
+                />
                 <span>{text}</span>
               </label>
             ))}
@@ -718,8 +804,8 @@ function AddressBlockDialog({ onClose }: { onClose: () => void }) {
           </div>
           <p className="mt-2 text-[13px] font-semibold">Correct Problems</p>
           <p className="mailings-note">
-            If items in your address block are missing or out of order, use Match Fields to identify the correct
-            address elements from your mailing list.
+            If items in your address block are missing or out of order, use Match Fields to identify the correct address
+            elements from your mailing list.
           </p>
           <button type="button" className="dialog-btn" onClick={() => show({ kind: "match-fields" })}>
             Match Fields…
@@ -787,7 +873,12 @@ function GreetingLineDialog({ onClose }: { onClose: () => void }) {
         </select>
       </div>
       <Label htmlFor="gl-invalid" text="Greeting line for invalid recipient names:" letter="G" />
-      <select id="gl-invalid" className="mailings-wide" value={invalid} onChange={(event) => setInvalid(event.target.value)}>
+      <select
+        id="gl-invalid"
+        className="mailings-wide"
+        value={invalid}
+        onChange={(event) => setInvalid(event.target.value)}
+      >
         <option>Dear Sir or Madam,</option>
         <option>To Whom It May Concern:</option>
         <option>(none)</option>
@@ -829,7 +920,13 @@ function MatchFieldsDialog({ onClose }: { onClose: () => void }) {
         <span className="mailings-note">Required for Address Block</span>
         <span />
         {ADDRESS_FIELDS.map((field: AddressField) => (
-          <MatchRow key={field} field={field} value={map[field]} fields={fields} onChange={(value) => setMap({ ...map, [field]: value })} />
+          <MatchRow
+            key={field}
+            field={field}
+            value={map[field]}
+            fields={fields}
+            onChange={(value) => setMap({ ...map, [field]: value })}
+          />
         ))}
       </div>
       <DialogButtons submit onCancel={onClose} />
@@ -837,7 +934,17 @@ function MatchFieldsDialog({ onClose }: { onClose: () => void }) {
   )
 }
 
-function MatchRow({ field, value, fields, onChange }: { field: string; value: string | null; fields: string[]; onChange: (value: string | null) => void }) {
+function MatchRow({
+  field,
+  value,
+  fields,
+  onChange,
+}: {
+  field: string
+  value: string | null
+  fields: string[]
+  onChange: (value: string | null) => void
+}) {
   const id = `match-${field.replace(/\W+/g, "-")}`
   return (
     <>
@@ -917,14 +1024,30 @@ function RuleDialog({ rule, onClose }: { rule: RuleKind; onClose: () => void }) 
             </option>
           ))}
         </select>
-        <input id="rule-value" className="word-dialog-text" disabled={blank} value={value} onChange={(event) => setValue(event.target.value)} />
+        <input
+          id="rule-value"
+          className="word-dialog-text"
+          disabled={blank}
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+        />
       </div>
       {rule === "IF" ? (
         <>
           <Label htmlFor="rule-then" text="Insert this text:" letter="I" />
-          <textarea id="rule-then" className="word-dialog-text mailings-textarea" value={then} onChange={(event) => setThen(event.target.value)} />
+          <textarea
+            id="rule-then"
+            className="word-dialog-text mailings-textarea"
+            value={then}
+            onChange={(event) => setThen(event.target.value)}
+          />
           <Label htmlFor="rule-else" text="Otherwise insert this text:" letter="O" />
-          <textarea id="rule-else" className="word-dialog-text mailings-textarea" value={otherwise} onChange={(event) => setOtherwise(event.target.value)} />
+          <textarea
+            id="rule-else"
+            className="word-dialog-text mailings-textarea"
+            value={otherwise}
+            onChange={(event) => setOtherwise(event.target.value)}
+          />
         </>
       ) : null}
       <DialogButtons submit okDisabled={!field} onCancel={onClose} />
@@ -957,7 +1080,13 @@ function FindEntryDialog({ onClose }: { onClose: () => void }) {
       }}
     >
       <Label htmlFor="find-text" text="Find:" letter="n" />
-      <input id="find-text" className="word-dialog-text mailings-wide" autoFocus value={text} onChange={(event) => setText(event.target.value)} />
+      <input
+        id="find-text"
+        className="word-dialog-text mailings-wide"
+        autoFocus
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+      />
       <p className="mt-2 text-[13px]">Look in:</p>
       <label className="word-dialog-check">
         <input type="radio" name="find-in" checked={field === null} onChange={() => setField(null)} />
@@ -968,13 +1097,22 @@ function FindEntryDialog({ onClose }: { onClose: () => void }) {
           <input type="radio" name="find-in" checked={field !== null} onChange={() => setField(fields[0] ?? null)} />
           <span>This field:</span>
         </label>
-        <select aria-label="Field" disabled={field === null} value={field ?? ""} onChange={(event) => setField(event.target.value)}>
+        <select
+          aria-label="Field"
+          disabled={field === null}
+          value={field ?? ""}
+          onChange={(event) => setField(event.target.value)}
+        >
           {fields.map((item) => (
             <option key={item}>{item}</option>
           ))}
         </select>
       </div>
-      {missed ? <p className="mailings-note mt-2">Inkspire has finished searching the recipient list. The item was not found.</p> : null}
+      {missed ? (
+        <p className="mailings-note mt-2">
+          Inkspire has finished searching the recipient list. The item was not found.
+        </p>
+      ) : null}
       <DialogButtons submit ok="Find Next" cancel="Close" okDisabled={!text.trim()} onCancel={onClose} />
     </DialogFrame>
   )
@@ -1012,7 +1150,11 @@ function CheckErrorsDialog({ onClose }: { onClose: () => void }) {
           return
         }
         if (choice === "simulate") {
-          show({ kind: "message", title: "Checking and Reporting Errors", lines: [`No mail merge errors have been found in ${name}.`] })
+          show({
+            kind: "message",
+            title: "Checking and Reporting Errors",
+            lines: [`No mail merge errors have been found in ${name}.`],
+          })
           return
         }
         onClose()
@@ -1073,9 +1215,23 @@ function MergeRangeDialog({ then, onClose }: { then: "edit" | "print"; onClose: 
             <input type="radio" name="merge-range" checked={kind === "range"} onChange={() => setKind("range")} />
             <span>From:</span>
           </label>
-          <input aria-label="From" className="word-dialog-text" inputMode="numeric" value={from} onFocus={() => setKind("range")} onChange={(event) => setFrom(event.target.value)} />
+          <input
+            aria-label="From"
+            className="word-dialog-text"
+            inputMode="numeric"
+            value={from}
+            onFocus={() => setKind("range")}
+            onChange={(event) => setFrom(event.target.value)}
+          />
           <span>To:</span>
-          <input aria-label="To" className="word-dialog-text" inputMode="numeric" value={to} onFocus={() => setKind("range")} onChange={(event) => setTo(event.target.value)} />
+          <input
+            aria-label="To"
+            className="word-dialog-text"
+            inputMode="numeric"
+            value={to}
+            onFocus={() => setKind("range")}
+            onChange={(event) => setTo(event.target.value)}
+          />
         </div>
       </div>
       <DialogButtons submit okDisabled={!count} onCancel={onClose} />
@@ -1085,7 +1241,13 @@ function MergeRangeDialog({ then, onClose }: { then: "edit" | "print"; onClose: 
 
 function MessageDialog({ title, lines, onClose }: { title: string; lines: string[]; onClose: () => void }) {
   return (
-    <DialogFrame title={title} width={420} level={130} onClose={onClose} onSubmit={(event) => (event.preventDefault(), onClose())}>
+    <DialogFrame
+      title={title}
+      width={420}
+      level={130}
+      onClose={onClose}
+      onSubmit={(event) => (event.preventDefault(), onClose())}
+    >
       {lines.map((line, index) => (
         <p key={index} className="mailings-message">
           {line}
@@ -1123,9 +1285,15 @@ function EnvelopesLabelsDialog({ initialTab, onClose }: { initialTab: "envelopes
   const sheet = LABEL_PRODUCTS.find((item) => item.id === product)!
   const make = (print: boolean) => {
     if (tab === "envelopes") {
-      void openHtmlAsNewDocument(envelopeHtml(envelope, delivery, omit ? null : returnAddress), envelopePageSetup(envelope), print)
+      void openHtmlAsNewDocument(
+        envelopeHtml(envelope, delivery, omit ? null : returnAddress),
+        envelopePageSetup(envelope),
+        print,
+      )
     } else {
-      const at = single ? { row: Math.min(sheet.rows, Number(row) || 1), column: Math.min(sheet.columns, Number(column) || 1) } : undefined
+      const at = single
+        ? { row: Math.min(sheet.rows, Number(row) || 1), column: Math.min(sheet.columns, Number(column) || 1) }
+        : undefined
       void openHtmlAsNewDocument(labelsHtml(sheet, { text: labelText }, at), labelsPageSetup(sheet), print)
     }
     onClose()
@@ -1146,12 +1314,23 @@ function EnvelopesLabelsDialog({ initialTab, onClose }: { initialTab: "envelopes
       {tab === "envelopes" ? (
         <div className="mailings-envelope">
           <Label htmlFor="env-delivery" text="Delivery address:" letter="D" />
-          <textarea id="env-delivery" className="word-dialog-text mailings-address" value={delivery} onChange={(event) => setDelivery(event.target.value)} />
+          <textarea
+            id="env-delivery"
+            className="word-dialog-text mailings-address"
+            value={delivery}
+            onChange={(event) => setDelivery(event.target.value)}
+          />
           <div className="mailings-return">
             <Label htmlFor="env-return" text="Return address:" letter="R" />
             <Check id="env-omit" text="Omit" letter="m" checked={omit} onChange={setOmit} />
           </div>
-          <textarea id="env-return" className="word-dialog-text mailings-address" disabled={omit} value={returnAddress} onChange={(event) => setReturnAddress(event.target.value)} />
+          <textarea
+            id="env-return"
+            className="word-dialog-text mailings-address"
+            disabled={omit}
+            value={returnAddress}
+            onChange={(event) => setReturnAddress(event.target.value)}
+          />
           <div className="mailings-size">
             <Label htmlFor="env-size" text="Envelope size:" letter="s" />
             <select id="env-size" value={size} onChange={(event) => setSize(event.target.value)}>
@@ -1166,7 +1345,12 @@ function EnvelopesLabelsDialog({ initialTab, onClose }: { initialTab: "envelopes
       ) : (
         <div className="mailings-envelope">
           <Label htmlFor="label-address" text="Address:" letter="A" />
-          <textarea id="label-address" className="word-dialog-text mailings-address" value={labelText} onChange={(event) => setLabelText(event.target.value)} />
+          <textarea
+            id="label-address"
+            className="word-dialog-text mailings-address"
+            value={labelText}
+            onChange={(event) => setLabelText(event.target.value)}
+          />
           <div className="mailings-two">
             <div role="radiogroup" aria-label="Print">
               <p className="text-[13px]">Print</p>
@@ -1180,14 +1364,31 @@ function EnvelopesLabelsDialog({ initialTab, onClose }: { initialTab: "envelopes
               </label>
               <div className="mailings-range-row mailings-label-at">
                 <span>Row:</span>
-                <input aria-label="Row" className="word-dialog-text" disabled={!single} value={row} onChange={(event) => setRow(event.target.value)} />
+                <input
+                  aria-label="Row"
+                  className="word-dialog-text"
+                  disabled={!single}
+                  value={row}
+                  onChange={(event) => setRow(event.target.value)}
+                />
                 <span>Column:</span>
-                <input aria-label="Column" className="word-dialog-text" disabled={!single} value={column} onChange={(event) => setColumn(event.target.value)} />
+                <input
+                  aria-label="Column"
+                  className="word-dialog-text"
+                  disabled={!single}
+                  value={column}
+                  onChange={(event) => setColumn(event.target.value)}
+                />
               </div>
             </div>
             <div className="min-w-0">
               <Label htmlFor="label-product" text="Label:" letter="L" />
-              <select id="label-product" className="mailings-wide" value={product} onChange={(event) => setProduct(event.target.value)}>
+              <select
+                id="label-product"
+                className="mailings-wide"
+                value={product}
+                onChange={(event) => setProduct(event.target.value)}
+              >
                 {LABEL_PRODUCTS.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.vendor}, {item.number} {item.type}
@@ -1195,7 +1396,8 @@ function EnvelopesLabelsDialog({ initialTab, onClose }: { initialTab: "envelopes
                 ))}
               </select>
               <p className="mailings-note">
-                {sheet.type}: {trim(sheet.height / 10)} cm x {trim(sheet.width / 10)} cm, {sheet.columns * sheet.rows} per page
+                {sheet.type}: {trim(sheet.height / 10)} cm x {trim(sheet.width / 10)} cm, {sheet.columns * sheet.rows}{" "}
+                per page
               </p>
             </div>
           </div>
@@ -1233,20 +1435,30 @@ function EnvelopeOptionsDialog({ onClose }: { onClose: () => void }) {
       onSubmit={(event) => {
         event.preventDefault()
         const envelope = ENVELOPE_SIZES.find((item) => item.id === size)!
-        replaceMainDocument(envelopeHtml(envelope, "", "", `<p>${ADDRESS_BLOCK_FIELD}</p>`), envelopePageSetup(envelope))
+        replaceMainDocument(
+          envelopeHtml(envelope, "", "", `<p>${ADDRESS_BLOCK_FIELD}</p>`),
+          envelopePageSetup(envelope),
+        )
         useMailMerge.getState().setType("envelopes")
         onClose()
       }}
     >
       <Label htmlFor="opt-env-size" text="Envelope size:" letter="s" />
-      <select id="opt-env-size" className="mailings-wide" value={size} onChange={(event) => setSize(event.target.value)}>
+      <select
+        id="opt-env-size"
+        className="mailings-wide"
+        value={size}
+        onChange={(event) => setSize(event.target.value)}
+      >
         {ENVELOPE_SIZES.map((item) => (
           <option key={item.id} value={item.id}>
             {item.label}
           </option>
         ))}
       </select>
-      <p className="mailings-note mt-2">The document's page becomes the envelope, with an Address Block where the delivery address goes.</p>
+      <p className="mailings-note mt-2">
+        The document's page becomes the envelope, with an Address Block where the delivery address goes.
+      </p>
       <DialogButtons submit onCancel={onClose} />
     </DialogFrame>
   )
@@ -1283,8 +1495,8 @@ function LabelOptionsDialog({ onClose }: { onClose: () => void }) {
         ))}
       </div>
       <p className="mailings-note mt-2">
-        {sheet.type}: {trim(sheet.height / 10)} cm x {trim(sheet.width / 10)} cm, {sheet.columns} x {sheet.rows} per page.
-        The document's content is replaced by the sheet of labels.
+        {sheet.type}: {trim(sheet.height / 10)} cm x {trim(sheet.width / 10)} cm, {sheet.columns} x {sheet.rows} per
+        page. The document's content is replaced by the sheet of labels.
       </p>
       <DialogButtons submit onCancel={onClose} />
     </DialogFrame>
