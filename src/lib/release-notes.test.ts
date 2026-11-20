@@ -41,3 +41,11 @@ describe("Release notes", () => {
     expect(updatedSinceLastRun(null)).toBe(false)
   })
 })
+
+describe("the Flatpak's release list", () => {
+  it("names the version being built first, so software centres show the right version", () => {
+    const metainfo = readFileSync("packaging/flatpak/com.aiword.app.metainfo.xml", "utf8")
+    const pkg = JSON.parse(readFileSync("package.json", "utf8")) as { version: string }
+    expect(metainfo.match(/<release version="([^"]+)"/)?.[1]).toBe(pkg.version)
+  })
+})

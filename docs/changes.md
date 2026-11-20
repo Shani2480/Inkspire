@@ -16,6 +16,9 @@ in Word, Chrome or the desktop app.
   grey, but saved as plain rows, so it changed on reopening. Tables are now inserted with plain rows, as Word's
   Insert Table makes them (`insert-tab.tsx`, `table-insert.ts`; test in `table-insert.test.ts`). The saved file is
   unchanged.
+- **Flatpak version label:** `flatpak list` showed 0.10.0 for the 1.0.5 Flatpak, because the metainfo's release list
+  had stopped at 0.10.0. The releases since are added, and a test (`release-notes.test.ts`) checks its newest entry
+  is the version being built.
 
 ### Linux desktop app checks
 
