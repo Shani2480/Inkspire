@@ -845,7 +845,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the Android tablet (the APK on a touch screen)
 
-- [ ] **Spelling menu below the handles (v0.12.1):** a long press on a misspelling opens the suggestions below the
+- [x] **Spelling menu below the handles (v0.12.1, Pad 2026-11-20):** a long press on a misspelling opens the suggestions below the
   word, with no handle over the first one.
 
 - [x] **v0.12.1 on the Pad (2026-11-20):** long press on a misspelling shows the suggestions without a search box; selecting a
