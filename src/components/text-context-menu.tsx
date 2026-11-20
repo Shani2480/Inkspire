@@ -112,7 +112,10 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
       setOpenSub(null)
       setMisspelling(misspellingAt(editor, target))
       setPlaced(null)
-      setPoint({ x: event.clientX, y: event.clientY })
+      // On a touch screen the menu opens below the word and Android's selection handles under it, which would
+      // otherwise cover its first suggestion.
+      const word = touch ? target.getBoundingClientRect() : null
+      setPoint(word ? { x: event.clientX, y: word.bottom + TOUCH_HANDLES } : { x: event.clientX, y: event.clientY })
     }
     editor.view.dom.addEventListener("contextmenu", onContext)
     return () => editor.view.dom.removeEventListener("contextmenu", onContext)
@@ -359,6 +362,9 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
     document.body,
   )
 }
+
+/** The height of Android's selection handles below a selected word, in CSS pixels. */
+const TOUCH_HANDLES = 40
 
 /** The misspelling under a right-click, if the click was on a red underline. */
 function misspellingAt(editor: Editor, target: Element): Misspelling | null {

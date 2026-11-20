@@ -845,9 +845,12 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the Android tablet (the APK on a touch screen)
 
-- [ ] **v0.12.1 on the Pad:** long press on a misspelling shows the suggestions without a search box; selecting a
+- [ ] **Spelling menu below the handles (v0.12.1):** a long press on a misspelling opens the suggestions below the
+  word, with no handle over the first one.
+
+- [x] **v0.12.1 on the Pad (2026-11-20):** long press on a misspelling shows the suggestions without a search box; selecting a
   picture or 3D model leaves the keyboard down; after an edit below it, a line with a big word keeps its height.
-- [ ] **3D model turning (v0.12.1):** on the Pad, tap a model, then drag on it for several seconds: it keeps turning
+- [x] **3D model turning (v0.12.1, Pad 2026-11-20; reopening a saved document not yet checked):** on the Pad, tap a model, then drag on it for several seconds: it keeps turning
   with the finger; a flick spins on and settles; a swipe over an unselected model scrolls the page; reopening the
   saved document shows the model as it was left.
 

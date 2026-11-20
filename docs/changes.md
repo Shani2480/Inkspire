@@ -29,7 +29,12 @@ in Word, Chrome or the desktop app.
     (yaw and pitch, saved), with the pointer captured and `touch-action: none` only while the model is selected; a
     flick glides on and settles. On a touch screen the first tap selects it and a swipe over an unselected model
     scrolls the page; a mouse turns it at once (`three-d-viewer.ts`). Checked in headless Chrome with touch
-    pointers: no turn before selection, a 2.5-second drag turns it the whole way, a flick glides and saves.
+    pointers: no turn before selection, a 2.5-second drag turns it the whole way, a flick glides and saves. On the Pad
+    (2026-11-20): a 4-second drag keeps turning it throughout, a flick glides and settles, a swipe over an
+    unselected model leaves it as it was; selecting it leaves the keyboard down. Also confirmed there: the spelling
+    menu by long press (no search box) and the big-word line keeping its height after the fix below it.
+  - The touch spelling menu opened at the finger, under Android's selection handles, which covered its first
+    suggestion; it now opens below the word and the handles.
 - **Tests:** `editor/word-lead.test.ts` (fails without the fix), keyboard mode; all 1740 pass.
 
 ### Documents in their own fonts (v0.12.0)
