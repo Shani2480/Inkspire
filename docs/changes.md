@@ -7,6 +7,19 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-20
 
+### Charts take the document's theme colours
+
+- **What was wrong:** a Word chart's series that refer to the theme's colours (`a:schemeClr accent1` …, how Word
+  makes every chart) were drawn in the app's default palette: a chart from a 2023 Office document showed blue, orange
+  and grey where Word draws dark teal, orange and green.
+- **What changed:** `chart-xml.ts`: `readChartSpace` takes the document's theme colours (`themed` resolves
+  `schemeClr` with its lumMod / lumOff / tint / shade through `shape-import.ts` `colorOf`); a series without a colour
+  of its own takes the theme's next accent, as Word's colourful palette. `inlines.ts` passes the theme.
+- **Tests:** `chart-docx.test.ts` (accents, a darkened accent, a series without a colour, no theme).
+- **Checked against Word (VM):** the real document's line chart now has Word's three colours.
+- **Open:** chart line widths are taken as pixels where Word means points, so lines are a quarter thinner than
+  Word's (2.25 px for 2.25 pt).
+
 ### Line numbers: not in tables, and once per line
 
 - **What was wrong:** with line numbering on, a table's lines were numbered inside its cells and counted, where Word

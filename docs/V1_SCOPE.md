@@ -47,4 +47,5 @@ they do in Word, and Word opens Inkspire's saves as they were.
 - ~~A list whose bullet is a dash shows no bullet (a contract).~~ Fixed 2026-11-20: lists numbered by their style.
 - ~~Line numbers are drawn inside a table's cells and counted on through it; Word leaves tables out.~~ Fixed
   2026-11-20 (and a line in pieces numbered once). Left: Word numbers a picture's or chart's line; Inkspire does not.
-- A chart's series take a default palette instead of the document's theme colours.
+- ~~A chart's series take a default palette instead of the document's theme colours.~~ Fixed 2026-11-20. Left:
+  chart lines a quarter thinner than Word's (points taken as pixels).

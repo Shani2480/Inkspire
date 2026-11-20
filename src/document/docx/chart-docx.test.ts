@@ -341,3 +341,39 @@ describe("error bars, drop lines, high-low lines and up/down bars", () => {
     expect(readChartSpace(xml)!.errorBars.kind).toBe("none")
   })
 })
+
+describe("a chart's theme colours", () => {
+  const C =
+    'xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'
+  const serie = (index: number, fill: string) =>
+    `<c:ser><c:idx val="${index}"/><c:order val="${index}"/><c:tx><c:v>S${index}</c:v></c:tx>${fill}` +
+    `<c:cat><c:strLit><c:ptCount val="1"/><c:pt idx="0"><c:v>A</c:v></c:pt></c:strLit></c:cat>` +
+    `<c:val><c:numLit><c:ptCount val="1"/><c:pt idx="0"><c:v>${index + 1}</c:v></c:pt></c:numLit></c:val></c:ser>`
+  const xml =
+    `<c:chartSpace ${C}><c:chart><c:plotArea><c:lineChart><c:grouping val="standard"/>` +
+    serie(0, `<c:spPr><a:ln><a:solidFill><a:schemeClr val="accent1"/></a:solidFill></a:ln></c:spPr>`) +
+    serie(
+      1,
+      `<c:spPr><a:ln><a:solidFill><a:schemeClr val="accent2"><a:lumMod val="50000"/></a:schemeClr></a:solidFill></a:ln></c:spPr>`,
+    ) +
+    serie(2, "") +
+    `</c:lineChart></c:plotArea></c:chart></c:chartSpace>`
+  // Office 2023's theme: its accents, which a chart made in Word refers to.
+  const scheme = new Map([
+    ["accent1", "#156082"],
+    ["accent2", "#e97132"],
+    ["accent3", "#196b24"],
+  ])
+
+  it("take the document's accents, with their darker or lighter shades", () => {
+    const spec = readChartSpace(xml, scheme)!
+    expect(spec.format["series:0"]?.fill).toBe("#156082")
+    expect(spec.format["series:1"]?.fill).toBe("#753919")
+    // No colour of its own: the theme's next accent, as Word's colourful palette.
+    expect(spec.format["series:2"]?.fill).toBe("#196b24")
+  })
+
+  it("leave colours to the app's palette without a theme", () => {
+    expect(readChartSpace(xml)!.format["series:0"]).toBeUndefined()
+  })
+})

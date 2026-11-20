@@ -18,6 +18,7 @@ import {
   type LegendPosition,
   type TrendlineKind,
 } from "@/editor/chart-spec"
+import { colorOf } from "@/document/docx/shape-import"
 import { SaxesParser } from "saxes"
 
 /**
@@ -767,10 +768,24 @@ function pointsOf(cache: Element) {
   return points
 }
 
-export function srgb(element: Element | undefined) {
+/**
+ * A shape's solid fill as a hex colour: its own RGB, or one of the theme's colours (`a:schemeClr`, with its lighter
+ * or darker modifiers) when the document's theme colours are given.
+ */
+export function themed(element: Element | undefined, scheme?: Map<string, string>) {
   const fill = child(element, "solidFill")
   const color = child(fill, "srgbClr")?.attrs.val
-  return color ? `#${color.toLowerCase()}` : undefined
+  if (color) {
+    return `#${color.toLowerCase()}`
+  }
+  const named = child(fill, "schemeClr")
+  if (!named || !scheme?.size) {
+    return undefined
+  }
+  const modifiers = named.children.map((item) => `<a:${item.name} val="${escapeXml(item.attrs.val ?? "")}"/>`).join("")
+  return (
+    colorOf(`<a:schemeClr val="${escapeXml(named.attrs.val ?? "")}">${modifiers}</a:schemeClr>`, scheme) || undefined
+  )
 }
 
 const READ_LABELS: Record<string, LabelPosition> = {
@@ -811,7 +826,9 @@ const CHART_GROUPS = [
 ]
 
 /** A Word chart part as a spec, or null when it is not a chart this app can draw. */
-export function readChartSpace(xml: string): ChartSpec | null {
+/** `scheme`: the document's theme colours, which a chart's series refer to (accent1, accent2 …). */
+export function readChartSpace(xml: string, scheme?: Map<string, string>): ChartSpec | null {
+  const srgb = (element: Element | undefined) => themed(element, scheme)
   const root = tree(xml)
   const chart = child(root ?? undefined, "chart")
   const plot = child(chart, "plotArea")
@@ -889,8 +906,12 @@ export function readChartSpace(xml: string): ChartSpec | null {
         ...(secondary ? { secondary: true } : {}),
         ...(trend ? { trendline: READ_TRENDLINES[trend] ?? "linear" } : {}),
       })
-      if (color) {
-        spec.format[`series:${spec.series.length - 1}`] = { fill: color }
+      // Without a colour of its own a series takes the theme's next accent, as Word's colourful palette does.
+      const accent = scheme?.get(`accent${((spec.series.length - 1) % 6) + 1}`)
+      const fill =
+        color ?? (spec.series.length <= 6 && spec.type !== "pie" && spec.type !== "doughnut" ? accent : undefined)
+      if (fill) {
+        spec.format[`series:${spec.series.length - 1}`] = { fill }
       }
       if (spec.type === "pie" || spec.type === "doughnut") {
         for (const point of children(serie, "dPt")) {
@@ -1125,4 +1146,9 @@ export function readChartSpace(xml: string): ChartSpec | null {
 export function chartRelId(drawingXml: string) {
   const match = /<(?:\w+:)?chart\b[^>]*\br:id="([^"]+)"/.exec(drawingXml)
   return match?.[1]
+}
+
+/** A shape's solid fill in its own RGB (`themed` also reads the theme's colours). */
+export function srgb(element: Element | undefined) {
+  return themed(element)
 }

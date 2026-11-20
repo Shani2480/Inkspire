@@ -644,7 +644,8 @@ function chartPictureHtml(run: Run, ctx: Projection) {
     return null
   }
   // Histogram, Waterfall, Funnel, Box & Whisker, Treemap and Sunburst are Word's chartex charts.
-  const read = readChartSpace(xml) ?? readChartEx(xml)
+  const themePart = ctx.doc.preserved?.parts.find((item) => item.name.toLowerCase() === "/word/theme/theme1.xml")
+  const read = readChartSpace(xml, schemeColors(themePart ? decodeXml(themePart.data) : null)) ?? readChartEx(xml)
   const saved = decodeObjectJson(drawing.object)
   const savedChart = saved?.type === "figure" && saved.attrs?.kind === "chart" ? saved : null
   const own = savedChart ? chartSpecOf(savedChart.attrs ?? {}) : null
