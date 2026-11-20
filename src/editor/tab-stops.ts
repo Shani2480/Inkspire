@@ -382,14 +382,14 @@ function offsetWithin(element: HTMLElement, ancestor: HTMLElement) {
   return x
 }
 
-function resolveStop(stops: TabStop[], x: number) {
+export function resolveStop(stops: TabStop[], x: number) {
   const epsilon = 0.75
   const upcoming = stops.find((stop) => stop.position > x + epsilon)
   if (upcoming) {
     return upcoming
   }
-  // No ruler stop is ahead of the caret. Each tab advances one standard tab width.
-  return { position: x + DEFAULT_TAB_PX, align: "left" as const }
+  // No ruler stop is ahead of the caret: Word's default stops, every standard tab width from the margin.
+  return { position: (Math.floor((x + epsilon) / DEFAULT_TAB_PX) + 1) * DEFAULT_TAB_PX, align: "left" as const }
 }
 
 function spacerWidth(

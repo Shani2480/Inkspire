@@ -434,6 +434,9 @@ const WORD_DEFAULTS: StyleCatalog["docDefaults"] = {
   },
 }
 
+/** The font Word draws text in when a styles part's defaults name none. */
+const TIMES = { ascii: "Times New Roman", hAnsi: "Times New Roman", cs: "Times New Roman" }
+
 function readStyles(xml: string | undefined, notes: WordNote[]): StyleCatalog {
   const catalog: StyleCatalog = { docDefaults: { pPr: {}, rPr: {} }, styles: [] }
   if (xml === undefined) {
@@ -466,6 +469,12 @@ function readStyles(xml: string | undefined, notes: WordNote[]): StyleCatalog {
   }
   if (catalog.wordDefaults) {
     catalog.wordDefaults = { pPr: catalog.wordDefaults.pPr, rPr: catalog.docDefaults.rPr }
+  }
+  const fonts = catalog.docDefaults.rPr.rFonts
+  if (!fonts?.ascii && !fonts?.asciiTheme) {
+    // Word's own fallback when the defaults name no font (its Normal style may still name one).
+    const rPr = { ...catalog.docDefaults.rPr, rFonts: { ...TIMES, ...fonts } }
+    catalog.wordDefaults = { pPr: catalog.wordDefaults?.pPr ?? catalog.docDefaults.pPr, rPr }
   }
   for (const node of wordChildren(root, "style")) {
     const style = readStyle(node)

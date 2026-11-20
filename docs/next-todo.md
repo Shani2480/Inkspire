@@ -136,6 +136,16 @@ fallback and widths differ (tab positions too); the VM's background Word draws n
 pick other fallback fonts, so render both sides in the same warm Word. Tools (local): `tools/word-render.py`,
 `tools/corpus/` (save every fixture), `tools/fidelity-audit.mjs --pages dir`.
 
+**Word comparison (2026-11-20).** Re-run of all fixtures (67 open in both): mean layout difference 0.104 after the
+default tab stops and Times New Roman fallback (see `changes.md`). Every save renders as its original in Word. Left,
+largest first:
+1. `f22`, `f23`, `f24`: the 3D model, which the VM's Word does not draw (not a difference). The capture also catches
+   the model selected with its toolbar.
+2. `w16_pictures_among_text`: pictures drawn on their own line (in-line pictures in their line: later, see item 1
+   above).
+3. `w10`/`w12` tables without a grid (0.46/0.29), `w13` (0.28) and `f15` sections: not yet looked at.
+4. Aptos is missing on the Linux host (Carlito stands in), so text in theme-font documents is narrower than Word's.
+
 **Fidelity audit (2026-11-13).** When a .docx "opens weird", run `npm run audit:docx -- file.docx` with the dev
 server up before reading XML: it lists every run and paragraph whose drawn formatting differs from Word's rules,
 with the style and text. Done: run toggles turned off against styles, highlight, automatic colour on shading, row

@@ -7,6 +7,26 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-20
 
+### Word comparison re-run: default tab stops, and the font when none is named
+
+- **What was wrong:**
+  - A tab with no custom stop ahead of it was always half an inch wide, wherever it started. Word moves it to the
+    next half-inch mark from the margin (its default stops), so text after a tab sat up to half an inch off
+    (`f01`: "after-tab" at 3.74 in, Word 3.5 in). This was so since the first version.
+  - A document whose styles name no font (no `w:rFonts` in the defaults, no theme) was drawn in the editor's own
+    sans font. Word draws it in Times New Roman, its built-in fallback. (A file with no styles part keeps Aptos,
+    checked in Word on 2026-11-14.)
+- **What changed:** `editor/tab-stops.ts` `resolveStop`: past the last custom stop, the next multiple of the default
+  interval (0.5 in) from the margin. `document/docx/wml-read.ts`: such defaults draw in Times New Roman
+  (`wordDefaults`, so the file saves as it was).
+- **Tool (local):** `tools/fidelity-audit.mjs --pages` scrolls each page into view in the app's scroller first; pages below
+  it were captured as the status bar or blank (f15's landscape pages).
+- **Tests:** `tab-stops.test.ts` (new).
+- **Checked in Word (VM):** every fixture rendered by Word and captured in Inkspire. Mean layout difference
+  (8 px cells that hold ink on one side only) 0.189 → 0.104 over 67 files: 30 files went to 0 and none got worse.
+  "after-tab" in `f01` now at 3.50 in, as in Word. Word opens all 74 saves and each renders as the original.
+- **Still different:** see next-todo (Word comparison 2026-11-20).
+
 ### A document opened in columns is laid out in its columns
 
 - **What was wrong:** a document whose section has equal columns (two columns throughout) opened with its pages
