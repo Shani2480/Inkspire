@@ -76,6 +76,7 @@ import { MailingsDialogs } from "@/components/mailings-dialogs"
 import { QuickPartsDialogsHost } from "@/components/quick-parts-dialogs"
 import { TablePropertiesHost } from "@/components/table-properties-dialog"
 import { ListNumberingHost } from "@/components/list-numbering-dialogs"
+import { FeatureHints } from "@/components/feature-hint"
 import { FirstRunSetup } from "@/components/first-run-setup"
 import { StyleDialogs } from "@/components/style-dialogs"
 import { showEditedStyles, useStyleStore } from "@/document/styles"
@@ -384,6 +385,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
       <SelectDataDialog editor={editor} />
       <TextPromptHost />
       <FirstRunSetup />
+      <FeatureHints />
       <HelperToolsDialog />
       <BordersShadingHost />
       <CompareDialogHost />

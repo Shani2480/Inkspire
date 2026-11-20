@@ -19167,3 +19167,102 @@ html.dark,
 [data-device="phone"] .titlebar [aria-label="Quick access"] > span[aria-hidden] {
   display: none;
 }
+
+/* Feature hints (components/feature-hint.tsx): Word's teaching callout, a blue bubble pointing at the control. */
+.feature-hint {
+  position: fixed;
+  z-index: 60;
+  padding: 14px 16px 12px;
+  border-radius: 6px;
+  background: var(--dlg-accent);
+  color: var(--dlg-accent-text);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 24%);
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+  animation: feature-hint-in 180ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.feature-hint.is-above {
+  transform: translateY(-100%);
+  animation-name: feature-hint-in-above;
+}
+
+.feature-hint::before {
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: calc(var(--beak-x, 24px) - 7px);
+  width: 14px;
+  height: 14px;
+  background: inherit;
+  transform: rotate(45deg);
+  border-radius: 2px;
+}
+
+.feature-hint.is-above::before {
+  top: auto;
+  bottom: -6px;
+}
+
+.feature-hint-title {
+  margin: 0 0 4px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.feature-hint-text {
+  margin: 0;
+}
+
+.feature-hint-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+
+.feature-hint-button {
+  min-height: 28px;
+  padding: 0 14px;
+  border: 1px solid rgb(255 255 255 / 85%);
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.feature-hint-button:hover {
+  background: rgb(255 255 255 / 14%);
+}
+
+.feature-hint-button:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+@keyframes feature-hint-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@keyframes feature-hint-in-above {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-100% - 4px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feature-hint {
+    animation: none;
+  }
+}
+
+/* On a touch screen the button is a finger's size. */
+[data-device="phone"] .feature-hint-button {
+  min-height: 40px;
+}

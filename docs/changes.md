@@ -7,6 +7,22 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-20
 
+### Feature hints (v0.11.0)
+
+- **What:** small hints that introduce Inkspire's special features, as Word's teaching callouts do: a blue bubble
+  pointing at the feature's control, titled "New: …". The features: Read Mode, Focus, Immersive Reader, Dictate,
+  Editor, Translate, AI Summarize and Rewrite, Mail Merge, 3D Models. Everyday commands get none.
+- **How it behaves:** one at a time, only while its control is on screen (so in the tab where the feature lives), not
+  while a dialog, menu or File is open, and not before the first-run setup is done. The first comes after 20 s; after
+  one is dismissed the next waits 2 minutes. A tap on the hint, or using the feature, dismisses it for good. On by
+  default; File > Options > General has "Show hints about new features" and "Show hints again".
+- **Where:** `lib/feature-hints.ts` (the list, `nextHint`, the stored state), `components/feature-hint.tsx`,
+  `index.css` (`.feature-hint`), the Options page in `backstage/views.tsx`. A new special feature adds its hint to
+  `FEATURE_HINTS`.
+- **Tests:** `feature-hint.test.tsx` (6). Release notes for 0.11.0.
+- **Checked:** in headless Chrome, light and dark: after the setup the View tab shows "New: Read Mode" under Read Mode.
+  Not yet seen in the desktop app or on a phone (verify list).
+
 ### Word comparison re-run: default tab stops, and the font when none is named
 
 - **What was wrong:**

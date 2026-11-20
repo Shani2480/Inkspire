@@ -19,6 +19,8 @@ This file is the overview; update it in the same commit as the work.
 - ✅ Word layout fidelity: pagination, line spacing rules, tables, columns, footnotes, sections, pictures, shapes,
   TOC, fields, notes, tab stops. Word comparison 2026-11-20: mean layout difference 0.104 (was 0.189), 30 of 67
   fixtures identical.
+- ✅ Feature hints (v0.11.0): "New: …" callouts for the special features, one at a time where the feature lives,
+  dismissed by a tap, on by default, off and back on in File > Options > General.
 - ✅ Android phase 1 and 2 except the items below: phone layout (ribbon at the bottom, sheets, fit to width),
   print, share, open-with, system fonts, Read Mode page curl, launcher icon.
 
@@ -29,9 +31,6 @@ This file is the overview; update it in the same commit as the work.
 
 ## Next
 
-- ⬜ Feature hints: "New: …" hints for Inkspire's special features (Read Mode page turn, Focus, Draw, Mail merge,
-  Editor, Translate, local AI), one at a time where the feature lives, dismissed by a tap, on by default, off and
-  back on in Settings.
 - ⬜ Android A7: Font and Paragraph dialogs laid out for a phone (now scaled to 83–85%).
 - ⬜ Android B16, B19: text faintly on the back of Read Mode's page curl; the slow frame after a page turn.
 

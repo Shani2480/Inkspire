@@ -9,6 +9,28 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "0.11.0",
+    date: "2026-11-20",
+    notes: [
+      {
+        title: "Hints about features you may not know",
+        text: "Now and then a small blue hint points at one of Inkspire's special features, such as Read Mode, Dictate or Translate. Tap it and it goes away for good. Turn hints off, or show them all again, in File > Options > General.",
+      },
+      {
+        title: "Tabs line up as in Word",
+        text: "Text after a tab moves to the next half-inch mark, as Word places it. Before, it was always half an inch past the text, so it could sit up to half an inch off.",
+      },
+      {
+        title: "Two-column documents open in their columns",
+        text: "A Word document in two columns opened with its first column running over the page's end and too few pages. It now opens with each page as Word lays it out.",
+      },
+      {
+        title: "Closer to Word on screen",
+        text: "Documents that name no font show in Times New Roman, as Word shows them. Lines in mixed fonts and sizes, pictures in exactly spaced lines, triple-spaced text and tables now break and space as in Word, and a picture among a paragraph's text is saved inside its paragraph.",
+      },
+    ],
+  },
+  {
     version: "0.10.0",
     date: "2026-11-17",
     notes: [

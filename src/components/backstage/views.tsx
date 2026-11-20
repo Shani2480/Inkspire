@@ -1,3 +1,4 @@
+import { useFeatureHints } from "@/lib/feature-hints"
 import { shownPath } from "@/lib/paths"
 import { formatModified, useModifiedDates } from "@/document/modified-dates"
 import { AddInsManager } from "@/components/addins"
@@ -1276,6 +1277,7 @@ export function OptionsPages({ initialPage = "general" }: { initialPage?: Option
   }
   const [page, setPage] = useState<OptionsPage>(initialPage)
   const editing = useEditingOptions()
+  const hints = useFeatureHints()
   const miniToolbar = editing.miniToolbar
 
   return (
@@ -1325,6 +1327,24 @@ export function OptionsPages({ initialPage = "general" }: { initialPage?: Option
               />{" "}
               Enable Live Preview
             </label>
+            <label className="backstage-check">
+              <input
+                type="checkbox"
+                checked={hints.enabled}
+                onChange={(event) => hints.setEnabled(event.target.checked)}
+              />{" "}
+              Show hints about new features
+            </label>
+            <div>
+              <button
+                type="button"
+                className="backstage-secondary-btn"
+                disabled={hints.enabled && hints.dismissed.length === 0}
+                onClick={() => hints.showAgain()}
+              >
+                Show hints again
+              </button>
+            </div>
             <label className="backstage-prop-edit">
               <span>Author name</span>
               <input value={props.author} onChange={(event) => setDocumentProps({ author: event.target.value })} />
