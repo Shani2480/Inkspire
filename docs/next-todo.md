@@ -119,8 +119,10 @@ Opening: the 13 differences found first are fixed (see `changes.md`, 2026-11-14)
 4. ~~Footnotes are not placed on page breaks inside a table~~ — done 2026-11-17 (see `changes.md`; a 3-page table
    checked in Word: the note on its row's page, 0.3 pt off). ~~Endnotes that do not fit the last page are not split~~
    — done 2026-11-17: they go on between paragraphs under the continuation separator, as Word's do (a paragraph of
-   several lines is not split inside). Still open: footnotes in unequal columns (they move to the next ordinary
-   break).
+   several lines is not split inside). ~~Footnotes in unequal columns~~ — checked 2026-11-20: on their
+   reference's page (see `changes.md`). Found on the way and done: a document opened in equal columns was laid out
+   at one column's heights (twice Word's text a page). Still open: unequal columns do not split a paragraph between
+   columns as Word does, so their pages hold a little less.
 5. ~~The heart preset sits about 2 px off Word's~~ — done 2026-11-17 (see `changes.md`): it was every shape placed
    on the page after the first, 0.4 em low; the heart now within 1–2 px of Word (was 6–8).
 6. Header text is faded while the header is closed, as Word does on screen; Word's PDF draws it in full colour, so the

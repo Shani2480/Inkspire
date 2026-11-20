@@ -288,6 +288,7 @@ function paginationPlugin(storage: PaginationStorage) {
           placing = true
           let stable = true
           let retryLayout = false
+          let columnsChanged = false
           const scroller = view.dom.closest<HTMLElement>("#document-scroll")
           const scrollTop = scroller?.scrollTop ?? 0
           const scrollLeft = scroller?.scrollLeft ?? 0
@@ -324,6 +325,7 @@ function paginationPlugin(storage: PaginationStorage) {
               const web = useViewStore.getState().layoutMode === "web"
               const columns = laid.columns
               const unequal = columns > 1 && laid.unequal
+              const columnsWere = `${view.dom.dataset.columns ?? ""}|${view.dom.hasAttribute("data-unequal")}`
               view.dom.toggleAttribute("data-unequal", unequal)
               view.dom.style.marginBottom = ""
               if (unequal) {
@@ -347,6 +349,13 @@ function paginationPlugin(storage: PaginationStorage) {
                 view.dom.style.paddingBottom = web
                   ? "0"
                   : `${Math.max(0, Math.round(laid.contentHeight + laid.notes.room - laid.lastUsed))}px`
+              }
+              if (`${view.dom.dataset.columns ?? ""}|${view.dom.hasAttribute("data-unequal")}` !== columnsWere) {
+                // The blocks were measured before the editor took its columns (a document opened in columns lays
+                // out once in one column): they are narrower now, so measure afresh and lay out again.
+                measureCache.clear()
+                forceFull = true
+                columnsChanged = true
               }
               const lines = pageSetup.lineNumbers
                 ? collectLineNumbers(view, pageSetup.lineNumberRestart, metrics.contentHeight, {
@@ -475,7 +484,7 @@ function paginationPlugin(storage: PaginationStorage) {
             }
             return
           }
-          if (!stable && retries <= 5) {
+          if ((!stable || columnsChanged) && retries <= 5) {
             schedule()
           }
         })

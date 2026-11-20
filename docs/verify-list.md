@@ -384,6 +384,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **A document opened in two columns (2026-11-20)** — WebKitGTK: open a two-column Word file of several pages:
+  each page's columns end at its bottom margin, none running on through the page's end.
 - [ ] **A triple-spaced table cell at the page's foot (2026-11-20)** — WebKitGTK: a one-cell table of 30
   triple-spaced lines breaks after line 16, as Word does.
 - [ ] **A picture in an exact line (2026-11-19)** — WebKitGTK: a picture alone in a paragraph at exact 15 pt: only

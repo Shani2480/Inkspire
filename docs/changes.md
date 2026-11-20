@@ -7,6 +7,24 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-20
 
+### A document opened in columns is laid out in its columns
+
+- **What was wrong:** a document whose section has equal columns (two columns throughout) opened with its pages
+  holding about twice Word's text: the first column ran on through the page's end onto the next page and the
+  document had 3 pages where Word has 5. The paginator measured the blocks before the editor took its columns, at
+  the full text width, and kept those heights: nothing measured them again once the editor was in columns.
+- **What changed:** `editor/pages.ts`: when a layout puts the editor into columns, or out of them, or between equal and
+  unequal ones, the measured heights are dropped and the pages laid out again.
+- **Checked in Word (VM):** two columns throughout, 100 paragraphs with three footnotes: every page starts with the
+  paragraph Word's does (the fifth one paragraph earlier) and each note is on its reference's page, as in Word. The
+  fixtures draw as before.
+- **Footnotes in unequal columns:** checked on the same document in a 2 in and a 4 in column: each note is on the page
+  of its reference (the open item in next-todo no longer holds). The pages hold a little less than Word's (page 4
+  starts at P73, Word P76), so the third note is a page later: unequal columns are laid out block by block and a
+  paragraph is not split between columns, where Word splits it.
+- **Open:** a paragraph split between unequal columns. No unit test (needs a browser's layout). Not looked at in the
+  desktop app or on Android.
+
 ### A table row breaks before a line whose extra space does not fit
 
 - **What was wrong:** a row broken across pages measured each line of its cells by its letters only, so a line under
