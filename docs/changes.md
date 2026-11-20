@@ -5,6 +5,24 @@ wrong or missing, what changed, where (files, tests), how it was checked, and wh
 story of each feature stays in `next-todo.md` under its section; `verify-list.md` holds what still needs a check
 in Word, Chrome or the desktop app.
 
+## 2026-11-20
+
+### A table row breaks before a line whose extra space does not fit
+
+- **What was wrong:** a row broken across pages measured each line of its cells by its letters only, so a line under
+  a multiple of lines seemed as short as its text and the row was cut a line late: a triple-spaced cell put 17 lines on
+  a page where Word puts 16.
+- **Measured in Word (VM):** a one-cell table of 30 triple-spaced Calibri 11 pt lines with 10, 14.5, 20 and 30 pt left
+  after 16 of them: Word puts 16 lines on the page every time. Inside a table the whole line, its extra space
+  included, must fit (in the body the text alone must, see 2026-11-19).
+- **What changed:** `editor/pages.ts` `rowCellLines`: a line reaches down to where the next line of its paragraph
+  starts, or to its paragraph's foot (with the padding that gives a trimmed paragraph Word's line back).
+- **Checked in Word (VM):** the four tables break as Word's (were a line late in three), page 2's first line at
+  75.8 pt (Word 75.0). Long tables at 1.08 lines with 8 pt after, two columns at 1.15, six rows of single lines and
+  double spacing: the same pages as before and as many as Word's (the double one starts its second page a paragraph
+  earlier than Word, as before: a paragraph wraps into one more line with Carlito). The fixtures draw as before.
+- **Open:** no unit test (the measure needs a browser's layout). Not looked at in the desktop app or on Android.
+
 ## 2026-11-19
 
 ### A picture in an exactly spaced line is cut as Word cuts it

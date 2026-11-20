@@ -93,8 +93,8 @@ Opening: the 13 differences found first are fixed (see `changes.md`, 2026-11-14)
    as exact, exact lines stretched by larger runs~~ — done 2026-11-17 (see `changes.md`). ~~A line that mixes text sizes under a
    multiple is centred by the browser~~ — done 2026-11-19 (see `changes.md`: within 0.7–1.3 pt of Word, was up to
    14). ~~Word keeps a line on the page when its single line fits, the multiple's extra running past the bottom
-   margin, Inkspire moves it on~~ — done 2026-11-19 (see `changes.md`; triple-spaced pages break as in Word, a table
-   cell broken across pages still counts the whole line). ~~A run in a taller font (Segoe UI) does not raise its line~~ — done 2026-11-19 (see `changes.md`: within 0.8 pt of
+   margin, Inkspire moves it on~~ — done 2026-11-19 (see `changes.md`; triple-spaced pages break as in Word; in a table
+   cell Word counts the whole line, which Inkspire now does too: done 2026-11-20, it had counted only the text). ~~A run in a taller font (Segoe UI) does not raise its line~~ — done 2026-11-19 (see `changes.md`: within 0.8 pt of
    Word, was 2.6). Still different: a picture among a
    paragraph's text stands on a line of its own (the editor's pictures are blocks); since 2026-11-19 the paragraph is
    saved whole (see `changes.md`). Word puts it in the line: the line is the picture's height plus the font's descent

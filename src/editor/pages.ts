@@ -2628,7 +2628,7 @@ function rowCellLines(view: EditorView | null, row: HTMLTableRowElement): CellLi
   const cells: CellLines[] = []
   for (const cell of Array.from(row.cells)) {
     const at = (y: number) => (y - origin) / zoom - gapBetween(cell, origin, y)
-    const lines: CellLines["lines"] = []
+    const lines: (CellLines["lines"][number] & { block?: Element | null })[] = []
     const objects = view ? cellObjects(view, cell) : []
     const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT)
     for (let current = view ? walker.nextNode() : null; current; current = walker.nextNode()) {
@@ -2643,7 +2643,8 @@ function rowCellLines(view: EditorView | null, row: HTMLTableRowElement): CellLi
         const rect = charRect(text, index)
         const pos = rect ? view!.posAtDOM(text, index) : -1
         if (rect && pos >= 0) {
-          lines.push({ pos, top: at(rect.top), bottom: at(rect.top) + rect.height / zoom })
+          const block = text.parentElement?.closest("p, h1, h2, h3, h4, h5, h6")
+          lines.push({ pos, top: at(rect.top), bottom: at(rect.top) + rect.height / zoom, block })
         }
       }
     }
@@ -2655,6 +2656,21 @@ function rowCellLines(view: EditorView | null, row: HTMLTableRowElement): CellLi
     }
     lines.sort((a, b) => a.top - b.top || a.pos - b.pos)
     const kept = lines.filter((line, index) => index === 0 || line.top - lines[index - 1]!.top >= 1)
+    // A line reaches down to where its paragraph's next line starts, or to the paragraph's foot: under a multiple of
+    // lines its extra space below the text has to fit too (Word moved a triple-spaced line on with room for its text
+    // but not its extra, in a table as it does not in the body; checked 2026-11-20).
+    kept.forEach((line, index) => {
+      if (!line.block || !cell.contains(line.block)) {
+        return
+      }
+      const next = kept[index + 1]
+      const foot =
+        next?.block === line.block
+          ? next.top
+          : // Its padding included: a paragraph trimmed to its text is padded back to Word's line (line-lead.ts).
+            at(line.block.getBoundingClientRect().bottom)
+      line.bottom = Math.max(line.bottom, foot)
+    })
     const style = getComputedStyle(cell)
     const last = cell.lastElementChild
     const bottom = last
