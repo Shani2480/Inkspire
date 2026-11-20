@@ -143,7 +143,9 @@ largest first:
    the model selected with its toolbar.
 2. `w16_pictures_among_text`: pictures drawn on their own line (in-line pictures in their line: later, see item 1
    above).
-3. `w10`/`w12` tables without a grid (0.46/0.29), `w13` (0.28) and `f15` sections: not yet looked at.
+3. ~~`w10`/`w12`, `w13`, `f15`~~ — looked at 2026-11-20: their text is where Word's is. What remains is screen-only
+   drawing the capture catches (the table's move and resize handles with the caret in it, the column guides of a
+   section in columns) and, on one-word pages, sub-pixel shifts. The audit could hide those for page captures.
 4. Aptos is missing on the Linux host (Carlito stands in), so text in theme-font documents is narrower than Word's.
 
 **Fidelity audit (2026-11-13).** When a .docx "opens weird", run `npm run audit:docx -- file.docx` with the dev
