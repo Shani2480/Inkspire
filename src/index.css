@@ -11248,6 +11248,21 @@ html.dark .asset-library .asset-library-icon {
 .three-d-model.is-word-model {
   background: transparent;
 }
+/* A swipe over a model scrolls the page; once selected, a drag on it turns it (three-d-viewer.ts). */
+.three-d-model canvas {
+  touch-action: pan-x pan-y;
+}
+.three-d-model.is-selected canvas,
+.ProseMirror-selectednode .three-d-model canvas {
+  touch-action: none;
+  cursor: grab;
+}
+.three-d-model.is-selected canvas:active {
+  cursor: grabbing;
+}
+.three-d-orbit {
+  touch-action: none;
+}
 .three-d-model.is-selected {
   border-color: #0f6cbd;
   outline: 1px solid #0f6cbd;

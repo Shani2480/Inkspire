@@ -17,6 +17,10 @@ export const RELEASES: Release[] = [
         text: "Press and hold a word with a red underline to see its suggestions, Ignore All and Add to Dictionary. Elsewhere a long press still shows Android's Cut, Copy and Paste bar.",
       },
       {
+        title: "Turn 3D models freely",
+        text: "Tap a 3D model, then drag anywhere on it to turn it, for as long as you like; let go mid-turn and it spins on a little and settles. Before, a turn on a touch screen stopped after a second. A swipe over a model you haven't tapped scrolls the page, and the way you leave it is saved with the document.",
+      },
+      {
         title: "No keyboard over a selected picture",
         text: "On a phone or tablet, selecting a picture, shape or 3D model no longer brings up the keyboard. It comes back when you tap into text.",
       },

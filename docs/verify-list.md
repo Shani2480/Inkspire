@@ -847,6 +847,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 - [ ] **v0.12.1 on the Pad:** long press on a misspelling shows the suggestions without a search box; selecting a
   picture or 3D model leaves the keyboard down; after an edit below it, a line with a big word keeps its height.
+- [ ] **3D model turning (v0.12.1):** on the Pad, tap a model, then drag on it for several seconds: it keeps turning
+  with the finger; a flick spins on and settles; a swipe over an unselected model scrolls the page; reopening the
+  saved document shows the model as it was left.
 
 - [x] **Lines mixing text sizes (2026-11-19)** — the same paragraph on the Pixel and the tablet: the text at the top
   of the big word's line, selection handles on the letters.

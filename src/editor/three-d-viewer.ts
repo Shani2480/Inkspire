@@ -54,8 +54,12 @@ export function mountViewer(
   const camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 100)
   camera.position.set(2.2, 1.6, 2.4)
   const controls = new OrbitControls(camera, canvas)
-  controls.enableDamping = true
   controls.target.set(0, 0, 0)
+  // The model itself turns under the finger or mouse (turnBy below), so its pose is saved with the document; the
+  // camera stays where Word puts it.
+  controls.enabled = false
+  // Off the canvas too: connected, it holds every touch on the model (touch-action: none), even a page scroll.
+  controls.disconnect()
 
   // A soft room for shiny and metal surfaces to reflect; without one, metal shows almost black.
   const environment = new THREE.PMREMGenerator(renderer)
@@ -312,25 +316,88 @@ export function mountViewer(
     '<path d="M12 20.5c-2 0-3.6-3.8-3.6-8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>' +
     '<path d="m18.2 6.6 2.3 1.9-2.9.8M5.8 17.4l-2.3-1.9 2.9-.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>' +
     "</svg>"
-  handle.addEventListener("pointerdown", (event) => {
+  // Turning: a drag on the model (or its round handle) turns it, the finger held by the model until it lets go, so
+  // the page cannot take the gesture over for scrolling; let go mid-turn and it spins on a little and settles. On a
+  // touch screen the first tap selects the model and a swipe over an unselected one scrolls the page.
+  let spin = 0
+  const stopSpin = () => {
+    cancelAnimationFrame(spin)
+    spin = 0
+  }
+  const turn = (event: PointerEvent, from: HTMLElement) => {
     event.preventDefault()
     event.stopPropagation()
-    const startX = event.clientX
-    const startY = event.clientY
-    const startYaw = mesh.rotation.y
-    const startPitch = mesh.rotation.x
+    stopSpin()
+    try {
+      from.setPointerCapture(event.pointerId)
+    } catch {
+      // A synthetic event has no pointer to hold.
+    }
+    let lastX = event.clientX
+    let lastY = event.clientY
+    let lastTime = performance.now()
+    let speed = { x: 0, y: 0 }
     const move = (next: PointerEvent) => {
-      mesh.rotation.y = startYaw + (next.clientX - startX) * 0.01
-      mesh.rotation.x = startPitch + (next.clientY - startY) * 0.01
+      if (next.pointerId !== event.pointerId) {
+        return
+      }
+      const now = performance.now()
+      const dx = (next.clientX - lastX) * TURN_PER_PIXEL
+      const dy = (next.clientY - lastY) * TURN_PER_PIXEL
+      mesh.rotation.y += dx
+      mesh.rotation.x += dy
+      const elapsed = Math.max(1, now - lastTime)
+      speed = { x: dx / elapsed, y: dy / elapsed }
+      lastX = next.clientX
+      lastY = next.clientY
+      lastTime = now
     }
-    const up = () => {
-      window.removeEventListener("pointermove", move)
-      window.removeEventListener("pointerup", up)
-      capture()
+    const end = (last: PointerEvent) => {
+      if (last.pointerId !== event.pointerId) {
+        return
+      }
+      from.removeEventListener("pointermove", move)
+      from.removeEventListener("pointerup", end)
+      from.removeEventListener("pointercancel", end)
+      // A turn let go while still moving glides to a stop; one held still stops where it is.
+      if (performance.now() - lastTime > 80 || Math.hypot(speed.x, speed.y) < 0.0004) {
+        capture()
+        return
+      }
+      let previous = performance.now()
+      const glide = () => {
+        const now = performance.now()
+        const step = now - previous
+        previous = now
+        mesh.rotation.y += speed.x * step
+        mesh.rotation.x += speed.y * step
+        const fade = Math.pow(0.99, step)
+        speed = { x: speed.x * fade, y: speed.y * fade }
+        if (Math.hypot(speed.x, speed.y) < 0.00005) {
+          spin = 0
+          capture()
+          return
+        }
+        spin = requestAnimationFrame(glide)
+      }
+      spin = requestAnimationFrame(glide)
     }
-    window.addEventListener("pointermove", move)
-    window.addEventListener("pointerup", up)
+    from.addEventListener("pointermove", move)
+    from.addEventListener("pointerup", end)
+    from.addEventListener("pointercancel", end)
+  }
+  const selected = () => Boolean(canvas.closest(".is-selected, .ProseMirror-selectednode"))
+  canvas.addEventListener("pointerdown", (event) => {
+    if (event.button > 0 || event.altKey || playing) {
+      return
+    }
+    if (event.pointerType !== "mouse" && !selected()) {
+      // The first tap selects it (the editor does); the page scrolls under a swipe.
+      return
+    }
+    turn(event, canvas)
   })
+  handle.addEventListener("pointerdown", (event) => turn(event, handle))
   dom.append(handle)
 
   const snapshot = String(node.attrs.snapshot || "")
@@ -346,6 +413,7 @@ export function mountViewer(
   return {
     dispose: () => {
       cancelAnimationFrame(frame)
+      stopSpin()
       window.clearTimeout(idleTimer)
       controls.dispose()
       disposeModel(mesh)
@@ -385,3 +453,6 @@ export function mountViewer(
  * named view (`model-views.ts`) faces the camera square on.
  */
 const POSE_ORDER = "YXZ"
+
+/** How far the model turns for each pixel the finger or mouse moves, in radians. */
+const TURN_PER_PIXEL = 0.01

@@ -74,7 +74,7 @@ export const FEATURE_HINTS: FeatureHint[] = [
   {
     id: "3d-models",
     title: "New: 3D Models",
-    text: "Insert a 3D model and turn it with the mouse or a finger to show it from any side.",
+    text: "Insert a 3D model and drag it to turn it and show it from any side. On a touch screen, tap it first, then drag.",
     target: "3D Models",
   },
 ]

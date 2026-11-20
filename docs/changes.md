@@ -23,6 +23,13 @@ in Word, Chrome or the desktop app.
   - Selecting a picture, shape or 3D model on a touch screen brought up the keyboard over half the page; the editor is
     `inputmode="none"` while an object is selected on a phone or tablet (`editor/object-keyboard.ts`).
   - The Open page told touch users to hover; it says "Tap the pin next to a file" there.
+  - **Turning a 3D model (asked for after the check):** a drag on a model went to three.js's OrbitControls, which
+    turned the camera (not saved) and which the browser took back for scrolling after about a second, so a turn
+    stopped. Now the orbit control is off and detached; a drag anywhere on a selected model turns the model itself
+    (yaw and pitch, saved), with the pointer captured and `touch-action: none` only while the model is selected; a
+    flick glides on and settles. On a touch screen the first tap selects it and a swipe over an unselected model
+    scrolls the page; a mouse turns it at once (`three-d-viewer.ts`). Checked in headless Chrome with touch
+    pointers: no turn before selection, a 2.5-second drag turns it the whole way, a flick glides and saves.
 - **Tests:** `editor/word-lead.test.ts` (fails without the fix), keyboard mode; all 1740 pass.
 
 ### Documents in their own fonts (v0.12.0)
