@@ -9,6 +9,24 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "0.12.1",
+    date: "2026-11-20",
+    notes: [
+      {
+        title: "Spelling suggestions on a touch screen",
+        text: "Press and hold a word with a red underline to see its suggestions, Ignore All and Add to Dictionary. Elsewhere a long press still shows Android's Cut, Copy and Paste bar.",
+      },
+      {
+        title: "No keyboard over a selected picture",
+        text: "On a phone or tablet, selecting a picture, shape or 3D model no longer brings up the keyboard. It comes back when you tap into text.",
+      },
+      {
+        title: "Lines with big and small text stay in place",
+        text: "A line with a large word in it kept its height only until you edited the paragraph after it, and then overlapped the line above. It now keeps its height.",
+      },
+    ],
+  },
+  {
     version: "0.12.0",
     date: "2026-11-20",
     notes: [

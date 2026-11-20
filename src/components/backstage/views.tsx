@@ -1,3 +1,4 @@
+import { currentDevice } from "@/lib/device"
 import { useFeatureHints } from "@/lib/feature-hints"
 import { shownPath } from "@/lib/paths"
 import { formatModified, useModifiedDates } from "@/document/modified-dates"
@@ -259,7 +260,9 @@ export function OpenView() {
             </button>
           </div>
           <p className="backstage-pin-hint">
-            Pin files you want to easily find later. Click the pin icon that appears when you hover over a file.
+            {currentDevice() === "desktop"
+              ? "Pin files you want to easily find later. Click the pin icon that appears when you hover over a file."
+              : "Pin files you want to easily find later. Tap the pin next to a file."}
           </p>
           {listTab === "documents" ? (
             recentFiles.length === 0 ? (

@@ -405,7 +405,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - [ ] **A multiple's last line at the page's foot (2026-11-19)** — WebKitGTK: 30 triple-spaced Calibri 11 pt lines on a
   page with 14.5 pt left after 16 of them: line 17 stays on page 1 (as in Word), its text whole, and page 2 starts at
   its top margin.
-- [ ] **Lines mixing text sizes (2026-11-19)** — WebKitGTK: a paragraph at double spacing with a 24 pt word in 12 pt
+- [x] **Lines mixing text sizes (2026-11-19)** — WebKitGTK: a paragraph at double spacing with a 24 pt word in 12 pt
   text: the big word's line is as tall as two of its lines with the text at its top, the text not clipped or shifted,
   the cursor on the letters while typing in it.
 - [x] **v0.10.0 on the Pixel (2026-11-17)** — checked by the user: the font list shows the system's fonts; Save
@@ -502,7 +502,7 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       every page reads light on dark. Insert → SmartArt → Basic Cycle, Organization Chart, Basic Relationship: a ring
       with arrows, a tree, overlapping circles; no dashed frame until hovered.
 
-- [ ] **Stock 3D models (2026-10-28)** — each of the 42 models in Electronics, Anatomy, Furniture and Symbols draws in
+- [x] **Stock 3D models (2026-10-28)** — each of the 42 models in Electronics, Anatomy, Furniture and Symbols draws in
       the WebKitGTK webview as in Chrome (lit screens, see-through cornea and bulb glass); Format › Matte / Metal and a
       colour tint change a stock model; one saved to .docx and opened again is the same model.
 - [ ] **Built-in engine on a discrete GPU (21.26, 2026-10-26)** — on a computer with an NVIDIA card or a Radeon with
@@ -839,20 +839,23 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - [ ] Desktop app: open a document in a free font you don't have (e.g. Lato): the yellow FONTS bar offers it;
   Download fetches it (the app's security policy allows Google Fonts) and the text redraws in it.
 - [ ] Desktop app: restart: the downloaded font is still used; File > Options > Fonts lists it and Remove takes it out.
-- [ ] Android: the same download on a phone.
-- [ ] A document saved by Word with "Embed fonts in the file" shows in its fonts without any bar, and Word opens
+- [x] Android tablet (OnePlus Pad, 2026-11-20): download, redraw, kept after a restart. Phone not yet.
+- [x] (tablet 2026-11-20; Word's reopen of a save checked in the VM) A document saved by Word with "Embed fonts in the file" shows in its fonts without any bar, and Word opens
   Inkspire's save with the fonts still embedded.
 
 ## Needs the Android tablet (the APK on a touch screen)
 
-- [ ] **Lines mixing text sizes (2026-11-19)** — the same paragraph on the Pixel and the tablet: the text at the top
+- [ ] **v0.12.1 on the Pad:** long press on a misspelling shows the suggestions without a search box; selecting a
+  picture or 3D model leaves the keyboard down; after an edit below it, a line with a big word keeps its height.
+
+- [x] **Lines mixing text sizes (2026-11-19)** — the same paragraph on the Pixel and the tablet: the text at the top
   of the big word's line, selection handles on the letters.
-- [ ] **Spelling suggestions by long press (2026-11-15)**: a long press on a red-underlined word opens the menu
+- [x] **Spelling suggestions by long press (2026-11-15)**: a long press on a red-underlined word opens the menu
       with its suggestions at the top (a tap no longer does); choosing one replaces the word.
 
-- [ ] **Stock 3D models (2026-10-28)** — the 3D Models library's Electronics, Anatomy, Furniture and Symbols tiles
+- [x] **Stock 3D models (2026-10-28)** — the 3D Models library's Electronics, Anatomy, Furniture and Symbols tiles
       show their pictures on the tablet; an inserted model turns smoothly with a finger.
-- [ ] **Resize and crop with a finger (2026-10-28)** — dragging a picture's or shape's resize handle, a crop handle,
+- [x] **Resize and crop with a finger (2026-10-28)** — dragging a picture's or shape's resize handle, a crop handle,
       or a selected object itself follows the finger to the end without the page scrolling, and the size is kept on
       release; a swipe that starts on an unselected picture still scrolls the page.
 

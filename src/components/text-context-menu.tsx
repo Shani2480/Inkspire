@@ -60,6 +60,7 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
   // The submenu shown beside its row (Paste Options, AutoCorrect, Language).
   const [openSub, setOpenSub] = useState<string | null>(null)
   const [misspelling, setMisspelling] = useState<Misspelling | null>(null)
+  const [spellingOnly, setSpellingOnly] = useState(false)
   const [languageOpen, setLanguageOpen] = useState(false)
   // Where the menu is drawn once measured: below the click when it fits, else above it, as Word does.
   const [placed, setPlaced] = useState<{ left: number; top: number } | null>(null)
@@ -75,9 +76,13 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
       if (event.defaultPrevented || !(target instanceof Element) || !editor.view.dom.contains(target)) {
         return
       }
-      if (fromTouch(event)) {
+      // A long press on a touch screen leaves Android's own Cut / Copy / Paste bar, except on a red-underlined word:
+      // there it opens the spelling suggestions alone (the whole menu would cover a phone's screen).
+      const touch = fromTouch(event)
+      if (touch && !misspellingAt(editor, target)) {
         return
       }
+      setSpellingOnly(touch)
       if (target.closest(".page-image, .image-frame, .object-frame, input, textarea, button, label")) {
         return
       }
@@ -158,96 +163,107 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
   const onBibliography = selection instanceof NodeSelection && selection.node.type.name === "bibliography"
   const inList = listAt(editor.state) !== null
   const numbered = numberedListAt(editor.state) !== null
-  const entries: Item[] = [
-    ...(misspelling ? spellingItems(editor, misspelling, () => setLanguageOpen(true)) : []),
-    { id: "cut", label: "Cut", divided: misspelling !== null, run: () => cutSelection(editor) },
-    { id: "copy", label: "Copy", run: () => copySelection(editor) },
-    {
-      id: "paste",
-      label: "Paste Options",
-      children: [
-        { label: "Keep Source Formatting", run: () => void pasteFromClipboard(editor, "source") },
-        { label: "Merge Formatting", run: () => void pasteFromClipboard(editor, "merge") },
-        { label: "Picture", run: () => void pasteFromClipboard(editor, "picture") },
-        { label: "Keep Text Only", run: () => void pasteFromClipboard(editor, "text") },
-        ...items.slice(0, 3).map((item) => ({ label: item.text.slice(0, 42), run: () => pasteStored(editor, item) })),
-      ],
-    },
-    { id: "font", label: "Font…", run: () => requestFormatDialog("font") },
-    { id: "paragraph", label: "Paragraph…", run: () => requestFormatDialog("paragraph") },
-    // Word's list commands: Adjust List Indents on any list; restarting and continuing on a numbered one.
-    ...(inList
-      ? [{ id: "list-indents", label: "Adjust List Indents…", run: () => openAdjustListIndents(editor) }]
-      : []),
-    ...(numbered
-      ? [
-          { id: "restart-numbering", label: "Restart at 1", run: () => restartNumbering(editor) },
-          {
-            id: "continue-numbering",
-            label: "Continue Numbering",
-            disabled: !canContinueNumbering(editor.state),
-            run: () => continueNumbering(editor),
+  const spelling = misspelling ? spellingItems(editor, misspelling, () => setLanguageOpen(true)) : []
+  const entries: Item[] = spellingOnly
+    ? spelling
+    : [
+        ...spelling,
+        { id: "cut", label: "Cut", divided: misspelling !== null, run: () => cutSelection(editor) },
+        { id: "copy", label: "Copy", run: () => copySelection(editor) },
+        {
+          id: "paste",
+          label: "Paste Options",
+          children: [
+            { label: "Keep Source Formatting", run: () => void pasteFromClipboard(editor, "source") },
+            { label: "Merge Formatting", run: () => void pasteFromClipboard(editor, "merge") },
+            { label: "Picture", run: () => void pasteFromClipboard(editor, "picture") },
+            { label: "Keep Text Only", run: () => void pasteFromClipboard(editor, "text") },
+            ...items
+              .slice(0, 3)
+              .map((item) => ({ label: item.text.slice(0, 42), run: () => pasteStored(editor, item) })),
+          ],
+        },
+        { id: "font", label: "Font…", run: () => requestFormatDialog("font") },
+        { id: "paragraph", label: "Paragraph…", run: () => requestFormatDialog("paragraph") },
+        // Word's list commands: Adjust List Indents on any list; restarting and continuing on a numbered one.
+        ...(inList
+          ? [{ id: "list-indents", label: "Adjust List Indents…", run: () => openAdjustListIndents(editor) }]
+          : []),
+        ...(numbered
+          ? [
+              { id: "restart-numbering", label: "Restart at 1", run: () => restartNumbering(editor) },
+              {
+                id: "continue-numbering",
+                label: "Continue Numbering",
+                disabled: !canContinueNumbering(editor.state),
+                run: () => continueNumbering(editor),
+              },
+              { id: "numbering-value", label: "Set Numbering Value…", run: () => openSetNumberingValue(editor) },
+            ]
+          : []),
+        // Word's citation menu (the control's drop-down): Edit Citation, Edit Source, static text, Update.
+        ...(citation
+          ? [
+              { id: "edit-citation", label: "Edit Citation…", run: () => openEditCitation(editor) },
+              { id: "edit-source", label: "Edit Source…", run: () => openEditSource(editor) },
+              {
+                id: "citation-text",
+                label: "Convert Citation to Static Text",
+                run: () => citationToText(editor, citation),
+              },
+            ]
+          : []),
+        ...(citation || onBibliography
+          ? [
+              {
+                id: "update-citations",
+                label: "Update Citations and Bibliography",
+                run: updateCitationsAndBibliography,
+              },
+            ]
+          : []),
+        ...(inTable(editor)
+          ? [
+              { id: "borders", label: "Borders and Shading…", run: () => openBordersAndShading(editor) },
+              { id: "table-properties", label: "Table Properties…", run: () => openTableProperties(editor) },
+            ]
+          : []),
+        {
+          id: "block",
+          label: "Block Authors",
+          run: () => useViewStore.getState().setRestricted(!useViewStore.getState().restricted),
+        },
+        word
+          ? { id: "search", label: `Search “${word}”`, run: () => findSelection(word) }
+          : { id: "search", label: "Search", run: () => findSelection("") },
+        { id: "synonyms", label: "Synonyms", run: () => useProofing.getState().openPanel("thesaurus") },
+        { id: "aloud", label: "Read Aloud", run: () => speak(editor) },
+        { id: "translate", label: "Translate", run: () => useProofing.getState().openPanel("translation") },
+        // Word's link commands: Edit, Open, Copy and Remove Link on a link; Link… elsewhere.
+        ...(link
+          ? [
+              { id: "edit-link", label: "Edit Link…", run: () => openLinkDialog(editor) },
+              { id: "open-link", label: "Open Link", run: () => followLink(link.href) },
+              {
+                id: "copy-link",
+                label: "Copy Link",
+                run: () => void navigator.clipboard?.writeText(link.href).catch(() => undefined),
+              },
+              { id: "remove-link", label: "Remove Link", run: () => removeLink(editor) },
+            ]
+          : [{ id: "link", label: "Link…", run: () => openLinkDialog(editor) }]),
+        {
+          id: "comment",
+          label: "New Comment",
+          run: () => {
+            void askText({ title: "New Comment", label: "Comment", multiline: true, ok: "Post" }).then((text) => {
+              if (text?.trim()) {
+                addComment(editor, text)
+              }
+            })
           },
-          { id: "numbering-value", label: "Set Numbering Value…", run: () => openSetNumberingValue(editor) },
-        ]
-      : []),
-    // Word's citation menu (the control's drop-down): Edit Citation, Edit Source, static text, Update.
-    ...(citation
-      ? [
-          { id: "edit-citation", label: "Edit Citation…", run: () => openEditCitation(editor) },
-          { id: "edit-source", label: "Edit Source…", run: () => openEditSource(editor) },
-          {
-            id: "citation-text",
-            label: "Convert Citation to Static Text",
-            run: () => citationToText(editor, citation),
-          },
-        ]
-      : []),
-    ...(citation || onBibliography
-      ? [{ id: "update-citations", label: "Update Citations and Bibliography", run: updateCitationsAndBibliography }]
-      : []),
-    ...(inTable(editor)
-      ? [
-          { id: "borders", label: "Borders and Shading…", run: () => openBordersAndShading(editor) },
-          { id: "table-properties", label: "Table Properties…", run: () => openTableProperties(editor) },
-        ]
-      : []),
-    {
-      id: "block",
-      label: "Block Authors",
-      run: () => useViewStore.getState().setRestricted(!useViewStore.getState().restricted),
-    },
-    word
-      ? { id: "search", label: `Search “${word}”`, run: () => findSelection(word) }
-      : { id: "search", label: "Search", run: () => findSelection("") },
-    { id: "synonyms", label: "Synonyms", run: () => useProofing.getState().openPanel("thesaurus") },
-    { id: "aloud", label: "Read Aloud", run: () => speak(editor) },
-    { id: "translate", label: "Translate", run: () => useProofing.getState().openPanel("translation") },
-    // Word's link commands: Edit, Open, Copy and Remove Link on a link; Link… elsewhere.
-    ...(link
-      ? [
-          { id: "edit-link", label: "Edit Link…", run: () => openLinkDialog(editor) },
-          { id: "open-link", label: "Open Link", run: () => followLink(link.href) },
-          {
-            id: "copy-link",
-            label: "Copy Link",
-            run: () => void navigator.clipboard?.writeText(link.href).catch(() => undefined),
-          },
-          { id: "remove-link", label: "Remove Link", run: () => removeLink(editor) },
-        ]
-      : [{ id: "link", label: "Link…", run: () => openLinkDialog(editor) }]),
-    {
-      id: "comment",
-      label: "New Comment",
-      run: () => {
-        void askText({ title: "New Comment", label: "Comment", multiline: true, ok: "Post" }).then((text) => {
-          if (text?.trim()) {
-            addComment(editor, text)
-          }
-        })
-      },
-    },
-  ]
+        },
+      ]
   // A submenu opens on the left when the window has no room for it on the right.
   const subOnLeft = (placed?.left ?? point.x) + 256 + 216 > window.innerWidth
   const needle = query.trim().toLowerCase()
@@ -271,16 +287,18 @@ export function TextContextMenu({ editor }: { editor: Editor | null }) {
           event.preventDefault()
         }}
       >
-        <label className="block px-2 py-1">
-          <span className="sr-only">Search the menus</span>
-          <input
-            aria-label="Search the menus"
-            placeholder="Search the menus"
-            value={query}
-            className="h-7 w-full rounded border border-[#d0d0d0] px-2 text-[12px]"
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </label>
+        {spellingOnly ? null : (
+          <label className="block px-2 py-1">
+            <span className="sr-only">Search the menus</span>
+            <input
+              aria-label="Search the menus"
+              placeholder="Search the menus"
+              value={query}
+              className="h-7 w-full rounded border border-[#d0d0d0] px-2 text-[12px]"
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
+        )}
         {visible.map((item) =>
           item.children ? (
             <div key={item.id} className="relative">

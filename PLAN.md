@@ -29,7 +29,8 @@ This file is the overview; update it in the same commit as the work.
 ## In progress
 
 - 🔄 1.0 release candidate: scope and criteria in `docs/V1_SCOPE.md` (draft). Open: a 20-document real-world set
-  compared with Word (3 so far; their three bugs fixed), the core desktop and Android checks.
+  compared with Word (3 so far; their three bugs fixed), the core desktop and Android checks (tablet checks run on
+  the OnePlus Pad 2026-11-20: all pass after the v0.12.1 fixes; phone and desktop app still to do).
 - 🔄 Word comparison follow-ups (`next-todo.md`, "Word comparison"): what is left is screen-only drawing in the
   captures and the items under Later.
 

@@ -166,7 +166,9 @@ export const WordLead = Extension.create({
               const $to = tr.doc.resolve(to)
               const a = $from.depth > 0 ? $from.before(1) : from
               const b = $to.depth > 0 ? $to.after(1) : to
-              set = set.remove(set.find(a, b))
+              // Only those within the range: find() also returns the paragraphs just before and after, which only
+              // touch it and are not decorated again here.
+              set = set.remove(set.find(a, b).filter((decoration) => decoration.from >= a && decoration.to <= b))
               set = decorate(tr.doc, a, b, set)
             }
             return set

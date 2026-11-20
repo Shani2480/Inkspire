@@ -7,6 +7,7 @@ import { FramedTable, ShadedTableCell, ShadedTableHeader, SizedTableRow, StyledT
 import TextAlign from "@tiptap/extension-text-align"
 import { FontSize, TextStyle } from "@tiptap/extension-text-style"
 import { WordLineHeight } from "@/editor/line-height"
+import { ObjectKeyboard } from "@/editor/object-keyboard"
 import { WordLead } from "@/editor/word-lead"
 import StarterKit from "@tiptap/starter-kit"
 import { ParagraphBoxGroups } from "@/editor/paragraph-box-groups"
@@ -126,6 +127,7 @@ export function createExtensions() {
       types: ["paragraph", "heading"],
     }),
     WordLead,
+    ObjectKeyboard,
     TextAlign.configure({
       // A picture in line takes its Word paragraph's alignment (the editor has no paragraph around it).
       types: ["heading", "paragraph", "textBox", "image"],

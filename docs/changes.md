@@ -7,6 +7,24 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-20
 
+### Tablet checks on the OnePlus Pad (v0.12.1)
+
+- **Checked on the Pad (0.12.0):** Google Fonts download (Lato fetched, text redrawn, kept after a restart),
+  embedded fonts (Segoe Print with Word's line height), mixed text sizes, picture resize and crop following the
+  finger without scrolling, the 3D Models library's four categories with pictures and a model turned by a finger,
+  feature hints in place.
+- **What was wrong (found there):**
+  - No way to get spelling suggestions on a touch screen: suggestions had moved to the long-press menu (2026-11-15),
+    then a long press on touch stopped opening that menu (v0.9.1). Now a long press on a red-underlined word opens the
+    spelling items alone (no menu search box); elsewhere Android's bar stays (`text-context-menu.tsx`).
+  - Editing a paragraph dropped the line placement of the paragraph just before it (`word-lead.ts`: `find(a, b)` also
+    returned the decorations that only touch the range, which were removed and not redrawn), so a line with a big word
+    collapsed onto the line above.
+  - Selecting a picture, shape or 3D model on a touch screen brought up the keyboard over half the page; the editor is
+    `inputmode="none"` while an object is selected on a phone or tablet (`editor/object-keyboard.ts`).
+  - The Open page told touch users to hover; it says "Tap the pin next to a file" there.
+- **Tests:** `editor/word-lead.test.ts` (fails without the fix), keyboard mode; all 1740 pass.
+
 ### Documents in their own fonts (v0.12.0)
 
 - **What was wrong:** a document in a font this device lacks was drawn in a fallback with other widths, so its
