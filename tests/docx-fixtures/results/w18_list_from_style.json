@@ -1,0 +1,8 @@
+{
+    "input":  "w18_list_from_style.docx",
+    "open":  {
+                 "ok":  true
+             },
+    "repair":  null,
+    "note":  "Made for list-from-style.test.ts; opened and rendered to PDF by Word (office-runner VM, tools/word-render.py) on 2026-11-20: dash items, a deeper item, an item with numbering off, numbered steps, all from paragraph styles."
+}

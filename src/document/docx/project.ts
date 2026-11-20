@@ -99,6 +99,7 @@ import {
   type WordDocument,
   type NumberFormat,
   type NumberingLevel,
+  styleNumbering,
 } from "@/document/docx/model"
 
 const TWIP_PER_MM = 1440 / 25.4
@@ -2676,6 +2677,13 @@ function blocksFromList(node: JsonNode, build: Build, level: number, parentNumId
       const block = blockFromNode(child, build)
       if (block?.kind === "paragraph" && first) {
         block.pPr = { ...block.pPr, numPr: { ilvl: level + indent, numId } }
+        const key = typeof child.attrs?.docxKey === "string" ? child.attrs.docxKey : undefined
+        const opened = key ? build.origins.paragraphs.get(key) : undefined
+        const own = opened?.pPr.numPr
+        if (own?.fromStyle && own.numId === numId && own.ilvl === level + indent && opened?.styleId === block.styleId) {
+          // Still the list its style makes: the style writes the numbering, as in the file it came from.
+          block.pPr.numPr = { ...block.pPr.numPr, fromStyle: true }
+        }
         if (adjusted && indent === 0) {
           // Adjust List Indents: the item's own indent, which Word puts before its numbering level's.
           const left = Math.round(adjusted.text * 20)
@@ -2898,6 +2906,11 @@ function blockFromNode(node: JsonNode, build: Build): Block | null {
   const styleId = paragraphStyleId(level, origin?.styleId, node.attrs, build.styles)
   if (styleId) {
     paragraph.styleId = styleId
+  }
+  if (styleId && styleNumbering(build.wordStyles, build.numbering, styleId)) {
+    // Not a list item here, though its style numbers it: say so, or Word draws the style's number (a list item
+    // gets its numbering after this, in blocksFromList).
+    paragraph.pPr.numPr = { numId: 0 }
   }
   const bookmark = build.toc.bookmarks.get(node)
   if (bookmark) {

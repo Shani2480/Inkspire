@@ -1383,7 +1383,8 @@ function writeTabs(tabs: ParagraphProperties["tabs"]) {
 }
 
 function writeNumbering(props: ParagraphProperties) {
-  if (!props.numPr) {
+  if (!props.numPr || props.numPr.fromStyle) {
+    // Numbering the paragraph has from its style is written by the style, as it was.
     return ""
   }
   const ilvl = props.numPr.ilvl !== undefined ? `<w:ilvl w:val="${props.numPr.ilvl}"/>` : ""

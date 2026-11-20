@@ -44,6 +44,6 @@ they do in Word, and Word opens Inkspire's saves as they were.
 
 ## Open bugs found on real documents (2026-11-20)
 
-- A list whose bullet is a dash shows no bullet (a contract).
+- ~~A list whose bullet is a dash shows no bullet (a contract).~~ Fixed 2026-11-20: lists numbered by their style.
 - Line numbers are drawn inside a table's cells and counted on through it; Word leaves tables out.
 - A chart's series take a default palette instead of the document's theme colours.

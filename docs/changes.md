@@ -7,6 +7,22 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-20
 
+### Lists numbered by their paragraph style
+
+- **What was wrong:** a paragraph numbered only by its style (Word's List Paragraph with `w:numPr`, common in real
+  documents) opened as plain text: a contract's dash list showed no dashes. Saving was fine only by luck; a
+  paragraph whose style numbers it but which turns numbering off (`numId 0`) lost that, so Word gave it the
+  style's bullet.
+- **What changed:** `model.ts` `styleNumbering` / `applyStyleNumbering` (run when a document is read): such a paragraph
+  takes its style's numbering, its level from the style or the numbering level linked to the style, marked
+  `fromStyle`. `project.ts`: an item still in its style's list at the same level saves without its own `w:numPr`, as
+  written; a paragraph that is not a list item but whose style numbers it saves with `numId 0`. `wml-write.ts`
+  leaves `fromStyle` numbering to the style.
+- **Tests:** `list-from-style.test.ts`; fixture `cases/w18_list_from_style.docx` (dash items, a deeper item, an item
+  with numbering off, numbered steps).
+- **Checked in Word (VM):** the fixture and a real contract with such lists, saved through Inkspire, render as their
+  originals; both validate (Open XML SDK, 0 errors). The contract shows its dashes in Inkspire.
+
 ### Feature hints (v0.11.0)
 
 - **What:** small hints that introduce Inkspire's special features, as Word's teaching callouts do: a blue bubble

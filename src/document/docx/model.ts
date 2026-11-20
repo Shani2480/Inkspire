@@ -207,6 +207,8 @@ export type Indent = {
 export type NumberingRef = {
   ilvl?: number
   numId?: number
+  /** Taken from the paragraph's style when it was opened (`applyStyleNumbering`): saving leaves it to the style. */
+  fromStyle?: boolean
 }
 
 export type TabStop = { val: TabAlign; leader?: TabLeader; pos: number }
@@ -1579,5 +1581,48 @@ export function cellPropertiesInput(cell: TableCell) {
     margins: cell.look?.margins,
     fitText: cell.fitText,
     vAlign: cell.look?.vAlign,
+  }
+}
+
+/**
+ * The numbering a paragraph style gives its paragraphs (Word's List Paragraph with `w:numPr`, 17.3.1.19): the
+ * style chain's numPr, its level from the style, else the numbering level linked to the style (`w:lvl/w:pStyle`),
+ * else 0. None when the chain turns numbering off (numId 0).
+ */
+export function styleNumbering(
+  styles: Style[],
+  numbering: NumberingDefinitions,
+  styleId: string | undefined,
+): NumberingRef | undefined {
+  let found: NumberingRef | undefined
+  for (const style of styleChain(styles, styleId, "paragraph")) {
+    if (style.pPr.numPr) {
+      found = { ...found, ...style.pPr.numPr }
+    }
+  }
+  if (!found?.numId) {
+    return undefined
+  }
+  let ilvl = found.ilvl
+  if (ilvl === undefined) {
+    for (let level = 0; level < 9 && ilvl === undefined; level += 1) {
+      if (styleId && numberingLevel(numbering, found.numId, level)?.pStyle === styleId) {
+        ilvl = level
+      }
+    }
+  }
+  return { numId: found.numId, ilvl: ilvl ?? 0, fromStyle: true }
+}
+
+/** Gives each paragraph without numbering of its own the numbering its style has, as Word draws it. */
+export function applyStyleNumbering(doc: WordDocument, blocks: Block[] = doc.blocks) {
+  for (const paragraph of paragraphsIn(blocks)) {
+    if (paragraph.pPr.numPr || !paragraph.styleId) {
+      continue
+    }
+    const numPr = styleNumbering(doc.styles.styles, doc.numbering, paragraph.styleId)
+    if (numPr && numberingLevel(doc.numbering, numPr.numId!, numPr.ilvl!)) {
+      paragraph.pPr = { ...paragraph.pPr, numPr }
+    }
   }
 }

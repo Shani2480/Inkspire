@@ -4,6 +4,7 @@ import { isStrictMarkup, transitionalMarkup, transitionalUriOf } from "@/documen
 import { filterMarkup, REL_NS, WORD_NS, XML_NS, type MarkupAttribute } from "@/document/docx/mce"
 import {
   INKSPIRE_OBJECT_NS,
+  applyStyleNumbering,
   docDefaultsFingerprint,
   styleFingerprint,
   BORDER_VALUES,
@@ -311,6 +312,7 @@ export function readDocument(pkg: OpcPackage): WordDocument {
   attachPreserved(pkg, doc)
   bindHyperlinks(pkg, doc)
   attachSettingsLinks(pkg, doc)
+  applyStyleNumbering(doc)
   return doc
 }
 
