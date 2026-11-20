@@ -468,7 +468,7 @@ export function InsertTab() {
       <TableGrid
         onInsert={(rows, cols) => {
           if (editor) {
-            insertAtSelectionEnd(editor).insertTable({ rows, cols, withHeaderRow: true }).run()
+            insertAtSelectionEnd(editor).insertTable({ rows, cols, withHeaderRow: false }).run()
           }
           close()
         }}

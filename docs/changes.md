@@ -7,6 +7,16 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-20
 
+### Phone checks on 1.0.4, plain new tables (v1.0.5)
+
+- **Checked on the Pixel (1.0.4):** the tab row opens with Home in sight; the folded Unsaved Documents strip rests
+  above the ribbon; no feature hint over the open sheet; a tapped spelling suggestion replaces the word; the
+  embedded-font document draws in its font; Bold, crop and a table reopen after a save.
+- **What was wrong:** a table from Insert > Table (grid or Insert Table…) was made with a header row, drawn bold on
+  grey, but saved as plain rows, so it changed on reopening. Tables are now inserted with plain rows, as Word's
+  Insert Table makes them (`insert-tab.tsx`, `table-insert.ts`; test in `table-insert.test.ts`). The saved file is
+  unchanged.
+
 ### Linux desktop app checks
 
 - **How:** the Tauri release build on a private Xvfb with an isolated home, driven with XTEST. With the window made

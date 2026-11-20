@@ -859,8 +859,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 - [x] Open, type, Bold, table, picture resize and crop, Save, Print (to Android's print service), Undo, 3D model
       turning, spelling by long press, no keyboard over a selected object, What's New after the update.
-- [ ] **1.0.3:** the tab row opens with Home in sight; the folded Unsaved Documents strip rests above the ribbon.
-- [ ] The embedded-font document on the phone (checked on the tablet).
+- [x] **1.0.3–1.0.4 (2026-11-20):** the tab row opens with Home in sight; the folded Unsaved Documents strip rests
+      above the ribbon; no hint over the open Unsaved Documents sheet; a spelling suggestion tapped replaces the word;
+      saved edits (Bold, crop, table) reopen.
+- [x] The embedded-font document on the phone (2026-11-20): drawn in its embedded handwriting font.
 
 ## Needs the Android tablet (the APK on a touch screen)
 

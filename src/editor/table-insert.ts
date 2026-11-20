@@ -78,9 +78,10 @@ export function insertTableWith(editor: Editor, options: { rows: number; columns
   const attrs = tableAttrs(options.autoFit)
   const colwidth = columnWidth(options.autoFit)
   let tablePos: number | null = null
-  // As the grid does (the same command), then the AutoFit behaviour on the table the caret is now in.
+  // As the grid does (the same command), then the AutoFit behaviour on the table the caret is now in. Every row is a
+  // plain one, as Word's Insert Table makes it (a bold grey first row showed here but was saved plain).
   const done = insertAtSelectionEnd(editor)
-    .insertTable({ rows, cols: columns, withHeaderRow: true })
+    .insertTable({ rows, cols: columns, withHeaderRow: false })
     .command(({ tr }) => {
       const { $from } = tr.selection
       for (let depth = $from.depth; depth > 0; depth -= 1) {

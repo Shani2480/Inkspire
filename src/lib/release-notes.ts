@@ -9,6 +9,16 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "1.0.5",
+    date: "2026-11-20",
+    notes: [
+      {
+        title: "New tables look as they are saved",
+        text: "A table from Insert > Table showed its first row bold on grey, but it was saved as a plain row. Every row is now plain, as in Word, so the table looks the same after you reopen it.",
+      },
+    ],
+  },
+  {
     version: "1.0.4",
     date: "2026-11-20",
     notes: [

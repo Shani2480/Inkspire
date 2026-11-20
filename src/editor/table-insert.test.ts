@@ -64,7 +64,13 @@ describe("Insert Table…", () => {
     expect(insertTableWith(editor, { rows: 3, columns: 4, autoFit: { kind: "fixed", widthCm: null } })).toBe(true)
     expect(cellTexts()).toHaveLength(3)
     expect(cellTexts()[0]).toHaveLength(4)
-    expect(editor.state.selection.$from.node(-1).type.name).toMatch(/tableCell|tableHeader/)
+    expect(editor.state.selection.$from.node(-1).type.name).toBe("tableCell")
+    // No header row: Word's Insert Table makes a plain first row, and that is how it is saved.
+    let headers = 0
+    editor.state.doc.descendants((node) => {
+      headers += node.type.name === "tableHeader" ? 1 : 0
+    })
+    expect(headers).toBe(0)
     expect(tableNode().attrs.autoResize).toBe(true)
     expect(tableNode().attrs.prefWidth).toBeNull()
   })
