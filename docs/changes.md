@@ -7,6 +7,19 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-20
 
+### Line numbers: not in tables, and once per line
+
+- **What was wrong:** with line numbering on, a table's lines were numbered inside its cells and counted, where Word
+  leaves tables out; and a line made of several pieces (runs around a comment's mark, a misspelling) could get a
+  number per piece, drawn on top of each other (a real document: page 2 showed 19, 18, 17 stacked).
+- **What changed:** `editor/pages.ts`: `collectLineNumbers` skips tables as it skips text boxes; `lineRectsOf` takes
+  one rect per line: pieces in the same column of the block (its own fragments) that overlap vertically are one
+  line, so two columns side by side still count apart.
+- **Tests:** `pages.test.ts` (`lineRectsOf`: pieces, two columns, a taller run).
+- **Checked against Word (VM):** the document now numbers 1–21 in order, as Word does around its table.
+- **Open:** Word also numbers the line holding an in-line picture, chart or 3D model (it reaches 24 on that
+  document); Inkspire draws those as blocks and does not number them.
+
 ### Lists numbered by their paragraph style
 
 - **What was wrong:** a paragraph numbered only by its style (Word's List Paragraph with `w:numPr`, common in real

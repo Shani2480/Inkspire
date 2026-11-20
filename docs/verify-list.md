@@ -384,6 +384,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **Line numbers (2026-11-20)** — Layout > Line Numbers > Continuous on a document with a table and a comment:
+  no numbers inside the table, one number per line, none stacked.
 - [ ] **Feature hints (2026-11-20, v0.11.0)** — desktop and phone: about 20 s after start, open View: a blue "New: Read
   Mode" hint points at Read Mode; a tap removes it; about 2 minutes later the next feature's hint shows where its
   control is. On the phone (ribbon at the bottom) the hint sits above the control. Options > General turns them

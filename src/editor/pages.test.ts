@@ -8,6 +8,7 @@ import {
   mustMoveToNextPage,
   pageCountForBlockHeights,
   splittable,
+  lineRectsOf,
 } from "@/editor/pages"
 
 const schema = new Schema({
@@ -251,5 +252,27 @@ describe("editorTrailingParagraph", () => {
     expect(editorTrailingParagraph(keyed.node("doc", null, [rule(), p("", "k1")]))).toBeNull()
     expect(editorTrailingParagraph(keyed.node("doc", null, [rule(), p("end")]))).toBeNull()
     expect(editorTrailingParagraph(keyed.node("doc", null, [p("text"), p()]))).toBeNull()
+  })
+})
+
+describe("line numbers' lines", () => {
+  const rect = (left: number, top: number, width: number, height: number) =>
+    ({ left, top, right: left + width, bottom: top + height, width, height, x: left, y: top }) as DOMRect
+
+  it("count a line split into pieces (runs, a comment's mark) once", () => {
+    const pieces = [rect(0, 0, 120, 18), rect(124, 0, 60, 18), rect(190, 1, 80, 16), rect(0, 20, 200, 18)]
+    expect(lineRectsOf(pieces, [rect(0, 0, 400, 40)]).map((line) => line.top)).toEqual([0, 20])
+  })
+
+  it("keep lines side by side in two columns apart", () => {
+    const fragments = [rect(0, 0, 200, 40), rect(240, 0, 200, 40)]
+    const lines = [rect(0, 0, 190, 18), rect(0, 20, 190, 18), rect(240, 0, 190, 18), rect(240, 20, 150, 18)]
+    expect(lineRectsOf(lines, fragments)).toHaveLength(4)
+  })
+
+  it("count a taller run's line once", () => {
+    // A 24 pt word among 11 pt text: its box starts higher and ends lower than the rest of the line.
+    const line = [rect(0, 4, 100, 16), rect(104, 0, 60, 26), rect(0, 30, 120, 16)]
+    expect(lineRectsOf(line, [rect(0, 0, 400, 50)])).toHaveLength(2)
   })
 })

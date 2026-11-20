@@ -886,7 +886,8 @@ function collectLineNumbers(
   const zoom = zoomOf(view.dom)
   const restartEachPage = restart === "page"
   view.state.doc.descendants((node, pos) => {
-    if (node.type.name === "textBox") {
+    // Word numbers the body's lines only: not those in text boxes or tables.
+    if (node.type.name === "textBox" || node.type.name === "table") {
       return false
     }
     // Restart Each Section: numbering starts again after each section break.
@@ -960,16 +961,35 @@ function blockLineRects(dom: HTMLElement) {
     const rect = dom.getBoundingClientRect()
     return rect.height >= 1 ? [rect] : []
   }
-  rects.sort((a, b) => (Math.abs(a.left - b.left) > 24 ? a.left - b.left : a.top - b.top))
-  const unique: DOMRect[] = []
-  for (const rect of rects) {
+  return lineRectsOf(rects, [...dom.getClientRects()])
+}
+
+/**
+ * One rect per line from the rects of a block's text: pieces of one line (runs, a comment's mark, a misspelling)
+ * are one line, told apart from a line beside them in another column by the block's own column fragments.
+ */
+export function lineRectsOf(rects: DOMRect[], fragments: DOMRect[]) {
+  const column = (rect: DOMRect) => {
+    const index = fragments.findIndex((box) => rect.left >= box.left - 1 && rect.left <= box.right + 1)
+    return Math.max(0, index)
+  }
+  const sorted = rects
+    .map((rect) => ({ rect, column: column(rect) }))
+    .sort((a, b) => a.column - b.column || a.rect.top - b.rect.top)
+  const unique: { rect: DOMRect; column: number }[] = []
+  for (const item of sorted) {
     const previous = unique[unique.length - 1]
-    if (previous && Math.abs(rect.top - previous.top) < 2 && Math.abs(rect.left - previous.left) < 8) {
+    const middle = (item.rect.top + item.rect.bottom) / 2
+    if (
+      previous &&
+      previous.column === item.column &&
+      ((middle > previous.rect.top && middle < previous.rect.bottom) || Math.abs(item.rect.top - previous.rect.top) < 2)
+    ) {
       continue
     }
-    unique.push(rect)
+    unique.push(item)
   }
-  return unique
+  return unique.map((item) => item.rect)
 }
 
 /** The page gap between two rows of a table: an empty row as tall as the gap, across every column. */
