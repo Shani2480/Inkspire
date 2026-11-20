@@ -9,6 +9,16 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "1.0.3",
+    date: "2026-11-20",
+    notes: [
+      {
+        title: "The selected tab stays in sight on a phone",
+        text: "The ribbon's tab row could open scrolled past Home, so the tab in use was out of sight. It now scrolls to show the selected tab.",
+      },
+    ],
+  },
+  {
     version: "1.0.2",
     date: "2026-11-20",
     notes: [

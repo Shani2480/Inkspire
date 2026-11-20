@@ -1,7 +1,7 @@
 {
   "name": "inkspire",
   "private": true,
-  "version": "1.0.2",
+  "version": "1.0.3",
   "author": "The Inkspire authors",
   "license": "MIT",
   "type": "module",

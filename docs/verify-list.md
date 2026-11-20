@@ -840,6 +840,13 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - [x] (tablet 2026-11-20; Word's reopen of a save checked in the VM) A document saved by Word with "Embed fonts in the file" shows in its fonts without any bar, and Word opens
       Inkspire's save with the fonts still embedded.
 
+## Pixel phone checks (2026-11-20, 1.0.1–1.0.2)
+
+- [x] Open, type, Bold, table, picture resize and crop, Save, Print (to Android's print service), Undo, 3D model
+      turning, spelling by long press, no keyboard over a selected object, What's New after the update.
+- [ ] **1.0.3:** the tab row opens with Home in sight; the folded Unsaved Documents strip rests above the ribbon.
+- [ ] The embedded-font document on the phone (checked on the tablet).
+
 ## Needs the Android tablet (the APK on a touch screen)
 
 - [x] **Spelling menu below the handles (v0.12.1, Pad 2026-11-20):** a long press on a misspelling opens the suggestions below the

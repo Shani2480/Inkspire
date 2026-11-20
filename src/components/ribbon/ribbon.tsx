@@ -363,6 +363,17 @@ export function Ribbon() {
   const objectInChrome = editingChrome && (bodyContext === "picture" || bodyContext === "shape")
   const context: RibbonContext = editingChrome && !objectInChrome ? "headerFooter" : bodyContext
   const [tab, setTab] = useState("home")
+  // A phone's tab row scrolls sideways: the selected tab is kept in sight (it opened scrolled past Home).
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      const list = document.querySelector<HTMLElement>('.app-ribbon [role="tablist"]')
+      const active = list?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')
+      if (list && active) {
+        list.scrollLeft = visibleScroll(list.scrollLeft, list.clientWidth, active.offsetLeft, active.offsetWidth)
+      }
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [tab])
   // A main tab stays built once it has been shown, hidden while another is in front: building a whole tab again
   // on every switch took a visible moment in the desktop webview.
   const [visited, setVisited] = useState(["home"])
@@ -675,4 +686,15 @@ export function Ribbon() {
       </Tabs>
     </div>
   )
+}
+
+/** The scroll that brings a tab (`left`, `width` within its row) into a row `view` wide, moving it as little as can be. */
+export function visibleScroll(scroll: number, view: number, left: number, width: number) {
+  if (left < scroll) {
+    return Math.max(0, left - 8)
+  }
+  if (left + width > scroll + view) {
+    return left + width - view + 8
+  }
+  return scroll
 }

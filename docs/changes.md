@@ -9,8 +9,14 @@ in Word, Chrome or the desktop app.
 
 ### Pixel checks, CI lint (v1.0.2)
 
-- **Checked on the Pixel 11 Pro XL (1.0.1):** What's New after the update, Google Fonts download in the phone
-  layout (Lato fetched and drawn), the spelling menu by long press opening below the handles.
+- **Checked on the Pixel 11 Pro XL (1.0.1–1.0.2):** What's New after the update; Google Fonts download in the
+  phone layout (Lato fetched and drawn); the spelling menu by long press below the handles; no keyboard over a
+  selected picture or 3D model; resize and crop following the finger; typing (the ribbon above the keyboard), Bold,
+  a 3×2 table and typing in it; Save; Print hands the page to Android's print service (cancelled there); Undo;
+  a 3D model inserted from Insert's overflow menu turns through a whole slow drag.
+- **Also found there (1.0.3):** the phone's tab row could open scrolled past Home, the selected tab out of sight; the
+  selected tab is now scrolled into view (`ribbon.tsx`, `visibleScroll`). Noted, not fixed: when the FONTS bar
+  appears after a save it pushes the page down and a table's floating handles stay put until the next redraw.
 - **What was wrong:**
   - CI's lint failed on Prettier: 42 files had drifted. Formatted; `src/index.css` (its line rules are compared as
     written by `line-lead.test.ts`) and the generated `symbol-names.json` are in `.prettierignore`.
