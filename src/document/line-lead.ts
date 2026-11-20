@@ -1,3 +1,4 @@
+import { fontLines } from "@/document/docx/font-metrics"
 /**
  * Where Word puts the text inside a line taller than the font's single line. CSS centres a line's text, splitting the
  * extra space above and below; Word does not:
@@ -99,5 +100,6 @@ const DESCENT: Record<string, number> = {
 const TYPICAL_DESCENT = 0.23
 
 export function wordDescent(face: string | undefined) {
-  return DESCENT[(face ?? "").toLowerCase()] ?? TYPICAL_DESCENT
+  const key = (face ?? "").toLowerCase()
+  return fontLines.get(key)?.descent ?? DESCENT[key] ?? TYPICAL_DESCENT
 }

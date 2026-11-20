@@ -1,3 +1,5 @@
+import { embeddedFonts } from "@/document/docx/embedded-fonts"
+import { fontLineOf, fontLines } from "@/document/docx/font-metrics"
 import { readEmbeddedSheets } from "@/document/docx/sheet-object"
 import type { BibSource, BibStyleId } from "@/document/bibliography"
 import type { NoteSettings } from "@/document/note-numbering"
@@ -47,6 +49,13 @@ export async function openDocxBytes(bytes: Uint8Array, fileName = "document.docx
   const sheets = await readEmbeddedSheets(pkg)
   if (sheets.length > 0) {
     word.sheets = sheets
+  }
+  // The lines of the fonts it embeds, read from them, before its paragraphs are laid out in them.
+  for (const face of embeddedFonts(word)) {
+    const line = face.weight === "400" && face.style === "normal" ? fontLineOf(face.data) : null
+    if (line) {
+      fontLines.set(face.family.toLowerCase(), line)
+    }
   }
   const view: EditorView = { ...wordToEditor(word), props: coreProperties(pkg) }
   const protection: FileProtection = {
@@ -156,7 +165,9 @@ function markedFinal(pkg: OpcPackage) {
   if (!part) {
     return false
   }
-  const property = /<(?:\w+:)?property\b[^>]*name="_MarkAsFinal"[^>]*>([\s\S]*?)<\/(?:\w+:)?property>/.exec(decodeXml(part.data))
+  const property = /<(?:\w+:)?property\b[^>]*name="_MarkAsFinal"[^>]*>([\s\S]*?)<\/(?:\w+:)?property>/.exec(
+    decodeXml(part.data),
+  )
   return Boolean(property && /<(?:\w+:)?bool>\s*(true|1)\s*<\//.test(property[1]!))
 }
 
@@ -176,9 +187,14 @@ function attachMarkAsFinal(pkg: OpcPackage, final: boolean) {
   xml = xml.replace(/<(\w+:)?property\b[^>]*name="_MarkAsFinal"[^>]*>[\s\S]*?<\/(?:\w+:)?property>/, "")
   if (final) {
     const prefix = /^<(\w+:)?Properties\b/.exec(xml)?.[1] ?? ""
-    const vt = /xmlns:(\w+)="http:\/\/schemas\.openxmlformats\.org\/officeDocument\/2006\/docPropsVTypes"/.exec(xml)?.[1]
+    const vt = /xmlns:(\w+)="http:\/\/schemas\.openxmlformats\.org\/officeDocument\/2006\/docPropsVTypes"/.exec(
+      xml,
+    )?.[1]
     if (!vt) {
-      xml = xml.replace(/^<(\w+:)?Properties\b/, (match) => `${match} xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"`)
+      xml = xml.replace(
+        /^<(\w+:)?Properties\b/,
+        (match) => `${match} xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"`,
+      )
     }
     const pid = Math.max(1, ...[...xml.matchAll(/\bpid="(\d+)"/g)].map((match) => Number(match[1]))) + 1
     const property =

@@ -507,6 +507,9 @@ function partRank(name: string) {
 const PASSTHROUGH_TYPES = new Set([
   "application/vnd.openxmlformats-officedocument.theme+xml",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.fontTable+xml",
+  // The fonts the font table embeds (Embed fonts in the file), obfuscated: kept as written with the table.
+  "application/vnd.openxmlformats-officedocument.obfuscatedFont",
+  "application/x-font-ttf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.webSettings+xml",
   "application/vnd.openxmlformats-package.core-properties+xml",
   "application/vnd.openxmlformats-officedocument.extended-properties+xml",

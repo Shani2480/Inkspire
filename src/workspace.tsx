@@ -77,6 +77,7 @@ import { QuickPartsDialogsHost } from "@/components/quick-parts-dialogs"
 import { TablePropertiesHost } from "@/components/table-properties-dialog"
 import { ListNumberingHost } from "@/components/list-numbering-dialogs"
 import { FeatureHints } from "@/components/feature-hint"
+import { useWebFonts } from "@/document/web-fonts"
 import { FirstRunSetup } from "@/components/first-run-setup"
 import { StyleDialogs } from "@/components/style-dialogs"
 import { showEditedStyles, useStyleStore } from "@/document/styles"
@@ -264,6 +265,8 @@ function DocumentShell({ onReady }: WorkspaceProps) {
         window.setTimeout(() => void ensureSystemFonts(), 1000)
         // Fonts downloaded in Options > Fonts are registered with the page (U39).
         void useOptionalFonts.getState().load()
+        // And the free fonts downloaded for documents that use them, from Google Fonts.
+        void useWebFonts.getState().load()
       }
     }
 

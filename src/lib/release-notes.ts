@@ -9,6 +9,28 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "0.12.0",
+    date: "2026-11-20",
+    notes: [
+      {
+        title: "Documents in their own fonts",
+        text: "When a document uses a free font you don't have, such as Lato or Open Sans, Inkspire offers to download it from Google Fonts, so the document looks and wraps as in Word. Nothing is downloaded until you choose Download, and the fonts are kept for Inkspire only. See or remove them in File > Options > Fonts.",
+      },
+      {
+        title: "Fonts saved in the document",
+        text: "A Word document saved with its fonts (Embed fonts in the file) now shows in those fonts, and saving it keeps them.",
+      },
+      {
+        title: "Line heights for every font",
+        text: "A paragraph written in another font than its style's now has that font's line height, as in Word.",
+      },
+      {
+        title: "Fixes from real documents",
+        text: "Dash and bullet lists that take their numbering from their style now show. Line numbers leave tables out and number each line once. Charts take the document's theme colours.",
+      },
+    ],
+  },
+  {
     version: "0.11.0",
     date: "2026-11-20",
     notes: [

@@ -21,13 +21,15 @@ This file is the overview; update it in the same commit as the work.
   fixtures identical.
 - ✅ Feature hints (v0.11.0): "New: …" callouts for the special features, one at a time where the feature lives,
   dismissed by a tap, on by default, off and back on in File > Options > General.
+- ✅ Documents in their own fonts (v0.12.0): free fonts a document uses offered from Google Fonts on request,
+  fonts embedded in the file shown and kept on save, line heights read from the font.
 - ✅ Android phase 1 and 2 except the items below: phone layout (ribbon at the bottom, sheets, fit to width),
   print, share, open-with, system fonts, Read Mode page curl, launcher icon.
 
 ## In progress
 
 - 🔄 1.0 release candidate: scope and criteria in `docs/V1_SCOPE.md` (draft). Open: a 20-document real-world set
-  compared with Word, three bugs found on real documents, the core desktop and Android checks.
+  compared with Word (3 so far; their three bugs fixed), the core desktop and Android checks.
 - 🔄 Word comparison follow-ups (`next-todo.md`, "Word comparison"): what is left is screen-only drawing in the
   captures and the items under Later.
 

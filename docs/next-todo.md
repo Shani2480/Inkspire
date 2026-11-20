@@ -84,6 +84,10 @@ keys in the Android Keystore; touch drag-to-reorder in the panes; an AAB for Goo
 
 Items built but not yet checked in Word, Chrome or the desktop app are collected in `verify-list.md`; tick them there, do not re-check them here.
 
+- [x] **Fonts a document uses (2026-11-20, v0.12.0):** free fonts offered from Google Fonts on request, embedded
+  fonts shown and kept, line heights read from the font file (`changes.md`). Left: Word's cloud fonts (Arial Nova,
+  Aptos) can't be fetched; a downloaded font's line height uses the typical value unless it is in the table.
+
 **Word comparison (2026-11-14).** Each fixture rendered by Word itself (PDF) next to Inkspire's screen and
 next to Word's render of Inkspire's save. Saving: Word opens all 72 saves and each renders as the original.
 Opening: the 13 differences found first are fixed (see `changes.md`, 2026-11-14); mean page difference 0.133 →

@@ -1,3 +1,4 @@
+import { fontLines } from "@/document/docx/font-metrics"
 import { leadBase, multipleLineVars, ruleLineHeight, wordDescent } from "@/document/line-lead"
 import { patternImage, patternValue } from "@/document/docx/shading-pattern"
 import { decodeXml } from "@/document/docx/xml"
@@ -190,12 +191,14 @@ const SINGLE_LINE: Record<string, number> = {
 const TYPICAL_LINE = 1.17
 
 export function singleLine(face: string | undefined) {
-  return SINGLE_LINE[(face ?? "").toLowerCase()] ?? TYPICAL_LINE
+  const key = (face ?? "").toLowerCase()
+  return fontLines.get(key)?.line ?? SINGLE_LINE[key] ?? TYPICAL_LINE
 }
 
 /** How far a font rises above its baseline in Word's line, as a fraction of its size; undefined for a font not listed. */
 export function wordAscent(face: string | undefined) {
-  const line = SINGLE_LINE[(face ?? "").toLowerCase()]
+  const key = (face ?? "").toLowerCase()
+  const line = fontLines.get(key)?.line ?? SINGLE_LINE[key]
   return line === undefined ? undefined : Math.round((line - wordDescent(face)) * 1000) / 1000
 }
 
@@ -489,13 +492,14 @@ function paragraphCss(props: ParagraphProperties, complete: boolean, line: numbe
       ...(rule === "exact" || rule === "atLeast"
         ? ruleLineHeight(rule, spacing.line / 20)
         : [
-            `line-height: ${Math.round((spacing.line / 240) * line * 1000) / 1000}`,
+            // Of the font the paragraph's text is in (editor/word-lead.ts sets it on a paragraph all in another font).
+            `line-height: calc(var(--word-single-line, ${line}) * ${Math.round((spacing.line / 240) * 1000) / 1000})`,
             "--word-run-line: initial",
             ...multipleLineVars(Math.round((spacing.line / 240) * 1000) / 1000),
           ]),
     )
   } else if (complete) {
-    rules.push(`line-height: ${line}`, ...multipleLineVars(1))
+    rules.push(`line-height: var(--word-single-line, ${line})`, ...multipleLineVars(1))
   }
   // Word's place for the text in a taller line; not on a paragraph with a top or bottom line, which pads itself.
   const ruled = [props.borders?.top, props.borders?.bottom].some(

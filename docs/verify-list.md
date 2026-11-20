@@ -834,6 +834,15 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - Single-line ribbon: Shape Effects and Text Outline are there and work the same.
 - Save and reopen in the app: the effects and outline come back.
 
+## Fonts from Google Fonts and fonts in the document (2026-11-20, v0.12.0)
+
+- [ ] Desktop app: open a document in a free font you don't have (e.g. Lato): the yellow FONTS bar offers it;
+  Download fetches it (the app's security policy allows Google Fonts) and the text redraws in it.
+- [ ] Desktop app: restart: the downloaded font is still used; File > Options > Fonts lists it and Remove takes it out.
+- [ ] Android: the same download on a phone.
+- [ ] A document saved by Word with "Embed fonts in the file" shows in its fonts without any bar, and Word opens
+  Inkspire's save with the fonts still embedded.
+
 ## Needs the Android tablet (the APK on a touch screen)
 
 - [ ] **Lines mixing text sizes (2026-11-19)** — the same paragraph on the Pixel and the tablet: the text at the top

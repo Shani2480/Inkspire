@@ -120,7 +120,7 @@ export function decodeText(bytes: Uint8Array) {
   }
   const utf8 = new TextDecoder("utf-8", { fatal: true })
   try {
-    return utf8.decode(bytes).replace(/^﻿/, "")
+    return utf8.decode(bytes).replace(/^\uFEFF/, "")
   } catch {
     // Excel on Windows saves CSV in the system's code page; Windows-1252 covers Western European names.
     return new TextDecoder("windows-1252").decode(bytes)
@@ -532,5 +532,5 @@ export function writeCsv(table: MergeTable) {
   for (const record of table.records) {
     lines.push(table.fields.map((field) => cell(record[field] ?? "")).join(","))
   }
-  return new TextEncoder().encode(`﻿${lines.join("\r\n")}\r\n`)
+  return new TextEncoder().encode(`\uFEFF${lines.join("\r\n")}\r\n`)
 }

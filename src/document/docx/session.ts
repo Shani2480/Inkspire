@@ -1,3 +1,4 @@
+import { showEmbeddedFonts } from "@/document/docx/embedded-fonts"
 import type { WordDocument } from "@/document/docx/model"
 import { documentStyleSheet } from "@/document/docx/word-styles"
 import { currentTheme, designedCatalog, designedThemeFonts, emptyWordDocument, themeChanged } from "@/document/design"
@@ -13,6 +14,8 @@ const STYLE_ELEMENT_ID = "word-document-styles"
 export function rememberWordDocument(word: WordDocument | null) {
   retained = word
   showWordStyles()
+  // The fonts it carries, shown while it is open (Word's Embed fonts in the file).
+  showEmbeddedFonts(word)
 }
 
 export function currentWordDocument() {
@@ -22,6 +25,7 @@ export function currentWordDocument() {
 export function clearWordDocument() {
   retained = null
   showWordStyles()
+  showEmbeddedFonts(null)
 }
 
 /** Draws the page with the Design tab's choices; called whenever the page setup changes. */

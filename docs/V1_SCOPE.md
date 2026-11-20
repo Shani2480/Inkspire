@@ -28,8 +28,9 @@ they do in Word, and Word opens Inkspire's saves as they were.
 - A picture drawn inside its line of text (it shows on its own line; saving keeps the paragraph whole).
 - A paragraph split between unequal columns.
 - .doc (Word 97–2003), macros, iOS, real-time co-authoring, cloud accounts.
-- Fonts the device does not have: Inkspire uses a stand-in with the same widths where one exists (Carlito for
-  Calibri, Liberation for Arial and Times); for others (Aptos, Arial Nova, Avenir) lines can wrap differently.
+- Commercial fonts the device does not have (Aptos, Arial Nova, Avenir): shown in a similar font, so lines can wrap
+  differently; the bar says so. Free fonts are offered from Google Fonts, same-width stand-ins cover Calibri, Cambria,
+  Arial and Times, and fonts embedded in the document are used.
 
 ## Release-candidate criteria
 

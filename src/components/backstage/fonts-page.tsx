@@ -1,5 +1,6 @@
 import { formatBytes } from "@/ai/local"
 import { openExternal } from "@/document/help"
+import { useWebFonts } from "@/document/web-fonts"
 import { APTOS_DOWNLOAD, OPTIONAL_FONTS, fontSize, useOptionalFonts } from "@/document/optional-fonts"
 
 /**
@@ -12,6 +13,8 @@ export function FontsPage() {
   const { download, remove } = useOptionalFonts.getState()
   const missing = OPTIONAL_FONTS.filter((font) => status[font.id] === "missing" || status[font.id] === "failed")
   const total = missing.reduce((sum, font) => sum + fontSize(font), 0)
+  const webNames = Object.keys(useWebFonts((state) => state.installed)).sort()
+  const removeWeb = useWebFonts.getState().remove
   return (
     <section className="backstage-card">
       <h2 className="backstage-card-title">Fonts</h2>
@@ -80,6 +83,36 @@ export function FontsPage() {
           Download All{missing.length ? ` (${formatBytes(total)})` : ""}
         </button>
       </div>
+      <h3 className="options-sub">Fonts from documents</h3>
+      <p className="backstage-muted">
+        Free fonts a document you opened used, downloaded from Google Fonts when you asked. They are kept for Inkspire
+        only, not installed on your system.
+      </p>
+      {webNames.length ? (
+        <div className="options-fonts-list" role="table" aria-label="Fonts from documents">
+          {webNames.map((name) => (
+            <div role="row" key={name} className="options-fonts-row">
+              <span role="cell">
+                <span className="options-fonts-name" style={{ fontFamily: `"${name}", sans-serif` }}>
+                  {name}
+                </span>
+                <span className="backstage-muted options-fonts-licence">Google Fonts</span>
+              </span>
+              <span role="cell" />
+              <span role="cell" />
+              <span role="cell" className="options-fonts-action">
+                <button type="button" className="dialog-btn" onClick={() => void removeWeb(name)}>
+                  Remove
+                </button>
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="backstage-muted">
+          None yet. When a document uses a free font that is missing, Inkspire offers it.
+        </p>
+      )}
       <h3 className="options-sub">Aptos</h3>
       <p className="backstage-muted">
         Aptos, Office&rsquo;s default font since 2023, may only be downloaded from Microsoft. Install it on your system

@@ -1,27 +1,39 @@
 import { useFileProtection } from "@/document/file-protection"
-import { fontsToOffer, useOptionalFonts } from "@/document/optional-fonts"
+import { openExternal } from "@/document/help"
+import { type FontOffer, fontOffer, offerText } from "@/document/missing-fonts"
+import { APTOS_DOWNLOAD, useOptionalFonts } from "@/document/optional-fonts"
+import { useWebFonts } from "@/document/web-fonts"
 import { useDocumentStore } from "@/document/store"
 import { BadgeCheck, FileLock, Signature, Type, X } from "lucide-react"
 import { useEffect, useState } from "react"
 
-/** The Office fonts an opened document uses that are missing here and have a free stand-in (U39). */
-function useFontsToOffer() {
+/** The fonts an opened document uses that are missing here, and what can be had for them. */
+function useFontOffer() {
   const saved = useDocumentStore((state) => state.savedHTML)
   const fileName = useDocumentStore((state) => state.fileName)
   const ready = useOptionalFonts((state) => state.ready)
   const status = useOptionalFonts((state) => state.status)
-  const [offer, setOffer] = useState<ReturnType<typeof fontsToOffer>>([])
+  const installed = useWebFonts((state) => state.installed)
+  const [offer, setOffer] = useState<FontOffer | null>(null)
   useEffect(() => {
     if (!ready) {
       return
     }
-    // After the document's style sheet is on the page.
+    let cancelled = false
+    // After the document's style sheet is on the page, and its embedded fonts are loaded.
     const timer = window.setTimeout(() => {
-      const sheet = document.getElementById("word-document-styles")?.textContent ?? ""
-      setOffer(fontsToOffer(saved, sheet, status))
+      void document.fonts?.ready.then(async () => {
+        const next = await fontOffer(usedFontsCss(), status, installed)
+        if (!cancelled) {
+          setOffer(next.missing.length ? next : null)
+        }
+      })
     }, 300)
-    return () => window.clearTimeout(timer)
-  }, [saved, fileName, ready, status])
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [saved, fileName, ready, status, installed])
   return offer
 }
 
@@ -35,9 +47,7 @@ export function DocumentMessageBar() {
   const signatures = useFileProtection((state) => state.signatures)
   const setMarkedFinal = useFileProtection((state) => state.setMarkedFinal)
   const [hidden, setHidden] = useState<string | null>(null)
-  const offer = useFontsToOffer()
-  const offerNames = offer.map((item) => item.office)
-  const standIns = [...new Set(offer.map((item) => item.font))]
+  const offer = useFontOffer()
   const bar =
     readOnly && markedFinal
       ? {
@@ -63,16 +73,23 @@ export function DocumentMessageBar() {
               text: "This document has been signed. Saving it here removes the signatures, as editing it in Word does.",
               action: null,
             }
-          : standIns.length
+          : offer
             ? {
-                id: `fonts-${offerNames.join(",")}`,
+                id: `fonts-${offer.missing.join(",")}`,
                 icon: <Type className="size-4" strokeWidth={1.75} />,
                 label: "FONTS",
-                text: `This document uses ${listOf(offerNames)}, which ${offerNames.length > 1 ? "are" : "is"} not installed. Download ${listOf(standIns.map((font) => font.family))}, ${standIns.length > 1 ? "free fonts" : "a free font"} with the same widths, so it lays out as in Word?`,
-                action: {
-                  label: "Download",
-                  run: () => void useOptionalFonts.getState().download(standIns.map((font) => font.id)),
-                },
+                text: offerText(offer),
+                action:
+                  offer.web.length || offer.standIns.length
+                    ? {
+                        label: "Download",
+                        run: () => {
+                          void useWebFonts.getState().download(offer.web)
+                          void useOptionalFonts.getState().download(offer.standIns.map((font) => font.id))
+                        },
+                      }
+                    : null,
+                secondary: offer.aptos ? { label: "Get Aptos", run: () => void openExternal(APTOS_DOWNLOAD) } : null,
               }
             : null
   if (!bar || hidden === bar.id) {
@@ -86,6 +103,11 @@ export function DocumentMessageBar() {
       {bar.action ? (
         <button type="button" className="document-message-bar-action" onClick={bar.action.run}>
           {bar.action.label}
+        </button>
+      ) : null}
+      {"secondary" in bar && bar.secondary ? (
+        <button type="button" className="document-message-bar-action" onClick={bar.secondary.run}>
+          {bar.secondary.label}
         </button>
       ) : null}
       <span className="flex-1" />
@@ -102,6 +124,18 @@ export function DocumentMessageBar() {
   )
 }
 
-function listOf(names: string[]) {
-  return names.length < 2 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`
+/** The fonts the document's text is drawn in, as `font-family` declarations: only what is on its pages counts. */
+function usedFontsCss() {
+  const families = new Set<string>()
+  const walker = document.createTreeWalker(
+    document.querySelector("#document-scroll") ?? document.body,
+    NodeFilter.SHOW_TEXT,
+  )
+  for (let node = walker.nextNode(), seen = 0; node && seen < 20000; node = walker.nextNode(), seen += 1) {
+    const parent = node.parentElement
+    if (parent && node.textContent?.trim() && parent.closest(".ProseMirror")) {
+      families.add(getComputedStyle(parent).fontFamily)
+    }
+  }
+  return [...families].map((family) => `font-family: ${family};`).join("\n")
 }

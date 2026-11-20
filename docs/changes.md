@@ -7,6 +7,28 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-20
 
+### Documents in their own fonts (v0.12.0)
+
+- **What was wrong:** a document in a font this device lacks was drawn in a fallback with other widths, so its
+  lines and pages broke differently from Word. Only six same-width stand-ins (Carlito for Calibri …) were offered;
+  free fonts such as Lato or Open Sans, and fonts Word embedded in the file, were not used. A save dropped the
+  embedded fonts' parts.
+- **Fix:** `web-fonts.ts` matches a missing font against a bundled Google Fonts list (1961 families), including
+  Word's weight-named families ("Lato Light" → Lato 300 registered as the name's regular), and on the person's
+  Download fetches its faces from Google Fonts into IndexedDB and registers them under the document's name.
+  `missing-fonts.ts` builds the message bar's offer from the fonts the text is actually drawn in: Google Fonts,
+  the same-width stand-ins, Microsoft's Aptos page, or "shown in a similar font" for commercial ones.
+  `docx/embedded-fonts.ts` un-obfuscates `word/fonts/*.odttf` (ECMA-376 17.8.1) and shows the document in them while
+  it is open; the parts are kept on save (obfuscatedFont is a passthrough type). `docx/font-metrics.ts` reads an
+  embedded font's Windows ascent, descent and leading for Word's single line. A style's line multiple is now
+  `calc(var(--word-single-line) × n)`, so a paragraph all in another font takes that font's line, as Word does.
+  Options > Fonts lists downloaded fonts with Remove. CSP allows fonts.googleapis.com and fonts.gstatic.com.
+- **Checked:** Word in the VM saved a document with Segoe Print embedded; Inkspire decodes all four faces into valid
+  TrueType, draws the text in them with Word's line breaks, and its save keeps the fonts (Word renders it the same,
+  validator 0 errors). A mock document in Lato Light and Playfair Display: the bar offers both, Download fetches
+  and draws them. Word comparison over 67 fixtures: mean unchanged (0.104), no file worse. Tests: 
+  `embedded-fonts.test.ts`, `missing-fonts.test.ts`.
+
 ### Charts take the document's theme colours
 
 - **What was wrong:** a Word chart's series that refer to the theme's colours (`a:schemeClr accent1` …, how Word

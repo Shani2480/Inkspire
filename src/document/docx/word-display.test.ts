@@ -73,7 +73,10 @@ describe("line spacing", () => {
     const body = css.split("\n").find((line) => line.startsWith(":root .page-editor p,"))!
     const normal = opened.word.styles.styles.find((style) => style.default && style.type === "paragraph")
     const line = normal?.pPr.spacing?.line ?? opened.word.styles.docDefaults.pPr.spacing?.line ?? 240
-    expect(body).toContain(`line-height: ${Math.round((line / 240) * factor * 1000) / 1000}`)
+    // A multiple of the single line of the font the text is in: the style's, or a paragraph's own.
+    expect(body).toContain(
+      `line-height: calc(var(--word-single-line, ${factor}) * ${Math.round((line / 240) * 1000) / 1000})`,
+    )
     expect(singleLine("Calibri")).toBe(1.22)
   })
 
