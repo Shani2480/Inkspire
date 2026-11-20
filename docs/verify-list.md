@@ -249,13 +249,18 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       a click inserts the table.
 - [x] **Insert > Table > Excel Spreadsheet (2026-11-16; headless Chrome, light and dark)** — inserts the sheet;
       typing with Enter fills cells and formulas show their values.
-- [ ] **Excel Spreadsheet in the desktop app (WebKitGTK)** — insert, type, Add Row / Add Column, save and reopen.
+- [x] **Excel Spreadsheet in the desktop app (WebKitGTK)** — insert, type, Add Row / Add Column, save and reopen.
+      Checked 2026-11-20 in the Tauri release build on a private Xvfb, window made opaque for the check: 5, 7 and =A1+B1 (12) typed, a row and a column added, saved (embedded workbook and
+      preview, 0 validator errors), reopened from Recent with the values and formula. On reopening the sheet shows only
+      the cells in use (the empty row and column added are not kept); noted in `next-todo.md`.
 - [ ] **Edit in Cells on Windows and macOS** — the button opens the sheet in Cells and Cells' changes come back
       (checked on Linux only; Windows shows its own "find an app" prompt when Cells is not installed).
 - [x] **Drop Cap menu and Drop Cap Options… (2026-11-16; checked in headless Chrome, light and dark)** — tiles show
       the current position; the dialog sets lines, font and distance; None clears; In margin keeps the text edge.
-- [ ] **Drop caps in the desktop app (WebKitGTK)** — drawn with `initial-letter` (and `-webkit-initial-letter`):
-      check a 3-line drop cap draws over three lines in the Tauri build.
+- [x] **Drop caps in the desktop app (WebKitGTK)** — drawn with `initial-letter` (and `-webkit-initial-letter`):
+      check a 3-line drop cap draws over three lines in the Tauri build. Checked 2026-11-20 in the Tauri release build on a private Xvfb, window made opaque for the check: Insert > Drop
+      Cap > Dropped draws over three lines and line 4 starts at the margin. Found there and fixed: Enter at the end of
+      a drop-capped paragraph gave the new paragraph a drop cap too (`block-format.ts`).
 
 - [x] **Select Objects and the Selection pane (2026-11-16; checked in headless Chrome, light and dark)** — Home >
       Select lists Select Objects and Selection Pane…; the pane shows Word's names, top of the stack first; click
@@ -287,12 +292,15 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       wide as the text, and of one widened past the margin: no scrollbar shows.
 - [x] **Tables text wraps around, Table Positioning, dragging a table (22.10, 2026-10-27)** — checked 2026-10-27 in
       headless Chrome.
-- [ ] **Same, in the desktop app** — drag a table by its move handle at 150% zoom; a floating table near the foot of
-      a page, and on page 2.
+- [x] **Same, in the desktop app** — drag a table by its move handle at 150% zoom; a floating table near the foot of
+      a page, and on page 2. The drag at 150% checked 2026-11-20 in the Tauri release build on a private Xvfb, window made opaque for the check: the handle ends where the mouse is let go
+      and the text wraps beside the table. Near the foot of a page and on page 2 not tried.
 - [x] **Right-click keeps a selected table, column or row (2026-10-27)** — checked 2026-10-27 in headless Chrome.
 - [x] **Table Properties dialog and right-click (22.10, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
-- [ ] **Table Properties, in the desktop app** — right-click a selected table: one menu, Table Properties... opens
-      with the selection kept.
+- [x] **Table Properties, in the desktop app** — right-click a selected table: one menu, Table Properties... opens
+      with the selection kept. Checked 2026-11-20 in the Tauri release build on a private Xvfb, window made opaque for the check. Found there and fixed: a right-click low in the window
+      ran the table menu off the bottom of the window (Table Properties out of reach); it now opens upward
+      (`object-context-menu.tsx`).
 - [x] **Stock charts and Insert Chart previews (22.6, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Box & Whisker chart (22.6, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
 - [x] **Treemap and Sunburst charts (22.6, 2026-10-26)** — checked 2026-10-26 in headless Chrome.
@@ -384,8 +392,13 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
-- [ ] **Line numbers (2026-11-20)** — Layout > Line Numbers > Continuous on a document with a table and a comment:
-      no numbers inside the table, one number per line, none stacked.
+- [x] **Core work in the Linux desktop app (2026-11-20)** — the Tauri release build on a private Xvfb (window made
+      opaque for the check; with the shipped transparent window WebKitGTK paints nothing there): open a .docx through
+      the system file dialog, type, Ctrl+S (0 validator errors), reopen from Recent.
+
+- [x] **Line numbers (2026-11-20)** — Layout > Line Numbers > Continuous on a document with a table and a comment:
+      no numbers inside the table, one number per line, none stacked. Checked 2026-11-20 in the Tauri release build on a private Xvfb, window made opaque for the check (a .docx with
+      continuous line numbering, a 2×2 table and a comment).
 - [ ] **Feature hints (2026-11-20, v0.11.0)** — desktop and phone: about 20 s after start, open View: a blue "New: Read
       Mode" hint points at Read Mode; a tap removes it; about 2 minutes later the next feature's hint shows where its
       control is. On the phone (ribbon at the bottom) the hint sits above the control. Options > General turns them
@@ -400,8 +413,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       its bottom strip shows, the next line 15 pt below; selecting it shows its handles.
 - [ ] **Pictures among a paragraph's text (2026-11-19)** — open `w16_pictures_among_text.docx` in the desktop app,
       type a word in the text after a picture, save, open in Word: each paragraph whole with its picture in the line.
-- [ ] **A line holding a taller font (2026-11-19)** — WebKitGTK: Calibri text with a Segoe UI word, single and
+- [x] **A line holding a taller font (2026-11-19)** — WebKitGTK: Calibri text with a Segoe UI word, single and
       double spacing: that line a little taller than the others, the text not clipped, the cursor on the letters.
+      Checked 2026-11-20 in the Tauri release build on a private Xvfb, window made opaque for the check.
 - [ ] **A multiple's last line at the page's foot (2026-11-19)** — WebKitGTK: 30 triple-spaced Calibri 11 pt lines on a
       page with 14.5 pt left after 16 of them: line 17 stays on page 1 (as in Word), its text whole, and page 2 starts at
       its top margin.
@@ -417,7 +431,8 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       Recent and save again; rename an opened document from the title (in Documents: renamed; from Downloads or a
       mail attachment: the message); open a .docx that ends in a table: the cursor is at the top, no table toolbar;
       select a picture, Read Mode: no picture toolbar over the text; File > Home and Open > Recent show each
-      document's date modified (also on Linux: today a time, this year a day and month, before a full date);
+      document's date modified (also on Linux: today a time, this year a day and month, before a full date — Linux
+      part checked 2026-11-20 in the Tauri build on Xvfb: 2:17 PM, Mar 14, 7/2/2024);
       Design > Page Borders fits the phone at full size; tap a table of contents: Update Table under it, tap it.
 - [x] **v0.9.1 on the Pixel (2026-11-17, checked with v0.10.0)** — hold a finger on a word: it is selected and Android's
       Cut / Copy / Paste bar shows, not Inkspire's menu; with a mouse on Linux, right-click still opens the menu.

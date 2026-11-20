@@ -7,6 +7,25 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-20
 
+### Linux desktop app checks
+
+- **How:** the Tauri release build on a private Xvfb with an isolated home, driven with XTEST. With the window made
+  opaque for the check (a `--config` override at build time, not committed) WebKitGTK paints; the shipped transparent
+  window still paints nothing there, and a second window (opened from a document) is transparent and stays black.
+- **Checked:** open through the system file dialog, type, save (0 validator errors), reopen from Recent; a 3-line drop
+  cap; a line holding a taller font (single and double spacing, the cursor on the letters); continuous line numbers
+  with a table and a comment; dragging a table by its move handle at 150%; Table Properties from the right-click;
+  Excel Spreadsheet insert, type, Add Row / Add Column, save and reopen; Recent's dates (today a time, this year a day
+  and month, before a full date).
+- **What was wrong:**
+  - Enter at the end of a drop-capped paragraph gave the new paragraph a drop cap too. The drop cap stays with its
+    paragraph now, as in Word (`block-format.ts`: the drop cap attributes are not kept on a split).
+  - A right-click low in the window opened the table/object menu at the click and ran it off the bottom of the
+    window, leaving Table Properties out of reach. It now moves up (or left) to stay whole, with the text menu's
+    placement (`object-context-menu.tsx`).
+- **Noted, not fixed:** a reopened Excel Spreadsheet shows only the cells in use (empty rows and columns added before
+  saving are not kept).
+
 ### Pixel checks, CI lint (v1.0.2)
 
 - **Checked on the Pixel 11 Pro XL (1.0.1–1.0.2):** What's New after the update; Google Fonts download in the

@@ -4,6 +4,14 @@ The next work is the **Next** list below. Do not start a later phase until it is
 
 Where a simpler version already exists, the note says so. The item is still open until it matches the control written here. Names, groups, and dialog fields are the ones visible in `screenshots/`. A dropdown whose menu is closed in those shots stays a dropdown with that label. Do not add menu entries that are not on screen.
 
+## Linux desktop checks (2026-11-20)
+
+- [ ] A reopened Excel Spreadsheet shows only the cells in use: empty rows and columns added before saving are not
+      kept (Word keeps the sheet's visible area).
+- Testing note: the Tauri build paints on a private Xvfb when built with an opaque window
+  (`tauri build --no-bundle --config` with `transparent: false`); a document opened while another is open goes to a
+  new window, which is created transparent and stays black there, so relaunch per document.
+
 ## Android phone and tablet (2026-11-17)
 
 The Android port is on main since 2026-11-17 (`isAndroid`, `src/lib/platform.ts`); one branch builds desktop and

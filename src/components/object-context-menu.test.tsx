@@ -100,3 +100,23 @@ describe("a right-click in a table (22.4)", () => {
     expect(editor.state.selection.from).toBe(second)
   })
 })
+
+describe("the object menu stays inside the window", () => {
+  it("a right-click near the foot opens it upward, not running off the bottom", () => {
+    const size = Object.getOwnPropertyDescriptors(HTMLElement.prototype)
+    Object.defineProperty(HTMLElement.prototype, "offsetHeight", { configurable: true, get: () => 300 })
+    Object.defineProperty(HTMLElement.prototype, "offsetWidth", { configurable: true, get: () => 200 })
+    try {
+      const { editor } = setup()
+      const image = editor.view.dom.querySelector(".image-frame, img") as HTMLElement
+      fireEvent.contextMenu(image, { clientX: 100, clientY: innerHeight - 40 })
+      const shown = menu() as HTMLElement
+      expect(shown.style.visibility).toBe("")
+      expect(parseFloat(shown.style.top) + 300).toBeLessThanOrEqual(innerHeight - 8)
+      expect(shown.style.left).toBe("100px")
+    } finally {
+      Object.defineProperty(HTMLElement.prototype, "offsetHeight", size.offsetHeight!)
+      Object.defineProperty(HTMLElement.prototype, "offsetWidth", size.offsetWidth!)
+    }
+  })
+})

@@ -27,7 +27,8 @@ import type { Editor } from "@tiptap/core"
 import { NodeSelection } from "@tiptap/pm/state"
 import { CellSelection, findTable } from "@tiptap/pm/tables"
 import { useEditorState } from "@tiptap/react"
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
+import { placeMenu as fitMenu } from "@/components/text-context-menu"
 import { createPortal } from "react-dom"
 import { EquationEditor } from "@/components/equation-editor"
 import { DialogFrame } from "@/components/word-dialog"
@@ -162,6 +163,14 @@ export function ObjectContextMenu({ editor }: { editor: Editor }) {
 
   const current = menu?.target ?? target
   const node = current ? nodeAtPos(editor, current.pos) : null
+  // A right-click near the window's foot or right edge: the menu moves up or left to stay whole (it ran off the
+  // bottom of the desktop window).
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [placed, setPlaced] = useState<{ left: number; top: number } | null>(null)
+  useLayoutEffect(() => {
+    const element = menuRef.current
+    setPlaced(menu && element ? fitMenu({ x: menu.x, y: menu.y }, element.offsetWidth, element.offsetHeight) : null)
+  }, [menu])
 
   return (
     <>
@@ -170,7 +179,8 @@ export function ObjectContextMenu({ editor }: { editor: Editor }) {
             <div
               className="object-menu"
               role="menu"
-              style={{ left: menu.x, top: menu.y }}
+              ref={menuRef}
+              style={placed ?? { left: menu.x, top: menu.y, visibility: "hidden" }}
               onMouseDown={(event) => event.preventDefault()}
               onContextMenu={(event) => event.preventDefault()}
             >

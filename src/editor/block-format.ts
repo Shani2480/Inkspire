@@ -144,9 +144,11 @@ export function blockFormatAttributes() {
       },
     },
     // Insert > Drop Cap: the paragraph's first letter, dropped or in the margin, over `dropCapLines` lines, in its
-    // own font and `dropCapDistance` points from the text (Word's framePr; `docx/drop-cap.ts`).
+    // own font and `dropCapDistance` points from the text (Word's framePr; `docx/drop-cap.ts`). Enter does not carry
+    // it into the next paragraph, as in Word (the drop cap is a frame of its own there).
     dropCap: {
       default: null as string | null,
+      keepOnSplit: false,
       parseHTML: (element: HTMLElement) => element.getAttribute("data-drop-cap"),
       renderHTML: (attributes: {
         dropCap?: string | null
@@ -169,6 +171,7 @@ export function blockFormatAttributes() {
     },
     dropCapLines: {
       default: null as number | null,
+      keepOnSplit: false,
       parseHTML: (element: HTMLElement) => {
         const value = Number(element.getAttribute("data-drop-lines"))
         return value > 0 ? dropCapLines(value) : null
@@ -178,6 +181,7 @@ export function blockFormatAttributes() {
     },
     dropCapDistance: {
       default: null as number | null,
+      keepOnSplit: false,
       parseHTML: (element: HTMLElement) => {
         const value = Number(element.getAttribute("data-drop-distance"))
         return value > 0 ? value : null
@@ -189,6 +193,7 @@ export function blockFormatAttributes() {
     },
     dropCapFont: {
       default: null as string | null,
+      keepOnSplit: false,
       parseHTML: (element: HTMLElement) => element.getAttribute("data-drop-font") || null,
       renderHTML: (attributes: { dropCap?: string | null; dropCapFont?: string | null }) =>
         attributes.dropCap && attributes.dropCapFont ? { "data-drop-font": attributes.dropCapFont } : {},

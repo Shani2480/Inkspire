@@ -9,6 +9,20 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "1.0.4",
+    date: "2026-11-20",
+    notes: [
+      {
+        title: "A drop cap stays with its paragraph",
+        text: "Pressing Enter at the end of a paragraph with a drop cap no longer gives the next paragraph a drop cap too, as in Word.",
+      },
+      {
+        title: "Menus stay inside the window",
+        text: "Right-clicking a table or picture near the bottom or right edge of the window opens its menu upward or to the left, so every command stays in reach.",
+      },
+    ],
+  },
+  {
     version: "1.0.3",
     date: "2026-11-20",
     notes: [
