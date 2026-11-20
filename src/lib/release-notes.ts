@@ -9,6 +9,20 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "1.0.2",
+    date: "2026-11-20",
+    notes: [
+      {
+        title: "The ribbon stays in reach on a phone",
+        text: "With Unsaved Documents folded away, its strip now rests above the ribbon at the bottom of the screen instead of covering it.",
+      },
+      {
+        title: "Hints wait for open panels",
+        text: 'On a phone, a "New: …" hint no longer appears over a panel you have open; it waits until you close it.',
+      },
+    ],
+  },
+  {
     version: "1.0.1",
     date: "2026-11-20",
     notes: [

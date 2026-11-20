@@ -1,3 +1,4 @@
+import { useDevice } from "@/lib/device"
 import { Button } from "@/components/ui/button"
 import { openRecoveryDocument } from "@/document/commands"
 import { discardRecovery, formatRecoveryWhen, listRecoveryOffers, type RecoveryOffer } from "@/document/recovery"
@@ -15,6 +16,7 @@ export function RecoveryDialog() {
   const [open, setOpen] = useState(true)
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [confirmAll, setConfirmAll] = useState(false)
+  const phoneBottom = useBarsBelow(useDevice() === "phone" && !open)
 
   const refresh = useCallback(async () => {
     const next = await listRecoveryOffers()
@@ -108,6 +110,7 @@ export function RecoveryDialog() {
 
   return (
     <aside
+      style={phoneBottom === null ? undefined : { bottom: phoneBottom }}
       className="recovery-rail flex w-[240px] shrink-0 flex-col border-r border-[var(--app-divider)] bg-[var(--app-ribbon-card,#f3f2f1)] text-[var(--app-ribbon-text)]"
       aria-labelledby={titleId}
     >
@@ -258,4 +261,25 @@ export function RecoveryDialog() {
       ) : null}
     </aside>
   )
+}
+
+/**
+ * On a phone the ribbon and the status bar sit at the bottom of the screen: the collapsed Unsaved Documents strip
+ * rests just above them instead of covering the ribbon (open, it is a sheet over them, as other panes are).
+ */
+function useBarsBelow(active: boolean) {
+  const [height, setHeight] = useState<number | null>(null)
+  useEffect(() => {
+    if (!active || typeof ResizeObserver === "undefined") {
+      setHeight(null)
+      return
+    }
+    const bars = [...document.querySelectorAll<HTMLElement>(".app-ribbon-shell, .app-statusbar")]
+    const measure = () => setHeight(bars.reduce((sum, bar) => sum + bar.getBoundingClientRect().height, 0))
+    const observer = new ResizeObserver(measure)
+    bars.forEach((bar) => observer.observe(bar))
+    measure()
+    return () => observer.disconnect()
+  }, [active])
+  return height
 }

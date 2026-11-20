@@ -7,6 +7,18 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-20
 
+### Pixel checks, CI lint (v1.0.2)
+
+- **Checked on the Pixel 11 Pro XL (1.0.1):** What's New after the update, Google Fonts download in the phone
+  layout (Lato fetched and drawn), the spelling menu by long press opening below the handles.
+- **What was wrong:**
+  - CI's lint failed on Prettier: 42 files had drifted. Formatted; `src/index.css` (its line rules are compared as
+    written by `line-lead.test.ts`) and the generated `symbol-names.json` are in `.prettierignore`.
+  - The collapsed Unsaved Documents strip, a sheet fixed to the bottom on a phone, covered the bottom ribbon; it now
+    rests above the ribbon and status bar, measured as they change (`recovery-dialog.tsx`).
+  - A feature hint showed over an open phone sheet (Unsaved Documents); hints now wait while a phone's task pane
+    sheet is open (`feature-hint.tsx`).
+
 ### Version 1.0.1
 
 - The version chosen for Inkspire 1.0 (it builds for the Windows MSI, which a pre-release tag such as `-rc.1` does

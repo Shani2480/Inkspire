@@ -35,7 +35,9 @@ export function hintTarget(name: string): HTMLElement | null {
 /** A dialog or menu is open: a hint waits until it closes. */
 function busy() {
   const open = document.querySelectorAll<HTMLElement>(
-    '[role="dialog"]:not(.feature-hint), [role="menu"], [role="listbox"], .backstage, .read-mode',
+    '[role="dialog"]:not(.feature-hint), [role="menu"], [role="listbox"], .backstage, .read-mode, ' +
+      // A phone's task panes are sheets over the page (index.css): a hint waits until they are closed.
+      '[data-device="phone"] :is(.clipboard-pane, .recovery-rail:has(> button[aria-expanded="true"]), .comments-sidebar, .ai-pane, .nav-pane, .selection-pane, .styles-pane, .format-pane, .smartart-pane)',
   )
   return [...open].some((element) => element.getClientRects().length > 0)
 }
