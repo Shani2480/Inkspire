@@ -68,7 +68,7 @@ Phases 1 and 2 are approved; phase 3 waits for a go-ahead.
       curl), under the finger and on taps and keys.
 - [x] B15. (2026-11-17, v0.8.0) Android Back closes what is on top (menu, dialog, pane, File view), leaves Read Mode
       and Focus for editing, and asks before Inkspire closes (Save and Quit / Quit Without Saving / Cancel).
-- [ ] B16. Read Mode's page curl: the back of the folded part is plain paper; e-readers show the page's text faintly
+- [x] B16. (2026-11-24, v1.0.7: the page's text at 14% on the fold's back, reversed) Read Mode's page curl: the back of the folded part is plain paper; e-readers show the page's text faintly
       through it.
 - [x] B17. (2026-11-17, v0.9.0) Read Mode's page curl ran at a few frames a second in the Urdu novel: the View
       Transition laid out and painted the whole book each turn. Now a copy of the read view, cut by a box turned along
@@ -77,7 +77,8 @@ Phases 1 and 2 are approved; phase 3 waits for a go-ahead.
       deep blue), with a themed (monochrome) layer; masters in `src-tauri/icons/android-src`.
 - [x] B20. (2026-11-17, v0.9.1) A long press on text opened the full right-click menu over most of a phone's screen;
       on a touch screen it now leaves the system's selection bar.
-- [ ] B19. After a turn in the novel one frame still takes about a quarter second (style and accessibility update,
+- [x] B19. (2026-11-24, v1.0.7: the editor's DOM selection is cleared while reading, the turning page is a copy of
+      that page only; see `changes.md`) After a turn in the novel one frame still takes about a quarter second (style and accessibility update,
       no script); the turn itself is smooth.
 - [x] B10. (2026-11-17, v0.10.0) An opened document left the cursor at its end (in a last table, whose toolbar
       covered the page on a phone): the cursor now starts at the top, as in Word (`applyEditorHtml`).

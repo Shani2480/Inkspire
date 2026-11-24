@@ -13,7 +13,30 @@ const GAP = 10
 /** The control a hint points at: one with that name that is on screen and can be used. */
 export function hintTarget(name: string): HTMLElement | null {
   const escaped = typeof CSS !== "undefined" && CSS.escape ? CSS.escape(name) : name.replace(/"/g, '\\"')
-  for (const element of document.querySelectorAll<HTMLElement>(`[aria-label="${escaped}"]`)) {
+  return usable(document.querySelectorAll<HTMLElement>(`[aria-label="${escaped}"]`))
+}
+
+/**
+ * Every named control on the page, by name, from one look through the page: a look per hint went through a long
+ * document a dozen times every half second.
+ */
+function namedControls() {
+  const named = new Map<string, HTMLElement[]>()
+  for (const element of document.querySelectorAll<HTMLElement>("[aria-label]")) {
+    const name = element.getAttribute("aria-label")!
+    const list = named.get(name)
+    if (list) {
+      list.push(element)
+    } else {
+      named.set(name, [element])
+    }
+  }
+  return named
+}
+
+/** The first of `elements` that is on screen and can be used. */
+function usable(elements: Iterable<HTMLElement>): HTMLElement | null {
+  for (const element of elements) {
     if (element.closest(".feature-hint") || element.getAttribute("aria-disabled") === "true") {
       continue
     }
@@ -32,14 +55,34 @@ export function hintTarget(name: string): HTMLElement | null {
   return null
 }
 
-/** A dialog or menu is open: a hint waits until it closes. */
+const PHONE_PANES = [
+  "clipboard-pane",
+  "comments-sidebar",
+  "ai-pane",
+  "nav-pane",
+  "selection-pane",
+  "styles-pane",
+  "format-pane",
+  "smartart-pane",
+]
+
+/** A dialog or menu is open: a hint waits until it closes. Looked at only when a hint is due: it goes through the page. */
 function busy() {
-  const open = document.querySelectorAll<HTMLElement>(
-    '[role="dialog"]:not(.feature-hint), [role="menu"], [role="listbox"], .backstage, .read-mode, ' +
-      // A phone's task panes are sheets over the page (index.css): a hint waits until they are closed.
-      '[data-device="phone"] :is(.clipboard-pane, .recovery-rail:has(> button[aria-expanded="true"]), .comments-sidebar, .ai-pane, .nav-pane, .selection-pane, .styles-pane, .format-pane, .smartart-pane)',
+  const shown = (element: Element) => element.getClientRects().length > 0
+  const open = document.querySelectorAll('[role="dialog"]:not(.feature-hint), [role="menu"], [role="listbox"], .backstage')
+  if ([...open].some(shown)) {
+    return true
+  }
+  // A phone's task panes are sheets over the page (index.css): a hint waits until they are closed. Found by class,
+  // which the browser keeps a list of, rather than by a selector tried on every element of a long document.
+  if (document.documentElement.dataset.device !== "phone") {
+    return false
+  }
+  const panes = PHONE_PANES.flatMap((name) => [...document.getElementsByClassName(name)])
+  const rails = [...document.getElementsByClassName("recovery-rail")].filter((rail) =>
+    rail.querySelector(':scope > button[aria-expanded="true"]'),
   )
-  return [...open].some((element) => element.getClientRects().length > 0)
+  return [...panes, ...rails].some(shown)
 }
 
 type Placed = { hint: FeatureHint; top: number; left: number; beak: number; above: boolean }
@@ -71,24 +114,26 @@ export function FeatureHints() {
   const setupDone = useUserSettings((state) => state.setupDone)
   const [placed, setPlaced] = useState<Placed | null>(null)
   const readyAt = useRef(Date.now() + FIRST_HINT_MS)
-
   useEffect(() => {
     if (!enabled || !setupDone) {
       setPlaced(null)
       return
     }
     const tick = () => {
-      if (Date.now() < readyAt.current || busy()) {
+      // Every hint dismissed: nothing to look for.
+      if (Date.now() < readyAt.current || FEATURE_HINTS.every((hint) => dismissed.includes(hint.id))) {
         setPlaced(null)
         return
       }
-      const hint = nextHint(FEATURE_HINTS, dismissed, (name) => hintTarget(name) !== null)
-      const target = hint ? hintTarget(hint.target) : null
-      if (!hint || !target) {
+      const named = namedControls()
+      const target = (name: string) => usable(named.get(name) ?? [])
+      const hint = nextHint(FEATURE_HINTS, dismissed, (name) => target(name) !== null)
+      const control = hint ? target(hint.target) : null
+      if (!hint || !control || busy()) {
         setPlaced(null)
         return
       }
-      const next = place(hint, target)
+      const next = place(hint, control)
       setPlaced((current) =>
         current &&
         current.hint.id === next.hint.id &&

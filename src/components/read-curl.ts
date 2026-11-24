@@ -1,15 +1,16 @@
-import { curlPath, foldShapes, onSpine, type Point } from "@/document/read-pages"
+import { curlPath, foldShapes, onSpine, type Point, readPageStep } from "@/document/read-pages"
 
 /**
  * Read Mode's page turn, as on an e-reader: the page on screen folds over from its corner like paper, the back of the
  * folded part showing over the next page, which lies in the shadow the fold casts (`index.css`, "Read Mode page
  * turn"). A finger moves the fold (`follow`); a tap or a key turns the page on its own (`release` straight away).
  *
- * The page that turns is a copy of the read view kept beside it (`.read-curl`), scrolled to that page, while the read
- * view itself shows the page underneath. The fold is cut by a box turned along the fold line, with the page turned
- * back inside it, so every frame only moves a few layers on the graphics card: nothing is laid out or painted again,
- * and a long book turns as smoothly as a short one. (A View Transition did this before, but each turn laid out and
- * painted the whole book again, which a long novel in a complex script made crawl.)
+ * The page that turns is a copy of that one page (`.read-curl`, `pageCopy`), its blocks laid out where they are in the
+ * read view, while the read view itself shows the page underneath. The fold is cut by a box turned along the fold
+ * line, with the page turned back inside it, so every frame only moves a few layers on the graphics card. Copying
+ * only the page keeps a turn in a long book as quick as in a short one: a copy of the whole book (as before) was
+ * walked through by the browser at every frame of the turn, and the back of the fold doubled that.
+ * (A View Transition did this before that, but each turn laid out and painted the whole book again.)
  */
 
 /** A turn on its way; starting another skips it to its end. */
@@ -59,22 +60,118 @@ type Stage = {
   page: HTMLElement
   copy: HTMLElement
   flap: HTMLElement
-  key: string
+  /** The folding page's text seen through the back of the fold: a second copy, faint, in the mirrored flap. */
+  back: HTMLElement
 }
 
 let stage: Stage | null = null
 
-/** What the copy was made from: made again when the text or the read view's size changes. */
-function copyKey(scroller: HTMLElement) {
-  const body = scroller.firstElementChild as HTMLElement | null
-  return [
-    scroller.clientWidth,
-    scroller.clientHeight,
-    scroller.scrollWidth,
-    body?.childElementCount ?? 0,
-    body?.getAttribute("style") ?? "",
-    (body?.textContent ?? "").length,
-  ].join("|")
+/** The read view's box of a rect, in the scroller's content (as `scrollLeft` counts it). */
+function across(scroller: HTMLElement, box: DOMRect, rect: DOMRect) {
+  return rect.left - box.left - scroller.clientLeft + scroller.scrollLeft
+}
+
+/**
+ * The first index for which `test` holds, the blocks being in reading order (so it holds for every
+ * later one too). A block with no box (hidden) takes the answer of the next one that has one.
+ */
+function firstWhere(count: number, test: (index: number) => boolean | null) {
+  let low = 0
+  let high = count
+  while (low < high) {
+    const middle = (low + high) >> 1
+    let probe = middle
+    let result: boolean | null = null
+    while (probe < high && (result = test(probe)) === null) {
+      probe++
+    }
+    if (result === null || result) {
+      high = middle
+    } else {
+      low = probe + 1
+    }
+  }
+  return low
+}
+
+/**
+ * A copy of the page at `left` (a scroll position of the read view), and where it is scrolled to show it: the read
+ * body's blocks with a part on that page, laid out as in the read view. The first block's first part starts where it
+ * does there: on the same column of its page (empty columns ahead of it) and as far down (a spacer above it), so the
+ * blocks break between columns and pages at the same places.
+ */
+export function pageCopy(scroller: HTMLElement, left: number) {
+  const body = scroller.querySelector<HTMLElement>(".read-body")!
+  const copy = scroller.cloneNode(false) as HTMLElement
+  copy.className = `${scroller.className} read-curl-copy`
+  copy.removeAttribute("tabindex")
+  copy.removeAttribute("aria-label")
+  copy.removeAttribute("id")
+  const page = body.cloneNode(false) as HTMLElement
+  copy.append(page)
+  const w = Math.max(1, scroller.clientWidth)
+  const step = readPageStep(w)
+  const box = scroller.getBoundingClientRect()
+  const blocks = Array.from(body.children) as HTMLElement[]
+  const parts = (index: number) => {
+    const rects = blocks[index]!.getClientRects()
+    return rects.length ? { first: rects[0]!, last: rects[rects.length - 1]! } : null
+  }
+  const ends = (index: number) => {
+    const found = parts(index)
+    return found ? across(scroller, box, found.last) + found.last.width > left + 1 : null
+  }
+  const starts = (index: number) => {
+    const found = parts(index)
+    return found ? across(scroller, box, found.first) >= left + w : null
+  }
+  const first = firstWhere(blocks.length, ends)
+  const after = firstWhere(blocks.length, starts)
+  const lead = first < blocks.length ? parts(first) : null
+  let scroll = 0
+  if (lead) {
+    const style = getComputedStyle(body)
+    const padLeft = parseFloat(style.paddingLeft) || 0
+    const padTop = parseFloat(style.paddingTop) || 0
+    const content = body.clientWidth - padLeft - (parseFloat(style.paddingRight) || 0)
+    const gap = parseFloat(style.columnGap) || 0
+    const width = parseFloat(style.columnWidth)
+    // The browser's own count of columns on a screen for a column width: as many as fit, widened to fill it.
+    const columns = width > 0 ? Math.max(1, Math.floor((content + gap) / (width + gap))) : 1
+    const pitch = (content + gap) / columns
+    const x = across(scroller, box, lead.first)
+    const startPage = Math.max(0, Math.floor((x + 1) / step))
+    const column = Math.max(0, Math.min(columns - 1, Math.round((x - startPage * step - padLeft) / pitch)))
+    for (let index = 0; index < column; index++) {
+      const empty = document.createElement("div")
+      empty.style.breakAfter = "column"
+      page.append(empty)
+    }
+    const down = lead.first.top - body.getBoundingClientRect().top - body.clientTop - padTop
+    if (down > 0.5) {
+      const spacer = document.createElement("div")
+      spacer.style.height = px(down)
+      page.append(spacer)
+    }
+    // One block more than the page shows, so the page's last line breaks as it does in the read view.
+    for (let index = first; index < Math.min(blocks.length, after + 1); index++) {
+      const clone = blocks[index]!.cloneNode(true) as HTMLElement
+      clone.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"))
+      clone.removeAttribute("id")
+      if (index === first) {
+        clone.style.setProperty("margin-top", "0px", "important")
+      }
+      page.append(clone)
+    }
+    scroll = Math.max(0, Math.round(left / step) - startPage) * step
+  }
+  // As in the read view, the last page is a whole screen, so the copy can be scrolled to it.
+  const end = scroller.querySelector(".read-end")?.cloneNode(false) as HTMLElement | undefined
+  if (end) {
+    end.style.left = px(scroll + w - 1)
+    copy.append(end)
+  }
+  return { copy, scroll }
 }
 
 const setStyle = (element: HTMLElement, name: string, value: string) => {
@@ -113,20 +210,17 @@ function stageFor(scroller: HTMLElement) {
     shade.className = "read-curl-shade"
     root.append(dim, shade, cut)
     view.append(root)
-    stage = { root, dim, cut, shade, page, copy: document.createElement("div"), flap, key: "" }
+    stage = {
+      root,
+      dim,
+      cut,
+      shade,
+      page,
+      copy: document.createElement("div"),
+      flap,
+      back: document.createElement("div"),
+    }
     rest(stage, Math.max(1, scroller.clientWidth), Math.max(1, scroller.clientHeight))
-  }
-  const key = copyKey(scroller)
-  if (key !== stage.key) {
-    const copy = scroller.cloneNode(true) as HTMLElement
-    copy.className = `${scroller.className} read-curl-copy`
-    copy.removeAttribute("tabindex")
-    copy.removeAttribute("aria-label")
-    copy.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"))
-    stage.copy.remove()
-    stage.page.prepend(copy)
-    stage.copy = copy
-    stage.key = key
   }
   const box = scroller.getBoundingClientRect()
   const frame = view.getBoundingClientRect()
@@ -134,12 +228,39 @@ function stageFor(scroller: HTMLElement) {
   setStyle(stage.root, "top", px(box.top - frame.top - view.clientTop))
   setStyle(stage.root, "width", px(box.width))
   setStyle(stage.root, "height", px(box.height))
-  for (const element of [stage.page, stage.copy, stage.flap]) {
+  for (const element of [stage.page, stage.flap]) {
     setStyle(element, "width", px(box.width))
     setStyle(element, "height", px(box.height))
   }
   setStyle(stage.flap, "background-color", getComputedStyle(scroller).backgroundColor)
   return stage
+}
+
+/**
+ * Puts the copy of the page at `left` on the stage, and the same page faintly on the back of the fold: drawn inside
+ * the flap, which is mirrored across the fold, it lies reversed where the page's own text would show if the paper
+ * were held to the light.
+ */
+function showPage(parts: Stage, scroller: HTMLElement, left: number) {
+  const { copy, scroll } = pageCopy(scroller, left)
+  const back = copy.cloneNode(true) as HTMLElement
+  back.classList.add("read-curl-back")
+  for (const element of [copy, back]) {
+    element.style.width = px(scroller.clientWidth)
+    element.style.height = px(scroller.clientHeight)
+  }
+  parts.copy.replaceWith(copy)
+  parts.back.replaceWith(back)
+  if (!copy.isConnected) {
+    parts.page.prepend(copy)
+  }
+  if (!back.isConnected) {
+    parts.flap.append(back)
+  }
+  parts.copy = copy
+  parts.back = back
+  copy.scrollLeft = scroll
+  back.scrollLeft = scroll
 }
 
 /**
@@ -176,10 +297,7 @@ function rest(parts: Stage, w: number, h: number) {
   place(parts, w, h, { x: w, y: h }, { x: -w, y: h })
 }
 
-/**
- * Makes the copy of the read view ahead of the first turn, while the page is idle, so a long book's first turn does
- * not wait for it to be laid out.
- */
+/** Makes the stage ahead of the first turn, while the page is idle. */
 export function prepareCurl(scroller: HTMLElement) {
   if (canCurl() && scroller.isConnected && scroller.clientWidth > 0) {
     rest(stageFor(scroller), scroller.clientWidth, scroller.clientHeight)
@@ -205,7 +323,7 @@ export function startCurl(
   const corner = { x: w, y: gripY !== undefined && gripY < h / 2 ? 0 : h }
   const over = { x: -w, y: corner.y }
   // The copy shows the page that folds: forward the one being read, back the one before, coming down over it.
-  parts.copy.scrollLeft = direction === "forward" ? from : left
+  showPage(parts, scroller, direction === "forward" ? from : left)
   scroller.scrollLeft = direction === "forward" ? left : from
   let point: Point = direction === "forward" ? corner : over
   let outcome: boolean | null = null

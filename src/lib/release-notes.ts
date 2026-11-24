@@ -9,6 +9,24 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "1.0.7",
+    date: "2026-11-24",
+    notes: [
+      {
+        title: "Smoother page turns in long books",
+        text: "Read Mode turns the pages of a long book without the stutter during and after each turn. The cursor's place in the hidden editor and the copy of the whole book made for the turning page both slowed every frame; now only the turning page is copied.",
+      },
+      {
+        title: "Text shows through the turning page",
+        text: "As on an e-reader, the back of a page being turned shows its own text faintly, reversed, as if held to the light.",
+      },
+      {
+        title: "Readable dark Read Mode",
+        text: "In dark mode, Read Mode's text was near-black on a dark page. It now uses the page colour's light text (and the sepia page its brown text).",
+      },
+    ],
+  },
+  {
     version: "1.0.6",
     date: "2026-11-24",
     notes: [

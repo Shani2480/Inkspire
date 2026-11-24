@@ -7,6 +7,31 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-24
 
+### Read Mode page turn: smooth in long books, text through the fold, dark text fixed (v1.0.7)
+
+- **How it was measured:** headless Chrome as a phone (412 px, touch), CPU slowed 4x, a 740-page book (3,000 Urdu
+  and English paragraphs, lists, tables), arrow-key turns, Long Animation Frame records and traces.
+- **B19, the slow frame after a turn (and slow frames during it):** the editor's DOM selection stayed in the hidden
+  97,500-element editor while reading; with it there, every frame that changed anything did ~200 ms (4x) of selection
+  work on the hidden document. Read Mode now clears a DOM selection inside the editor when it opens and whenever one
+  lands there (the editor keeps its own selection) (`read-mode.tsx`).
+- **The turning page:** the copy of the whole book on the stage was walked through at every frame of a turn (PrePaint,
+  ~100 ms a frame at 4x), and scrolling it repainted it. The copy is now only the turning page (`pageCopy` in
+  `read-curl.ts`): the read body's blocks on that page, the first one placed on the same column and as far down as in
+  the read view (empty columns and a spacer ahead of it), so lines break at the same places. It scrolls on the
+  graphics card (no scrollbar instead of a hidden overflow). Checked: the copy over the real page is pixel-identical
+  at 12 pages from the first to the last, on a phone (one column) and a desktop (two columns), light and dark.
+- **B16, text through the back of the fold:** a second copy of the page, at 14%, in the mirrored flap, so the page's
+  own text shows reversed on its back.
+- **Result (4x slower CPU):** a turn had 5 to 9 long frames (about 1 s in all); now one of about 135 ms at its start
+  (building the page copy; ~25 ms at full speed) and none after it. At full speed most turns have no long frame.
+- **Feature hints' check every half second** looked through the whole page once per hint and with a slow selector
+  (~27 ms each time in the long book); now one look for every named control, the busy check only when a hint is due,
+  the phone panes found by class, and nothing at all once every hint is dismissed (~7 ms) (`feature-hint.tsx`).
+- **Found on the way:** in dark mode Read Mode's text was the editor's near-black (#1c1c1c) on the dark page: the read
+  body took `.page-editor`'s colour. It now takes the page colour's text (`index.css`).
+- Typecheck and 1745 tests pass. Still to check on the Pixel with the Urdu novel (`verify-list.md`).
+
 ### Spreadsheet size kept, Font and Paragraph on a phone (v1.0.6)
 
 - **What was wrong (sheet):** an Excel Spreadsheet reopened with only the rows and columns that held text; empty

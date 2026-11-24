@@ -6584,11 +6584,24 @@ html[data-theme="dark"] .drawing-canvas::after {
   will-change: transform;
 }
 
+/* Scrollable but without a scrollbar (no pointer reaches it): the browser then moves it to a page on the graphics card,
+   where a hidden overflow drew the whole page again at each turn. */
 .read-curl-copy {
   position: absolute;
   left: 0;
   top: 0;
-  overflow: hidden;
+  overflow: auto;
+  scrollbar-width: none;
+}
+
+.read-curl-copy::-webkit-scrollbar {
+  display: none;
+}
+
+/* The page's text faintly through the back of the fold, on the flap's paper. */
+.read-curl-back {
+  background: transparent;
+  opacity: 0.14;
 }
 
 .read-curl-flap {
@@ -6630,6 +6643,8 @@ html[data-theme="dark"] .drawing-canvas::after {
   height: 100%;
   padding: 28px 0 20px;
   column-fill: auto;
+  /* The page colour's text (light on a dark page), not the editor's near-black; coloured text keeps its colour. */
+  color: var(--read-text);
   font-size: 16px;
   line-height: 1.6;
   user-select: text;

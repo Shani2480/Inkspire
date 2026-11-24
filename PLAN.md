@@ -27,6 +27,8 @@ This file is the overview; update it in the same commit as the work.
   print, share, open-with, system fonts, Read Mode page curl, launcher icon.
 - ✅ 1.0.6: an Excel Spreadsheet reopens at the size it was saved (empty rows and columns kept); Font and Paragraph
   laid out for a phone at full size (A7).
+- ✅ 1.0.7: Read Mode's page turn smooth in long books (B19), the page's text through the back of the fold (B16),
+  readable dark Read Mode.
 
 ## In progress
 
@@ -39,7 +41,7 @@ This file is the overview; update it in the same commit as the work.
 
 ## Next
 
-- ⬜ Android B16, B19: text faintly on the back of Read Mode's page curl; the slow frame after a page turn.
+- ⬜ The 1.0 criteria left open (In progress above): more real-world documents compared with Word, the Windows check.
 
 ## Later
 

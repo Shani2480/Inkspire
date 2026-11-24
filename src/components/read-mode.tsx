@@ -269,6 +269,26 @@ export function ReadView({ onHeadings }: { onHeadings: (headings: string[], go: 
       body.replaceChildren(DOMSerializer.fromSchema(editor.schema).serializeFragment(doc.content, { document }))
     }
   }, [editor, doc])
+
+  // No selection is left in the hidden editor while reading: with one there, every frame that changed anything (each
+  // page turn) had the browser work through the whole hidden document, a quarter second a frame in a long book on a
+  // phone. The editor keeps its own selection and puts it back when editing goes on.
+  useEffect(() => {
+    const dom = editor?.view?.dom
+    if (!dom) {
+      return
+    }
+    const clear = () => {
+      const selection = document.getSelection()
+      if (selection?.anchorNode && dom.contains(selection.anchorNode)) {
+        selection.removeAllRanges()
+      }
+    }
+    clear()
+    document.addEventListener("selectionchange", clear)
+    return () => document.removeEventListener("selectionchange", clear)
+  }, [editor])
+
   const html = doc
   const scrollerRef = useRef<HTMLDivElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
