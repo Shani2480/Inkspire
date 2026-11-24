@@ -1,4 +1,5 @@
 import { useViewStore } from "@/document/view"
+import { isPictureNode } from "@/editor/picture-node"
 import type { Node as ProseNode } from "@tiptap/pm/model"
 import { NodeSelection } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
@@ -205,7 +206,7 @@ export function previewCrop(view: EditorView, pos: number, attrs: Attrs) {
 
 function writeAttrs(view: EditorView, pos: number, attrs: Attrs, history: boolean) {
   const node = view.state.doc.nodeAt(pos)
-  if (!node || node.type.name !== "image") {
+  if (!node || !isPictureNode(node)) {
     return
   }
   const tr = view.state.tr.setNodeMarkup(pos, undefined, attrs)
@@ -229,7 +230,7 @@ export function applyCrop() {
   pending = null
   if (session) {
     const node = session.view.state.doc.nodeAt(session.pos)
-    const final = node?.type.name === "image" ? { ...node.attrs } : null
+    const final = isPictureNode(node) ? { ...node.attrs } : null
     if (final) {
       writeAttrs(session.view, session.pos, session.original, false)
       writeAttrs(session.view, session.pos, final, true)
@@ -258,7 +259,7 @@ export function cropPicture(
   change: (width: number, height: number, crop: Crop) => Cropped,
 ) {
   const node = view.state.doc.nodeAt(pos)
-  if (node?.type.name !== "image") {
+  if (!isPictureNode(node)) {
     return false
   }
   const dom = view.nodeDOM(pos)
@@ -282,7 +283,7 @@ export function resetPendingCrop() {
     return
   }
   const node = pending.view.state.doc.nodeAt(pending.pos)
-  if (node?.type.name === "image") {
+  if (isPictureNode(node)) {
     const whole = wholeSize(Number(node.attrs.width) || 0, Number(node.attrs.height) || 0, cropOf(node.attrs))
     writeAttrs(
       pending.view,
@@ -363,7 +364,7 @@ export function bindPictureCrop(
     event.stopPropagation()
     const pos = getPos()
     const original = pos == null ? null : view.state.doc.nodeAt(pos)
-    if (pos == null || !original || original.type.name !== "image") {
+    if (pos == null || !original || !isPictureNode(original)) {
       return
     }
     beginCrop(view, pos, original.attrs)
@@ -449,7 +450,7 @@ export function bindPictureCrop(
   const pan = (event: PointerEvent) => {
     const pos = getPos()
     const original = pos == null ? null : view.state.doc.nodeAt(pos)
-    if (pos == null || !original || original.type.name !== "image") {
+    if (pos == null || !original || !isPictureNode(original)) {
       return
     }
     event.preventDefault()

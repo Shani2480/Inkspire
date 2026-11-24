@@ -95,7 +95,7 @@ function ribbonContext(
     if (name === "drawingCanvas") {
       return "draw"
     }
-    if (name === "image") {
+    if (name === "image" || name === "linePicture") {
       return "picture"
     }
     if (name === "smartArt") {

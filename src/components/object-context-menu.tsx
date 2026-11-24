@@ -1,4 +1,5 @@
 import { openTableProperties } from "@/components/table-properties-dialog"
+import { useFormatPicturePane } from "@/components/format-picture-pane"
 import { openBordersAndShading } from "@/components/borders-shading-dialog"
 import { useCropMode } from "@/editor/picture-crop"
 import { openCaptionDialog } from "@/components/caption-dialogs"
@@ -245,6 +246,11 @@ function itemsFor(
         {shared}
         {leaf("Edit Alt Text...", () => openDialog("alt"))}
         {leaf("Change Picture...", () => changePicture(editor, target))}
+        {leaf("Format Picture...", () => {
+          selectTarget(editor, target)
+          close()
+          useFormatPicturePane.getState().show("picture")
+        })}
         {leaf("Crop", () => run(() => useCropMode.getState().set(true)))}
         {leaf("Size and Position...", () => {
           selectTarget(editor, target)
@@ -1043,7 +1049,8 @@ function targetAtPoint(editor: Editor, event: MouseEvent): Target | null {
     const at = editor.view.posAtDOM(element, 0)
     const direct = editor.state.doc.nodeAt(at)
     const before = at > 0 ? editor.state.doc.nodeAt(at - 1) : null
-    const pos = direct?.type.name === "image" ? at : before?.type.name === "image" ? at - 1 : null
+    const picture = (node: typeof direct) => node?.type.name === "image" || node?.type.name === "linePicture"
+    const pos = picture(direct) ? at : picture(before) ? at - 1 : null
     if (pos != null) {
       editor.commands.setNodeSelection(pos)
       return { name: "image", pos, click: pos }

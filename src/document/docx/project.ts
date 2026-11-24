@@ -1232,10 +1232,10 @@ function paragraphInnerHtml(paragraph: Paragraph, ctx: Projection) {
 const LINE_PICTURE = "img:not([data-wrap])"
 
 /**
- * A paragraph holding an in-line picture among its text, cut into the text before the picture, the picture, and the
- * text after it, as the editor's pictures are blocks (the browser's parser would otherwise cut it, the part after
- * losing the paragraph). Every piece keeps the paragraph's attributes; `data-docx-part` says which it is, so the
- * pieces are drawn without the paragraph's spacing between them and saving joins them back into one paragraph.
+ * A paragraph holding an in-line picture among its text keeps it in its line, as Word sets it: the picture is marked
+ * `data-line-picture`, which the editor holds as a character of the line (`linePicture`). A paragraph of pictures
+ * alone (with nothing but spaces, bookmarks or empty runs around them) is cut into its pictures, which the editor draws as blocks of their
+ * own; `data-docx-part` marks any text piece, so saving joins the pieces back into one paragraph.
  */
 export function aroundPictures(html: string) {
   if (!/<img (?![^>]*data-wrap=)/.test(html) || typeof document === "undefined") {
@@ -1246,6 +1246,13 @@ export function aroundPictures(html: string) {
   const paragraph = holder.content.firstElementChild
   if (!paragraph || !paragraph.querySelector(LINE_PICTURE)) {
     return html
+  }
+  const words = paragraph.cloneNode(true) as Element
+  words.querySelectorAll(LINE_PICTURE).forEach((picture) => picture.remove())
+  // Words beside the picture (a field's or a note's text counts); a bookmark or a space does not.
+  if ((words.textContent ?? "").trim() !== "") {
+    paragraph.querySelectorAll(LINE_PICTURE).forEach((picture) => picture.setAttribute("data-line-picture", ""))
+    return paragraph.outerHTML
   }
   const pieces: { text?: Element; picture?: string }[] = []
   let rest: Element = paragraph

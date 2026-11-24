@@ -69,7 +69,9 @@ const PHONE_PANES = [
 /** A dialog or menu is open: a hint waits until it closes. Looked at only when a hint is due: it goes through the page. */
 function busy() {
   const shown = (element: Element) => element.getClientRects().length > 0
-  const open = document.querySelectorAll('[role="dialog"]:not(.feature-hint), [role="menu"], [role="listbox"], .backstage')
+  const open = document.querySelectorAll(
+    '[role="dialog"]:not(.feature-hint), [role="menu"], [role="listbox"], .backstage',
+  )
   if ([...open].some(shown)) {
     return true
   }

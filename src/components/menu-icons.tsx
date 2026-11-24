@@ -15,7 +15,12 @@ export function menuGlyph(label: string) {
   if (label.startsWith("Search")) {
     return <SearchGlyph />
   }
-  if (label === "Format Shape..." || label === "Edit Data..." || label.startsWith("Change ")) {
+  if (
+    label === "Format Shape..." ||
+    label === "Format Picture..." ||
+    label === "Edit Data..." ||
+    label.startsWith("Change ")
+  ) {
     return <ShapeGlyph />
   }
   return GLYPHS[label] ?? null

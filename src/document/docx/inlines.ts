@@ -1849,8 +1849,9 @@ export function inlinesFromEditor(nodes: JsonNode[], build: InlineBuild): Inline
       pieces.push({ inline: contentRun(content, marks, build), ...annotations })
       continue
     }
-    if (node.type === "image") {
-      const run = imageRun(node, build)
+    if (node.type === "image" || node.type === "linePicture") {
+      // A picture among the line's text is Word's in-line drawing, as a picture alone on its line is.
+      const run = imageRun(node.type === "image" ? node : { ...node, type: "image" }, build)
       if (run) {
         pieces.push({ inline: run, ...annotations })
       }

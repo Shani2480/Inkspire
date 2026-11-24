@@ -176,8 +176,8 @@ export function WordDialog({
           narrow
             ? { left: place.x, top: place.y, width, maxHeight: window.innerHeight - 16 }
             : scale < 1
-            ? { left: place.x / scale, top: place.y / scale, width, height, zoom: scale }
-            : { left: place.x, top: place.y, width, height }
+              ? { left: place.x / scale, top: place.y / scale, width, height, zoom: scale }
+              : { left: place.x, top: place.y, width, height }
         }
         onBlur={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {

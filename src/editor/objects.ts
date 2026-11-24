@@ -20,6 +20,7 @@ import { PAGE_GAP } from "@/editor/pages"
 import { BORDER_DASHES, pictureFilter, pictureFormatAttributes } from "@/editor/picture-format"
 import { Node, mergeAttributes, type Editor } from "@tiptap/core"
 import Image from "@tiptap/extension-image"
+export { isPictureNode } from "@/editor/picture-node"
 import type { Node as ProseNode } from "@tiptap/pm/model"
 import {
   alignTextBox,
@@ -102,7 +103,8 @@ export function wrapGaps(node: ProseNode) {
   }
 }
 
-const OBJECT_NODES = new Set(["image", "textBox", "figure", "threeDModel", "drawingCanvas", "smartArt"])
+// A picture among a line's text (`linePicture`) is an object too: selected, formatted and resized as a picture.
+const OBJECT_NODES = new Set(["image", "linePicture", "textBox", "figure", "threeDModel", "drawingCanvas", "smartArt"])
 export type ObjectAnchor =
   | "top-left"
   | "top-center"
@@ -275,9 +277,11 @@ export function selectedObject(editor: Editor | null) {
   if (!found) {
     return null
   }
+  // A picture among a line's text is formatted as any picture: the Picture Format tab and pane take it as one.
+  const name = found.node.type.name === "linePicture" ? "image" : found.node.type.name
   return {
     pos: found.pos,
-    name: found.node.type.name as "image" | "textBox" | "figure" | "threeDModel" | "drawingCanvas" | "smartArt",
+    name: name as "image" | "textBox" | "figure" | "threeDModel" | "drawingCanvas" | "smartArt",
     attrs: found.node.attrs,
   }
 }
@@ -765,6 +769,9 @@ function setWrapCommand(wrap: ObjectWrap) {
     if (node.type.name === "textBox" && wrap === "inline") {
       return false
     }
+    if (node.type.name === "linePicture") {
+      return lineToPlaced(editor, state, tr, pos, node, wrap)
+    }
     const attrs: Record<string, unknown> = { ...node.attrs, wrap }
     if (!isFloating(node) && wrap !== "inline") {
       // An object sized by the page (a full-width SmartArt, say) keeps the size it shows once it floats.
@@ -794,6 +801,52 @@ function setWrapCommand(wrap: ObjectWrap) {
     tr.setSelection(NodeSelection.create(tr.doc, pos))
     return true
   }
+}
+
+/**
+ * A picture among a line's words given a wrap: it leaves the line for the page, a picture of its own placed where it
+ * showed and moving with its paragraph, as Word does. It goes in just before its paragraph, as a placed picture
+ * read from Word stands, or after it where the paragraph must open its list item.
+ */
+function lineToPlaced(
+  editor: Editor,
+  state: EditorState,
+  tr: Transaction,
+  pos: number,
+  node: ProseNode,
+  wrap: ObjectWrap,
+) {
+  if (wrap === "inline") {
+    return false
+  }
+  const attrs: Record<string, unknown> = { ...node.attrs, wrap, z: highestZ(state.doc) + 1 }
+  const dom = editor.view.nodeDOM(pos)
+  if (dom instanceof HTMLElement) {
+    attrs.width = Number(node.attrs.width) || dom.offsetWidth
+    attrs.height = Number(node.attrs.height) || dom.offsetHeight
+  }
+  const placed = placementOf(editor.view, pos)
+  if (placed) {
+    Object.assign(attrs, {
+      page: placed.page,
+      x: placed.x,
+      y: placed.y,
+      anchoring: "move",
+      dy: 0,
+      relative: "paragraph",
+    })
+  }
+  const $pos = state.doc.resolve(pos)
+  const picture = state.schema.nodes.image.create(attrs)
+  // Just before its paragraph, which it is then anchored to; after it where the paragraph must come first.
+  const container = $pos.node($pos.depth - 1)
+  const index = $pos.index($pos.depth - 1)
+  const before = container.canReplaceWith(index, index, picture.type)
+  const at = before ? $pos.before($pos.depth) : $pos.after($pos.depth)
+  tr.delete(pos, pos + node.nodeSize)
+  tr.insert(before ? at : at - node.nodeSize, picture)
+  tr.setSelection(NodeSelection.create(tr.doc, before ? at : at - node.nodeSize))
+  return true
 }
 
 /** Move with Text keeps the object's offset below the paragraph under it; Fix Position keeps its page place. */
@@ -1133,7 +1186,7 @@ function pageForPosition(pos: number, breaks: number[]) {
   return page
 }
 
-function paintImage(dom: HTMLElement, node: ProseNode) {
+export function paintImage(dom: HTMLElement, node: ProseNode) {
   const floating = objectWrap(node.attrs.wrap) !== "inline"
   let image = dom.querySelector<HTMLImageElement>("img:not(.image-crop-ghost)")
   if (!image) {
@@ -1883,9 +1936,9 @@ export function inlineMaxWidth(node: ProseNode) {
   return metrics.width - metrics.marginLeft - metrics.marginRight
 }
 
-function bindResize(dom: HTMLElement, view: EditorView, getPos: () => number | undefined) {
+export function bindResize(dom: HTMLElement, view: EditorView, getPos: () => number | undefined, types = ["image"]) {
   return bindObjectResize(dom, view, getPos, {
-    types: ["image"],
+    types,
     start: (node) => {
       const image = dom.querySelector<HTMLImageElement>("img:not(.image-crop-ghost)")
       const zoom = useViewStore.getState().zoom || 1

@@ -392,6 +392,11 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **1.1.0 in the desktop app (2026-11-24)** — WebKitGTK: a document with pictures among its words shows them in
+      their lines; click one, drag a corner and crop it; Insert > Pictures with the caret mid-sentence puts the
+      picture there; Format Picture's sliders drag smoothly; the mini toolbar's Styles and New Comment boxes take
+      typing. Checked in Chrome on 2026-11-24 (light, dark and a phone); the desktop app is still to do.
+
 - [x] **Core work in the Linux desktop app (2026-11-20)** — the Tauri release build on a private Xvfb (window made
       opaque for the check; with the shipped transparent window WebKitGTK paints nothing there): open a .docx through
       the system file dialog, type, Ctrl+S (0 validator errors), reopen from Recent.
@@ -866,6 +871,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - [ ] **1.0.6 on the Pixel (2026-11-24):** the Font and Paragraph dialogs open at
       the phone's width without shrinking; every tab fits; the font list highlights one row and a finger hits a row.
       On the Pad too: the Font dialog's lists highlight a single row.
+- [ ] **1.1.0 on the Pixel (2026-11-24):** a document with pictures among its words shows them in their lines;
+      long-press one: Format Picture opens the pane as a sheet, its sliders follow a finger and the sheet stays; the
+      mini toolbar (behind its chip) opens Styles, Line Spacing and New Comment on screen.
 - [ ] **1.0.7 on the Pixel (2026-11-24):** the Urdu novel in Read Mode: turns by swipe, tap and finger-drag are smooth
       with no hitch after each turn; the turning page matches the page under it when the turn starts (no jump); its
       back shows the text faintly and reversed; in dark mode the text is light.

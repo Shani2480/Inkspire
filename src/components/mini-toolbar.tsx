@@ -10,7 +10,9 @@ import {
   AlignRightIcon,
   BulletsIcon,
   ClearFormatIcon,
+  FormatPainterIcon,
   GrowFontIcon,
+  LineSpacingIcon,
   NumberingIcon,
   ShrinkFontIcon,
 } from "@/components/ribbon/icons"
@@ -22,11 +24,21 @@ import {
   clearFormatting,
   clearList,
   applyNumbering,
+  armFormatPainter,
   currentBulletMarker,
   currentNumberMarker,
 } from "@/editor/home-actions"
 import { chainWithSelection } from "@/editor/selection-memory"
-import { useStyleFont } from "@/components/ribbon/home-menus"
+import {
+  activeStyleId,
+  applyGalleryStyle,
+  LineSpacingMenu,
+  StylesMenu,
+  useStyleFont,
+} from "@/components/ribbon/home-menus"
+import { LineCommentIcon } from "@/components/ribbon/line-icons"
+import { CommentForm } from "@/components/ribbon/review-tab"
+import { useStyleStore } from "@/document/styles"
 import { useActiveMarks } from "@/editor/use-active-marks"
 import type { Editor } from "@tiptap/core"
 import { NodeSelection } from "@tiptap/pm/state"
@@ -37,7 +49,7 @@ import { createPortal } from "react-dom"
 import { Baseline } from "lucide-react"
 import { PopupChip, useTouchPopups } from "@/components/popup-chip"
 
-type MenuName = "font" | "size" | "highlight" | "color"
+type MenuName = "font" | "size" | "highlight" | "color" | "styles" | "spacing" | "comment"
 
 function bodyLabel(bodyFont: string) {
   if (!bodyFont) {
@@ -58,6 +70,10 @@ function MiniToolbarBody({ editor, behindButton }: { editor: Editor; behindButto
   const marks = useActiveMarks(editor)
   const themeBody = bodyLabel(useDocumentStore((state) => state.pageSetup.bodyFont))
   const styleFont = useStyleFont(marks)
+  const styleId = activeStyleId(
+    marks,
+    useStyleStore((state) => state.styles),
+  )
   const [point, setPoint] = useState<{ x: number; y: number } | null>(null)
   const [place, setPlace] = useState<{ x: number; y: number } | null>(null)
   const [menu, setMenu] = useState<MenuName | null>(null)
@@ -337,6 +353,48 @@ function MiniToolbarBody({ editor, behindButton }: { editor: Editor; behindButto
             <ClearFormatIcon />
           </button>
         </RibbonHover>
+        <RibbonHover label="Format Painter" description="Copy this formatting to other text: click, then select it.">
+          <button
+            type="button"
+            className="mini-tool"
+            aria-label="Format Painter"
+            onClick={() => {
+              armFormatPainter(editor, false)
+              setPoint(null)
+              setPlace(null)
+            }}
+          >
+            <FormatPainterIcon />
+          </button>
+        </RibbonHover>
+        <div className="mini-pop">
+          <RibbonHover label="Styles">
+            <button
+              type="button"
+              className="mini-combo is-styles"
+              aria-label="Styles"
+              aria-expanded={menu === "styles"}
+              onClick={() => toggleMenu("styles")}
+            >
+              <span className="mini-styles-glyph" aria-hidden>
+                A<span>a</span>
+              </span>
+              <span>Styles</span>
+              <Caret />
+            </button>
+          </RibbonHover>
+          {menu === "styles" ? (
+            <div className="mini-menu is-wide is-end" role="menu">
+              <StylesMenu
+                editor={editor}
+                activeId={styleId}
+                onApply={(style) => applyGalleryStyle(editor, style)}
+                close={() => setMenu(null)}
+                listClassName="max-h-[min(260px,calc(100vh-220px))]"
+              />
+            </div>
+          ) : null}
+        </div>
       </div>
       <div className="mini-toolbar-row">
         <RibbonHover label="Bold">
@@ -435,6 +493,49 @@ function MiniToolbarBody({ editor, behindButton }: { editor: Editor; behindButto
             <Icon />
           </MiniTool>
         ))}
+        <div className="mini-pop">
+          <RibbonHover label="Line and Paragraph Spacing">
+            <button
+              type="button"
+              className="mini-tool"
+              aria-label="Line and Paragraph Spacing"
+              aria-expanded={menu === "spacing"}
+              onClick={() => toggleMenu("spacing")}
+            >
+              <LineSpacingIcon />
+            </button>
+          </RibbonHover>
+          {menu === "spacing" ? (
+            <div className="mini-menu is-wide is-end" role="menu">
+              <LineSpacingMenu editor={editor} marks={marks} close={() => setMenu(null)} />
+            </div>
+          ) : null}
+        </div>
+        <span className="mini-sep" aria-hidden />
+        <div className="mini-pop">
+          <RibbonHover label="New Comment">
+            <button
+              type="button"
+              className="mini-tool"
+              aria-label="New Comment"
+              aria-expanded={menu === "comment"}
+              onClick={() => toggleMenu("comment")}
+            >
+              <LineCommentIcon />
+            </button>
+          </RibbonHover>
+          {menu === "comment" ? (
+            <div className="mini-menu is-wide is-end">
+              <CommentForm
+                close={() => {
+                  setMenu(null)
+                  setPoint(null)
+                  setPlace(null)
+                }}
+              />
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>,
     document.body,

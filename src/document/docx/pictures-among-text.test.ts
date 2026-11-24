@@ -54,15 +54,20 @@ function shape(word: Awaited<ReturnType<typeof openAndSave>>["word"]) {
 }
 
 describe("in-line pictures among a paragraph's text", () => {
-  it("cuts the paragraph around each picture, every piece keeping the paragraph", () => {
+  it("keeps a picture among words in its line, and cuts a paragraph of pictures alone into blocks", () => {
     const html = aroundPictures(
       '<p data-docx="k1" style="margin-top: 6pt"><span>One </span><span><img src="a.png"></span><span> two</span></p>',
     )
     expect(html).toBe(
-      '<p data-docx="k1" style="margin-top: 6pt" data-docx-part="before"><span>One </span><span></span></p>' +
-        '<img src="a.png">' +
-        '<p data-docx="k1" style="margin-top: 6pt" data-docx-part="next"><span></span><span> two</span></p>',
+      '<p data-docx="k1" style="margin-top: 6pt"><span>One </span><span><img src="a.png" data-line-picture=""></span>' +
+        "<span> two</span></p>",
     )
+    // Only a space and a bookmark beside it: the picture stands alone, a block of its own as before.
+    const alone = aroundPictures(
+      '<p data-docx="k3"><span> </span><span data-type="bookmark"></span><img src="c.png"></p>',
+    )
+    expect(alone).toContain('<img src="c.png">')
+    expect(alone).not.toContain("data-line-picture")
     // A picture placed on the page is drawn apart already; a paragraph without pictures is left alone.
     const floating = '<p data-docx="k2">Text<img data-wrap="square" src="b.png"></p>'
     expect(aroundPictures(floating)).toBe(floating)
@@ -70,7 +75,9 @@ describe("in-line pictures among a paragraph's text", () => {
 
   it("saves each paragraph whole, with its spaces, numbering and spacing", async () => {
     const { html, word } = await openAndSave()
-    expect(html).toContain('data-docx-part="between"')
+    // Every picture among words is in its line; no paragraph is cut.
+    expect(html).toContain("data-line-picture")
+    expect(html).not.toContain("data-docx-part")
     expect(shape(word)).toEqual([
       "R0 start",
       "[P] R1 picture first then text",

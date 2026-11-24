@@ -3,6 +3,7 @@ import { WordField } from "@/editor/word-field"
 import FontFamily from "@tiptap/extension-font-family"
 import Highlight from "@tiptap/extension-highlight"
 import { PositionedImage, TextBox } from "@/editor/objects"
+import { LinePicture } from "@/editor/line-picture"
 import { FramedTable, ShadedTableCell, ShadedTableHeader, SizedTableRow, StyledTableView } from "@/editor/table-tools"
 import TextAlign from "@tiptap/extension-text-align"
 import { FontSize, TextStyle } from "@tiptap/extension-text-style"
@@ -143,6 +144,7 @@ export function createExtensions() {
       allowBase64: true,
       inline: false,
     }),
+    LinePicture.configure({ allowBase64: true }),
     TextBox.configure(),
     TextBoxFlow,
     PageBreak.configure(),

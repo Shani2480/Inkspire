@@ -3901,6 +3901,17 @@ button.line-menu-row:focus-visible {
   outline-offset: 1px;
 }
 
+/* A picture among a line's words: its foot on the text's baseline, as Word sets an in-line picture. */
+.page-image.is-line-picture {
+  vertical-align: baseline;
+  max-width: 100%;
+}
+
+/* It moves with its text: no handle to drag or turn it by (Rotate in the ribbon still turns it). */
+.page-image.is-line-picture :is([data-rotate], [data-object-handle]) {
+  display: none;
+}
+
 .page-image img,
 .image-frame img {
   display: block;
@@ -7615,6 +7626,33 @@ li[data-drop-cap="margin"]::first-letter {
 .mini-menu.is-font {
   width: 220px;
   max-height: 280px;
+}
+
+/* Styles, Line Spacing and New Comment: as wide as their menus, and kept on screen at the toolbar's right end. */
+.mini-menu.is-wide {
+  width: max-content;
+  max-height: none;
+  overflow: visible;
+}
+
+.mini-menu.is-end {
+  right: 0;
+  left: auto;
+}
+
+.mini-combo.is-styles {
+  padding: 0 3px 0 4px;
+}
+
+.mini-styles-glyph {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--icon-accent-color, #2b579a);
+}
+
+.mini-styles-glyph span {
+  font-size: 11px;
 }
 
 .mini-menu.is-colors {
@@ -12844,6 +12882,33 @@ html.dark .asset-library .asset-library-icon {
   width: 28px;
   height: 14px;
   border: 1px solid rgb(0 0 0 / 0.2);
+}
+
+/* Format Picture's sliders: the name, then the slider and its spin box on one row. */
+.format-pane-slider {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px;
+  align-items: center;
+  gap: 2px 8px;
+}
+
+.format-pane-slider > span:first-child {
+  grid-column: 1 / -1;
+}
+
+.format-pane-slider input[type="range"] {
+  width: 100%;
+  min-width: 0;
+  accent-color: var(--app-theme-primary);
+}
+
+.format-pane-slider .format-pane-number {
+  width: 72px;
+}
+
+.format-pane-subhead {
+  margin: 4px 0 0;
+  font-weight: 600;
 }
 
 .format-pane-button {

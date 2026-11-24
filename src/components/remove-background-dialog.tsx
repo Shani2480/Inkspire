@@ -188,7 +188,7 @@ function BackgroundRemoval({ editor }: { editor: Editor }) {
     editor
       .chain()
       .focus()
-      .updateAttributes("image", { src: canvas.toDataURL("image/png"), backgroundOf: source.original })
+      .updateObject({ src: canvas.toDataURL("image/png"), backgroundOf: source.original })
       .run()
     hide()
   }

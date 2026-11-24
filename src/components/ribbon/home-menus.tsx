@@ -655,16 +655,19 @@ export function StylesMenu({
   activeId,
   onApply,
   close,
+  listClassName = "max-h-[calc(100vh-12rem)]",
 }: {
   editor: Editor | null
   activeId: string
   onApply: (style: GalleryStyle) => void
   close: () => void
+  /** The height the list of styles scrolls in; the commands below it stay in view. */
+  listClassName?: string
 }) {
   const styles = useGalleryStyles()
   return (
     <div className="flex w-60 flex-col">
-      <div className="flex max-h-[calc(100vh-12rem)] flex-col overflow-auto">
+      <div className={`flex flex-col overflow-auto ${listClassName}`}>
         {styles.map((style) => (
           <MenuButton
             key={style.id}

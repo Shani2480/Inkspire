@@ -1,4 +1,6 @@
 import { openTableProperties } from "@/components/table-properties-dialog"
+import { isPictureNode } from "@/editor/objects"
+import { useFormatPicturePane } from "@/components/format-picture-pane"
 import { openBordersAndShading } from "@/components/borders-shading-dialog"
 import { ModelLibrary } from "@/components/model-library"
 import { askConfirm, askText } from "@/components/text-prompt"
@@ -898,7 +900,7 @@ export function PictureFormatTab() {
     editor,
     selector: ({ editor: current }) => {
       const selection = current?.state.selection
-      if (!(selection instanceof NodeSelection) || selection.node.type.name !== "image") {
+      if (!(selection instanceof NodeSelection) || !isPictureNode(selection.node)) {
         return null
       }
       return {
@@ -932,7 +934,7 @@ export function PictureFormatTab() {
         editor
           ?.chain()
           .focus()
-          .updateAttributes("image", { height: Math.round(cm * PX_PER_CM_PICTURE) })
+          .updateObject({ height: Math.round(cm * PX_PER_CM_PICTURE) })
           .run()
       }
     />
@@ -946,7 +948,7 @@ export function PictureFormatTab() {
         editor
           ?.chain()
           .focus()
-          .updateAttributes("image", { width: Math.round(cm * PX_PER_CM_PICTURE) })
+          .updateObject({ width: Math.round(cm * PX_PER_CM_PICTURE) })
           .run()
       }
     />
@@ -959,7 +961,7 @@ export function PictureFormatTab() {
       value: imageAlt(editor),
     }).then((alt) => {
       if (alt != null && editor) {
-        editor.chain().focus().updateAttributes("image", { alt }).run()
+        editor.chain().focus().updateObject({ alt }).run()
       }
     })
   }
@@ -971,7 +973,7 @@ export function PictureFormatTab() {
     editor
       ?.chain()
       .focus()
-      .updateAttributes("image", {
+      .updateObject({
         ...PICTURE_RESET,
         rotate: 0,
         // A removed background comes back with the rest.
@@ -1220,7 +1222,11 @@ export function PictureFormatTab() {
           </RibbonCommand>
         </div>
       </RibbonGroup>
-      <RibbonGroup label="Picture Styles">
+      <RibbonGroup
+        label="Picture Styles"
+        launchLabel="Format Picture"
+        onLaunch={() => useFormatPicturePane.getState().show("fill")}
+      >
         {stylesRow}
         <div className="flex flex-col justify-center">
           <RibbonCommand size="small" label="Picture Border" disabled={!ready} menu={borderMenu}>
@@ -1330,7 +1336,7 @@ function changePicture(editor: Editor) {
       editor
         .chain()
         .focus()
-        .updateAttributes("image", { src: String(reader.result || ""), alt: file.name })
+        .updateObject({ src: String(reader.result || ""), alt: file.name })
         .run()
     }
     reader.readAsDataURL(file)

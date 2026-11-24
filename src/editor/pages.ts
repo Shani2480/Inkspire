@@ -901,14 +901,17 @@ function collectLineNumbers(
       return false
     }
     // An in-line picture, chart or 3D model stands on a line of its own, which Word numbers and counts.
-    if (isObjectNode(node) && !isFloating(node)) {
+    if (isObjectNode(node) && node.isBlock && !isFloating(node)) {
       const dom = view.nodeDOM(pos)
       const box = dom instanceof HTMLElement ? dom.getBoundingClientRect() : null
       if (!box || box.height < 1) {
         return false
       }
       if (restartEachPage && pageContentHeight > 0) {
-        const pageIndex = Math.max(0, Math.floor((box.bottom - 1 - editorTop) / Math.max(0.01, zoom) / pageContentHeight))
+        const pageIndex = Math.max(
+          0,
+          Math.floor((box.bottom - 1 - editorTop) / Math.max(0.01, zoom) / pageContentHeight),
+        )
         if (pageIndex !== currentPage) {
           currentPage = pageIndex
           n = start - 1

@@ -400,7 +400,7 @@ function FillAndLine({ attrs, textBox, set }: { attrs: Attrs; textBox: boolean; 
   )
 }
 
-function Effects({ attrs, set }: { attrs: Attrs; set: (attrs: Attrs) => void }) {
+export function Effects({ attrs, set }: { attrs: Attrs; set: (attrs: Attrs) => void }) {
   const [glowColor, glowSize] = String(attrs.glow || "").split(":")
   return (
     <>
@@ -480,7 +480,7 @@ function Effects({ attrs, set }: { attrs: Attrs; set: (attrs: Attrs) => void }) 
 
 const PT_PER_CM = 72 / 2.54
 
-function Layout({
+export function Layout({
   attrs,
   textBox,
   set,

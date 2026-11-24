@@ -30,6 +30,8 @@ This file is the overview; update it in the same commit as the work.
 - ✅ 1.0.7: Read Mode's page turn smooth in long books (B19), the page's text through the back of the fold (B16),
   readable dark Read Mode.
 - ✅ 1.0.8: chart line widths as Word's; line numbers count in-line pictures, charts and 3D models.
+- ✅ 1.1.0: pictures drawn inside their line of text (and inserted there among words); the Format Picture pane; the
+  mini toolbar's Format Painter, Styles, Line Spacing and New Comment.
 
 ## In progress
 
@@ -46,10 +48,9 @@ This file is the overview; update it in the same commit as the work.
 
 ## Later
 
-- ⏸ Pictures drawn inside their line of text (in-line picture nodes; the save already keeps the paragraph whole).
 - ⏸ A paragraph split between unequal columns, as Word does.
 - ⏸ Word UI wave 3 (U30–U38): Draw eraser and lasso, custom watermark, equation modes, mode switch, ruler table
-  markers, mini toolbar extras, Format Picture pane, rare shortcuts.
+  markers, Thesaurus as a pane, Sharpen/Soften, rare shortcuts (mini toolbar extras and Format Picture pane done).
 - ⏸ Android phase 3; iOS not planned yet.
 - ⏸ Waiting for a person with the devices: A9 (Pixel and OnePlus Pad check) and the desktop checks in
   `verify-list.md`.

@@ -1114,7 +1114,8 @@ function settleCurrent(editor: Editor, action: "accept" | "reject") {
   rejectChanges(editor, [change.id])
 }
 
-function CommentForm({ close }: { close: () => void }) {
+/** New Comment's box: the comment's text, added on the selection (the ribbon's and the mini toolbar's). */
+export function CommentForm({ close }: { close: () => void }) {
   const editor = useDocumentEditor()
   const [text, setText] = useState("")
 
@@ -1137,6 +1138,7 @@ function CommentForm({ close }: { close: () => void }) {
       <textarea
         id="new-comment"
         aria-label="Comment"
+        autoFocus
         maxLength={2000}
         value={text}
         rows={3}

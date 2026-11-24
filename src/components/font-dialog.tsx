@@ -741,8 +741,7 @@ function FontPreview({ draft, fonts }: { draft: FontDraft; fonts: FontChoice[] }
 }
 
 /** Height of one row in a dialog list box: Word's 18 px, taller for a finger on a touch screen. */
-const LIST_ROW =
-  typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches ? 28 : 18
+const LIST_ROW = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches ? 28 : 18
 const LIST_ROWS = 6
 
 /**

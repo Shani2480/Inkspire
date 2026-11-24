@@ -1,5 +1,6 @@
 import { openColorDialog } from "@/components/color-dialog"
 import { useObjectPreview } from "@/components/object-preview-hook"
+import { useFormatPicturePane, type PicturePaneSection } from "@/components/format-picture-pane"
 import {
   MenuFlyout,
   MenuHeading,
@@ -90,6 +91,31 @@ function Tiles({ columns, children }: { columns: number; children: React.ReactNo
   )
 }
 
+/** The last row of a Picture Format menu: its options in the Format Picture pane. */
+function PaneRow({
+  label,
+  section,
+  close,
+  restore,
+}: {
+  label: string
+  section: PicturePaneSection
+  close: () => void
+  restore?: () => void
+}) {
+  return (
+    <MenuRow
+      onEnter={restore}
+      onClick={() => {
+        close()
+        useFormatPicturePane.getState().show(section)
+      }}
+    >
+      {label}
+    </MenuRow>
+  )
+}
+
 const signed = (value: number) => (value > 0 ? `+${value}%` : `${value}%`)
 
 /** Brightness and contrast, five steps each, as Word's Corrections gallery. */
@@ -126,6 +152,12 @@ export function PictureCorrectionsMenu({ editor, close }: MenuProps) {
       >
         Reset Corrections
       </MenuRow>
+      <PaneRow
+        label="Picture Corrections Options…"
+        section="picture"
+        close={close}
+        restore={() => preview?.restore()}
+      />
     </div>
   )
 }
@@ -169,6 +201,8 @@ export function PictureColorMenu({ editor, close }: MenuProps) {
           </PreviewTile>
         ))}
       </Tiles>
+      <MenuSeparator />
+      <PaneRow label="Picture Color Options…" section="picture" close={close} restore={() => preview?.restore()} />
     </div>
   )
 }
@@ -194,6 +228,8 @@ export function PictureArtisticMenu({ editor, close }: MenuProps) {
           </PreviewTile>
         ))}
       </Tiles>
+      <MenuSeparator />
+      <PaneRow label="Artistic Effects Options…" section="effects" close={close} restore={() => preview?.restore()} />
     </div>
   )
 }
@@ -219,6 +255,13 @@ export function PictureTransparencyMenu({ editor, close }: MenuProps) {
           </PreviewTile>
         ))}
       </Tiles>
+      <MenuSeparator />
+      <PaneRow
+        label="Picture Transparency Options…"
+        section="picture"
+        close={close}
+        restore={() => preview?.restore()}
+      />
     </div>
   )
 }
@@ -390,7 +433,7 @@ export function CompressDialog({ editor }: { editor: Editor | null }) {
       )
       const next = await compressedSource(String(current?.attrs.src || ""), whole.width, whole.height, ppi)
       if (next) {
-        editor.chain().focus().updateAttributes("image", { src: next }).run()
+        editor.chain().focus().updateObject({ src: next }).run()
         hide()
       } else if (flattened) {
         hide()
@@ -477,7 +520,7 @@ export function CropMenu({ editor, close }: MenuProps) {
             editor
               ?.chain()
               .focus()
-              .updateAttributes("image", { frame: frameForVariant(name) })
+              .updateObject({ frame: frameForVariant(name) })
               .run()
             close()
           }}

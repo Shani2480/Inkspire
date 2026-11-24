@@ -9,6 +9,24 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "1.1.0",
+    date: "2026-11-24",
+    notes: [
+      {
+        title: "Pictures inside a line of text",
+        text: "A picture in line with text now sits among the words of its line, as in Word, instead of on a line of its own. Pictures you add while the cursor is in text go in at the cursor. You can still select, resize, crop and format them, and Wrap Text moves one out of the line.",
+      },
+      {
+        title: "Format Picture pane",
+        text: "Right-click a picture and choose Format Picture, or pick the Options entry at the foot of Corrections, Color, Artistic Effects or Transparency. Sliders set brightness, contrast, saturation and transparency exactly, and the Crop section sizes and places the picture and its crop in centimetres.",
+      },
+      {
+        title: "More on the mini toolbar",
+        text: "The toolbar over selected text now has Format Painter, Styles, Line Spacing and New Comment.",
+      },
+    ],
+  },
+  {
     version: "1.0.8",
     date: "2026-11-24",
     notes: [

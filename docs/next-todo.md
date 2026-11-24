@@ -155,8 +155,8 @@ largest first:
 
 1. `f22`, `f23`, `f24`: the 3D model, which the VM's Word does not draw (not a difference). The capture also catches
    the model selected with its toolbar.
-2. `w16_pictures_among_text`: pictures drawn on their own line (in-line pictures in their line: later, see item 1
-   above).
+2. ~~`w16_pictures_among_text`: pictures drawn on their own line~~ — drawn in their line since 2026-11-24 (v1.1.0);
+   it now matches Word line for line.
 3. ~~`w10`/`w12`, `w13`, `f15`~~ — looked at 2026-11-20: their text is where Word's is. What remains is screen-only
    drawing the capture catches (the table's move and resize handles with the caret in it, the column guides of a
    section in columns) and, on one-word pages, sub-pixel shifts. The audit could hide those for page captures.
@@ -327,8 +327,9 @@ the order of the waves below; tick an item (`[x]`, date) when it lands.
       Insert Alignment Tab, Show Document Text.
 - [ ] U33. Title bar: Editing / Reviewing / Viewing mode switch, Comments button.
 - [ ] U34. Ruler: table column and cell markers.
-- [ ] U35. Mini toolbar: Styles, Format Painter, New Comment, Line Spacing.
+- [x] U35. Mini toolbar: Styles, Format Painter, New Comment, Line Spacing. Done 2026-11-24 (v1.1.0).
 - [ ] U36. Format Picture pane (Corrections, Crop, Transparency); Thesaurus as a pane (listed).
+      Format Picture pane done 2026-11-24 (v1.1.0; Sharpen/Soften not yet). Left: Thesaurus as a pane.
 - [ ] U37. Researcher / Smart Lookup; Share by link and Account (listed: Future features); Transform (listed 21.28);
       Macros (listed).
 - [ ] U38. Rare shortcuts: ~~Alt+Ctrl+C/T/R/. symbols~~ (done with U21), Ctrl+- optional hyphen (taken by zoom out), Alt+Shift+D/T/P fields,

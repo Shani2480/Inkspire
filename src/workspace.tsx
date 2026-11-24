@@ -1,6 +1,7 @@
 import { KeyTipsLayer } from "@/components/ribbon/keytips-layer"
 import { QuickAccessToolbar } from "@/components/quick-access"
 import { ChartFormatPane } from "@/components/chart-format-pane"
+import { FormatPicturePane } from "@/components/format-picture-pane"
 import { HelperToolsDialog } from "@/components/helper-tools-dialog"
 import { CompressDialog } from "@/components/picture-menus"
 import { RemoveBackgroundDialog } from "@/components/remove-background-dialog"
@@ -344,6 +345,7 @@ function DocumentShell({ onReady }: WorkspaceProps) {
               <SelectionPane />
               <SelectObjectsMode />
               <FormatShapePane />
+              <FormatPicturePane />
               <ChartFormatPane />
               <AiSidebar />
             </div>

@@ -204,10 +204,20 @@ export async function insertFittedImage(
     return false
   }
 
-  const chain = editor.chain().focus()
+  const wrap = defaultPictureWrap()
   if (at != null) {
-    chain.setTextSelection(at)
+    editor.commands.setTextSelection(at)
   }
+  // Among a line's words the picture goes in at the caret, a character of the line, as Word puts it in line.
+  const { $from } = editor.state.selection
+  if (wrap === "inline" && $from.parent.isTextblock && $from.parent.textContent.trim() !== "") {
+    return editor
+      .chain()
+      .focus()
+      .insertContent({ type: "linePicture", attrs: { src: options.src, alt: options.alt || "", width, height } })
+      .run()
+  }
+  const chain = editor.chain().focus()
   const inserted = chain
     .setImage({
       src: options.src,
@@ -217,7 +227,6 @@ export async function insertFittedImage(
     })
     .run()
   // Set as Default Layout: a new picture takes the chosen wrap, from where it was put in line.
-  const wrap = defaultPictureWrap()
   if (inserted && wrap !== "inline") {
     const { from } = editor.state.selection
     const before = from > 0 ? editor.state.doc.resolve(from).nodeBefore : null

@@ -7,6 +7,32 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-24
 
+### Pictures in their line, the Format Picture pane and the mini toolbar's extras (v1.1.0)
+
+- **Pictures among a line's words:** a Word paragraph holding text beside an in-line picture was cut into text /
+  picture / text, the picture on a line of its own. Now `aroundPictures` (`project.ts`) keeps such a paragraph whole
+  and marks the picture `data-line-picture`, which the editor holds as `linePicture` (`editor/line-picture.ts`): an
+  inline atom with every picture attribute, drawn by the picture's own `paintImage` on the text's baseline, selected
+  by a click, resized and cropped by its handles. A paragraph of pictures alone (spaces or bookmarks beside them)
+  stays as before. The Picture Format tab, the Format Picture pane and the right-click menu take it as a picture
+  (`selectedObject`, `isPictureNode`; the tab's commands now use `updateObject`); Wrap Text moves it out of the line
+  into a placed picture just before its paragraph (`lineToPlaced`), where it showed. Saving writes it as the
+  paragraph's `wp:inline` drawing (`inlines.ts`). Inserting a picture while the caret is among words puts it at the
+  caret, as Word does (`image-fit.ts`). Line numbering does not count it again (its line is a text line).
+  Checked: `w16_pictures_among_text` in the app matches Word (VM) line for line (each picture line about 1 px taller,
+  the stand-in font's descent); a picture made in the app saves with its crop and brightness, 0 validator errors,
+  Word draws it in its line, and it reopens in its line. Tests: `line-picture.test.ts`, `pictures-among-text.test.ts`.
+- **Format Picture pane (U36):** `components/format-picture-pane.tsx`, Word's four tabs: Fill & Line (the border),
+  Effects (shadow, reflection, glow, soft edges, 3-D, artistic effects), Layout & Properties (alt text) and Picture:
+  Corrections and Color (sliders with spin boxes, Reset), Transparency, and Crop (picture position: width, height,
+  offset X and Y; crop position: width, height, left, top, in cm; `editor/picture-crop-fields.ts`, tested). Opened
+  from the picture's right-click menu (Format Picture...), the Picture Styles launcher and the "… Options" rows of
+  Corrections, Color, Artistic Effects and Transparency. One format pane shows at a time; on a phone it is a bottom
+  sheet whose sliders follow a finger. Not done: Sharpen/Soften (no such picture attribute yet).
+- **Mini toolbar (U35):** Format Painter and Styles (the Styles gallery's menu, its list scrolling with the commands
+  kept in view) on the first row; Line and Paragraph Spacing and New Comment (the Review tab's comment box) on the
+  second. Checked in light and dark: every menu stays on screen without a sideways scroll.
+
 ### Chart line widths and line numbers on objects' lines (v1.0.8)
 
 - **Chart lines:** widths Word keeps in points (2.25 pt series lines, 0.75 pt gridlines and borders, a Format pane
