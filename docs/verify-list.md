@@ -863,6 +863,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       above the ribbon; no hint over the open Unsaved Documents sheet; a spelling suggestion tapped replaces the word;
       saved edits (Bold, crop, table) reopen.
 - [x] The embedded-font document on the phone (2026-11-20): drawn in its embedded handwriting font.
+- [ ] **1.0.6 on the Pixel (2026-11-24):** the Font and Paragraph dialogs open at
+      the phone's width without shrinking; every tab fits; the font list highlights one row and a finger hits a row.
+      On the Pad too: the Font dialog's lists highlight a single row.
 
 ## Needs the Android tablet (the APK on a touch screen)
 

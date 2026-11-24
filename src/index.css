@@ -8171,6 +8171,36 @@ li[data-drop-cap="margin"]::first-letter {
   grid-column: 4;
 }
 
+/* A phone's narrow Paragraph dialog: the indents (or spacing) over the full width, Special and By (Line spacing and
+   At) side by side under them; Collapsed by default under the outline level. */
+.word-dialog.is-phone .word-dialog-pair {
+  grid-template-columns: minmax(0, 1fr) 96px;
+}
+
+.word-dialog.is-phone .word-dialog-pair > .word-dialog-grid {
+  grid-column: 1 / -1;
+}
+
+.word-dialog.is-phone .word-dialog-pair > .word-dialog-stack:nth-child(2) {
+  grid-column: 1;
+}
+
+.word-dialog.is-phone .word-dialog-pair > .word-dialog-stack:nth-child(3) {
+  grid-column: 2;
+}
+
+.word-dialog.is-phone .word-dialog-grid:has(#pd-collapsed) {
+  grid-template-columns: 96px auto;
+}
+
+.word-dialog.is-phone .word-dialog-grid > span:empty {
+  display: none;
+}
+
+.word-dialog.is-phone .word-dialog-grid > :has(#pd-collapsed) {
+  grid-column: 2 / -1;
+}
+
 .word-dialog-stack {
   display: flex;
   flex-direction: column;
@@ -15418,6 +15448,11 @@ textarea.tp-input {
   [role="menu"] [role="menuitemradio"],
   [role="listbox"] [role="option"] {
     min-height: 40px;
+  }
+
+  /* A dialog's list box places its rows itself, a row's height apart (taller on touch already). */
+  [role="listbox"] .word-dialog-option {
+    min-height: 0;
   }
 
   [role="tablist"] [role="tab"] {

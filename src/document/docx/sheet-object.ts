@@ -57,6 +57,12 @@ function resolvePath(base: string, target: string) {
   return parts.join("/")
 }
 
+/** The rows and columns up to the end of a range such as "A1:D7" (or one cell, "C3"). */
+function areaEnd(ref: string | undefined) {
+  const end = /([A-Z]+)(\d+)$/.exec((ref ?? "").replace(/\$/g, "").toUpperCase())
+  return end ? { rows: Number(end[2]), cols: columnIndex(end[1]!) + 1 } : null
+}
+
 /** The first worksheet of a workbook as the editor's grid: formulas as "=…", the rest as shown. */
 export async function readSheetGrid(bytes: Uint8Array): Promise<string[][] | null> {
   return (await readSheetWorkbook(bytes))?.grid ?? null
@@ -79,7 +85,8 @@ export async function readSheetWorkbook(bytes: Uint8Array): Promise<{ grid: stri
   }
   // The document element of a part (`tree` gives it back itself).
   const part = (name: string) => tree(text(name) ?? "") ?? undefined
-  const firstSheet = children(first(part("xl/workbook.xml"), "sheets"), "sheet")[0]
+  const workbook = part("xl/workbook.xml")
+  const firstSheet = children(first(workbook, "sheets"), "sheet")[0]
   const relId = firstSheet?.attrs.id
   const relation = children(part("xl/_rels/workbook.xml.rels"), "Relationship").find((item) => item.attrs.Id === relId)
   const sheetPath = relation ? resolvePath("xl/workbook.xml", relation.attrs.Target ?? "") : "xl/worksheets/sheet1.xml"
@@ -115,8 +122,11 @@ export async function readSheetWorkbook(bytes: Uint8Array): Promise<{ grid: stri
       }
     }
   }
-  const rows = Math.min(200, Math.max(1, ...cells.map((cell) => cell.row + 1)))
-  const cols = Math.min(52, Math.max(1, ...cells.map((cell) => cell.col + 1)))
+  // The area Word shows: the workbook's OLE size (Excel's visible area for an embedded sheet), else the sheet's
+  // dimension, so empty rows and columns added before saving stay; and never less than the cells in use.
+  const area = areaEnd(first(workbook, "oleSize")?.attrs.ref) ?? areaEnd(first(worksheet, "dimension")?.attrs.ref)
+  const rows = Math.min(200, Math.max(1, area?.rows ?? 1, ...cells.map((cell) => cell.row + 1)))
+  const cols = Math.min(52, Math.max(1, area?.cols ?? 1, ...cells.map((cell) => cell.col + 1)))
   const blank = () => Array.from({ length: rows }, () => Array.from({ length: cols }, () => ""))
   const grid = blank()
   const values = blank()
@@ -207,7 +217,7 @@ export function sheetWorkbook(grid: string[][]) {
     {
       name: "xl/workbook.xml",
       data: xml(
-        `<workbook xmlns="${SHEET_NS}" xmlns:r="${REL_NS}"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets></workbook>`,
+        `<workbook xmlns="${SHEET_NS}" xmlns:r="${REL_NS}"><sheets><sheet name="Sheet1" sheetId="1" r:id="rId1"/></sheets><oleSize ref="A1:${end}"/></workbook>`,
       ),
     },
     {

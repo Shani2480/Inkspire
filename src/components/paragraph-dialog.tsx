@@ -362,6 +362,7 @@ export function ParagraphDialog({ open, onClose }: { open: boolean; onClose: () 
       title="Paragraph"
       width={DIALOG_WIDTH}
       height={DIALOG_HEIGHT}
+      phoneLayout
       tabs={TABS}
       tab={tab}
       onTab={(next) => setTab(next as TabName)}

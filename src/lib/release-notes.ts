@@ -9,6 +9,20 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "1.0.6",
+    date: "2026-11-24",
+    notes: [
+      {
+        title: "Spreadsheets keep their empty rows and columns",
+        text: "An Excel Spreadsheet you made bigger before saving now opens again at the same size, with its empty rows and columns, as in Word. Before, only the cells you had typed in came back.",
+      },
+      {
+        title: "Font and Paragraph fit your phone",
+        text: "On a phone the Font and Paragraph dialogs now have their own narrow layout at full size, instead of a shrunken copy of the desktop one. The Font, Font style and Size lists also have rows big enough for a finger, and only the chosen row is highlighted.",
+      },
+    ],
+  },
+  {
     version: "1.0.5",
     date: "2026-11-20",
     notes: [

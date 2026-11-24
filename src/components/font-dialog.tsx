@@ -368,6 +368,7 @@ export function FontDialog({ open, onClose }: { open: boolean; onClose: () => vo
       title="Font"
       width={DIALOG_WIDTH}
       height={DIALOG_HEIGHT}
+      phoneLayout
       tabs={TABS}
       tab={tab}
       onTab={(next) => setTab(next as TabName)}
@@ -739,8 +740,9 @@ function FontPreview({ draft, fonts }: { draft: FontDraft; fonts: FontChoice[] }
   )
 }
 
-/** Height of one row in a dialog list box. */
-const LIST_ROW = 18
+/** Height of one row in a dialog list box: Word's 18 px, taller for a finger on a touch screen. */
+const LIST_ROW =
+  typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches ? 28 : 18
 const LIST_ROWS = 6
 
 /**
@@ -881,6 +883,7 @@ function ListCombo({
                 style={{
                   top: index * LIST_ROW,
                   height: LIST_ROW,
+                  lineHeight: `${LIST_ROW}px`,
                   fontFamily: faces && option.id ? option.id : undefined,
                   ...option.style,
                 }}

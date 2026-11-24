@@ -93,6 +93,20 @@ describe("Excel Spreadsheet (U29)", () => {
     expect(await readSheetGrid(workbook)).toEqual(GRID)
   })
 
+  it("keeps empty rows and columns added before saving (the sheet's visible area, as Word)", async () => {
+    const grid = [
+      ["a", "", "", "", ""],
+      ["", "2", "", "", ""],
+      ["", "", "", "", ""],
+      ["", "", "", "", ""],
+    ]
+    const workbook = sheetWorkbook(grid)
+    const { readZip } = await import("@/document/docx/zip")
+    const book = decodeXml((await readZip(workbook)).find((item) => item.normalizedName === "xl/workbook.xml")!.data)
+    expect(book).toContain('<oleSize ref="A1:E4"/>')
+    expect(await readSheetGrid(workbook)).toEqual(grid)
+  })
+
   it("saves the sheet as Word's embedded Excel worksheet, opens it again, and keeps an untouched one as it was", async () => {
     const name = "f01_runs.docx"
     const opened = await openDocxBytes(new Uint8Array(readFileSync(path.join(AUTHORED, name))), name)

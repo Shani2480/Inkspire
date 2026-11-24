@@ -9,6 +9,7 @@ import {
 } from "react"
 import { createPortal } from "react-dom"
 import { useHelp } from "@/document/help"
+import { isPhone } from "@/lib/device"
 
 /**
  * The frame of a Word-style dialog (Paragraph, Font).
@@ -46,10 +47,16 @@ export function WordDialog({
   onCancel,
   children,
   overlay,
+  phoneLayout = false,
 }: {
   title: string
   width: number
   height: number
+  /**
+   * The dialog has a narrow layout of its own for a phone (its styles under `.word-dialog.is-phone`): there it takes
+   * the window's width at full size, and its height grows with what it holds, instead of Word's layout scaled down.
+   */
+  phoneLayout?: boolean
   tabs: DialogTab[]
   tab: string
   onTab: (tab: string) => void
@@ -66,8 +73,12 @@ export function WordDialog({
   children: ReactNode
   overlay?: ReactNode
 }) {
+  const narrow = phoneLayout && isPhone()
+  if (narrow) {
+    width = Math.min(width, window.innerWidth - 16)
+  }
   // A window narrower or lower than the dialog (a phone's) shows it whole, scaled down to fit.
-  const scale = fitScale(width, height)
+  const scale = narrow ? 1 : fitScale(width, height)
   const [place, setPlace] = useState(() => ({
     x: Math.max(8, Math.round((window.innerWidth - width * scale) / 2)),
     y: Math.max(8, Math.round((window.innerHeight - height * scale) / 2)),
@@ -78,6 +89,15 @@ export function WordDialog({
   const acceptRef = useRef(onAccept)
   acceptRef.current = onAccept
   const prefix = title.toLowerCase().replace(/\W+/g, "-")
+
+  useLayoutEffect(() => {
+    // The phone layout's height is its content's: centred on what it opens with.
+    const shown = dialogRef.current?.offsetHeight
+    if (narrow && shown) {
+      setPlace({ x: 8, y: Math.max(8, Math.round((window.innerHeight - shown) / 2)) })
+    }
+    // Only when it opens.
+  }, [])
 
   useEffect(() => {
     // After the click that opened the dialog has finished with the editor's focus.
@@ -151,9 +171,11 @@ export function WordDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby={`${prefix}-title`}
-        className={`word-dialog${showKeys ? " show-keys" : ""}`}
+        className={`word-dialog${narrow ? " is-phone" : ""}${showKeys ? " show-keys" : ""}`}
         style={
-          scale < 1
+          narrow
+            ? { left: place.x, top: place.y, width, maxHeight: window.innerHeight - 16 }
+            : scale < 1
             ? { left: place.x / scale, top: place.y / scale, width, height, zoom: scale }
             : { left: place.x, top: place.y, width, height }
         }

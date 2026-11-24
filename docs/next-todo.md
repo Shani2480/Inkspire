@@ -6,7 +6,7 @@ Where a simpler version already exists, the note says so. The item is still open
 
 ## Linux desktop checks (2026-11-20)
 
-- [ ] A reopened Excel Spreadsheet shows only the cells in use: empty rows and columns added before saving are not
+- [x] (2026-11-24, v1.0.6) A reopened Excel Spreadsheet shows only the cells in use: empty rows and columns added before saving are not
       kept (Word keeps the sheet's visible area).
 - Testing note: the Tauri build paints on a private Xvfb when built with an opaque window
   (`tauri build --no-bundle --config` with `transparent: false`); a document opened while another is open goes to a
@@ -28,7 +28,7 @@ Phases 1 and 2 are approved; phase 3 waits for a go-ahead.
       the tabs as a swipeable row under it, above the keyboard; the layout toggle hidden.
 - [x] A5. (2026-11-17; the title bar fits as it is) Title bar and status bar compact on a phone: no wrapped text; page, words, views and zoom stay.
 - [x] A6. (2026-11-17) Task panes (Recovery, Navigation, Styles, Clipboard, Review…) as sheets over the page on a phone.
-- [ ] A7. File (backstage) and dialogs fit the phone's width without horizontal scroll (`tools/dialog-overflow.mjs`).
+- [x] A7. (2026-11-24, v1.0.6: Font and Paragraph laid out for a phone at full size) File (backstage) and dialogs fit the phone's width without horizontal scroll (`tools/dialog-overflow.mjs`).
       Done 2026-11-17: File's commands as a row across the top; a dialog wider than the window is scaled down to fit
       (`fitScale`), so nothing scrolls sideways (`dialog-overflow.mjs --phone`: no sideways scroll left). The tool now
       reports a dialog drawn below 85% ("scaled"). Borders and Shading (Page Borders, was 62%) has a phone layout and

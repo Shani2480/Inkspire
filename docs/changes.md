@@ -5,6 +5,28 @@ wrong or missing, what changed, where (files, tests), how it was checked, and wh
 story of each feature stays in `next-todo.md` under its section; `verify-list.md` holds what still needs a check
 in Word, Chrome or the desktop app.
 
+## 2026-11-24
+
+### Spreadsheet size kept, Font and Paragraph on a phone (v1.0.6)
+
+- **What was wrong (sheet):** an Excel Spreadsheet reopened with only the rows and columns that held text; empty
+  ones added before saving were lost (Word keeps the sheet's visible area). The reader now takes the workbook's
+  `oleSize` (Excel's visible area of an embedded sheet), else the worksheet's `dimension`, never less than the cells
+  in use; the app's own workbook now writes `oleSize` (`sheet-object.ts`; test in `sheet-object.test.ts`).
+- **Checked:** a 5 by 4 sheet with two filled cells saved from the app: 0 validator errors; Word in the VM opens and
+  re-saves it, and Word's re-save reopens as the same 5 by 4 grid; Excel in the VM opens the workbook with its cells.
+  Note: a workbook Excel saves on its own (not embedded) drops `oleSize`; its `dimension` is then the used cells.
+- **What was missing (A7):** on a phone Font and Paragraph kept Word's desktop layout scaled to 83–85%. `WordDialog`
+  takes `phoneLayout`: on a phone the dialog is the window's width at full size and its height follows its content
+  (`.word-dialog.is-phone`). Font already fits that width; Paragraph puts Special / By and Line spacing / At under
+  the indents and spacing, Collapsed by default under Outline level (`index.css`).
+- **Found on the way:** on any touch screen (phone and tablet) the Font, Font style and Size lists highlighted two
+  rows: the touch rule giving list options 40 px stretched the 18 px rows the list places itself. Their rows are now
+  28 px on touch and keep that height (`font-dialog.tsx`, `index.css`).
+- **Checked:** both dialogs, every tab, emulated phone (412 px, touch) in light and dark: nothing past the edge, no
+  sideways scroll, not scaled; on the desktop both open as before (480 and 468 px, not scaled). Typecheck and
+  1745 tests pass. Still to check on the Pixel (`verify-list.md`).
+
 ## 2026-11-20
 
 ### Phone checks on 1.0.4, plain new tables (v1.0.5)

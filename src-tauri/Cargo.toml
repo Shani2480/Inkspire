@@ -1,6 +1,6 @@
 [package]
 name = "tauri-app"
-version = "1.0.5"
+version = "1.0.6"
 description = "Inkspire desktop word processor"
 authors = ["The Inkspire authors"]
 license = "MIT"
