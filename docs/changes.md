@@ -7,6 +7,18 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-24
 
+### Chart line widths and line numbers on objects' lines (v1.0.8)
+
+- **Chart lines:** widths Word keeps in points (2.25 pt series lines, 0.75 pt gridlines and borders, a Format pane
+  width) were drawn as that many pixels, a quarter thin. `chart-spec.ts` now draws them ×4/3 (`ptPx` in `partLine`,
+  `seriesPaint`, the legend's and radar's lines); the saved file is unchanged. Test in `chart-spec.test.ts`.
+  Checked in Word (VM): a 2.25 pt series line is 3.0 px at 96 dpi; the app draws 3 px (was 2.25).
+- **Line numbers:** Word numbers the line holding an in-line picture, chart or 3D model; Inkspire skipped them, so the
+  following lines counted short. `collectLineNumbers` (`pages.ts`) counts each in-line object (not floating ones, not
+  text boxes) as a line, its number placed in the editor at the object's foot (its baseline), as Word draws it.
+  Checked: text, a picture, text, a chart, text numbers 1–6 in the app and in Word (VM), picture 3 and chart 5 at
+  their feet; the saved file has 0 validator errors.
+
 ### Read Mode page turn: smooth in long books, text through the fold, dark text fixed (v1.0.7)
 
 - **How it was measured:** headless Chrome as a phone (412 px, touch), CPU slowed 4x, a 740-page book (3,000 Urdu
@@ -173,7 +185,7 @@ in Word, Chrome or the desktop app.
 - **Tests:** `chart-docx.test.ts` (accents, a darkened accent, a series without a colour, no theme).
 - **Checked against Word (VM):** the real document's line chart now has Word's three colours.
 - **Open:** chart line widths are taken as pixels where Word means points, so lines are a quarter thinner than
-  Word's (2.25 px for 2.25 pt).
+  Word's (2.25 px for 2.25 pt). (Fixed 2026-11-24, v1.0.8.)
 
 ### Line numbers: not in tables, and once per line
 
@@ -186,7 +198,7 @@ in Word, Chrome or the desktop app.
 - **Tests:** `pages.test.ts` (`lineRectsOf`: pieces, two columns, a taller run).
 - **Checked against Word (VM):** the document now numbers 1–21 in order, as Word does around its table.
 - **Open:** Word also numbers the line holding an in-line picture, chart or 3D model (it reaches 24 on that
-  document); Inkspire draws those as blocks and does not number them.
+  document); Inkspire draws those as blocks and does not number them. (Fixed 2026-11-24, v1.0.8.)
 
 ### Lists numbered by their paragraph style
 

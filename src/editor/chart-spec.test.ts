@@ -71,6 +71,16 @@ describe("chart spec", () => {
     }
   })
 
+  it("draws line widths in points, as Word does (the chart's units are pixels)", () => {
+    const line = renderChart(defaultChartSpec("line"), 576, 336)
+    // Word's 2.25 pt series line is 3 px; its 0.75 pt gridlines and chart border 1 px.
+    expect(line).toMatch(/<path d="[^"]*" fill="none" stroke="[^"]*" stroke-width="3" stroke-linejoin="round"/)
+    expect(line).toMatch(/data-chart-part="chartArea"[^>]*stroke-width="1"/)
+    const spec = defaultChartSpec("line")
+    spec.format["series:0"] = { lineWidth: 6 }
+    expect(renderChart(spec, 576, 336)).toMatch(/stroke-width="8" stroke-linejoin="round"/)
+  })
+
   it("draws 3-D charts with walls and sides, and an of-pie chart's second plot from its last points", () => {
     const count = (svg: string, text: string) => svg.split(text).length - 1
     const flat = renderChart(defaultChartSpec("column"), 576, 336)

@@ -40,13 +40,13 @@ they do in Word, and Word opens Inkspire's saves as they were.
    reports, a thesis, a CV, documents from Google Docs and LibreOffice) is compared page by page with Word. Every
    difference is fixed or listed under known limits. _Not met: 3 real documents so far (their 3 bugs fixed)._
 3. **Checked where it runs:** the core items of `verify-list.md` (open, type, format, table, picture, save, print)
-   are ticked in the desktop app on Linux and Windows and on an Android phone and tablet. _Partly met: the Android tablet checks pass on a OnePlus Pad (2026-11-20); the phone and the desktop app on Linux and Windows are open._
+   are ticked in the desktop app on Linux and Windows and on an Android phone and tablet. _Partly met: the Android tablet (OnePlus Pad), the phone (Pixel) and the Linux desktop app pass (2026-11-20); Windows is open._
 4. **Tests, typecheck, lint and the Open XML validator are clean.** _Met._
 
 ## Open bugs found on real documents (2026-11-20)
 
 - ~~A list whose bullet is a dash shows no bullet (a contract).~~ Fixed 2026-11-20: lists numbered by their style.
 - ~~Line numbers are drawn inside a table's cells and counted on through it; Word leaves tables out.~~ Fixed
-  2026-11-20 (and a line in pieces numbered once). Left: Word numbers a picture's or chart's line; Inkspire does not.
-- ~~A chart's series take a default palette instead of the document's theme colours.~~ Fixed 2026-11-20. Left:
-  chart lines a quarter thinner than Word's (points taken as pixels).
+  2026-11-20 (and a line in pieces numbered once); a picture's or chart's line is numbered too since 2026-11-24.
+- ~~A chart's series take a default palette instead of the document's theme colours.~~ Fixed 2026-11-20; chart
+  line widths as Word's since 2026-11-24 (they were points taken as pixels).

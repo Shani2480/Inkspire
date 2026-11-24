@@ -29,6 +29,7 @@ This file is the overview; update it in the same commit as the work.
   laid out for a phone at full size (A7).
 - ✅ 1.0.7: Read Mode's page turn smooth in long books (B19), the page's text through the back of the fold (B16),
   readable dark Read Mode.
+- ✅ 1.0.8: chart line widths as Word's; line numbers count in-line pictures, charts and 3D models.
 
 ## In progress
 

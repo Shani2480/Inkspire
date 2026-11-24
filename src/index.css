@@ -3881,6 +3881,13 @@ button.line-menu-row:focus-visible {
   content: attr(data-n);
 }
 
+/* An in-line object's line: the number's foot on the object's foot (its baseline), as Word draws it. */
+.line-number.is-object-line {
+  display: block;
+  transform: translateY(-100%);
+  line-height: normal;
+}
+
 .page-image {
   position: relative;
   display: inline-block;

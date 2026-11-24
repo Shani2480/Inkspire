@@ -27,6 +27,7 @@ import { PX_PER_CM } from "@/editor/table-props"
 import type { PageMetrics } from "@/document/page-setup"
 import {
   isFloating,
+  isObjectNode,
   objectAnchoring,
   objectLeft,
   objectTop,
@@ -75,6 +76,8 @@ export type LineMark = {
   n: number
   pos: number
   top: number
+  /** The line is an in-line object's (a picture, chart, 3D model): the number sits at its foot, on its baseline. */
+  object?: boolean
 }
 
 export type PaginationStorage = {
@@ -746,10 +749,10 @@ function decorationsFor(
       continue
     }
     decorations.push(
-      Decoration.widget(line.pos, () => createLineNumber(line.n, line.top), {
+      Decoration.widget(line.pos, () => createLineNumber(line.n, line.top, line.object), {
         side: -1,
         ignoreSelection: true,
-        key: `line-${line.n}-${line.pos}-${line.top}`,
+        key: `line-${line.n}-${line.pos}-${line.top}${line.object ? "-object" : ""}`,
       }),
     )
   }
@@ -860,10 +863,12 @@ function createSideBand(height: number, side: NonNullable<FlowBand["side"]>) {
   return band
 }
 
-function createLineNumber(n: number, top: number) {
+function createLineNumber(n: number, top: number, object = false) {
   const mark = document.createElement("span")
-  mark.className = "line-number"
+  mark.className = object ? "line-number is-object-line" : "line-number"
   mark.dataset.n = String(n)
+  // A text line's number from its paragraph's top; an object's from the editor's top to the object's foot, lifted by
+  // its own height there (index.css).
   mark.style.top = `${top}px`
   mark.contentEditable = "false"
   return mark
@@ -893,6 +898,28 @@ function collectLineNumbers(
     // Restart Each Section: numbering starts again after each section break.
     if (node.type.name === "sectionBreak" && restart === "section") {
       n = start - 1
+      return false
+    }
+    // An in-line picture, chart or 3D model stands on a line of its own, which Word numbers and counts.
+    if (isObjectNode(node) && !isFloating(node)) {
+      const dom = view.nodeDOM(pos)
+      const box = dom instanceof HTMLElement ? dom.getBoundingClientRect() : null
+      if (!box || box.height < 1) {
+        return false
+      }
+      if (restartEachPage && pageContentHeight > 0) {
+        const pageIndex = Math.max(0, Math.floor((box.bottom - 1 - editorTop) / Math.max(0.01, zoom) / pageContentHeight))
+        if (pageIndex !== currentPage) {
+          currentPage = pageIndex
+          n = start - 1
+        }
+      }
+      n += 1
+      if (n % Math.max(1, countBy) === 0) {
+        // Placed in the editor (an object is no paragraph to hold its number): its foot, from the editor's top.
+        const foot = (box.bottom - editorTop) / Math.max(0.01, zoom) - view.dom.clientTop
+        lines.push({ n, pos, top: Math.round(foot), object: true })
+      }
       return false
     }
     if (!node.isTextblock) {

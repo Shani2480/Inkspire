@@ -1181,9 +1181,13 @@ function partFill(painter: Painter, part: string, fallback: string) {
   return painter.spec.format[part]?.fill || fallback
 }
 
+/** A line width in points (as Word keeps it, and the defaults here) in the chart's pixels. */
+const ptPx = (points: number) => n((points * 4) / 3)
+
+/** A part's outline: its colour and its width in the chart's pixels, from its own width or `width`, in points. */
 function partLine(painter: Painter, part: string, fallback: string, width = 1) {
   const format = painter.spec.format[part]
-  return { stroke: format?.line || fallback, width: format?.lineWidth ?? width }
+  return { stroke: format?.line || fallback, width: ptPx(format?.lineWidth ?? width) }
 }
 
 function textAttrs(painter: Painter, part: string, size = TEXT_SIZE, bold = false) {
@@ -1222,7 +1226,7 @@ function seriesPaint(painter: Painter, color: string, part: string) {
   const stroke = own?.line || (look.seriesLine === "series" ? color : look.seriesLine)
   const width = own?.lineWidth ?? look.seriesLineWidth
   const shadow = look.shadow ? ` filter="url(#chart-shadow)"` : ""
-  return `fill="${fill}" stroke="${stroke}" stroke-width="${width}"${shadow}`
+  return `fill="${fill}" stroke="${stroke}" stroke-width="${ptPx(width)}"${shadow}`
 }
 
 /** A side of a 3-D bar or area: its paint in a lighter (top) or darker (side) shade, with no shadow of its own. */
@@ -1340,7 +1344,7 @@ function legend(painter: Painter, entries: LegendEntry[], box: Box, at: string) 
         ? `<path d="M${n(x + 7)} ${n(y)}H${n(x + 13)}" stroke="${painter.look.text}" stroke-width="1.5"/>`
         : ""
       : entry.line
-        ? `<line x1="${n(x)}" y1="${n(y)}" x2="${n(x + 14)}" y2="${n(y)}" stroke="${entry.color}" stroke-width="2.25"/>`
+        ? `<line x1="${n(x)}" y1="${n(y)}" x2="${n(x + 14)}" y2="${n(y)}" stroke="${entry.color}" stroke-width="${ptPx(2.25)}"/>`
         : `<rect x="${n(x + 3)}" y="${n(y - 3.5)}" width="7" height="7" fill="${entry.color}"/>`
   const text = textAttrs(painter, "legend")
   const parts: string[] = []
@@ -3261,7 +3265,7 @@ function radar(painter: Painter, box: Box, series: Serie[]) {
     const shapes = [
       spec.filled
         ? `<polygon points="${outline}" ${seriesPaint(painter, color, `series:${serie.index}`)} fill-opacity="0.85"/>`
-        : `<polygon points="${outline}" fill="none" stroke="${color}" stroke-width="2.25"/>`,
+        : `<polygon points="${outline}" fill="none" stroke="${color}" stroke-width="${ptPx(2.25)}"/>`,
       ...(spec.markers ? points.map(([x, y]) => `<circle cx="${n(x)}" cy="${n(y)}" r="3.4" fill="${color}"/>`) : []),
     ]
     painter.out.push(`<g data-chart-part="series:${serie.index}">${shapes.join("")}</g>`)

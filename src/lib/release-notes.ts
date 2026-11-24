@@ -9,6 +9,20 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "1.0.8",
+    date: "2026-11-24",
+    notes: [
+      {
+        title: "Chart lines as thick as in Word",
+        text: "Chart lines, borders and gridlines are drawn at the width Word gives them. They were a quarter thinner.",
+      },
+      {
+        title: "Line numbers count pictures and charts",
+        text: "With line numbering on, the line holding an in-line picture, chart or 3D model gets its number, at the foot of the object, and the lines after it count on as in Word.",
+      },
+    ],
+  },
+  {
     version: "1.0.7",
     date: "2026-11-24",
     notes: [
