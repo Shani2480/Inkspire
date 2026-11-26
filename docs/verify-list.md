@@ -867,8 +867,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - [ ] Android phone or tablet: the same document without the download shows in the system's condensed Roboto
       (`sans-serif-condensed`).
 - [ ] Windows desktop app: a document in a font the machine lacks (e.g. Avenir) shows in Calibri, as Word does there.
-- [ ] Desktop app (WebKitGTK) and Android: a document on a line grid (`w:docGrid w:type="lines"`) shows its lines on
-      the grid as in Chrome (the rules use CSS `round()`; checked in Chrome only).
+- [x] Android tablet (OnePlus Pad, 1.1.1 APK, WebView 157, 2026-11-26): a test page on an 18 pt line grid shows 8–14 pt
+      lines 20.9 pt apart and 16 pt and up two pitches (36 pt), page 1 ending where Word's does.
+- [ ] Desktop app (WebKitGTK 2.54): the same grid page (the rules use CSS `round()`, which WebKit has).
 
 ## Pixel phone checks (2026-11-20, 1.0.1–1.0.2)
 
