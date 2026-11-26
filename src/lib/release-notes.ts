@@ -9,6 +9,16 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "1.2.2",
+    date: "2026-11-26",
+    notes: [
+      {
+        title: "Pages after a section break start as in Word",
+        text: "On a page a section break starts, the first paragraph's space before now comes out as Word sets it: less the space after of the paragraph that ended the section, which stays on the page before.",
+      },
+    ],
+  },
+  {
     version: "1.2.1",
     date: "2026-11-26",
     notes: [

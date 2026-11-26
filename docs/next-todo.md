@@ -196,8 +196,8 @@ repeated header row, a tab typed in the text, tabs in headers and footers. Open:
 
 1. [x] A table row that may break across pages: Word moved a two-line row whole to the next page. Fixed in 1.2.1:
        widow control inside a cell (`widowSafeCut`), and a repeated header row is never left alone at a page's foot.
-2. [ ] A page that a section break starts: Word keeps part of the first paragraph's space before (86 px against
-       75 dropped and 96 kept, in the VM); the app keeps all of it.
+2. [x] A page that a section break starts: Word keeps the first paragraph's space before less the space after of
+       the paragraph that ended the section (measured in the VM, 1.2.2; see `changes.md`).
 3. [ ] Autofit tables without cell widths (a statement of work's signature table): Word sizes the columns to their
        text, the app keeps the grid's widths.
 4. [ ] A few page numbers in the assessment's table of contents one lower than Word's (later pages hold a little

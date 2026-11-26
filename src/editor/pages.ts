@@ -1500,9 +1500,10 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     const ended = column
     column = 0
     const following = Math.min(next, sectionMetrics.length - 1)
-    // A page that goes on in the same section drops its first paragraph's space before (`place`); one a section
-    // starts keeps it.
-    dropsTop = following === section
+    // A page that goes on in the same section drops its first paragraph's space before (`place`). One a section
+    // starts keeps what of it is more than the space after of the paragraph that ended the section, which Word
+    // leaves on the page before (measured in Word 2026-11-26: 24 pt before after 8 pt after keeps 16 pt; after 0, all).
+    dropsTop = following === section ? Infinity : Math.max(0, trailing)
     // The height of a block of columns' columns on this page, which its filler fills.
     const blockHeight = block ? contentHeight - block.top : 0
     if (block) {
@@ -1608,7 +1609,8 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   }
 
   /** The page that has just started drops its first paragraph's space before (Word's, `place`). */
-  let dropsTop = false
+  /** How much of the next page's first space before is left out (`pushBreak`). */
+  let dropsTop = 0
   /**
    * `collapse` is how much of `height` is a top margin shared with the block above; a page's first block keeps it.
    * `spill` is how much of it (a paragraph's space after) may run past the page's foot, as Word lets it.
@@ -1628,13 +1630,13 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       size = height
     }
     const gap = breaks[breaks.length - 1]
-    if (used === 0 && top > 0 && dropsTop && gap && !unequal && !block && columnCount === 1 && !gap.filler) {
-      const dropped = Math.min(top, size)
+    if (used === 0 && top > 0 && dropsTop > 0 && gap && !unequal && !block && columnCount === 1 && !gap.filler) {
+      const dropped = Math.min(top, size, dropsTop)
       size -= dropped
       gap.height -= dropped
     }
     if (used === 0) {
-      dropsTop = false
+      dropsTop = 0
     }
     if (unequal && !track.starting) {
       track.starting = { page: breaks.length + 1, column, atTop: used === 0, section }

@@ -7,6 +7,17 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-26
 
+### Space before on a page a section break starts (v1.2.2)
+
+Word's rule, measured in the VM with 22 test documents (a paragraph of 0 to 48 pt space before at the top of a page):
+on the first page it is kept, after a page break dropped, and after a next-page section break kept less the space
+after of the paragraph that ended the section (24 pt before after 8 pt after keeps 16 pt; after 0 pt, all 24; after
+20 pt, 4 pt; never below 0). The font sizes of either paragraph do not matter. The app kept it all.
+`pushBreak` (`pages.ts`) now gives a new section's page `dropsTop` = that space after (`trailing`), and `place`
+leaves out at most that much. Checked against Word on the test documents: within 0.15 px on all of them. The eight
+real documents have no section break inside them and are unchanged; tests, typecheck, lint and the fixture
+comparison as before.
+
 ### Tables across pages and page drift (v1.2.1)
 
 Continued on the 27-page report (real document 5), page by page against Word:
