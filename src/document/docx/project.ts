@@ -1562,12 +1562,33 @@ function tableHtml(table: Table, ctx: Projection) {
     (indent !== null ? ` data-indent="${indent}"` : "") +
     (spacing !== null ? ` data-cell-spacing="${spacing}"` : "") +
     (table.layout === "fixed" ? ` data-auto-resize="0"` : "") +
+    fitContentAttribute(table) +
     (margins ? ` data-margins="${margins}"` : "") +
     (float ? ` data-float="${escapeAttribute(floatValue(float)!)}"` : "")
   const attrs = `${key} data-word-table="1"${style} data-word-look="${tableLookTokens(table.look)}"${align}${alt}${props}${
     frame ? ` data-word-frame="${escapeAttribute(frame)}"` : ""
   }`
   return `<table${attrs}><tbody>${rows}</tbody></table>`
+}
+
+/**
+ * An autofit table none of whose cells gives a width: Word sets its columns to their text, not to the grid it wrote
+ * (measured in Word 2026-11-26; a statement of work's signature table came out 214/182/206 px, its grid 150/226/226).
+ * "fill" when the table has a width (the columns share it by their text), "auto" when not (the table shrinks to it),
+ * with the grid in pixels: the table is drawn so while its columns keep those widths (`fitContent`, table-tools.ts).
+ */
+function fitContentAttribute(table: Table) {
+  if (table.layout === "fixed" || table.grid.length === 0) {
+    return ""
+  }
+  const sized = table.rows.some((row) =>
+    row.cells.some((cell) => cell.width && cell.width.type !== "auto" && cell.width.value > 0),
+  )
+  if (sized) {
+    return ""
+  }
+  const mode = table.width && table.width.type !== "auto" && table.width.value > 0 ? "fill" : "auto"
+  return ` data-fit-content="${mode} ${table.grid.map((width) => Math.round(width / TWIP_PER_PX)).join(",")}"`
 }
 
 function rowSpan(rows: Table["rows"], rowIndex: number, column: number) {
@@ -3231,6 +3252,7 @@ function tableFromNode(node: JsonNode, build: Build): Table {
       }
     })
   const grid = editedGrid(rows, origin)
+  const fitted = typeof node.attrs?.fitContent === "string" && node.attrs.fitContent.length > 0
   const resized =
     !origin || origin.grid.length !== grid.length || origin.grid.some((width, index) => width !== grid[index])
   const table: Table = {
@@ -3243,7 +3265,8 @@ function tableFromNode(node: JsonNode, build: Build): Table {
     rows: rows.map((row) => ({
       ...row,
       cells: row.cells.map(({ colwidth: _colwidth, valign: _valign, editedMargins: _margins, ...cell }, index) => {
-        if (cell.width && !resized) {
+        // A cell with no width in a table Word sets to its text stays without one (with one, Word would keep the grid).
+        if ((cell.width || fitted) && !resized) {
           return cell
         }
         const at = gridColumn(row.cells, index)

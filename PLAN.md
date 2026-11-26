@@ -71,7 +71,9 @@ This file is the overview; update it in the same commit as the work.
   boxes, right tabs in footers kept on the line.
 - ✅ 1.2.2: a page a section break starts keeps its first paragraph's space before as Word does (less the space
   after of the paragraph that ended the section, measured in Word).
-- ⬜ Differences left from real documents 6 to 13 (`next-todo.md`): autofit tables without cell widths, a page of the report ending 1 px lower than Word's.
+- ✅ 1.2.3: Word tables without cell widths sized to their text, as Word draws them, and saved without widths.
+- ⬜ Differences left from real documents 6 to 13 (`next-todo.md`): a page of the report ending 1 px lower than
+  Word's.
 - ⬜ Differences left from real documents 4 and 5 (`next-todo.md`, Word comparison 2026-11-26): wider spaces in
   Korean-marked runs; Word's exact justified-line limit (it varies with the text: about one space on lines of one
   repeated letter, up to four on ordinary text; the app uses two).

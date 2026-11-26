@@ -198,8 +198,8 @@ repeated header row, a tab typed in the text, tabs in headers and footers. Open:
        widow control inside a cell (`widowSafeCut`), and a repeated header row is never left alone at a page's foot.
 2. [x] A page that a section break starts: Word keeps the first paragraph's space before less the space after of
        the paragraph that ended the section (measured in the VM, 1.2.2; see `changes.md`).
-3. [ ] Autofit tables without cell widths (a statement of work's signature table): Word sizes the columns to their
-       text, the app keeps the grid's widths.
+3. [x] Autofit tables without cell widths: Word sets the columns to their text (1.2.3; rule measured in the VM, see
+       `changes.md`). The signature table now 214/181/206 px, Word's 214/182/206.
 4. [ ] A few page numbers in the assessment's table of contents one lower than Word's (later pages hold a little
        less). 1.2.1 fixed most of the drift (rounded TOC rows, hairline borders, whole-pixel text boxes, cell
        margins rounded to a hundredth of a centimetre; each page now starts at the margin, rows are Word's height to

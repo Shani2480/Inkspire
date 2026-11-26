@@ -9,6 +9,16 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "1.2.3",
+    date: "2026-11-26",
+    notes: [
+      {
+        title: "Tables sized to their text",
+        text: "A Word table that sets no column widths now has its columns sized to their text, as Word draws it, and keeps that when you save. Dragging a column sets its width, as in Word.",
+      },
+    ],
+  },
+  {
     version: "1.2.2",
     date: "2026-11-26",
     notes: [

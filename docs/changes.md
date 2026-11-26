@@ -7,6 +7,19 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-26
 
+### Tables sized to their text (v1.2.3)
+
+A statement of work's signature table (autofit, no cell widths, a grid of 150/226/226 px) came out in Word as
+214/182/206: Word sets such a table's columns to their text. Measured in the VM with four test tables: with no cell
+widths and a table width, the columns share it by their text; with no table width, the table shrinks to its text;
+with cell widths (`w:tcW`) or a fixed layout, Word keeps the grid. The reader marks such a table
+(`data-fit-content`: "fill" or "auto" and the grid in pixels, `fitContentAttribute` in `project.ts`); while its
+columns keep those widths it is drawn with automatic table layout (`fitContentMode`, `index.css`), and saving keeps
+its cells without widths, so Word sets it to its text again (checked: the saved statement of work in Word, the
+columns as before). A column dragged in the app is a width the person set, as in Word: the table keeps it and saves it.
+The signature table now 214/181/206 px. Tests (new: `fit-content.test.ts`), the eight real documents (page counts as
+Word's, no page worse), typecheck, lint and the fixture comparison (none worse; two table fixtures, w10 and w12, closer to Word).
+
 ### Space before on a page a section break starts (v1.2.2)
 
 Word's rule, measured in the VM with 22 test documents (a paragraph of 0 to 48 pt space before at the top of a page):

@@ -6,7 +6,13 @@ import type { Node as ProseNode } from "@tiptap/pm/model"
 import { type EditorState, Plugin, PluginKey, type Transaction } from "@tiptap/pm/state"
 import { CellSelection, TableMap, addColumn, addRow, cellAround, findTable } from "@tiptap/pm/tables"
 import type { EditorView } from "@tiptap/pm/view"
-import { applyTableProps, cellPropsAttributes, rowPropsAttributes, tablePropsAttributes } from "@/editor/table-props"
+import {
+  applyTableProps,
+  cellPropsAttributes,
+  fitContentMode,
+  rowPropsAttributes,
+  tablePropsAttributes,
+} from "@/editor/table-props"
 import { drawTableFloat, tableFloatAttributes } from "@/editor/table-float"
 import { autoColorRule } from "@/document/docx/word-styles"
 
@@ -149,6 +155,12 @@ function applyTableStyleDom(table: HTMLTableElement, node: ProseNode) {
   }
   applyWordTable(table, node)
   applyTableProps(table, node.attrs)
+  const fit = fitContentMode(node)
+  if (fit) {
+    table.dataset.fitContent = fit
+  } else {
+    delete table.dataset.fitContent
+  }
   drawTableFloat(table, node.attrs.float)
 }
 

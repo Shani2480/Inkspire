@@ -2261,6 +2261,21 @@ button.line-menu-row:focus-visible {
   overflow: hidden;
 }
 
+/* A Word table set to its text (no cell widths, autofit; `fitContent`): its columns share its width by their text,
+   as Word lays them out, or it shrinks to its text when it has no width of its own. */
+.page-editor table[data-fit-content] {
+  table-layout: auto !important;
+}
+
+.page-editor table[data-fit-content] > colgroup > col {
+  width: auto !important;
+}
+
+.page-editor table[data-fit-content="auto"] {
+  width: auto !important;
+  min-width: 0 !important;
+}
+
 .page-editor table[data-align="center"] {
   margin-right: auto;
   margin-left: auto;

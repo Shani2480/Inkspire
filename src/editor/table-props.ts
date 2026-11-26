@@ -4,6 +4,8 @@
  * may break across pages; a cell's own margins, and whether its text wraps or is fitted. Lengths are in centimetres.
  */
 
+import type { Node as ProseNode } from "@tiptap/pm/model"
+
 export const PX_PER_CM = 96 / 2.54
 
 /** Cell margins in centimetres, as the Table Options and Cell Options dialogs show them. */
@@ -82,12 +84,41 @@ export const tablePropsAttributes = {
   indent: numberAttribute("indent"),
   cellSpacing: numberAttribute("cell-spacing"),
   autoResize: flagAttribute("auto-resize", true),
+  /** A Word table set to its text: "fill" or "auto", and the column widths it opened with (see `fitContentMode`). */
+  fitContent: {
+    default: null as string | null,
+    parseHTML: (element: HTMLElement) => element.getAttribute("data-fit-content"),
+    renderHTML: (attributes: { fitContent?: string | null }) =>
+      attributes.fitContent ? { "data-fit-content": attributes.fitContent } : {},
+  },
   margins: {
     default: null as string | null,
     parseHTML: (element: HTMLElement) => marginsValue(parseMargins(element.getAttribute("data-margins"))),
     renderHTML: (attributes: { margins?: string | null }) =>
       attributes.margins ? { "data-margins": attributes.margins } : {},
   },
+}
+
+/**
+ * How a Word table set to its text is drawn: "fill" or "auto" while its columns keep the widths it opened with,
+ * null once they changed (a column dragged in the app is a width the person chose, as in Word).
+ */
+export function fitContentMode(table: ProseNode): "fill" | "auto" | null {
+  const value = typeof table.attrs.fitContent === "string" ? table.attrs.fitContent : ""
+  const [mode, widths] = value.split(" ")
+  if ((mode !== "fill" && mode !== "auto") || !widths) {
+    return null
+  }
+  const first = table.firstChild
+  const current: number[] = []
+  first?.forEach((cell) => {
+    const span = Number(cell.attrs.colspan) || 1
+    const colwidth = Array.isArray(cell.attrs.colwidth) ? cell.attrs.colwidth : []
+    for (let index = 0; index < span; index += 1) {
+      current.push(Number(colwidth[index]) || 0)
+    }
+  })
+  return current.join(",") === widths ? mode : null
 }
 
 /** Draws the table's indent, cell spacing and default cell margins on the table element the table view made. */
