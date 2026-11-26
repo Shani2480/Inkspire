@@ -40,6 +40,10 @@ This file is the overview; update it in the same commit as the work.
 
 - ✅ 1.1.2: a text box's paragraph indent drawn and kept (a cover title where Word puts it).
 
+- ✅ 1.1.3: justified lines squeezed as Word does (two spaces' allowance, trailing spaces hang), pages no longer
+  drift lower (gap heights exact), a list that does not fit goes on item by item, and no empty page from the editor's
+  line after a final heading (not saved either).
+
 ## In progress
 
 - 🔄 1.0 release candidate: scope and criteria in `docs/V1_SCOPE.md` (draft). Open: a 20-document real-world set
@@ -52,8 +56,9 @@ This file is the overview; update it in the same commit as the work.
 ## Next
 
 - ⬜ The 1.0 criteria left open (In progress above): more real-world documents compared with Word, the Windows check.
-- ⬜ Differences left from real documents 4 and 5 (`next-todo.md`, Word comparison 2026-11-26): justified lines
-  squeezed as Word does, wider spaces in Korean-marked runs.
+- ⬜ Differences left from real documents 4 and 5 (`next-todo.md`, Word comparison 2026-11-26): wider spaces in
+  Korean-marked runs; Word's exact justified-line limit (it varies with the text: about one space on lines of one
+  repeated letter, up to four on ordinary text; the app uses two).
 
 ## Later
 

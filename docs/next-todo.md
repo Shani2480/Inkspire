@@ -166,9 +166,11 @@ largest first:
 `changes.md`). Fixed: missing fonts drawn in Word's substitute, Arial Nova Cond in Roboto Condensed, empty lines as
 tall as their mark, page breaks among text, the break paragraph's own line, text box line spacing, kerning. Open:
 
-1. [ ] Justified lines: Word squeezes a justified line's spaces to fit one more word (tested in the VM: a justified
-       paragraph keeps a word on the line the same text left-aligned wraps; the exact limit varied between runs, at least
-       ~12% of a space). The app only stretches spaces, so the contract's page 6 sends one line to page 7.
+1. [x] Justified lines: Word squeezes a justified line's spaces to fit one more word. The app only stretched spaces,
+       so the contract's page 6 sent one line to page 7. Fixed in 1.1.3 (`editor/justify-squeeze.ts`): an allowance
+       of two spaces a line, and trailing spaces hang (`pre-wrap`). Left: Word's exact limit, which varies with the
+       text (about one space on lines of one repeated letter, up to four on ordinary Arial 11 pt text); 96 of 120
+       test paragraphs now break as Word's, the rest a word early (20) or late (4).
 2. [x] Text box paragraphs: a paragraph indent inside a text box was not drawn (the cover title 86 px left of Word's).
        Fixed in 1.1.2 (the first paragraph's indent; different indents per paragraph in one box are not yet drawn).
 3. [x] A floating table (`w:tblpPr`) as wide as the text: the text after it ran under its last row. Fixed

@@ -53,6 +53,7 @@ they do in Word, and Word opens Inkspire's saves as they were.
 
 ## Open differences found on real documents (2026-11-26)
 
-- Word squeezes a justified line's spaces to fit a word; the app only stretches them (one line on a contract moves
-  to the next page).
+- ~~Word squeezes a justified line's spaces to fit a word; the app only stretches them (one line on a contract moves
+  to the next page).~~ Mostly fixed in 1.1.3: an allowance of two spaces a line (96 of 120 test paragraphs break as
+  Word's; Word's own limit varies with the text), and the contract's pages all hold Word's lines.
 - Spaces in runs marked Korean (`w:lang w:eastAsia="ko-KR"`) are wider in Word than the font's own.

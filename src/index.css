@@ -1858,7 +1858,9 @@ button.line-menu-row:focus-visible {
 .page-editor.ProseMirror {
   max-width: 100%;
   overflow-wrap: break-word;
-  white-space: break-spaces;
+  /* Spaces at the end of a line hang past the margin, as in Word: a word fits when it does, not it and the space after
+     it (break-spaces broke lines a word early). */
+  white-space: pre-wrap;
   tab-size: 0;
 }
 

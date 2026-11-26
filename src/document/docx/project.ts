@@ -282,7 +282,7 @@ export function editorToWord(
   build.toc = linkTocEntries(json, section, documentStyles)
   build.numbering = ensureListNumbering(build.numbering, json, build)
   const blocks = blocksFromNodes(json.content ?? [], build, 0, true)
-  dropEditorTrailingParagraph(blocks)
+  dropEditorTrailingParagraph(blocks, endsAfterHeading(json.content ?? []))
   const nextId = storyIds(source)
   const stories = storiesFromChrome(chrome, source, build, source === null, nextId)
   if (build.bodyColumns) {
@@ -2489,13 +2489,27 @@ const fieldEndParagraph = (block: Block) =>
       inline.content.every((content) => content.kind === "fldChar" && content.fieldType === "end"),
   )
 
-/** The editor keeps an empty paragraph after a final list, table or bibliography; Word does not need it. */
-function dropEditorTrailingParagraph(blocks: Block[]) {
+/** Whether the editor's nodes end in its own empty paragraph after a final heading (a line to type on below it). */
+function endsAfterHeading(nodes: JsonNode[]) {
+  const last = nodes[nodes.length - 1]
+  return (
+    nodes[nodes.length - 2]?.type === "heading" &&
+    last?.type === "paragraph" &&
+    !last.content?.length &&
+    !last.attrs?.docxKey
+  )
+}
+
+/**
+ * The editor keeps an empty paragraph after a final list, table, bibliography or heading; Word does not need it (a
+ * real form ending in a heading saved a second, empty page).
+ */
+function dropEditorTrailingParagraph(blocks: Block[], afterHeading = false) {
   const last = blocks[blocks.length - 1]
   const before = blocks[blocks.length - 2]
   if (last?.kind === "paragraph" && !last.key && last.inlines.length === 0 && before) {
     const listEnd = before.kind === "paragraph" && before.pPr.numPr !== undefined
-    if (before.kind === "table" || listEnd || fieldEndParagraph(before)) {
+    if (afterHeading || before.kind === "table" || listEnd || fieldEndParagraph(before)) {
       blocks.pop()
     }
   }

@@ -13,6 +13,7 @@ import { drawnPageSetup, setDrawnPageKeys } from "@/document/page-frames"
 import { columnsBlockwise, drawnColumns, sectionAt, type SectionChrome } from "@/document/sections"
 import { columnBoxes } from "@/document/column-widths"
 import { columnCountAttr } from "@/editor/columns"
+import { applySqueezes } from "@/editor/justify-squeeze"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
 import {
@@ -781,8 +782,8 @@ function decorationsFor(
 
 /** The document's end: its endnotes in the flow, and the last page's footnotes at the page's foot below. */
 /**
- * Where the editor's own empty paragraph after a final list, table or other block starts (the trailing node, kept so
- * there is a line to type on below it), or null. Word has no such line and a save leaves it out
+ * Where the editor's own empty paragraph after a final list, table, heading or other block starts (the trailing node,
+ * kept so there is a line to type on below it; it follows anything but a plain paragraph), or null. Word has no such line and a save leaves it out
  * (`dropEditorTrailingParagraph`): the document's end, and its endnotes, come before it.
  */
 export function editorTrailingParagraph(doc: ProseNode) {
@@ -794,7 +795,7 @@ export function editorTrailingParagraph(doc: ProseNode) {
     last.type.name !== "paragraph" ||
     last.content.size > 0 ||
     last.attrs.docxKey ||
-    before.isTextblock
+    before.type.name === "paragraph"
   ) {
     return null
   }
@@ -1470,7 +1471,9 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
         : 0
     breaks.push({
       pos,
-      height: Math.ceil(fill + PAGE_GAP + below + above - over),
+      // Exact, not rounded up: a page is a fractional number of pixels high (A4 1122.5), and a pixel more at each
+      // gap moved the text of later pages down by as many (5 pt by page 6 of a contract).
+      height: Math.round((fill + PAGE_GAP + below + above - over) * 100) / 100,
       manual,
       labelTop: Math.round(fill + below + PAGE_GAP / 2 - over),
       // `fill` is then drawn by the filler, not the gap (between table rows the gap keeps it: no filler there).
@@ -1981,7 +1984,11 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       return
     }
     // A table that no longer fits where it now starts is measured again, row by row.
-    if (hit?.kind === "block" && !(node.type.name === "table" && overruns(hit.height, hit.top))) {
+    // So is a list that no longer fits the rest of the page: it goes on item by item.
+    if (
+      hit?.kind === "block" &&
+      !((node.type.name === "table" || (isContainer(node) && !unequal)) && overruns(hit.height, hit.top))
+    ) {
       placeBlock(pos, hit.height, hit.top, hit.bottom, node.isTextblock ? hit.bottom : 0)
       return
     }
@@ -2015,13 +2022,15 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       }
       const fitsPage = height <= contentHeight
       // Only cache whole-container heights when the block stays intact on one page.
-      if (fitsPage) {
+      if (fitsPage && (unequal || !overruns(height, top))) {
         remember(pos, { kind: "block", node, height, top, bottom })
         placeBlock(pos, height, top, bottom)
         return
       }
       measureCount += 1
-      if (used > 0) {
+      // A list or quote that does not fit the rest of the page goes on item by item, as Word's paragraphs do (it
+      // moved whole to the next page, or started one when longer than a page). Unequal columns keep a block whole.
+      if (unequal && used > 0) {
         overflow(pos)
       }
 
@@ -2129,9 +2138,17 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     }
     endUsed = Math.min(Math.max(used, 0), contentHeight)
   }
+  if (!web) {
+    // Justified paragraphs' spaces narrowed to Word's allowance of one space a line (justify-squeeze.ts).
+    applySqueezes(view)
+  }
   view.state.doc.forEach((node, offset, index) => {
     if (offset === endAt) {
       placeEnd()
+    }
+    if (offset === endAt && endAt < view.state.doc.content.size) {
+      // The editor's own last line is not Word's: it never starts a page of its own, it hangs below the last one.
+      return
     }
     track.starting = null
     track.top = offset

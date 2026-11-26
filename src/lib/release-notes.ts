@@ -9,6 +9,24 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "1.1.3",
+    date: "2026-11-26",
+    notes: [
+      {
+        title: "Justified text breaks as in Word",
+        text: "Word fits one more word on a justified line by narrowing its spaces a little; Inkspire now does too, so justified paragraphs break their lines, and long documents their pages, much closer to where Word does.",
+      },
+      {
+        title: "Pages no longer drift",
+        text: "Text sat a little lower on every page than the last, up to several points by page six. Each page now starts where Word starts it, and a list that runs past the foot of a page goes on to the next item by item instead of moving whole.",
+      },
+      {
+        title: "No empty page after a final heading",
+        text: "A document ending in a heading showed, and saved, an empty second page made of the line the editor keeps for typing below it. That line now hangs below the last page and is not saved.",
+      },
+    ],
+  },
+  {
     version: "1.1.2",
     date: "2026-11-26",
     notes: [

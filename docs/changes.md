@@ -7,6 +7,41 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-26
 
+### Justified lines as Word breaks them, pages that no longer drift, no empty page after a final heading (v1.1.3)
+
+- **What was wrong:**
+  - Word fits one more word on a justified line by narrowing its spaces; CSS justification only widens them. On top
+    of that, `white-space: break-spaces` counted a line's trailing space for fit, so lines broke a word early even
+    where Word's and the app's widths agree. On the contract, page 6 sent "a) Applying for a job" to page 7.
+  - The gaps between pages were rounded up to a whole pixel; an A4 page is 1122.52 px high, so text sat lower page by
+    page (5 pt by page 6).
+  - A list that did not fit the rest of a page moved to the next page whole (Word's paragraphs go on line by line).
+  - The editor's own empty line after a document's final heading (its trailing node, a line to type on) was laid out
+    as a paragraph: the registration form showed a second, empty page, and a save from the app wrote the line out.
+- **What changed:**
+  - `editor/justify-squeeze.ts` (new): each justified paragraph of two lines or more gets a negative `word-spacing`
+    of two spaces' width shared over the spaces a full line holds, measured once per version of the paragraph and
+    width, all paragraphs measured before any is set (one relayout, not one per paragraph). The paginator applies it
+    before laying out the pages (`pages.ts`). `index.css`: the page editor is `white-space: pre-wrap`, so trailing
+    spaces hang as in Word.
+  - `pages.ts`: page gaps exact to 0.01 px; a list or quote that overruns the page goes on item by item (unequal
+    columns still keep it whole); the editor's trailing line never starts a page. `editorTrailingParagraph` now
+    counts a line after anything but a plain paragraph (a heading too).
+  - `project.ts`: the save drops that line after a final heading as well (`endsAfterHeading`).
+- **Checked:**
+  - In the Word VM: 120 justified paragraphs of ordinary Arial 11 pt text. Line breaks the same as Word in 26
+    paragraphs before, 41 with `pre-wrap` alone, 75 with a one-space allowance, 96 with two (2.5 gave 99 but broke
+    12 paragraphs later than Word, a line Word would not hold; three or more break later still). Word's own limit is
+    not one number: about one space on lines of one repeated letter, up to four on ordinary text. Left-aligned, the
+    same text breaks as Word's in 118 of 120, so widths agree.
+  - The contract: every probed line on Word's page, first lines of each page within ~0.5 pt of Word's but pages 2
+    (−1.5 pt) and 6 (+2.2 pt), 13 pages as Word. The form: 1 page as Word.
+  - 68 fixtures against Word's renders: one better (`w12_table_last_in_body`, 0.460 → 0.289), none worse.
+  - A 68-page justified document opens about 0.4 s slower (7.35 s against 6.95 s headless).
+  - Both real documents' saves 0 validator errors; 1770 tests, typecheck, lint. Tests: `justify-squeeze.test.ts`,
+    `inline-page-breaks.test.ts` (a final heading saves without the editor's line).
+- **Open:** Word's exact allowance; the desktop app and the tablet not yet checked (`verify-list.md`).
+
 ### Text box paragraph indents (v1.1.2)
 
 - **What was wrong:** a text box's text lost its paragraph indent (`w:ind` in `w:txbxContent`): the contract's cover

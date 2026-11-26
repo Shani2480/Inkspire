@@ -22,7 +22,7 @@ async function documentWith(body: string) {
   return writePackage(pkg)
 }
 
-async function openAndSave(bytes: Uint8Array) {
+async function openAndSave(bytes: Uint8Array, typedLine = false) {
   const opened = await openDocxBytes(bytes, "breaks.docx")
   const editor = new Editor({
     extensions: createExtensions().filter((extension) => extension.name !== "spellcheck"),
@@ -31,6 +31,10 @@ async function openAndSave(bytes: Uint8Array) {
   })
   const json = editor.getJSON()
   editor.destroy()
+  if (typedLine) {
+    // The editor's own empty line at the end (its trailing node, added in the running app).
+    json.content = [...(json.content ?? []), { type: "paragraph" }]
+  }
   const saved = await saveDocxBytes({
     json,
     chrome: opened.view.chrome,
@@ -92,5 +96,14 @@ describe("a page break among a paragraph's text", () => {
     )
     expect(types(json)).toEqual(["paragraph", "pageBreak", "paragraph"])
     expect(shape(word)).toEqual(["One", "[B]", "Two"])
+  })
+})
+
+describe("a document ending in a heading", () => {
+  it("saves without the editor's empty line after it (a real form gained a second, empty page)", async () => {
+    const heading = `<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr>${run("Important information")}</w:p>`
+    const { json, word } = await openAndSave(await documentWith(`<w:p>${run("Form")}</w:p>${heading}`), true)
+    expect(types(json)).toEqual(["paragraph", "heading", "paragraph"])
+    expect(shape(word)).toEqual(["Form", "Important information"])
   })
 })

@@ -871,6 +871,14 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
       lines 20.9 pt apart and 16 pt and up two pitches (36 pt), page 1 ending where Word's does.
 - [ ] Desktop app (WebKitGTK 2.54): the same grid page (the rules use CSS `round()`, which WebKit has).
 
+## Justified lines and page drift (2026-11-26, v1.1.3)
+
+- [ ] Desktop app (WebKitGTK): a justified paragraph's lines break where they do in headless Chrome (the narrowed
+      word spacing and `white-space: pre-wrap`); typing at a line's end moves the caret on without a jump.
+- [ ] Android tablet: the same justified paragraph; the caret and selection handles at a line's last word.
+- [ ] Desktop app and tablet: a document ending in a heading has no empty second page, and Enter after the heading
+      still gives a line to type on.
+
 ## Pixel phone checks (2026-11-20, 1.0.1–1.0.2)
 
 - [x] Open, type, Bold, table, picture resize and crop, Save, Print (to Android's print service), Undo, 3D model
