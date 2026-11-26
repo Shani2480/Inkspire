@@ -161,7 +161,29 @@ function applyTableStyleDom(table: HTMLTableElement, node: ProseNode) {
   } else {
     delete table.dataset.fitContent
   }
+  autofitColumns(table, node, fit)
   drawTableFloat(table, node.attrs.float)
+}
+
+/**
+ * A Word table that resizes to its contents (not "fixed"): its columns keep their widths as shares of the table, and a
+ * column grows to its longest word that cannot break, taking the room from the others, as Word lays it out (a report's
+ * column of long field names was 268 px in the file and 281.6 in Word; 282.3 drawn so). The browser's automatic table
+ * layout does that with the widths given as percentages. Tables made in the app, and fixed ones, keep their widths.
+ */
+function autofitColumns(table: HTMLTableElement, node: ProseNode, fit: string | null) {
+  const autofit = node.attrs.wordTable === true && node.attrs.autoResize !== false && !fit
+  const cols = [...(table.querySelector(":scope > colgroup")?.children ?? [])] as HTMLElement[]
+  const widths = cols.map((col) => parseFloat(col.style.width))
+  const total = widths.reduce((sum, width) => sum + width, 0)
+  if (!autofit || cols.length === 0 || widths.some((width) => !(width > 0)) || !(total > 0)) {
+    delete table.dataset.autofit
+    return
+  }
+  table.dataset.autofit = "1"
+  cols.forEach((col, index) => {
+    col.style.width = `${(widths[index]! / total) * 100}%`
+  })
 }
 
 /** The table view draws its own <table>, so the Word attributes are copied onto it here. */
@@ -242,9 +264,10 @@ const wordCell = {
  * 2026-11-26).
  */
 /**
- * A cell's top and bottom borders thinner than a pixel, as `--cell-bt` / `--cell-bb` in CSS pixels. Word draws a
- * 1/4 pt line a third of a pixel high, the screen draws it a whole pixel: index.css takes the difference out of the
- * cell's top and bottom margins, so the row is as tall as Word's (a report's tables, rows of 1/8 pt borders, ran
+ * A cell's own top and bottom borders, as `--cell-bt` / `--cell-bb` in CSS pixels (0 for a side set to none). Word
+ * draws a line as thick as it is; the screen draws one a whole number of device pixels, at least one (a 1/4 pt line a
+ * third of a pixel high comes out a pixel, a 1 pt line 1.33 px comes out 1): index.css gives the difference back to
+ * the cell's top and bottom margins, so a row is as tall as Word's (a report's tables, rows of 1/8 pt borders, ran
  * 0.6 px a row taller and 9 px over a page).
  */
 export function hairlineVariables(attributes: Record<string, unknown>) {
@@ -260,11 +283,17 @@ export function hairlineVariables(attributes: Record<string, unknown>) {
       return null
     }
     const px = Number(match[1]) * (match[2] === "pt" ? 4 / 3 : 1)
-    return px > 0 && px < 1 ? Math.round(px * 1000) / 1000 : null
+    return px > 0 ? Math.round(px * 1000) / 1000 : null
   }
-  const solid = (side: "Top" | "Bottom") => probe[`border${side}Style`] !== "none" && probe[`border${side}Style`] !== ""
-  const top = solid("Top") ? thin(probe.borderTopWidth) : null
-  const bottom = solid("Bottom") ? thin(probe.borderBottomWidth) : null
+  const width = (side: "Top" | "Bottom") => {
+    const lineStyle = probe[`border${side}Style`]
+    if (lineStyle === "none" || lineStyle === "hidden") {
+      return 0
+    }
+    return lineStyle === "" ? null : thin(probe[`border${side}Width`])
+  }
+  const top = width("Top")
+  const bottom = width("Bottom")
   if (top === null && bottom === null) {
     return style === attributes.style ? attributes : { ...attributes, style }
   }
@@ -293,17 +322,26 @@ function exactWordPadding(attributes: Record<string, unknown>) {
     ["right", right],
   ] as const) {
     const points = Number(new RegExp(`padding-${side}:\\s*([\\d.]+)pt`).exec(word)?.[1])
-    if (!Number.isFinite(points) || centimetres === undefined) {
+    if (centimetres === undefined) {
       return style
+    }
+    // A side the Word cell does not set (a cell giving only its top and bottom margins) keeps the table's.
+    if (!Number.isFinite(points)) {
+      continue
     }
     if (Math.abs((points * 2.54) / 72 - centimetres) > 0.0051) {
       return style
     }
     exact.push(`padding-${side}: ${points}pt`)
   }
-  const above = exact[0]!.split(": ")[1]
-  const below = exact[1]!.split(": ")[1]
-  return `${style.replace(/;\s*$/, "")}; ${exact.join("; ")}; --cell-top: ${above}; --cell-bottom: ${below}`
+  if (exact.length === 0) {
+    return style
+  }
+  const value = (side: string) => exact.find((item) => item.startsWith(`padding-${side}:`))?.split(": ")[1]
+  const above = value("top")
+  const below = value("bottom")
+  const variables = `${above ? `; --cell-top: ${above}` : ""}${below ? `; --cell-bottom: ${below}` : ""}`
+  return `${style.replace(/;\s*$/, "")}; ${exact.join("; ")}${variables}`
 }
 
 function cellPadVariables(css: string) {

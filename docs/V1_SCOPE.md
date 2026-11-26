@@ -57,5 +57,3 @@ they do in Word, and Word opens Inkspire's saves as they were.
   to the next page).~~ Mostly fixed in 1.1.3: an allowance of two spaces a line (96 of 120 test paragraphs break as
   Word's; Word's own limit varies with the text), and the contract's pages all hold Word's lines.
 - Spaces in runs marked Korean (`w:lang w:eastAsia="ko-KR"`) are wider in Word than the font's own.
-- Documents 6 to 13: one row of the 27-page report lands a page later (its page
-  ends about 1 px lower than Word's). Listed in `next-todo.md`.

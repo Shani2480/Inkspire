@@ -39,8 +39,17 @@ describe("a cell's hairline borders", () => {
     expect(attributes.style).toContain("--cell-bb: 0.333px")
   })
 
-  it("leaves borders a pixel or wider, and missing borders, as they are", () => {
-    const style = "border-top: 1.5pt solid #000000; border-bottom-style: none; padding: 4pt"
+  it("gives every width, so a 1 pt line the screen draws 1 px gets its third of a pixel back", () => {
+    const attributes = hairlineVariables({
+      style: "border-top: 1pt solid #000000; border-bottom-style: none; padding: 4pt",
+    })
+    expect(attributes.style).toContain("--cell-bt: 1.333px")
+    // A side set to none is none, whatever the table's lines.
+    expect(attributes.style).toContain("--cell-bb: 0px")
+  })
+
+  it("leaves a cell without borders of its own to the table's lines", () => {
+    const style = "padding: 4pt"
     expect(hairlineVariables({ style }).style).toBe(style)
   })
 

@@ -2263,7 +2263,8 @@ button.line-menu-row:focus-visible {
 
 /* A Word table set to its text (no cell widths, autofit; `fitContent`): its columns share its width by their text,
    as Word lays them out, or it shrinks to its text when it has no width of its own. */
-.page-editor table[data-fit-content] {
+.page-editor table[data-fit-content],
+.page-editor table[data-autofit] {
   table-layout: auto !important;
 }
 
@@ -2527,15 +2528,62 @@ button.line-menu-row:focus-visible {
   );
 }
 
-/* A Word border thinner than a pixel (1/4 or 1/2 pt) is drawn a whole device pixel: the difference is taken out of
-   the cell's top and bottom margins, half for each line (rows share their lines), so a row is as tall as Word's
-   (`hairlineVariables`, table-tools.ts; a report's rows of 1/8 pt borders were 0.6 px taller, 9 px over a page). */
-.page-editor :is(td, th)[style*="--cell-top"][style*="--cell-bt"] {
-  padding-top: max(0px, calc(var(--cell-top) - max(0px, var(--hair, 1px) - var(--cell-bt)) / 2)) !important;
+/* A border is drawn a whole number of device pixels, at least one, where Word draws it as thick as it is (a 1/4 pt
+   line a third of a pixel, a 1 pt line 1.33 px). The difference goes back to the cell's top and bottom margins, so a
+   row is as tall as Word's: half for each line rows share, all of it for the table's top and bottom lines, whose
+   outer half lies outside the rows (measured in Word with test tables, 2026-11-26: a report's rows of 1/8 pt borders
+   ran 0.6 px a row taller, its tables 0.72 px each; a Table Grid's 1/2 pt lines 0.33 px each). A cell's own border
+   (`--cell-bt` / `--cell-bb`, table-tools.ts) wins over the table's (`--wb-w-*`, word-styles.ts), as in Word. */
+@supports (width: round(down, 1.5px, 1px)) {
+  /* A table inside a cell does not take that cell's own values. */
+  .page-editor table {
+    --cell-bt: initial;
+    --cell-bb: initial;
+    --cell-top: initial;
+    --cell-bottom: initial;
+  }
+
+  .page-editor :is(td, th) {
+    --edge-t: var(--cell-bt, var(--wb-w-insideH, 0px));
+    --edge-b: var(--cell-bb, var(--wb-w-insideH, 0px));
+    --share-t: 0.5;
+    --share-b: 0.5;
+    --pad-t: var(--cell-top, var(--wc-top, 0px));
+    --pad-b: var(--cell-bottom, var(--wc-bottom, 0px));
+    --drawn-t: min(var(--edge-t) * 1000, max(var(--hair, 1px), round(down, var(--edge-t), var(--hair, 1px))));
+    --drawn-b: min(var(--edge-b) * 1000, max(var(--hair, 1px), round(down, var(--edge-b), var(--hair, 1px))));
+  }
+
+  .page-editor tbody > tr:first-child > :is(td, th) {
+    --edge-t: var(--cell-bt, var(--wb-w-top, 0px));
+    --share-t: 1;
+  }
+
+  .page-editor tbody > tr:last-child > :is(td, th) {
+    --edge-b: var(--cell-bb, var(--wb-w-bottom, 0px));
+    --share-b: 1;
+  }
+
+  .page-editor :is(td, th)[style*="--cell-top"],
+  .page-editor table[data-word-table="1"] :is(td, th):not([style*="padding"]) {
+    padding-top: max(0px, calc(var(--pad-t) - (var(--drawn-t) - var(--edge-t)) * var(--share-t))) !important;
+  }
+
+  .page-editor :is(td, th)[style*="--cell-bottom"],
+  .page-editor table[data-word-table="1"] :is(td, th):not([style*="padding"]) {
+    padding-bottom: max(0px, calc(var(--pad-b) - (var(--drawn-b) - var(--edge-b)) * var(--share-b))) !important;
+  }
 }
 
-.page-editor :is(td, th)[style*="--cell-bottom"][style*="--cell-bb"] {
-  padding-bottom: max(0px, calc(var(--cell-bottom) - max(0px, var(--hair, 1px) - var(--cell-bb)) / 2)) !important;
+/* Without round(): a border thinner than a pixel is drawn one; the difference comes out of the margins. */
+@supports not (width: round(down, 1.5px, 1px)) {
+  .page-editor :is(td, th)[style*="--cell-top"][style*="--cell-bt"] {
+    padding-top: max(0px, calc(var(--cell-top) - max(0px, var(--hair, 1px) - var(--cell-bt)) / 2)) !important;
+  }
+
+  .page-editor :is(td, th)[style*="--cell-bottom"][style*="--cell-bb"] {
+    padding-bottom: max(0px, calc(var(--cell-bottom) - max(0px, var(--hair, 1px) - var(--cell-bb)) / 2)) !important;
+  }
 }
 
 /* Cell Options: Wrap text off. */

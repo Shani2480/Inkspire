@@ -200,11 +200,12 @@ repeated header row, a tab typed in the text, tabs in headers and footers. Open:
        the paragraph that ended the section (measured in the VM, 1.2.2; see `changes.md`).
 3. [x] Autofit tables without cell widths: Word sets the columns to their text (1.2.3; rule measured in the VM, see
        `changes.md`). The signature table now 214/181/206 px, Word's 214/182/206.
-4. [ ] A few page numbers in the assessment's table of contents one lower than Word's (later pages hold a little
-       less). 1.2.1 fixed most of the drift (rounded TOC rows, hairline borders, whole-pixel text boxes, cell
-       margins rounded to a hundredth of a centimetre; each page now starts at the margin, rows are Word's height to
-       0.05 px, measured in the VM). Left: page 5 ends about 1 px lower than Word's (in the headings), and Word fits
-       its last row with 0.5 px to spare, so that row goes on to page 6. 5. [ ] An empty borderless table's gridlines are drawn on screen (View Gridlines), as in Word's screen view; Word's
+4. [x] A few page numbers in the assessment's table of contents one lower than Word's. Fixed in 1.2.4: each table
+       was 0.72 px taller than Word's (the table's own top and bottom lines are not shared with a row), and Word
+       fits a "resize to contents" table's columns to their longest words (a column of long field names 268 px in
+       the file, 282 in Word). The report's last row of page 5 now stays there; all 27 pages closer to Word
+       (difference 314 down to 186).
+5. [ ] An empty borderless table's gridlines are drawn on screen (View Gridlines), as in Word's screen view; Word's
        PDF has none. Not a layout difference.
 
 **Fidelity audit (2026-11-13).** When a .docx "opens weird", run `npm run audit:docx -- file.docx` with the dev

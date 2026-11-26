@@ -932,3 +932,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
   Word's custom dashes (shown as a plain dash) are approximated.
 - Error bars are one setting for all series, Y direction only; no More Options panes.
 - Chart data sheet is held at the top of the window, over the ribbon, when the chart scrolls under it.
+
+## Table heights (2026-11-26, v1.2.4)
+
+- [ ] Desktop app (WebKitGTK): a Word table with 1/2 pt Table Grid lines and one with 1 pt cell borders are as tall
+      as Word's (the margins take back what the screen draws thicker or thinner; it needs CSS `round()`, which
+      WebKitGTK 2.54 has). Compare with the same file in Word.
+- [ ] A "resize to contents" Word table with a long unbreakable word in one column: that column widens as in Word.

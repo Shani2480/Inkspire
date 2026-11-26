@@ -9,6 +9,20 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "1.2.4",
+    date: "2026-11-26",
+    notes: [
+      {
+        title: "Tables as tall as in Word",
+        text: "Table borders, thin or thick, no longer make rows a fraction taller or shorter than Word's, so long documents with many tables break pages where Word does.",
+      },
+      {
+        title: "Columns fitted to their words",
+        text: "A Word table that resizes to its contents widens a column to fit its longest word, as Word does.",
+      },
+    ],
+  },
+  {
     version: "1.2.3",
     date: "2026-11-26",
     notes: [

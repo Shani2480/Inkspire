@@ -7,6 +7,28 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-26
 
+### Tables as tall as Word's, columns fitted to their words (v1.2.4)
+
+The 27-page report's page 5 ended about 1 px lower than Word's, so its last row went on to page 6 and the pages
+after drifted. Test documents built from the report's own styles (each element repeated between two markers,
+measured in Word in the VM and in the app) found it: every table was 0.72 px taller than Word's. The table's own top
+and bottom lines are not shared with a row, so the whole of what the screen draws extra belongs to the first and
+last row, not half. Eight more test tables (cell and table borders of 1/8 to 1.5 pt, one and five rows) gave Word's
+rule: a line is as thick as it is, a cell's own border wins over the table's, and the screen draws every line a whole
+number of device pixels, at least one (a Table Grid's 1/2 pt lines a pixel, 0.33 px a line too tall; 1 pt lines 1 px,
+0.33 too short). Cells now carry every border width (`--cell-bt` / `--cell-bb`, 0 for none) and tables theirs
+(`--wb-w-*`); index.css gives the difference back to the margins with CSS `round()` (half for a shared line, all of
+it for the table's edge), with the old hairline rule kept for engines without `round()`. All eight test tables now
+as tall as Word's. A cell giving only its top and bottom margins now keeps them exact too (80 twips was drawn 0.14 cm,
+5.29 px for 5.33).
+
+Then page 9: a "resize to contents" table (not fixed, cell widths given) had a column of long field names that Word
+widened from 268 to 282 px, taking from the others. Such tables now give their column widths as shares of the table
+with automatic layout (`autofitColumns`, table-tools.ts), so the browser fits the longest word as Word does (282.3).
+The report keeps its 27 pages and every page is closer to Word (difference total 314 down to 186). Two one-page
+policies are 0.4 points worse on page 1: their table rows were only right before because the borders' excess hid
+text lines in Arial 0.05 px short. Tests, typecheck, lint, the eight real documents and the fixture comparison (no layout worse; two one-cell table fixtures differ only by the table handles drawn on screen).
+
 ### Tables sized to their text (v1.2.3)
 
 A statement of work's signature table (autofit, no cell widths, a grid of 150/226/226 px) came out in Word as

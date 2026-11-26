@@ -144,7 +144,9 @@ describe("tables", () => {
   it("draws a row's own borders (w:tblPrEx) and turns automatic text white on a dark cell", async () => {
     const opened = await openDocxBytes(await overridesDocx(), "overrides.docx")
     const html = editorWith(opened.view.html).getHTML()
-    expect(html).toMatch(/<tr[^>]*data-word-frame="--wb-top: 0.5pt solid #000000; --wb-insideH: 0.5pt solid #000000"/)
+    expect(html).toMatch(
+      /<tr[^>]*data-word-frame="--wb-top: 0.5pt solid #000000; --wb-insideH: 0.5pt solid #000000; --wb-w-top: 0.667px; --wb-w-insideH: 0.667px"/,
+    )
     expect(html).toContain("--word-auto-color: #ffffff")
   })
 

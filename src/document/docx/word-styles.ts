@@ -789,9 +789,16 @@ export function tableVariables(
   colors?: Record<string, string>,
 ) {
   const rules: string[] = []
+  const widths: string[] = []
   for (const side of ["top", "left", "bottom", "right", "insideH", "insideV"] as const) {
     if (borders?.[side]) {
-      rules.push(`--wb-${side}: ${borderCss(borders[side], colors)}`)
+      const css = borderCss(borders[side], colors)
+      rules.push(`--wb-${side}: ${css}`)
+      // Its width as a number, so a row can take back what the screen draws thicker or thinner (index.css).
+      if (side === "top" || side === "bottom" || side === "insideH") {
+        const points = css === "none" ? 0 : parseFloat(css)
+        widths.push(`--wb-w-${side}: ${Math.round(((points * 4) / 3) * 1000) / 1000}px`)
+      }
     }
   }
   for (const side of ["top", "left", "bottom", "right"] as const) {
@@ -800,6 +807,7 @@ export function tableVariables(
       rules.push(`--wc-${side}: ${twips(margin.value)}`)
     }
   }
+  rules.push(...widths)
   return rules
 }
 
