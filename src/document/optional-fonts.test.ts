@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { OPTIONAL_FONTS, fontSize, officeFontsIn, standInFor, useOptionalFonts } from "@/document/optional-fonts"
+import {
+  OPTIONAL_FONTS,
+  androidAlias,
+  fontSize,
+  officeFontsIn,
+  standInFor,
+  useOptionalFonts,
+} from "@/document/optional-fonts"
 
 describe("optional fonts (U39)", () => {
   afterEach(() => {
@@ -51,5 +58,13 @@ describe("optional fonts (U39)", () => {
     )
     await useOptionalFonts.getState().download(["cousine"])
     expect(useOptionalFonts.getState().status.cousine).toBe("failed")
+  })
+
+  it("takes Android's aliases (Arial drawn in Roboto) for missing fonts there, and only there", () => {
+    expect(androidAlias("Arial", true)).toBe(true)
+    expect(androidAlias(" times new roman ", true)).toBe(true)
+    expect(androidAlias("Courier New", true)).toBe(true)
+    expect(androidAlias("Calibri", true)).toBe(false)
+    expect(androidAlias("Arial", false)).toBe(false)
   })
 })

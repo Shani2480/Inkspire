@@ -9,6 +9,16 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "1.1.4",
+    date: "2026-11-26",
+    notes: [
+      {
+        title: "Arial on Android",
+        text: "Android draws Arial, Times New Roman and Courier New in its own fonts, which are wider or narrower, so lines broke in other places than in Word. Inkspire now sees that these fonts are missing and offers their free look-alikes with the same widths (Arimo, Tinos, Cousine) in the fonts bar.",
+      },
+    ],
+  },
+  {
     version: "1.1.3",
     date: "2026-11-26",
     notes: [

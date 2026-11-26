@@ -1,4 +1,5 @@
 import { create } from "zustand"
+import { isAndroid } from "@/lib/platform"
 
 /**
  * Optional fonts (U39): free fonts with the same widths as the Office fonts Word documents use most, downloaded only
@@ -410,9 +411,50 @@ export const useOptionalFonts = create<OptionalFontsState>((set, get) => ({
  * Whether the page can draw a font itself: text in it measures differently from the fallback. Works on the web too,
  * where the list of system fonts needs a permission. True when it cannot tell (no canvas), so no hint is shown.
  */
+/**
+ * Names Android answers with its own fonts (the aliases in the system's fonts.xml): "Arial" is drawn in Roboto,
+ * "Times New Roman" in Noto Serif, "Courier New" in Droid Sans Mono. They measure as installed but have other widths,
+ * so a document in Arial wrapped differently from Word and the app never offered Arimo.
+ */
+const ANDROID_ALIASES = new Set([
+  "arial",
+  "helvetica",
+  "tahoma",
+  "verdana",
+  "times",
+  "times new roman",
+  "palatino",
+  "georgia",
+  "baskerville",
+  "goudy",
+  "courier",
+  "courier new",
+  "monaco",
+])
+
+/** Whether a font face of this family is registered on the page (and did not fail to load). */
+function registeredFace(name: string) {
+  const family = name.trim().toLowerCase()
+  for (const face of document.fonts ?? []) {
+    if (face.family.replace(/["']/g, "").trim().toLowerCase() === family && face.status !== "error") {
+      return true
+    }
+  }
+  return false
+}
+
+/** Whether the name is one of Android's aliases for its own fonts, on Android. */
+export function androidAlias(name: string, android = isAndroid) {
+  return android && ANDROID_ALIASES.has(name.trim().toLowerCase())
+}
+
 export function fontAvailable(name: string) {
   if (typeof document === "undefined") {
     return true
+  }
+  if (androidAlias(name)) {
+    // Only a downloaded stand-in registered under the name (see above) draws it with the right widths.
+    return registeredFace(name)
   }
   let context: CanvasRenderingContext2D | null
   try {

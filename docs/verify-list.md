@@ -869,15 +869,19 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - [ ] Windows desktop app: a document in a font the machine lacks (e.g. Avenir) shows in Calibri, as Word does there.
 - [x] Android tablet (OnePlus Pad, 1.1.1 APK, WebView 157, 2026-11-26): a test page on an 18 pt line grid shows 8–14 pt
       lines 20.9 pt apart and 16 pt and up two pitches (36 pt), page 1 ending where Word's does.
-- [ ] Desktop app (WebKitGTK 2.54): the same grid page (the rules use CSS `round()`, which WebKit has).
+- [x] Desktop app (WebKitGTK 2.54, 1.1.3 opaque build on a private display, 2026-11-26): the same grid page, 8–14 pt
+      lines 28 px (21 pt) apart and 16 pt and up 48 px (36 pt), as on the tablet.
 
 ## Justified lines and page drift (2026-11-26, v1.1.3)
 
-- [ ] Desktop app (WebKitGTK): a justified paragraph's lines break where they do in headless Chrome (the narrowed
-      word spacing and `white-space: pre-wrap`); typing at a line's end moves the caret on without a jump.
-- [ ] Android tablet: the same justified paragraph; the caret and selection handles at a line's last word.
-- [ ] Desktop app and tablet: a document ending in a heading has no empty second page, and Enter after the heading
-      still gives a line to type on.
+- [ ] Desktop app (WebKitGTK 2.54, 2026-11-26): 12 justified Arial paragraphs: 11 break as in Word and headless
+      Chrome; one line (1.26 spaces over, inside the allowance) breaks a word early, also after an edit measures it
+      again. Not yet known why WebKit differs there (no inspector in the release build).
+- [x] Android tablet (OnePlus Pad, 1.1.4 APK, 2026-11-26): with Arimo downloaded all 12 paragraphs break as in Word;
+      a long press on a line's last word selects it with the handles on it. (Before 1.1.4 Arial was drawn in Roboto
+      and nothing was offered: see changes.)
+- [x] Desktop app and tablet: a document ending in a heading has 2 pages as in Word (heading on page 2), no extra
+      page; typing after it goes on the editor's line below the heading.
 
 ## Pixel phone checks (2026-11-20, 1.0.1–1.0.2)
 

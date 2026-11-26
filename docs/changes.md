@@ -7,6 +7,21 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-26
 
+### Arial on Android drawn in Arimo, not Roboto (v1.1.4)
+
+- **What was wrong:** Android answers "Arial" (and Helvetica, Tahoma, Verdana, Times New Roman, Georgia, Courier New
+  and a few more) with its own fonts, the aliases in its fonts.xml. The app's check measured "Arial" as installed, so
+  a document in Arial was drawn in Roboto and the fonts bar never offered Arimo: on the tablet, justified paragraphs
+  broke in other places than in Word (seen while checking 1.1.3 there).
+- **What changed:** `optional-fonts.ts`: on Android an aliased name counts as missing unless a font face of that name
+  is registered (a downloaded stand-in is registered under the Office name), so the bar offers Arimo, Tinos or
+  Cousine (`androidAlias`, test in `optional-fonts.test.ts`).
+- **Checked:** on the OnePlus Pad (1.1.4 APK): the bar offers Arimo for Arial; after Download, 12 justified test
+  paragraphs break exactly as in Word (before, several broke a word early). 1771 tests, typecheck, lint.
+- **Also checked (1.1.3 on devices):** desktop app on a private display: the line grid as on the tablet, a final
+  heading on page 2 as in Word with a line to type on after it; 11 of 12 justified paragraphs as in Word, one line a
+  word early in WebKitGTK (open, `verify-list.md`).
+
 ### Justified lines as Word breaks them, pages that no longer drift, no empty page after a final heading (v1.1.3)
 
 - **What was wrong:**
