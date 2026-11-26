@@ -38,7 +38,7 @@ they do in Word, and Word opens Inkspire's saves as they were.
    save as the original. _Met on 2026-11-20 (77 of 77)._
 2. **Real documents look as in Word:** a set of at least 20 real, varied documents (letters, forms, contracts,
    reports, a thesis, a CV, documents from Google Docs and LibreOffice) is compared page by page with Word. Every
-   difference is fixed or listed under known limits. _Not met: 5 real documents so far (2026-11-26: the contract and the form; their bugs fixed but those listed below)._
+   difference is fixed or listed under known limits. _Not met: 13 real documents so far (2026-11-26: the contract and the form, then eight more, all with Word's page count; their bugs fixed but those listed below)._
 3. **Checked where it runs:** the core items of `verify-list.md` (open, type, format, table, picture, save, print)
    are ticked in the desktop app on Linux and Windows and on an Android phone and tablet. _Partly met: the Android tablet (OnePlus Pad), the phone (Pixel) and the Linux desktop app pass (2026-11-20); Windows is open._
 4. **Tests, typecheck, lint and the Open XML validator are clean.** _Met._
@@ -57,3 +57,6 @@ they do in Word, and Word opens Inkspire's saves as they were.
   to the next page).~~ Mostly fixed in 1.1.3: an allowance of two spaces a line (96 of 120 test paragraphs break as
   Word's; Word's own limit varies with the text), and the contract's pages all hold Word's lines.
 - Spaces in runs marked Korean (`w:lang w:eastAsia="ko-KR"`) are wider in Word than the font's own.
+- Documents 6 to 13 (1.2.0): a two-line table row Word moves whole to the next page is split in the app; a page a
+  section break starts keeps all its first paragraph's space before (Word part of it); autofit tables without cell
+  widths keep the grid's widths. Listed in `next-todo.md`.

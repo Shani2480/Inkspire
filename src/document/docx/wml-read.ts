@@ -842,7 +842,18 @@ function readRun(node: MarkupNode, notes: WordNote[], raw: RawCursor = NO_RAW): 
     }
     contentStarted = true
     const item = readRunContent(child, raw)
-    if (item) {
+    if (item?.kind === "text" && item.text.includes("\t")) {
+      // A tab typed into the text itself (generators write one in w:t): Word sets it as a tab, to the next tab stop
+      // (a report's footer number sat after its text instead of at the right margin).
+      item.text.split("\t").forEach((part, index) => {
+        if (index > 0) {
+          content.push({ kind: "tab" })
+        }
+        if (part) {
+          content.push({ kind: "text", text: part })
+        }
+      })
+    } else if (item) {
       content.push(item)
     }
   }
@@ -899,7 +910,9 @@ function readRunContent(child: MarkupNode, raw: RawCursor = NO_RAW): RunContent 
   }
   if (child.local === "fldChar") {
     const fieldType = oneOf(attr(child, "fldCharType"), FIELD_CHAR_TYPES)
-    return fieldType ? { kind: "fldChar", fieldType } : undefined
+    // Dirty: Word updates the field when it opens the document (a table of contents left empty by a generator).
+    const dirty = fieldType === "begin" && /^(true|1|on)$/i.test(attr(child, "dirty") ?? "")
+    return fieldType ? { kind: "fldChar", fieldType, ...(dirty ? { dirty: true } : {}) } : undefined
   }
   if (child.local === "cr") {
     return { kind: "break", breakType: "textWrapping" }

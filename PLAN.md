@@ -49,10 +49,15 @@ This file is the overview; update it in the same commit as the work.
 
 - ✅ 1.1.5: justified lines in the Linux app at 1x allow for WebKitGTK's whole-pixel glyph widths.
 
+- ✅ 1.2.0: real documents 6 to 13 compared with Word, all with Word's page count: tables of contents built on
+  opening and split across pages, space before dropped at a page's top, no page drift (bordered paragraphs, rounded
+  heights), exact and "at least" rows as Word's, repeated header rows, footer pictures and tabs, list bullets kept
+  with their text.
+
 ## In progress
 
 - 🔄 1.0 release candidate: scope and criteria in `docs/V1_SCOPE.md` (draft). Open: a 20-document real-world set
-  compared with Word (5 so far; open differences in `V1_SCOPE.md`), the core desktop and Android checks (tablet checks run on
+  compared with Word (13 so far; open differences in `V1_SCOPE.md`), the core desktop and Android checks (tablet checks run on
   the OnePlus Pad 2026-11-20: all pass after the v0.12.1 fixes; phone checked on the Pixel and the Linux desktop app 2026-11-20; Windows still to do). Released as
   1.0.1 (2026-11-20, the version chosen for 1.0); the criteria in `V1_SCOPE.md` left open are tracked for 1.0.x.
 - 🔄 Word comparison follow-ups (`next-todo.md`, "Word comparison"): what is left is screen-only drawing in the
@@ -61,6 +66,8 @@ This file is the overview; update it in the same commit as the work.
 ## Next
 
 - ⬜ The 1.0 criteria left open (In progress above): more real-world documents compared with Word, the Windows check.
+- ⬜ Differences left from real documents 6 to 13 (`next-todo.md`): a two-line table row Word moves whole, the
+  space before on a page a section break starts, autofit tables without cell widths.
 - ⬜ Differences left from real documents 4 and 5 (`next-todo.md`, Word comparison 2026-11-26): wider spaces in
   Korean-marked runs; Word's exact justified-line limit (it varies with the text: about one space on lines of one
   repeated letter, up to four on ordinary text; the app uses two).

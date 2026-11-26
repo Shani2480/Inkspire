@@ -184,6 +184,27 @@ tall as their mark, page breaks among text, the break paragraph's own line, text
        Spacing); with that attribute removed Word's spaces are the font's own (tested in the VM). The rule (which
        spaces, how wide) is not yet known.
 
+**Word comparison, real documents 6 to 13 (2026-11-26).** Eight more documents (a 27-page assessment report with a
+generated table of contents, a statement of work, an invoice template, a code of conduct, a letterhead, three
+policies; mock-free copies kept out of git). Page counts now all match Word's (they were off on two). Fixed in 1.2.0
+(see `changes.md`): footer pictures relative to the margin and below a header, text pushed under a full-width
+wrapped footer picture, exact row heights clipped as Word does (and Word's margin rules for exact and "at least"
+rows, measured in the VM), a dirty table of contents built on opening and split across pages, TOC entries' 5 pt
+after, a page gap before a list item moved before its bullet, space before dropped at the top of a page (measured
+in the VM), bordered paragraphs and rounded heights that made pages drift, the fill-in mark taking room, Word's
+repeated header row, a tab typed in the text, tabs in headers and footers. Open:
+
+1. [ ] A table row that may break across pages: Word moved a two-line row whole to the next page (after the
+       repeated header row), the app splits it and leaves one line ("history") on the next page. Rule not known.
+2. [ ] A page that a section break starts: Word keeps part of the first paragraph's space before (86 px against
+       75 dropped and 96 kept, in the VM); the app keeps all of it.
+3. [ ] Autofit tables without cell widths (a statement of work's signature table): Word sizes the columns to their
+       text, the app keeps the grid's widths.
+4. [ ] A few page numbers in the assessment's table of contents one lower than Word's (later pages hold a little
+       less), and pages 4+ of the assessment still differ in small row heights.
+5. [ ] An empty borderless table's gridlines are drawn on screen (View Gridlines), as in Word's screen view; Word's
+       PDF has none. Not a layout difference.
+
 **Fidelity audit (2026-11-13).** When a .docx "opens weird", run `npm run audit:docx -- file.docx` with the dev
 server up before reading XML: it lists every run and paragraph whose drawn formatting differs from Word's rules,
 with the style and text. Done: run toggles turned off against styles, highlight, automatic colour on shading, row

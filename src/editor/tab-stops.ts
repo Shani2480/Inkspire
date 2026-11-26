@@ -197,6 +197,7 @@ export const TabStops = Extension.create({
             }
             view.dispatch(next)
           }
+          let tries = 0
           const layout = () => {
             if (view.isDestroyed) {
               return
@@ -205,7 +206,14 @@ export const TabStops = Extension.create({
               replaceRawTabs()
               return
             }
-            layoutTabStops(view)
+            // A header's or footer's editor is placed on the page after it is made: its tabs are set once it is
+            // there (a footer's page number sat after its text, its tab never widened, and the pages show a copy).
+            if (layoutTabStops(view)) {
+              tries = 0
+            } else if (tries < 60) {
+              tries += 1
+              requestAnimationFrame(layout)
+            }
           }
           queueMicrotask(layout)
           return {
@@ -301,13 +309,31 @@ function tabStopLines(editor: Editor) {
 
 let layingOut = false
 
-function layoutTabStops(view: EditorView) {
-  if (layingOut) {
+/**
+ * Sets the tabs' widths in a copy of an editor's markup (a header or footer as drawn on each page): its own editor
+ * is off the page, where nothing can be measured, so the copy's tabs are set where it is shown.
+ */
+export function layoutTabsIn(container: HTMLElement) {
+  if (!container.isConnected || container.clientWidth <= 0) {
     return
   }
+  const separator = decimalSeparator(readLocale())
+  for (const block of container.querySelectorAll<HTMLElement>(":is(p, h1, h2, h3, h4, h5, h6):has(.doc-tab)")) {
+    layoutBlock(block, container, parseTabStops(block.dataset.tabStops), separator)
+  }
+}
+
+/** Sets each tab's width; false when the editor is not on screen yet (a header's editor before it is placed). */
+function layoutTabStops(view: EditorView): boolean {
+  if (layingOut) {
+    return true
+  }
   const editor = view.dom
-  if (!(editor instanceof HTMLElement) || !editor.isConnected || rawTabRanges(view.state.doc).length > 0) {
-    return
+  if (!(editor instanceof HTMLElement) || rawTabRanges(view.state.doc).length > 0) {
+    return true
+  }
+  if (!editor.isConnected || editor.clientWidth <= 0) {
+    return false
   }
   const separator = decimalSeparator(readLocale())
   layingOut = true
@@ -331,6 +357,7 @@ function layoutTabStops(view: EditorView) {
   } finally {
     layingOut = false
   }
+  return true
 }
 
 function blockHasTab(node: ProseNode) {

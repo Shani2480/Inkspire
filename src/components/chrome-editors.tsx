@@ -1,15 +1,16 @@
 import { Editor } from "@tiptap/core"
 import { EditorContent } from "@tiptap/react"
-import { useEffect, useId, useRef, useState, type CSSProperties } from "react"
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react"
 import { chromeHasContent, chromeOnPage } from "@/document/chrome-html"
 import { useActiveChromeEditor } from "@/document/chrome-editing"
-import { forgetChrome, measureChrome, reportChromeReach } from "@/document/chrome-extent"
+import { forgetChrome, measureChrome, reportChromeReach, useChromeExtent } from "@/document/chrome-extent"
 import { pageMetrics } from "@/document/page-setup"
 import type { ChromeSlot, SectionChrome } from "@/document/sections"
 import { useDocumentStore } from "@/document/store"
 import { useViewStore } from "@/document/view"
 import { ChromeFlow } from "@/editor/chrome-flow"
 import { createExtensions } from "@/editor/extensions"
+import { layoutTabsIn } from "@/editor/tab-stops"
 import { objectLeft, objectTop } from "@/editor/objects"
 
 const MM_TO_PX = 96 / 25.4
@@ -224,6 +225,10 @@ export function ChromeBox({
   // footer taller than the bottom margin pushes it up. Floating pictures in it are out of the flow and push nothing.
   const id = useId()
   const filled = chromeHasContent(html)
+  // Word measures "relative to margin" from where the body starts: below the header when it reaches past the top
+  // margin (a letterhead's footer picture sat a header's line lower in Word).
+  const headerReach = useChromeExtent((state) => (section ? (state.sections[section]?.header ?? 0) : state.header))
+  const remeasure = useRef<(() => void) | null>(null)
   const measured = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const element = measured.current
@@ -235,7 +240,11 @@ export function ChromeBox({
     const report = () =>
       measureChrome(element, () => {
         // From the box's top to the page's top margin, which pictures placed relative to the margin are measured from.
-        const margin = (marginTop ?? useDocumentStore.getState().pageSetup.marginTop) * MM_TO_PX
+        const extent = useChromeExtent.getState()
+        const pushed = (section ? extent.sections[section]?.header : extent.header) ?? 0
+        const margin = Math.max((marginTop ?? useDocumentStore.getState().pageSetup.marginTop) * MM_TO_PX, pushed)
+        const inner = element.querySelector<HTMLElement>(".chrome-editor")
+        const push = inner ? `${wrapPush(inner)}px` : "0px"
         const top = element.offsetTop
         const sheet = element.offsetParent as HTMLElement | null
         // An empty header or footer takes no room, as on a cover page whose section has none (Word).
@@ -246,10 +255,14 @@ export function ChromeBox({
           if (element.style.getPropertyValue("--chrome-margin") !== offset) {
             element.style.setProperty("--chrome-margin", offset)
           }
+          if (element.style.getPropertyValue("--chrome-wrap-push") !== push) {
+            element.style.setProperty("--chrome-wrap-push", push)
+          }
           return { id, kind, reach, section }
         }
       })
     report()
+    remeasure.current = report
     const observer = new ResizeObserver(report)
     observer.observe(element)
     return () => {
@@ -258,6 +271,20 @@ export function ChromeBox({
       reportChromeReach(id, kind, null, section)
     }
   }, [id, kind, live, filled, editor, pageSetup.marginTop, marginTop, section])
+  // A new header reach moves the margin pictures are placed from: measured again, the box's reach kept meanwhile (a
+  // dependency above would drop it first, and the header's own reach then went back and forth).
+  useEffect(() => {
+    remeasure.current?.()
+  }, [headerReach])
+
+  // The copy's tabs, set on the page (its editor is off the page, where they cannot be measured).
+  const copy = useRef<HTMLDivElement>(null)
+  const drawn = live && editor ? "" : chromeOnPage(snapshot, page, pages)
+  useLayoutEffect(() => {
+    if (copy.current && drawn.includes("doc-tab")) {
+      layoutTabsIn(copy.current)
+    }
+  }, [drawn])
 
   if (live && editor) {
     return (
@@ -284,12 +311,43 @@ export function ChromeBox({
       aria-hidden={!chromeHasContent(html)}
     >
       <div
+        ref={copy}
         className="page-editor chrome-editor ProseMirror"
         // What the editor drew, copied; it is read-only and never run as a page of its own.
-        dangerouslySetInnerHTML={{ __html: chromeOnPage(snapshot, page, pages) }}
+        dangerouslySetInnerHTML={{ __html: drawn }}
       />
     </div>
   )
+}
+
+/** Less room than this beside a picture, and no text goes there (as a floating table leaves, table-float.ts). */
+const MIN_BESIDE = 1 * 37.8
+
+/**
+ * How far a header's or footer's text is pushed down by a picture it wraps around (Square, Tight, Through, Top and
+ * Bottom) that leaves no room beside it: Word starts the picture's paragraph below it, so the box grows and, in a
+ * footer, rises (a letterhead's full-width footer picture sat 17 px low). Pixels, 0 for none.
+ */
+export function wrapPush(editor: HTMLElement) {
+  let push = 0
+  const width = editor.clientWidth
+  for (const frame of editor.querySelectorAll<HTMLElement>(":scope > .object-frame[data-wrapping]")) {
+    const next = frame.nextElementSibling as HTMLElement | null
+    if (!next || next.classList.contains("object-frame")) {
+      continue
+    }
+    // The picture's own size: the frame's box can be cut to the text's width.
+    const left = frame.offsetLeft
+    const right = left + Math.max(frame.offsetWidth, frame.scrollWidth)
+    const top = frame.offsetTop
+    const bottom = top + Math.max(frame.offsetHeight, frame.scrollHeight) + (Number(frame.dataset.wrapping) || 0)
+    // Only over the paragraph's first line (a picture placed far below it, from the margin, moves nothing).
+    const lineBottom = next.offsetTop + next.offsetHeight - (parseFloat(getComputedStyle(next).paddingTop) || 0)
+    if (left < MIN_BESIDE && width - right < MIN_BESIDE && top < lineBottom && bottom > next.offsetTop) {
+      push = Math.max(push, bottom - next.offsetTop)
+    }
+  }
+  return Math.max(0, Math.round(push * 100) / 100)
 }
 
 /** No editor yet: what a page shows for a section's part before its editor has been made. */

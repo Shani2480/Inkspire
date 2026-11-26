@@ -7,6 +7,49 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-26
 
+### Real documents 6 to 13 compared with Word (v1.2.0)
+
+Eight more real documents (kept out of git; mock names only here), each rendered by Word in the VM and compared page
+by page. Page counts now all match Word's (an invoice came out on two pages instead of one, the 27-page report on
+26). What was wrong and what changed:
+
+- **Footer picture placed from the margin** was drawn a page lower, off the sheet: the frame's own `margin: 0`
+  cancelled the `.chrome-box` offsets (now `!important`, `index.css`). Word measures "relative to margin" from where
+  the body starts, below a header that reaches past the top margin (`chrome-editors.tsx`, `useChromeExtent`).
+- **Text under a full-width wrapped footer picture:** Word starts the picture's paragraph below a Square/Tight/
+  Through/Top-and-Bottom picture that leaves no room beside it, so the footer rises (`wrapPush`, `data-wrapping` set
+  in `objects.ts`). A letterhead's footer now within 4 px of Word's.
+- **Rows of exact height** grew with their text (the invoice's line items, so a second page): cells now cut what does
+  not fit. Word's rule, measured in the VM with six test tables: an exact height holds the cell's top margin and the
+  bottom margin is added (432 twips with 80-twip margins is 512); an "at least" height gets both margins added (592).
+  `--row-exact` / `--row-min` on the row, `--cell-top` / `--cell-bottom` from the cell's margins (`table-tools.ts`,
+  `table-props.ts`, `index.css`). The test tables now within 0.6 px of Word's.
+- **A table of contents left empty and marked dirty** (`w:dirty` on the field) showed "No headings": Word builds it on
+  opening. The reader keeps the flag (`fldChar.dirty`, `docx/toc.ts` `dirty`), and the editor builds the entries once
+  the pages are laid out and again while its page numbers settle (`dirtyTocPlugin`, `editor/toc.ts`).
+- **A table of contents longer than the room left** moved whole and ran off the page: it now goes on entry by entry,
+  as the endnotes do (`data-page-rows`, `rowSplit`, `drawRowGaps` in `pages.ts`; the node view draws the gaps). TOC
+  entries get Word's 5 pt after over the document's paragraph defaults.
+- **A list item's bullet** stayed alone at a page's foot, its text on the next page: a gap before an item's first
+  paragraph now goes before the item.
+- **Space before at the top of a page:** Word drops it after a page break, "page break before" and where the text
+  runs on (measured in the VM in compatibility modes 14 and 15), and keeps it on the first page. The app kept it, so
+  each new page's heading sat 21 px low. Now dropped (`place`, `dropsTop`); a page a section break starts is left as
+  it was (Word keeps part of it there, still open).
+- **Pages drifted lower** by up to 41 px on a page: a bordered paragraph's room for its border was not counted
+  (`borderRoom`), heights were rounded to whole pixels (`outerHeight` now exact) and the zoom was read from small
+  elements (`zoomOf` now from the editor). The layout and the drawn page now agree within 1 px.
+- **The fill-in mark** ("[Client Name]") took room with its padding, so a line broke differently: now a shadow, and
+  not printed.
+- **Word's repeated header row** (`w:tblHeader`) was not repeated: kept as the row's `repeatHeader` and repeated on
+  each page without the Header Row look.
+- **A tab typed into the text** (in `w:t`) is read as a tab; **tabs in headers and footers** are now set on the
+  page's copy (`layoutTabsIn`), so a footer's page number sits at the right margin.
+
+Checked: the eight documents against Word (page counts, page images); the measured rules in the VM; tests (new:
+`dirty-toc.test.ts`, `exact-row.test.ts`, `literal-tab.test.ts`), typecheck, lint; fixture comparison against Word.
+Open: see `next-todo.md`, "Word comparison, real documents 6 to 13".
+
 ### Justified lines in WebKitGTK at 1x (v1.1.5)
 
 - **What was wrong:** in the desktop app on Linux, one justified test line broke a word earlier than in Word and

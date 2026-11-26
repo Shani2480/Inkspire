@@ -9,6 +9,32 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "1.2.0",
+    date: "2026-11-26",
+    notes: [
+      {
+        title: "Tables of contents filled in and split across pages",
+        text: "A table of contents a program left empty, marked to be updated, is now filled in from the headings when the document opens, as Word does. A long table of contents now goes on to the next page instead of running off the bottom.",
+      },
+      {
+        title: "Pages start where Word starts them",
+        text: "At the top of a new page Word leaves out a paragraph's space before; Inkspire now does too. Pages also no longer creep lower from page to page, and a list item's bullet moves to the next page with its text.",
+      },
+      {
+        title: "Tables as in Word",
+        text: "Rows of an exact height keep it (cut text no longer stretches them), rows with a minimum height and cell margins are as tall as in Word, and a table's header row repeats at the top of each page.",
+      },
+      {
+        title: "Headers and footers",
+        text: "A full-width picture in a footer sits where Word puts it, and a page number after a tab lines up at the right margin.",
+      },
+      {
+        title: "Fill-ins such as [Client Name]",
+        text: "Their yellow mark no longer takes room, so lines break as in Word, and it is left off when you print.",
+      },
+    ],
+  },
+  {
     version: "1.1.5",
     date: "2026-11-26",
     notes: [

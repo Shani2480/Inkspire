@@ -216,7 +216,23 @@ const wordCell = {
   default: "",
   parseHTML: (element: HTMLElement) => element.getAttribute("data-word-cell") ?? "",
   renderHTML: (attributes: { wordCell?: string }) =>
-    attributes.wordCell ? { "data-word-cell": attributes.wordCell, style: attributes.wordCell } : {},
+    attributes.wordCell
+      ? {
+          "data-word-cell": attributes.wordCell,
+          style: `${attributes.wordCell}${cellPadVariables(attributes.wordCell)}`,
+        }
+      : {},
+}
+
+/**
+ * The cell's top and bottom margins as variables, which a row of set height reads (index.css): Word keeps an exact
+ * row's top margin inside its height and adds the bottom one, and adds both to an "at least" height (measured in Word
+ * 2026-11-26).
+ */
+function cellPadVariables(css: string) {
+  const top = /(?:^|;)\s*padding-top:\s*([^;]+)/.exec(css)?.[1]?.trim()
+  const bottom = /(?:^|;)\s*padding-bottom:\s*([^;]+)/.exec(css)?.[1]?.trim()
+  return `${top ? `; --cell-top: ${top}` : ""}${bottom ? `; --cell-bottom: ${bottom}` : ""}`
 }
 
 /**
@@ -378,8 +394,16 @@ export const SizedTableRow = TableRow.extend({
           const value = Number.parseFloat(element.style.height)
           return Number.isFinite(value) ? value : null
         },
-        renderHTML: (attributes: { height?: number | null }) =>
-          attributes.height ? { style: `height: ${attributes.height}px` } : {},
+        // An exact height also caps what its cells show (`--row-exact`, index.css): Word cuts off the rest.
+        renderHTML: (attributes: { height?: number | null; heightRule?: string }) =>
+          attributes.height
+            ? {
+                style:
+                  attributes.heightRule === "exact"
+                    ? `height: ${attributes.height}px; --row-exact: ${attributes.height}px`
+                    : `height: ${attributes.height}px; --row-min: ${attributes.height}px`,
+              }
+            : {},
       },
       /** The Word row's own borders (w:tblPrEx) as --wb-* variables; only read, never saved. */
       wordFrame: wordTableAttributes.wordFrame,

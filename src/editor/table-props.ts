@@ -120,6 +120,11 @@ export const rowPropsAttributes = {
   },
   /** Word's "Allow row to break across pages", off. */
   cantSplit: flagAttribute("cant-split"),
+  /**
+   * Word's "Repeat as header row at the top of each page" (w:tblHeader) on a Word table's first row: repeated as the
+   * app's Header Row is, without that option's look (a real report's tables lost their header on later pages).
+   */
+  repeatHeader: flagAttribute("repeat-header"),
 }
 
 export const cellPropsAttributes = {
@@ -132,7 +137,9 @@ export const cellPropsAttributes = {
       return margins
         ? {
             "data-cell-margins": attributes.cellMargins,
-            style: `padding: ${margins.top}cm ${margins.right}cm ${margins.bottom}cm ${margins.left}cm`,
+            style:
+              `padding: ${margins.top}cm ${margins.right}cm ${margins.bottom}cm ${margins.left}cm; ` +
+              `--cell-top: ${margins.top}cm; --cell-bottom: ${margins.bottom}cm`,
           }
         : {}
     },

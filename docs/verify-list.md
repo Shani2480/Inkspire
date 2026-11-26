@@ -392,6 +392,10 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Needs the desktop app (Tauri build)
 
+- [ ] **1.2.0 in the desktop app and on the tablet** — a document with a dirty table of contents fills it on opening
+      and splits it across pages; a footer with a right tab shows the page number at the right margin.
+
+
 - [ ] **1.1.0 in the desktop app (2026-11-24)** — WebKitGTK: a document with pictures among its words shows them in
       their lines; click one, drag a corner and crop it; Insert > Pictures with the caret mid-sentence puts the
       picture there; Format Picture's sliders drag smoothly; the mini toolbar's Styles and New Comment boxes take

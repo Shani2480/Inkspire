@@ -1591,20 +1591,28 @@ button.line-menu-row:focus-visible {
   z-index: 0 !important;
 }
 
+/* Important: a floating frame's own style sets `margin: 0` (objects.ts, `frameStyle`), which cancelled these, so a
+   footer's picture placed from the margin was drawn a page lower, off the sheet (a real letterhead's footer). */
 .chrome-box .object-frame {
-  margin-left: var(--chrome-left, 0);
-  margin-top: var(--chrome-top, 0);
+  margin-left: var(--chrome-left, 0) !important;
+  margin-top: var(--chrome-top, 0) !important;
 }
 
 /* A picture placed from the page's top margin (Word's "relative to margin"), not from the header's or footer's top:
    a footer's picture is usually far below the margin, at the foot of the page. */
 .chrome-box .object-frame[data-relative="margin"] {
-  margin-top: calc(var(--chrome-top, 0px) + var(--chrome-margin, 0px));
+  margin-top: calc(var(--chrome-top, 0px) + var(--chrome-margin, 0px)) !important;
 }
 
 .chrome-box :is(p, h1, h2, h3) {
   margin-top: 0;
   margin-bottom: 0;
+}
+
+/* The paragraph after a picture its text wraps around, where the picture leaves no room beside it: its line starts
+   below the picture (`wrapPush`, chrome-editors.tsx). */
+.chrome-box .chrome-editor > .object-frame[data-wrapping] + :is(p, h1, h2, h3) {
+  padding-top: var(--chrome-wrap-push, 0px);
 }
 
 .page-header {
@@ -2474,6 +2482,36 @@ button.line-menu-row:focus-visible {
   padding: var(--cell-margin-top) var(--cell-margin-right) var(--cell-margin-bottom) var(--cell-margin-left);
 }
 
+/* A row of exact height (Word's "Row height is: Exactly"): Word cuts off what does not fit, so the row keeps its
+   height (a real invoice's line items showed their first line; grown to fit, the invoice ran to a second page). Each
+   block in the cell is held to the row's height, so a cell of one paragraph, the usual case, is cut as in Word. */
+.page-editor tr[data-height-rule="exact"] > :is(td, th) {
+  overflow: hidden;
+}
+
+.page-editor tr[data-height-rule="exact"] > :is(td, th) > * {
+  max-height: calc(var(--row-exact, 100vh) - var(--cell-top, var(--cell-margin-top, 0px)));
+  overflow: hidden;
+}
+
+/* Word keeps the top margin inside an exact height and adds the bottom one below it (432 twips with 80 twips margins
+   is 512 high, measured in Word): what is cut off takes no room, its space after neither. */
+.page-editor tr[data-height-rule="exact"] > :is(td, th) > :last-child {
+  margin-bottom: 0;
+}
+
+.page-editor tr[data-height-rule="exact"] > :is(td, th) {
+  height: calc(var(--row-exact) + var(--cell-bottom, var(--cell-margin-bottom, 0px)));
+}
+
+/* An "at least" height is the text's: Word adds the cell's top and bottom margins to it (432 twips with 80 twips
+   margins is 592 high). */
+.page-editor tr[style*="--row-min"] > :is(td, th) {
+  height: calc(
+    var(--row-min) + var(--cell-top, var(--cell-margin-top, 0px)) + var(--cell-bottom, var(--cell-margin-bottom, 0px))
+  );
+}
+
 /* Cell Options: Wrap text off. */
 .page-editor :is(td, th)[data-no-wrap="1"] {
   white-space: nowrap;
@@ -3110,6 +3148,13 @@ button.line-menu-row:focus-visible {
   margin: 0 0 5pt;
 }
 
+/* Word's TOC 1 to 9 are Normal with 5 pt after: over the document's paragraph defaults (`:root .page-editor p`,
+   a generated report's table of contents with none drew its lines without the gap), and as strong as a document's
+   own TOCn style, which comes later and wins. */
+:root .page-editor p.toc-entry {
+  margin-bottom: 5pt;
+}
+
 .page-editor p.toc-entry > .toc-label,
 .page-editor p.toc-entry > .toc-page {
   text-box-trim: trim-both;
@@ -3522,11 +3567,22 @@ button.line-menu-row:focus-visible {
   }
 }
 
+/* A fill-in such as "[Client Name]", marked on screen only. It takes no room (a shadow, not padding), so lines break
+   as in Word: padded, "[estimated timeframe]" went to the next line in a real engagement letter. */
 .template-placeholder {
   background: #fde68a;
   border-radius: 0.2em;
   box-decoration-break: clone;
-  padding: 0 0.12em;
+  box-shadow:
+    0.12em 0 0 #fde68a,
+    -0.12em 0 0 #fde68a;
+}
+
+@media print {
+  .template-placeholder {
+    background: none;
+    box-shadow: none;
+  }
 }
 
 .page-editor p,

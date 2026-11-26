@@ -22,6 +22,7 @@ import { useStyleStore } from "@/document/styles"
 import { useDocumentStore } from "@/document/store"
 import { sectionPageLabels } from "@/document/page-numbers"
 import { captionsOf } from "@/editor/caption-items"
+import { drawRowGaps, paginationKey, rowGapsOf, type RowGap } from "@/editor/pages"
 
 export type { TocEntry } from "@/document/toc"
 
@@ -105,6 +106,15 @@ export const TableOfContents = Node.create({
         parseHTML: (element) => element.getAttribute("data-toc-end-style") ?? "",
         renderHTML: (attributes) => (attributes.endStyle ? { "data-toc-end-style": String(attributes.endStyle) } : {}),
       },
+      /**
+       * Opened marked to be updated (Word's w:dirty): its entries are built from the headings once the pages are laid
+       * out, as Word builds them on opening (a generated report's table of contents was empty). Only read.
+       */
+      dirty: {
+        default: false,
+        parseHTML: (element) => element.hasAttribute("data-toc-dirty"),
+        renderHTML: (attributes) => (attributes.dirty ? { "data-toc-dirty": "" } : {}),
+      },
       /** The Word markup it was opened from, saved again while the table of contents is unchanged. */
       source: {
         default: "",
@@ -152,10 +162,16 @@ export const TableOfContents = Node.create({
   },
 
   addNodeView() {
-    return ({ node, editor, getPos }) => {
+    return ({ node, editor, getPos, decorations }) => {
       const dom = document.createElement("nav")
+      // Laid out row by row, a page's end between its entries (pages.ts, `data-page-rows`).
+      dom.dataset.pageRows = ""
       let current = node
-      const paint = () => renderToc(dom, current)
+      let gaps: RowGap[] = rowGapsOf(decorations)
+      const paint = () => {
+        renderToc(dom, current)
+        drawRowGaps(dom, gaps)
+      }
       paint()
       dom.addEventListener("mousedown", (event) => {
         const target = event.target instanceof HTMLElement ? event.target : null
@@ -187,12 +203,19 @@ export const TableOfContents = Node.create({
       return {
         dom,
         ignoreMutation: () => true,
-        update(next) {
+        update(next, nextDecorations) {
           if (next.type.name !== "tableOfContents") {
             return false
           }
-          current = next
-          paint()
+          const nextGaps = rowGapsOf(nextDecorations)
+          const moved = JSON.stringify(nextGaps) !== JSON.stringify(gaps)
+          gaps = nextGaps
+          if (next !== current) {
+            current = next
+            paint()
+          } else if (moved) {
+            drawRowGaps(dom, gaps)
+          }
           return true
         },
       }
@@ -200,7 +223,7 @@ export const TableOfContents = Node.create({
   },
 
   addProseMirrorPlugins() {
-    return [staleTocPlugin(this.name)]
+    return [staleTocPlugin(this.name), dirtyTocPlugin(this.editor, this.name)]
   },
 
   addCommands() {
@@ -300,6 +323,67 @@ export const TableOfContents = Node.create({
     }
   },
 })
+
+/** Layouts a table of contents opened dirty is built over: its own length moves the headings after it. */
+const DIRTY_PASSES = 3
+
+/**
+ * Builds the entries of a table of contents opened dirty once the pages are laid out, and again after the next
+ * layouts while its page numbers still move (the table's own length moves the headings after it), then leaves it.
+ */
+function dirtyTocPlugin(editor: Editor, name: string) {
+  const key = new PluginKey<number>("dirtyToc")
+  return new Plugin<number>({
+    key,
+    state: {
+      init: () => 0,
+      apply: (tr, laidOut) => (tr.getMeta(paginationKey) ? laidOut + 1 : laidOut),
+    },
+    view: () => {
+      let built = -1
+      let passes = 0
+      return {
+        update: (view) => {
+          const laidOut = key.getState(view.state) ?? 0
+          if (laidOut === 0 || laidOut === built) {
+            return
+          }
+          built = laidOut
+          passes += 1
+          queueMicrotask(() => {
+            if (view.isDestroyed) {
+              return
+            }
+            const pagination = editor.storage.pagination
+            const breaks = pagination?.breaks ?? []
+            const labels = laidOutLabels(pagination)
+            const tr = view.state.tr
+            view.state.doc.descendants((node, pos) => {
+              if (node.type.name !== name) {
+                return node.isBlock && !node.isTextblock
+              }
+              if (node.attrs.dirty === true) {
+                const entries = tocEntries(
+                  view.state.doc,
+                  String(node.attrs.instruction || DEFAULT_TOC_INSTRUCTION),
+                  breaks,
+                  labels,
+                )
+                // Settled (or built enough times): no longer dirty, and from here on it changes only when updated.
+                const same = JSON.stringify(readTocEntries(node.attrs.entries)) === JSON.stringify(entries)
+                tr.setNodeMarkup(pos, undefined, { ...node.attrs, entries, dirty: !same && passes < DIRTY_PASSES })
+              }
+              return false
+            })
+            if (tr.docChanged) {
+              view.dispatch(tr.setMeta("addToHistory", false))
+            }
+          })
+        },
+      }
+    },
+  })
+}
 
 const staleKey = new PluginKey<DecorationSet>("staleToc")
 

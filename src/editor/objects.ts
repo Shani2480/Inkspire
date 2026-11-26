@@ -1419,6 +1419,13 @@ export function applyFrame(dom: HTMLElement, node: ProseNode) {
   dom.dataset.page = String(Math.max(1, place.page))
   dom.dataset.x = String(Number(node.attrs.x) || 0)
   dom.dataset.y = String(place.y)
+  // Read by a header or footer, which moves its text below a picture it wraps around (`wrapPush`, chrome-editors).
+  const wrap = objectWrap(node.attrs.wrap)
+  if (wrap === "inline" || wrap === "behind" || wrap === "front") {
+    delete dom.dataset.wrapping
+  } else {
+    dom.dataset.wrapping = String(wrapGaps(node).bottom)
+  }
   // In a header or footer, measured from the page's top margin rather than the box (see `.chrome-box` in index.css).
   if (objectAnchoring(node.attrs.anchoring) === "move" && node.attrs.relative === "margin") {
     dom.dataset.relative = "margin"

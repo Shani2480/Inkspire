@@ -38,6 +38,8 @@ export type TocRead = {
   endStyle: string
   /** The blocks as read, with what they showed, written back while the table of contents is unchanged. */
   source: string
+  /** The field is marked to be updated on opening (w:dirty), as Word then does: the editor builds its entries. */
+  dirty: boolean
 }
 
 /** The source blocks of a table of contents, saved as they were read while it shows the same entries. */
@@ -144,6 +146,7 @@ export function readLooseTocAt(blocks: Block[], index: number, doc: WordDocument
   }
   const signature = tocSignature({ entries, instruction, title, ...layout })
   return {
+    dirty: false,
     end,
     entries,
     instruction,
@@ -366,7 +369,11 @@ function tocRead(
   const last = paragraphs[paragraphs.length - 1]
   const endLine = paragraphs.length > 1 && last !== undefined && closesOnly(last)
   const signature = tocSignature({ entries, instruction, title, ...layout })
+  const dirty = runContents(paragraphs[0]?.inlines ?? []).some(
+    (content) => content.kind === "fldChar" && content.fieldType === "begin" && content.dirty === true,
+  )
   return {
+    dirty,
     end,
     entries,
     instruction,

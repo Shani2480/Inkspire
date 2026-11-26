@@ -345,7 +345,7 @@ export type RunContent =
   | { kind: "tab" }
   | { kind: "break"; breakType: BreakType }
   | { kind: "instrText"; text: string }
-  | { kind: "fldChar"; fieldType: FieldCharType }
+  | { kind: "fldChar"; fieldType: FieldCharType; dirty?: boolean }
   /** A note's reference mark; with customMarkFollows the run's text after it is the mark, not a number. */
   | { kind: "footnoteReference"; id: number; customMarkFollows?: boolean }
   | { kind: "endnoteReference"; id: number; customMarkFollows?: boolean }

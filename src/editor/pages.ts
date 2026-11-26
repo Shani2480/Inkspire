@@ -132,6 +132,11 @@ type PageBreak = {
   /** A break inside the endnotes, before their paragraph at this index: drawn in the end notes (`createEndNotes`). */
   endSplit?: number
   /**
+   * A break inside a block drawn by its own view, row by row (a table of contents, `data-page-rows`), before its row
+   * at this index: drawn by that view (`rowGapsOf`, `drawRowGaps`).
+   */
+  rowSplit?: number
+  /**
    * A break inside a table row (Allow row to break across pages): a gap in each cell that goes on, at the line that
    * starts the next page, the first `keep` px of it still on this page (the cell runs on to the page's foot).
    */
@@ -149,7 +154,7 @@ type PaginationSnapshot = {
   signature: string
 }
 
-const paginationKey = new PluginKey<PaginationSnapshot>("pagination")
+export const paginationKey = new PluginKey<PaginationSnapshot>("pagination")
 
 export const Pagination = Extension.create<unknown, PaginationStorage>({
   name: "pagination",
@@ -664,9 +669,28 @@ function decorationsFor(
   for (const span of spans) {
     decorations.push(Decoration.node(span.pos, span.pos + span.size, { class: "section-span" }))
   }
+  const rowSplits = new Map<number, RowGap[]>()
   for (const item of breaks) {
-    if (item.endSplit !== undefined) {
-      // Drawn inside the end notes.
+    if (item.rowSplit !== undefined) {
+      rowSplits.set(item.pos, [
+        ...(rowSplits.get(item.pos) ?? []),
+        { at: item.rowSplit, height: item.height, notes: item.notes },
+      ])
+      continue
+    }
+  }
+  for (const [pos, gaps] of rowSplits) {
+    const node = doc.nodeAt(pos)
+    if (node) {
+      const key = gaps
+        .map((gap) => `${gap.at}:${gap.height}:${gap.notes ? `${gap.notes.top}:${notesKey(gap.notes.refs)}` : ""}`)
+        .join(",")
+      decorations.push(Decoration.node(pos, pos + node.nodeSize, { "data-row-gaps": key }, { rowGaps: gaps }))
+    }
+  }
+  for (const item of breaks) {
+    if (item.endSplit !== undefined || item.rowSplit !== undefined) {
+      // Drawn inside the end notes, or by the block's own view.
       continue
     }
     if (item.cells) {
@@ -721,8 +745,15 @@ function decorationsFor(
         }),
       )
     }
+    // A break before a list item's first paragraph goes before the item, so its bullet or number goes on with it
+    // (the bullet stayed alone at the foot of the page, its text on the next, in a real code of conduct).
+    let gapAt = item.pos
+    for (let $at = doc.resolve(gapAt); $at.depth > 0 && $at.index() === 0 && LIST_ITEMS.has($at.parent.type.name);) {
+      gapAt = $at.before()
+      $at = doc.resolve(gapAt)
+    }
     decorations.push(
-      Decoration.widget(item.pos, () => createGap(height, manual, lift, item.foot, item.notes), {
+      Decoration.widget(gapAt, () => createGap(height, manual, lift, item.foot, item.notes), {
         side: -1,
         ignoreSelection: true,
         key: `gap-${item.pos}-${height}-${manual ? 1 : 0}-${lift}-${item.foot ?? ""}-${item.notes ? `${item.notes.top}:${notesKey(item.notes.refs)}:${noteTextsVersion()}` : ""}`,
@@ -1139,6 +1170,45 @@ function createColumnStart() {
   return mark
 }
 
+/** A page's end inside a block drawn row by row: before its row `at`, `height` px tall, with the page's footnotes. */
+export type RowGap = { at: number; height: number; notes?: PageBreak["notes"] }
+
+/** The rows of a block its own view draws (`data-page-rows`): its children but the app's controls and the gaps. */
+function pageRows(dom: HTMLElement) {
+  return Array.from(dom.children).filter(
+    (child): child is HTMLElement =>
+      child instanceof HTMLElement && !child.matches(".page-gap, [contenteditable='false'], button"),
+  )
+}
+
+/** The page gaps the paginator gave a block drawn row by row, from its decorations. */
+export function rowGapsOf(decorations: readonly Decoration[]): RowGap[] {
+  for (const decoration of decorations) {
+    const gaps = (decoration.spec as { rowGaps?: RowGap[] }).rowGaps
+    if (gaps) {
+      return gaps
+    }
+  }
+  return []
+}
+
+/** Draws those gaps in the block's DOM, before their rows (once it has drawn its rows afresh). */
+export function drawRowGaps(dom: HTMLElement, gaps: RowGap[]) {
+  dom.querySelectorAll(":scope > .page-gap").forEach((gap) => gap.remove())
+  const rows = pageRows(dom)
+  for (const gap of gaps) {
+    rows[gap.at]?.before(createGap(gap.height, false, 0, undefined, gap.notes))
+  }
+}
+
+/** Each row's height with its margins (sibling margins are 0 on one side, as a table of contents' entries). */
+function rowHeights(dom: HTMLElement) {
+  return pageRows(dom).map((row) => {
+    const style = getComputedStyle(row)
+    return row.offsetHeight + (parseFloat(style.marginTop) || 0) + (parseFloat(style.marginBottom) || 0)
+  })
+}
+
 function createGap(height: number, manual: boolean, lift = 0, foot?: number, notes?: PageBreak["notes"]) {
   const gap = document.createElement("span")
   gap.className = manual ? "page-gap page-gap-manual" : "page-gap"
@@ -1429,6 +1499,9 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     const ended = column
     column = 0
     const following = Math.min(next, sectionMetrics.length - 1)
+    // A page that goes on in the same section drops its first paragraph's space before (`place`); one a section
+    // starts keeps it.
+    dropsTop = following === section
     // The height of a block of columns' columns on this page, which its filler fills.
     const blockHeight = block ? contentHeight - block.top : 0
     if (block) {
@@ -1533,11 +1606,16 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     }
   }
 
+  /** The page that has just started drops its first paragraph's space before (Word's, `place`). */
+  let dropsTop = false
   /**
    * `collapse` is how much of `height` is a top margin shared with the block above; a page's first block keeps it.
    * `spill` is how much of it (a paragraph's space after) may run past the page's foot, as Word lets it.
+   * `top` is the block's own space before: Word drops it at the top of a page after a page break or where the text
+   * runs on (not on the first page, nor on one a section break starts), measured in Word 2026-11-26: a real
+   * statement of work's headings sat 21 px lower on each new page. The gap above takes it back.
    */
-  const place = (pos: number, height: number, collapse = 0, spill = 0, slack = 1) => {
+  const place = (pos: number, height: number, collapse = 0, spill = 0, slack = 1, top = 0) => {
     if (height <= 0) {
       return
     }
@@ -1547,6 +1625,15 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       overflow(pos)
       reserveBands(pos, height)
       size = height
+    }
+    const gap = breaks[breaks.length - 1]
+    if (used === 0 && top > 0 && dropsTop && gap && !unequal && !block && columnCount === 1 && !gap.filler) {
+      const dropped = Math.min(top, size)
+      size -= dropped
+      gap.height -= dropped
+    }
+    if (used === 0) {
+      dropsTop = false
     }
     if (unequal && !track.starting) {
       track.starting = { page: breaks.length + 1, column, atTop: used === 0, section }
@@ -1560,8 +1647,8 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
   const overruns = (height: number, top: number) =>
     !web && (used > 0 ? used + height - Math.min(trailing, top) : height) > contentHeight + 1
 
-  const placeBlock = (pos: number, height: number, top: number, bottom: number, spill = 0) => {
-    place(pos, height, Math.min(trailing, top), spill)
+  const placeBlock = (pos: number, height: number, top: number, bottom: number, spill = 0, own = 0) => {
+    place(pos, height, Math.min(trailing, top), spill, 1, own)
     trailing = bottom
   }
 
@@ -1597,6 +1684,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
         index === 0 ? Math.min(trailing, top) : 0,
         (line.extra ?? 0) + (index === lines.length - 1 ? bottom : 0),
         slackOf(line.extra),
+        index === 0 ? top : 0,
       )
       trailing = 0
     })
@@ -1938,7 +2026,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       if (rows) {
         tables.push({ pos, page, x: laid.x, y: laid.y, flow: true })
         measureCount += 1
-        placeRows(rows.units, pos, 0, 0, node.attrs.headerRow === true ? rows.header : 0)
+        placeRows(rows.units, pos, 0, 0, repeatsHeader(node) ? rows.header : 0)
         return
       }
       tables.push({ pos, page, x: laid.x, y: laid.y })
@@ -1987,9 +2075,19 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     // So is a list that no longer fits the rest of the page: it goes on item by item.
     if (
       hit?.kind === "block" &&
-      !((node.type.name === "table" || (isContainer(node) && !unequal)) && overruns(hit.height, hit.top))
+      !(
+        (node.type.name === "table" || node.type.name === "tableOfContents" || (isContainer(node) && !unequal)) &&
+        overruns(hit.height, hit.top)
+      )
     ) {
-      placeBlock(pos, hit.height, hit.top, hit.bottom, node.isTextblock ? hit.bottom : 0)
+      placeBlock(
+        pos,
+        hit.height,
+        hit.top,
+        hit.bottom,
+        node.isTextblock ? hit.bottom : 0,
+        node.isTextblock ? hit.top : 0,
+      )
       return
     }
 
@@ -2049,7 +2147,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
         const top = edgeMargin(dom, "top")
         const bottom = edgeMargin(dom, "bottom")
         remember(pos, { kind: "block", node, height, top, bottom })
-        placeBlock(pos, height, top, bottom, bottom)
+        placeBlock(pos, height, top, bottom, bottom, top)
         return
       }
       const style = getComputedStyle(dom)
@@ -2067,7 +2165,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
         : parseFloat(style.getPropertyValue("--word-lines")) || 1
       const withExtra = (measured: typeof lines) =>
         multiple > 1 ? measured.map((line) => ({ ...line, extra: lineSpill(line.height, multiple) })) : measured
-      lines = withMargins(withExtra(lines))
+      lines = withMargins(withExtra(borderRoom(dom, lines)))
       const at = whereNow()
       keepLinesTogether(node, pos, lines, bottom)
       keepWhole(pos, lines, top, bottom)
@@ -2076,7 +2174,7 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
         sizeTo(node, pos, dom)
         const again = measureLines(view, dom)
         if (again.length > 0) {
-          lines = withMargins(withExtra(again))
+          lines = withMargins(withExtra(borderRoom(dom, again)))
         }
       }
       remember(pos, { kind: "text", node, lines, top, bottom })
@@ -2089,11 +2187,34 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     const top = edgeMargin(dom, "top")
     const bottom = edgeMargin(dom, "bottom")
     remember(pos, { kind: "block", node, height, top, bottom })
+    if (dom.hasAttribute("data-page-rows") && overruns(height, top)) {
+      // A table of contents longer than the room left goes on row by row, as Word's paragraphs do.
+      const rows = rowHeights(dom)
+      if (rows.length > 1) {
+        measureCount += 1
+        placeBlock(pos, top + rows[0]!, top, 0)
+        for (let index = 1; index < rows.length; index += 1) {
+          const row = rows[index]!
+          if (used > 0 && used + row > contentHeight + 1) {
+            const count = breaks.length
+            pushBreak(pos, false, section, pos, true)
+            const split = breaks[breaks.length - 1]
+            if (breaks.length > count && split) {
+              split.rowSplit = index
+            }
+          }
+          used += row
+        }
+        used += bottom
+        trailing = bottom
+        return
+      }
+    }
     if (node.type.name === "table" && overruns(height, top)) {
       const rows = tableRows(node, pos, dom, height - top - bottom)
       if (rows && (rows.units.length > 1 || rows.units[0]?.dom)) {
         measureCount += 1
-        placeRows(rows.units, pos, top, bottom, node.attrs.headerRow === true ? rows.header : 0)
+        placeRows(rows.units, pos, top, bottom, repeatsHeader(node) ? rows.header : 0)
         return
       }
     }
@@ -2365,6 +2486,14 @@ function sectionColumnLayout(view: EditorView, keys: string[], sections: Section
 }
 
 /** The blocks that hold text, which take their column's width (tables and objects keep their own). */
+/** A table whose first row goes again at the top of each page: the Header Row option, or Word's own header row. */
+function repeatsHeader(table: ProseNode) {
+  return table.attrs.headerRow === true || table.firstChild?.attrs.repeatHeader === true
+}
+
+/** The items of a list, whose marker is drawn with their first paragraph. */
+const LIST_ITEMS = new Set(["listItem", "taskItem"])
+
 const TEXT_BLOCKS = new Set(["bulletList", "orderedList", "taskList", "blockquote", "codeBlock", "horizontalRule"])
 
 /**
@@ -2813,14 +2942,14 @@ function outerHeight(dom: HTMLElement) {
   let gaps = 0
   dom.querySelectorAll(".page-gap, .object-band").forEach((gap) => {
     if (!gap.classList.contains("page-gap-cell")) {
-      gaps += (gap as HTMLElement).offsetHeight
+      gaps += exactHeight(gap as HTMLElement)
     }
   })
   // A row broken across pages is as much taller as its tallest cell's gaps make it.
   dom.querySelectorAll<HTMLTableRowElement>("tr:has(.page-gap-cell)").forEach((row) => {
     gaps += rowStretch(row)
   })
-  return Math.max(0, dom.offsetHeight - gaps + edgeMargin(dom, "top") + edgeMargin(dom, "bottom"))
+  return Math.max(0, exactHeight(dom) - gaps + edgeMargin(dom, "top") + edgeMargin(dom, "bottom"))
 }
 
 /**
@@ -2946,6 +3075,33 @@ function measureLines(view: EditorView, dom: HTMLElement) {
     last.height = Math.max(last.height, step)
   }
   return lines
+}
+
+/**
+ * A paragraph with borders (Word's paragraph border, `data-border`) has room for them above its first line and below
+ * its last, which its lines leave out: given to those lines (each bordered heading of a real statement of work was
+ * 2.7 px taller than counted, and the pages drifted lower by as much a heading).
+ */
+function borderRoom(dom: HTMLElement, lines: { pos: number; height: number }[]) {
+  if (!dom.hasAttribute("data-border") || lines.length === 0 || dom.querySelector(".page-gap, .object-band")) {
+    return lines
+  }
+  const zoom = zoomOf(dom)
+  const style = getComputedStyle(dom)
+  const box =
+    dom.getBoundingClientRect().height / zoom -
+    (parseFloat(style.borderTopWidth) || 0) -
+    (parseFloat(style.borderBottomWidth) || 0)
+  const missing = box - lines.reduce((sum, line) => sum + line.height, 0)
+  if (!(missing > 0.25)) {
+    return lines
+  }
+  const borders = (parseFloat(style.borderTopWidth) || 0) + (parseFloat(style.borderBottomWidth) || 0)
+  const top = Math.min(missing, parseFloat(style.paddingTop) || 0)
+  const result = lines.map((line) => ({ ...line }))
+  result[0]!.height += top
+  result[result.length - 1]!.height += missing - top + borders
+  return result
 }
 
 function lineStarts(text: Text) {
@@ -3085,12 +3241,22 @@ function gapBetween(dom: HTMLElement, top: number, bottom: number) {
   return total
 }
 
+/**
+ * How much the page is scaled on screen. Read from the editor, which is tall: an element's own height is rounded to a
+ * whole pixel (a 16.8 px paragraph is 17), so read from a paragraph the zoom was 1% off and its lines taller.
+ */
 function zoomOf(dom: HTMLElement) {
-  if (dom.offsetHeight <= 0) {
+  const scaled = dom.closest<HTMLElement>(".page-editor, .chrome-editor") ?? dom
+  if (scaled.offsetHeight <= 0) {
     return 1
   }
-  const zoom = dom.getBoundingClientRect().height / dom.offsetHeight
+  const zoom = scaled.getBoundingClientRect().height / scaled.offsetHeight
   return zoom > 0.2 && zoom < 5 ? zoom : 1
+}
+
+/** An element's height, not rounded to a whole pixel (`offsetHeight` is: a page of blocks drifted by the rounding). */
+function exactHeight(dom: HTMLElement) {
+  return dom.getBoundingClientRect().height / zoomOf(dom)
 }
 
 function lineStep(dom: HTMLElement) {

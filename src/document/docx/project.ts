@@ -768,7 +768,7 @@ function blocksToHtml(blocks: Block[], ctx: Projection) {
         toc.rightAlign
       }"${toc.endLine ? " data-toc-end-line" : ""}${
         toc.endStyle ? ` data-toc-end-style="${escapeAttribute(toc.endStyle)}"` : ""
-      } data-toc-source="${escapeAttribute(toc.source)}"></nav>`
+      }${toc.dirty ? " data-toc-dirty" : ""} data-toc-source="${escapeAttribute(toc.source)}"></nav>`
       index = toc.end
       continue
     }
@@ -1538,7 +1538,7 @@ function tableHtml(table: Table, ctx: Projection) {
         .join("")
       const height = row.height ? ` style="height: ${Math.round(row.height.value / TWIP_PER_PX)}px"` : ""
       const rule = row.height?.rule === "exact" ? ` data-height-rule="exact"` : ""
-      const split = row.cantSplit ? ` data-cant-split="1"` : ""
+      const split = (row.cantSplit ? ` data-cant-split="1"` : "") + (row.header ? ` data-repeat-header="1"` : "")
       // A row's own borders (w:tblPrEx) set the edges its cells draw, over the table's.
       const rowFrame = tableVariables(row.exceptionBorders, undefined).join("; ")
       const frame = rowFrame ? ` data-word-frame="${escapeAttribute(rowFrame)}"` : ""
@@ -3218,7 +3218,9 @@ function tableFromNode(node: JsonNode, build: Build): Table {
             }
           : undefined
       return {
-        ...(source?.header || (rowIndex === 0 && node.attrs?.headerRow === true) ? { header: true } : {}),
+        ...(source?.header || row.attrs?.repeatHeader === true || (rowIndex === 0 && node.attrs?.headerRow === true)
+          ? { header: true }
+          : {}),
         ...(row.attrs?.cantSplit === true ? { cantSplit: true } : {}),
         // A height the source row had and the editor did not show stays; one the person set replaces it.
         ...(height ? { height } : source?.height ? { height: structuredClone(source.height) } : {}),

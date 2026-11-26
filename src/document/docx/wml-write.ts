@@ -869,7 +869,7 @@ function writeRunContent(content: Run["content"][number]) {
     return writeText("delText", content.text)
   }
   if (content.kind === "fldChar") {
-    return `<w:fldChar w:fldCharType="${content.fieldType}"/>`
+    return `<w:fldChar w:fldCharType="${content.fieldType}"${content.dirty ? ` w:dirty="true"` : ""}/>`
   }
   if (content.kind === "raw") {
     return content.xml
