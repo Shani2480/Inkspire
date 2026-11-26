@@ -9,6 +9,24 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "1.2.1",
+    date: "2026-11-26",
+    notes: [
+      {
+        title: "Tables break across pages as in Word",
+        text: "A row no longer leaves a single line behind at the foot of a page, and a table's header row is no longer left alone there: the table starts on the next page.",
+      },
+      {
+        title: "Pages hold what Word's hold",
+        text: "Rows with fine borders are as tall as in Word, a long table of contents no longer creeps down the page, and each page's text starts at the top margin instead of a few pixels above or below it.",
+      },
+      {
+        title: "Page numbers in footers",
+        text: "A page number set at the right margin no longer drops to a line of its own.",
+      },
+    ],
+  },
+  {
     version: "1.2.0",
     date: "2026-11-26",
     notes: [

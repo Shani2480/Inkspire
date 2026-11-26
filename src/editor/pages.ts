@@ -1205,7 +1205,8 @@ export function drawRowGaps(dom: HTMLElement, gaps: RowGap[]) {
 function rowHeights(dom: HTMLElement) {
   return pageRows(dom).map((row) => {
     const style = getComputedStyle(row)
-    return row.offsetHeight + (parseFloat(style.marginTop) || 0) + (parseFloat(style.marginBottom) || 0)
+    // Exact, not the rounded offsetHeight: a long table of contents drifted 16 px over a page, entry by entry.
+    return exactHeight(row) + (parseFloat(style.marginTop) || 0) + (parseFloat(style.marginBottom) || 0)
   })
 }
 
@@ -1707,7 +1708,26 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       noteHeight = room
       placingNotes = []
     }
+    // Where the table starts, for a header row that would be left alone at the page's foot (below).
+    const start = { used, spilled, trailing, breaks: breaks.length }
     rows.forEach((row, index) => {
+      if (
+        index === 1 &&
+        header > 0 &&
+        start.used > 0 &&
+        breaks.length === start.breaks &&
+        tableNotes.length === 0 &&
+        movesWhole(row, used)
+      ) {
+        // Word never leaves a repeated header row alone at a page's foot: the table starts on the next page (a
+        // report's header row stayed behind, its first row on the next page under the header again).
+        used = start.used
+        spilled = start.spilled
+        trailing = start.trailing
+        pushBreak(pos, false)
+        trailing = 0
+        place(pos, rows[0]!.height + top, 0)
+      }
       const rowNode = tableNotes.length > 0 ? view.state.doc.nodeAt(row.pos) : null
       if (rowNode) {
         const keys = new Set(notesIn(rowNode, row.pos, noteNumbers).map((ref) => ref.key))
@@ -1744,6 +1764,24 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     trailing = bottom
   }
 
+  /** Whether a row that runs past the page's foot from `from` goes whole to the next page (no line of it fits). */
+  const movesWhole = (row: RowUnit, from: number) => {
+    if (web || from + row.height <= contentHeight + 1) {
+      return false
+    }
+    const node = view.state.doc.nodeAt(row.pos)
+    const cells = row.dom && node && splittable(node) ? rowCellLines(view, row.dom) : null
+    if (!cells) {
+      return true
+    }
+    const room = contentHeight - from
+    return cells.every((cell) => {
+      const over = cell.lines.findIndex((line) => line.bottom > room + 1)
+      // A cell whose lines all fit does not hold the row back, as in `splitRow`.
+      return over <= 0 || widowSafeCut(cell.lines, over) === 0
+    })
+  }
+
   /**
    * Allow row to break across pages (Word's default): a row that runs past the page's foot breaks inside its cells,
    * each at its first line that does not fit, and goes on at the top of the next page (and the next, for a row
@@ -1768,7 +1806,8 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       const cuts = cells.map((cell, index) => {
         const at = from[index]!
         const lines = cell.lines.filter((line) => line.top >= at - 0.5)
-        const cut = lines.findIndex((line) => line.bottom - at > room + 1)
+        const over = lines.findIndex((line) => line.bottom - at > room + 1)
+        const cut = over < 0 ? over : top === 0 ? over : widowSafeCut(lines, over)
         // A line taller than a whole page still goes on that page, or the row would never end.
         return cut < 0 ? null : (lines[cut === 0 && top === 0 ? 1 : cut] ?? null)
       })
@@ -2803,7 +2842,40 @@ export function splittable(row: ProseNode) {
   return row.attrs.cantSplit !== true && row.childCount > 0
 }
 
-type CellLines = { lines: { pos: number; top: number; bottom: number }[]; end: number }
+type CellLines = { lines: { pos: number; top: number; bottom: number; block?: Element | null }[]; end: number }
+
+/**
+ * Widow/orphan control inside a cell (Word applies it there as in the body): where the page's end would leave one line
+ * of a paragraph alone, on this page or the next, the cut moves to keep two (a two-line row went whole to the next
+ * page in Word, the app left one line behind). `lines` are the cell's lines from `cut` on its page; returns the index
+ * of the line the next page starts with.
+ */
+export function widowSafeCut(lines: { block?: Element | null }[], cut: number) {
+  const block = lines[cut]?.block
+  if (!block || block.getAttribute("data-widow") !== "1") {
+    return cut
+  }
+  let first = cut
+  while (first > 0 && lines[first - 1]?.block === block) {
+    first -= 1
+  }
+  let end = cut
+  while (end + 1 < lines.length && lines[end + 1]?.block === block) {
+    end += 1
+  }
+  const before = cut - first
+  const after = end - cut + 1
+  if (before === 0) {
+    return cut
+  }
+  if (before === 1) {
+    return first
+  }
+  if (after === 1) {
+    return before - 1 === 1 ? first : cut - 1
+  }
+  return cut
+}
 
 /** The objects in a cell (pictures, nested tables, charts...) a row's page break goes around whole, with their DOM. */
 function cellObjects(view: EditorView, cell: HTMLTableCellElement) {
@@ -3073,6 +3145,16 @@ function measureLines(view: EditorView, dom: HTMLElement) {
   const step = Math.max(lineStep(dom), lineLead)
   if (last && step > 0) {
     last.height = Math.max(last.height, step)
+  }
+  // The text's box is whole pixels (17 px for a line drawn 16.27 px high): the last line is held to what the
+  // paragraph is drawn, or each paragraph counted up to a pixel taller than drawn (a report's pages ended 10 px early,
+  // the next page's text drawn as much too high). Bordered paragraphs are given their room in `borderRoom`.
+  if (last && !inColumns && !dom.hasAttribute("data-border") && !dom.querySelector(".page-gap, .object-band")) {
+    const before = lines.slice(0, -1).reduce((sum, line) => sum + line.height, 0)
+    const drawn = dom.getBoundingClientRect().height / zoom - before
+    if (drawn > 0.5 * step && drawn < last.height) {
+      last.height = drawn
+    }
   }
   return lines
 }

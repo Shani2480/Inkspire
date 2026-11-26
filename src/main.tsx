@@ -9,6 +9,10 @@ import { installSheetSwipe } from "@/lib/sheet-swipe"
 import { installDevice } from "./lib/device"
 
 installDevice()
+// One device pixel, the thinnest line the screen draws (index.css, `--cell-bt`: Word's hairline table borders).
+const setHair = () => document.documentElement.style.setProperty("--hair", `${1 / (window.devicePixelRatio || 1)}px`)
+setHair()
+window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`).addEventListener?.("change", setHair)
 installSheetSwipe()
 installAndroidBack()
 suppressBrowserContextMenu()

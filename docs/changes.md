@@ -7,6 +7,37 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-26
 
+### Tables across pages and page drift (v1.2.1)
+
+Continued on the 27-page report (real document 5), page by page against Word:
+
+- **A two-line row split across pages**, one line ("history") left on the next page under the repeated header: Word
+  applies widow control inside a cell and moved the row whole. `widowSafeCut` (`pages.ts`) moves the cut to keep two
+  lines together, in `splitRow`.
+- **A repeated header row alone at a page's foot**, its table's first row on the next page: the table now starts on
+  the next page (`movesWhole` in `placeRows`).
+- **Hairline cell borders** (1/8 and 1/4 pt) are drawn a whole device pixel: each row was 0.6 px taller than Word's,
+  9 px over a page. The cell's `--cell-bt` / `--cell-bb` (`hairlineVariables`, `table-tools.ts`) and `--hair` (one
+  device pixel, `main.tsx`) take the difference out of the cell's top and bottom margins (`index.css`). A row of
+  9.5 pt text is now 27.8 px, Word's 27.9.
+- **A long table of contents crept down**: its rows were measured rounded (`offsetHeight`), 16 px over a page; now
+  exact (`rowHeights`).
+- **Each paragraph counted up to a pixel taller than drawn**: the browser's text box is whole pixels (17 px for a
+  line drawn 16.27). The last line is held to the drawn paragraph (`measureLines`), so a page's gap no longer comes
+  out short and the next page's text no longer starts 5 to 10 px above the margin.
+- **Rows 0.25 px taller than Word's** (measured in the VM with test tables of Calibri 9.5 pt): Word draws a border
+  of `w:sz="1"` at 1/8 pt, not the schema's minimum of 1/4 (`borderCss` now floors at 1/8 pt), and a Word cell's
+  margins were drawn from Cell Options' centimetres, rounded to a hundredth (90 twips: 6.05 px against 6.00). The
+  cell is now drawn with Word's own margins while those centimetres are just them rounded (`exactWordPadding`). A
+  one-line row is 27.58 px, Word's 27.60; a two-line row 43.04, as Word's.
+- **A footer's page number at a right tab past the text's edge** (9026 twips on 9000) dropped to a line of its own:
+  a right, centre or decimal tab now ends its text at the edge (`roomTo`, `tab-stops.ts`).
+
+Checked: test tables in Word in the VM (row heights with and without 1/8 pt borders, one to three lines); the
+report's pages (closer to Word on 22 of 27 pages; pages 3 to 6 checked start at the margin; on later pages the content shifts with the row that still goes on a page later), the seven other
+real documents (page counts as Word's, no page worse, nine better), tests (new: `row-breaks.test.ts`), typecheck,
+lint, fixture comparison against Word. Open: see `next-todo.md`.
+
 ### Real documents 6 to 13 compared with Word (v1.2.0)
 
 Eight more real documents (kept out of git; mock names only here), each rendered by Word in the VM and compared page

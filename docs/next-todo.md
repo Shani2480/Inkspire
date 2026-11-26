@@ -194,15 +194,17 @@ after, a page gap before a list item moved before its bullet, space before dropp
 in the VM), bordered paragraphs and rounded heights that made pages drift, the fill-in mark taking room, Word's
 repeated header row, a tab typed in the text, tabs in headers and footers. Open:
 
-1. [ ] A table row that may break across pages: Word moved a two-line row whole to the next page (after the
-       repeated header row), the app splits it and leaves one line ("history") on the next page. Rule not known.
+1. [x] A table row that may break across pages: Word moved a two-line row whole to the next page. Fixed in 1.2.1:
+       widow control inside a cell (`widowSafeCut`), and a repeated header row is never left alone at a page's foot.
 2. [ ] A page that a section break starts: Word keeps part of the first paragraph's space before (86 px against
        75 dropped and 96 kept, in the VM); the app keeps all of it.
 3. [ ] Autofit tables without cell widths (a statement of work's signature table): Word sizes the columns to their
        text, the app keeps the grid's widths.
 4. [ ] A few page numbers in the assessment's table of contents one lower than Word's (later pages hold a little
-       less), and pages 4+ of the assessment still differ in small row heights.
-5. [ ] An empty borderless table's gridlines are drawn on screen (View Gridlines), as in Word's screen view; Word's
+       less). 1.2.1 fixed most of the drift (rounded TOC rows, hairline borders, whole-pixel text boxes, cell
+       margins rounded to a hundredth of a centimetre; each page now starts at the margin, rows are Word's height to
+       0.05 px, measured in the VM). Left: page 5 ends about 1 px lower than Word's (in the headings), and Word fits
+       its last row with 0.5 px to spare, so that row goes on to page 6. 5. [ ] An empty borderless table's gridlines are drawn on screen (View Gridlines), as in Word's screen view; Word's
        PDF has none. Not a layout difference.
 
 **Fidelity audit (2026-11-13).** When a .docx "opens weird", run `npm run audit:docx -- file.docx` with the dev

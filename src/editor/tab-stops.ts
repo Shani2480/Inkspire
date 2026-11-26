@@ -382,7 +382,12 @@ function layoutBlock(block: HTMLElement, editor: HTMLElement, stops: TabStop[], 
     const current = offsetWithin(tab, origin)
     const stop = resolveStop(stops, current)
     const run = stop.align === "left" ? { width: 0, decimalOffset: null } : measureRun(tab, tabs[index + 1], separator)
-    const width = Math.min(limit, Math.round(spacerWidth(stop, current, run) * 100) / 100)
+    let width = Math.min(limit, Math.round(spacerWidth(stop, current, run) * 100) / 100)
+    if (stop.align !== "left") {
+      // A right, centre or decimal stop past the text's edge (a footer's 9026 twips on a 9000-twip line): Word ends
+      // the text at the edge; a wider tab would send it to a line of its own.
+      width = Math.max(0, Math.min(width, roomTo(block, tab) - run.width - 0.5))
+    }
     const next = `${width}px`
     if (tab.style.width !== next) {
       tab.style.width = next
@@ -394,6 +399,14 @@ function layoutBlock(block: HTMLElement, editor: HTMLElement, stops: TabStop[], 
       delete tab.dataset.leader
     }
   }
+}
+
+/** From the tab's left edge to the block's right text edge, in CSS pixels (whatever the zoom). */
+function roomTo(block: HTMLElement, tab: HTMLElement) {
+  const box = block.getBoundingClientRect()
+  const zoom = block.offsetWidth > 0 ? box.width / block.offsetWidth : 1
+  const padding = parseFloat(getComputedStyle(block).paddingRight) || 0
+  return (box.right - tab.getBoundingClientRect().left) / (zoom || 1) - padding
 }
 
 function offsetWithin(element: HTMLElement, ancestor: HTMLElement) {

@@ -229,6 +229,71 @@ const wordCell = {
  * row's top margin inside its height and adds the bottom one, and adds both to an "at least" height (measured in Word
  * 2026-11-26).
  */
+/**
+ * A cell's top and bottom borders thinner than a pixel, as `--cell-bt` / `--cell-bb` in CSS pixels. Word draws a
+ * 1/4 pt line a third of a pixel high, the screen draws it a whole pixel: index.css takes the difference out of the
+ * cell's top and bottom margins, so the row is as tall as Word's (a report's tables, rows of 1/8 pt borders, ran
+ * 0.6 px a row taller and 9 px over a page).
+ */
+export function hairlineVariables(attributes: Record<string, unknown>) {
+  const style = exactWordPadding(attributes)
+  if (!style || typeof document === "undefined") {
+    return style === attributes.style ? attributes : { ...attributes, style }
+  }
+  const probe = document.createElement("td").style
+  probe.cssText = style
+  const thin = (value: string) => {
+    const match = /^([\d.]+)(pt|px)$/.exec(value.trim())
+    if (!match) {
+      return null
+    }
+    const px = Number(match[1]) * (match[2] === "pt" ? 4 / 3 : 1)
+    return px > 0 && px < 1 ? Math.round(px * 1000) / 1000 : null
+  }
+  const solid = (side: "Top" | "Bottom") => probe[`border${side}Style`] !== "none" && probe[`border${side}Style`] !== ""
+  const top = solid("Top") ? thin(probe.borderTopWidth) : null
+  const bottom = solid("Bottom") ? thin(probe.borderBottomWidth) : null
+  if (top === null && bottom === null) {
+    return style === attributes.style ? attributes : { ...attributes, style }
+  }
+  const extra = `${top === null ? "" : `; --cell-bt: ${top}px`}${bottom === null ? "" : `; --cell-bb: ${bottom}px`}`
+  return { ...attributes, style: `${style.replace(/;\s*$/, "")}${extra}` }
+}
+
+/**
+ * A Word cell's margins as Word wrote them (`data-word-cell`, in points) where the cell's margins in centimetres
+ * (`data-cell-margins`, a hundredth of a centimetre, for Cell Options) are those rounded: 90 twips is 6 px, 0.16 cm
+ * 6.05 px, and each row of a report's tables came out 0.1 px taller than Word's. Margins set in the app stay.
+ */
+function exactWordPadding(attributes: Record<string, unknown>) {
+  const style = typeof attributes.style === "string" ? attributes.style : ""
+  const word = typeof attributes["data-word-cell"] === "string" ? attributes["data-word-cell"] : ""
+  const margins = typeof attributes["data-cell-margins"] === "string" ? attributes["data-cell-margins"] : ""
+  if (!style || !word || !margins) {
+    return style
+  }
+  const [top, bottom, left, right] = margins.split(",").map(Number)
+  const exact: string[] = []
+  for (const [side, centimetres] of [
+    ["top", top],
+    ["bottom", bottom],
+    ["left", left],
+    ["right", right],
+  ] as const) {
+    const points = Number(new RegExp(`padding-${side}:\\s*([\\d.]+)pt`).exec(word)?.[1])
+    if (!Number.isFinite(points) || centimetres === undefined) {
+      return style
+    }
+    if (Math.abs((points * 2.54) / 72 - centimetres) > 0.0051) {
+      return style
+    }
+    exact.push(`padding-${side}: ${points}pt`)
+  }
+  const above = exact[0]!.split(": ")[1]
+  const below = exact[1]!.split(": ")[1]
+  return `${style.replace(/;\s*$/, "")}; ${exact.join("; ")}; --cell-top: ${above}; --cell-bottom: ${below}`
+}
+
 function cellPadVariables(css: string) {
   const top = /(?:^|;)\s*padding-top:\s*([^;]+)/.exec(css)?.[1]?.trim()
   const bottom = /(?:^|;)\s*padding-bottom:\s*([^;]+)/.exec(css)?.[1]?.trim()
@@ -363,6 +428,9 @@ export const ShadedTableCell = TableCell.extend({
       ...cellPropsAttributes,
     }
   },
+  renderHTML({ HTMLAttributes }) {
+    return [this.name === "tableHeader" ? "th" : "td", hairlineVariables(HTMLAttributes), 0]
+  },
 })
 
 export const ShadedTableHeader = TableHeader.extend({
@@ -381,6 +449,9 @@ export const ShadedTableHeader = TableHeader.extend({
       valign,
       ...cellPropsAttributes,
     }
+  },
+  renderHTML({ HTMLAttributes }) {
+    return [this.name === "tableHeader" ? "th" : "td", hairlineVariables(HTMLAttributes), 0]
   },
 })
 

@@ -66,8 +66,11 @@ This file is the overview; update it in the same commit as the work.
 ## Next
 
 - ⬜ The 1.0 criteria left open (In progress above): more real-world documents compared with Word, the Windows check.
-- ⬜ Differences left from real documents 6 to 13 (`next-todo.md`): a two-line table row Word moves whole, the
-  space before on a page a section break starts, autofit tables without cell widths.
+- ✅ 1.2.1: tables break across pages as Word's (widow control in cells, no lone header row), hairline borders as
+  tall as Word's (1/8 pt borders, Word's exact cell margins), no drift from rounded TOC rows or whole-pixel text
+  boxes, right tabs in footers kept on the line.
+- ⬜ Differences left from real documents 6 to 13 (`next-todo.md`): the space before on a page a section break
+  starts, autofit tables without cell widths, a page of the report ending 1 px lower than Word's.
 - ⬜ Differences left from real documents 4 and 5 (`next-todo.md`, Word comparison 2026-11-26): wider spaces in
   Korean-marked runs; Word's exact justified-line limit (it varies with the text: about one space on lines of one
   repeated letter, up to four on ordinary text; the app uses two).

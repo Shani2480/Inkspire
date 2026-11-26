@@ -2512,6 +2512,17 @@ button.line-menu-row:focus-visible {
   );
 }
 
+/* A Word border thinner than a pixel (1/4 or 1/2 pt) is drawn a whole device pixel: the difference is taken out of
+   the cell's top and bottom margins, half for each line (rows share their lines), so a row is as tall as Word's
+   (`hairlineVariables`, table-tools.ts; a report's rows of 1/8 pt borders were 0.6 px taller, 9 px over a page). */
+.page-editor :is(td, th)[style*="--cell-top"][style*="--cell-bt"] {
+  padding-top: max(0px, calc(var(--cell-top) - max(0px, var(--hair, 1px) - var(--cell-bt)) / 2)) !important;
+}
+
+.page-editor :is(td, th)[style*="--cell-bottom"][style*="--cell-bb"] {
+  padding-bottom: max(0px, calc(var(--cell-bottom) - max(0px, var(--hair, 1px) - var(--cell-bb)) / 2)) !important;
+}
+
 /* Cell Options: Wrap text off. */
 .page-editor :is(td, th)[data-no-wrap="1"] {
   white-space: nowrap;

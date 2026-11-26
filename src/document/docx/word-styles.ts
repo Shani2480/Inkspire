@@ -742,7 +742,9 @@ export function borderCss(border: Border | undefined, colors?: Record<string, st
   if (!border || border.value === "none" || border.value === "nil") {
     return "none"
   }
-  const width = Math.max((border.sz ?? 4) / 8, 0.25)
+  // Word draws w:sz="1" as 1/8 pt (a row with it is 0.17 px taller than one without, measured in Word 2026-11-26),
+  // not the 1/4 pt the schema's minimum suggests; the screen draws it a device pixel (`--cell-bt`, index.css).
+  const width = Math.max((border.sz ?? 4) / 8, 0.125)
   const style =
     border.value === "double"
       ? "double"
