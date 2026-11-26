@@ -55,5 +55,4 @@ they do in Word, and Word opens Inkspire's saves as they were.
 
 - Word squeezes a justified line's spaces to fit a word; the app only stretches them (one line on a contract moves
   to the next page).
-- A paragraph indent inside a text box is not drawn (a cover title starts left of Word's).
 - Spaces in runs marked Korean (`w:lang w:eastAsia="ko-KR"`) are wider in Word than the font's own.

@@ -1031,6 +1031,9 @@ function textBoxPictureHtml(run: Run, ctx: Projection) {
       // Resize shape to fit text: as high as the text, as the app's own boxes are by default.
       height: box.autoFit && !link ? 0 : height,
       textAlign: ALIGN_OF_JC[paragraphs[0]?.pPr.jc ?? ""] ?? null,
+      // The text's indent, as its first paragraph has it (the app's box indents all its text alike).
+      indentLeft: (paragraphs[0]?.pPr.ind?.left ?? 0) / 20,
+      indentFirst: ((paragraphs[0]?.pPr.ind?.firstLine ?? 0) - (paragraphs[0]?.pPr.ind?.hanging ?? 0)) / 20,
       linkId: link ? `word-${link.id}` : "",
       linkSeq: link?.seq ?? 0,
       alt: drawing.name && !/^[A-Za-z ]+ \d+$/.test(drawing.name) ? drawing.name : "",
@@ -2803,7 +2806,7 @@ function wordShapeRun(node: JsonNode, figure: JsonNode, build: InlineBuild): Run
 const JC_OF_ALIGN: Record<string, JcValue> = { center: "center", right: "right", justify: "both" }
 
 /** A text box's text as Word's paragraphs: each line (a line break in the box) a paragraph, in the box's alignment. */
-function textBoxParagraphs(content: JsonNode[], align: unknown, build: InlineBuild): Paragraph[] {
+function textBoxParagraphs(content: JsonNode[], attrs: Record<string, unknown>, build: InlineBuild): Paragraph[] {
   const lines: JsonNode[][] = [[]]
   for (const node of content) {
     if (node.type === "hardBreak") {
@@ -2812,10 +2815,16 @@ function textBoxParagraphs(content: JsonNode[], align: unknown, build: InlineBui
       lines[lines.length - 1]!.push(node)
     }
   }
-  const jc = JC_OF_ALIGN[String(align ?? "")]
+  const jc = JC_OF_ALIGN[String(attrs.textAlign ?? "")]
+  const left = Math.round((Number(attrs.indentLeft) || 0) * 20)
+  const first = Math.round((Number(attrs.indentFirst) || 0) * 20)
+  const ind =
+    left || first
+      ? { ...(left ? { left } : {}), ...(first > 0 ? { firstLine: first } : first < 0 ? { hanging: -first } : {}) }
+      : undefined
   return lines.map((line) => ({
     kind: "paragraph",
-    pPr: jc ? { jc } : {},
+    pPr: { ...(jc ? { jc } : {}), ...(ind ? { ind } : {}) },
     markRPr: {},
     inlines: inlinesFromEditor(line, build).flatMap(plainInline),
   }))
@@ -2873,7 +2882,7 @@ function textBoxRun(node: JsonNode, figure: JsonNode, build: InlineBuild): Run |
   const cy = Math.round(height * EMU_PER_PX)
   const link = boxLink(attrs, build)
   const paragraphs =
-    link && link.seq > 0 ? "" : looseParagraphsXml(textBoxParagraphs(figure.content ?? [], attrs.textAlign, build))
+    link && link.seq > 0 ? "" : looseParagraphsXml(textBoxParagraphs(figure.content ?? [], attrs, build))
   const graphic = wordTextBoxGraphic(attrs, cx, cy, rotationRot(numberAttr(node.attrs?.rotate) ?? 0), paragraphs, link)
   if (!graphic) {
     return null

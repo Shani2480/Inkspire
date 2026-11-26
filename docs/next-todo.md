@@ -169,8 +169,8 @@ tall as their mark, page breaks among text, the break paragraph's own line, text
 1. [ ] Justified lines: Word squeezes a justified line's spaces to fit one more word (tested in the VM: a justified
        paragraph keeps a word on the line the same text left-aligned wraps; the exact limit varied between runs, at least
        ~12% of a space). The app only stretches spaces, so the contract's page 6 sends one line to page 7.
-2. [ ] Text box paragraphs: a paragraph indent (and alignment) inside a text box is not drawn; text boxes hold one
-       run of inline text. The contract's cover title starts 86 px left of Word's.
+2. [x] Text box paragraphs: a paragraph indent inside a text box was not drawn (the cover title 86 px left of Word's).
+       Fixed in 1.1.2 (the first paragraph's indent; different indents per paragraph in one box are not yet drawn).
 3. [x] A floating table (`w:tblpPr`) as wide as the text: the text after it ran under its last row. Fixed
        2026-11-26: a band across the text, as Word leaves text only above and below it.
 4. [x] Document grid (`w:docGrid w:type="lines"`): dropped on save and not drawn. Fixed 2026-11-26 (rule measured

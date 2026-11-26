@@ -38,6 +38,8 @@ This file is the overview; update it in the same commit as the work.
   page break, text box line spacing, no kerning unless asked, the document grid (kept on save and drawn as Word
   does), text below a full-width floating table.
 
+- ✅ 1.1.2: a text box's paragraph indent drawn and kept (a cover title where Word puts it).
+
 ## In progress
 
 - 🔄 1.0 release candidate: scope and criteria in `docs/V1_SCOPE.md` (draft). Open: a 20-document real-world set
@@ -51,7 +53,7 @@ This file is the overview; update it in the same commit as the work.
 
 - ⬜ The 1.0 criteria left open (In progress above): more real-world documents compared with Word, the Windows check.
 - ⬜ Differences left from real documents 4 and 5 (`next-todo.md`, Word comparison 2026-11-26): justified lines
-  squeezed as Word does, text box paragraph indents, wider spaces in Korean-marked runs.
+  squeezed as Word does, wider spaces in Korean-marked runs.
 
 ## Later
 

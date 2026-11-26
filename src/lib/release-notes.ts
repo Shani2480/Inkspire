@@ -9,6 +9,16 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "1.1.2",
+    date: "2026-11-26",
+    notes: [
+      {
+        title: "Indented text in text boxes",
+        text: "Text in a text box keeps its paragraph indent from Word, so a cover page's title sits where Word puts it. The indent stays when you edit the box and save.",
+      },
+    ],
+  },
+  {
     version: "1.1.1",
     date: "2026-11-26",
     notes: [

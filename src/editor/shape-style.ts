@@ -78,6 +78,9 @@ export function textBoxStyleAttributes() {
     insetB: numberAttr("insetB", 3.6),
     autoFit: booleanAttr("autoFit"),
     noWrap: booleanAttr("noWrap"),
+    // The paragraph indent of the box's text in points (Word's w:ind): left, and first line (negative: hanging).
+    indentLeft: numberAttr("indentLeft", 0),
+    indentFirst: numberAttr("indentFirst", 0),
   }
 }
 
@@ -743,9 +746,16 @@ export function textLayoutStyle(attrs: Attrs): Record<string, string> {
     textOrientation: direction === "stacked" ? "upright" : "",
     // 270°: the vertical text read from the bottom up.
     rotate: direction === "rotate270" ? "180deg" : "",
-    padding: [attrs.insetT ?? 3.6, attrs.insetR ?? 7.2, attrs.insetB ?? 3.6, attrs.insetL ?? 7.2]
-      .map((pt) => `${(Number(pt) * 4) / 3}px`)
+    // The text's paragraph indent adds to the left margin; its first line moves by the first-line indent.
+    padding: [
+      attrs.insetT ?? 3.6,
+      attrs.insetR ?? 7.2,
+      attrs.insetB ?? 3.6,
+      Number(attrs.insetL ?? 7.2) + (Number(attrs.indentLeft) || 0),
+    ]
+      .map((pt) => `${Math.round(((Number(pt) * 4) / 3) * 100) / 100}px`)
       .join(" "),
+    textIndent: Number(attrs.indentFirst) ? `${Math.round(((Number(attrs.indentFirst) * 4) / 3) * 100) / 100}px` : "",
     whiteSpace: attrs.noWrap ? "nowrap" : "",
   }
 }

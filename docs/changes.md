@@ -7,6 +7,19 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-26
 
+### Text box paragraph indents (v1.1.2)
+
+- **What was wrong:** a text box's text lost its paragraph indent (`w:ind` in `w:txbxContent`): the contract's cover
+  title and name started 86 px left of Word's.
+- **What changed:** the first paragraph's left and first-line (or hanging) indent are read into the box
+  (`indentLeft`, `indentFirst` in points, `inlines.ts`), drawn as extra left margin and a first-line indent
+  (`textLayoutStyle`, `shape-style.ts`), and written back on every paragraph when the box is written anew
+  (`textBoxParagraphs`). The app's box indents all its text alike, so a box whose paragraphs have different indents
+  takes the first's (one unchanged since opening is still saved as Word wrote it).
+- **Checked:** the contract's cover in the app against Word: title and name within 2 px. An edited box with
+  `left 1416, firstLine 708` saved and rendered by Word: same indents as the app. Both documents' saves 0 validator
+  errors; 1767 tests, typecheck, lint. Test in `word-text-box.test.ts`.
+
 ### Real documents 4 and 5 compared with Word: missing fonts, page breaks in text, empty lines, the document grid (v1.1.1)
 
 - **How:** a 13-page employment contract (cover page, a body inside a cover-page content control, Avenir text) and

@@ -4,12 +4,13 @@ import { describe, expect, it } from "vitest"
 import { Editor, type JSONContent } from "@tiptap/core"
 import type { Node as ProseNode } from "@tiptap/pm/model"
 import { openDocxBytes, saveDocxBytes } from "@/document/docx/io"
-import { findPart, openPackage } from "@/document/docx/opc"
+import { findPart, openPackage, writePackage } from "@/document/docx/opc"
 import { decodeXml } from "@/document/docx/xml"
 import { readWordTextBox } from "@/document/docx/word-text-box"
 import { emptyChrome } from "@/document/header"
 import { chainsAsWord, restoreObjects } from "@/document/object-pictures"
 import { createExtensions } from "@/editor/extensions"
+import { textLayoutStyle } from "@/editor/shape-style"
 
 const AUTHORED = path.resolve(process.cwd(), "tests/docx-fixtures/authored")
 const WPS = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
@@ -166,6 +167,46 @@ describe("Word's text boxes as text boxes", () => {
       } finally {
         reopened.destroy()
       }
+    } finally {
+      editor.destroy()
+    }
+  })
+
+  it("draws its text's paragraph indent, and keeps it when the box is written anew", async () => {
+    // A contract's cover title sat 86 px left of Word's: the indent of the box's paragraph was dropped.
+    const pkg = await openPackage(
+      new Uint8Array(readFileSync(path.join(AUTHORED, "f14_floating_shape.docx"))),
+      "f14.docx",
+    )
+    const part = findPart(pkg, "/word/document.xml")!
+    part.data = new TextEncoder().encode(
+      decodeXml(part.data).replace(
+        /(<w:txbxContent><w:p\b[^>]*>)/g,
+        '$1<w:pPr><w:ind w:left="1416" w:firstLine="708"/></w:pPr>',
+      ),
+    )
+    const opened = await openDocxBytes(await writePackage(pkg), "f14.docx")
+    const editor = editorFor(opened.view.html)
+    try {
+      restoreObjects(editor)
+      const [box] = textBoxes(editor)
+      expect(box?.attrs).toMatchObject({ indentLeft: 70.8, indentFirst: 35.4 })
+      expect(textLayoutStyle(box!.attrs)).toMatchObject({ padding: "4.8px 9.6px 4.8px 104px", textIndent: "47.2px" })
+      let at = 0
+      editor.state.doc.descendants((node, pos) => {
+        if (node.type.name === "textBox") {
+          at = pos
+        }
+      })
+      editor
+        .chain()
+        .setTextSelection(at + 1 + "TEXTBOX".length)
+        .insertContent(" EDITED")
+        .run()
+      const { xml } = await save(editor, opened)
+      const written = /<wps:wsp[^>]*><wps:cNvSpPr txBox="1"\/>[\s\S]*?<\/wps:wsp>/.exec(xml)?.[0] ?? ""
+      expect(written).toContain("TEXTBOX EDITED-TEXT")
+      expect(written).toContain('<w:ind w:left="1416" w:firstLine="708"/>')
     } finally {
       editor.destroy()
     }
