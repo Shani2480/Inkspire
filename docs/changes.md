@@ -5,6 +5,62 @@ wrong or missing, what changed, where (files, tests), how it was checked, and wh
 story of each feature stays in `next-todo.md` under its section; `verify-list.md` holds what still needs a check
 in Word, Chrome or the desktop app.
 
+## 2026-11-26
+
+### Real documents 4 and 5 compared with Word: missing fonts, page breaks in text, empty lines, the document grid (v1.1.1)
+
+- **How:** a 13-page employment contract (cover page, a body inside a cover-page content control, Avenir text) and
+  a one-page registration form (Arial Nova Cond, a floating table, a document grid) opened in the app
+  (`tools/fidelity-audit.mjs --pages … --max-pages 20`, new option) next to Word's PDF from the VM, page by page;
+  each also saved through the app and rendered by Word.
+- **What was wrong, and changed:**
+  - A font the device lacks was drawn in the browser's default sans, much wider than Word's substitute. Word 365
+    draws a missing font in Calibri, or Cambria when the font table calls it roman (tested in the VM: panose and the
+    theme play no part). `fontStack` now falls back to Calibri/Carlito or Cambria/Caladea after the named font
+    (`word-styles.ts`; the font table's `w:family` is read on open, `fontTableFamilies` in `embedded-fonts.ts`), and a
+    paragraph in a font the page cannot draw takes the substitute's single line. Symbol and monospaced fonts keep
+    their own fallbacks.
+  - Arial Nova Cond (the form's font): Roboto Condensed is within 0.4% of its widths over the form's text (measured
+    against Word's PDF; Nimbus Sans Narrow is 6% narrower, Liberation Sans 15% wider). It is its stand-in in the font
+    stack (`sans-serif-condensed` on Android) and an optional download (`optional-fonts.ts`, pinned and hashed).
+    Arial Narrow falls back to Liberation Sans Narrow / Nimbus Sans Narrow (its metrics). The form now wraps line for
+    line as in Word.
+  - An empty paragraph was as tall as an 11 pt line whatever its paragraph mark said; Word sizes it by the mark (a
+    14 pt mark: 24.6 px). Empty paragraphs carry the mark's size and font (`data-mark-font`, `markFont` in
+    `docx-source.ts`, drawn by `word-lead.ts`); saving keeps the mark as Word wrote it. This moved the contract's text
+    6 px down, which put its page breaks where Word's are.
+  - A page break among a paragraph's text (`<w:br w:type="page"/>` in a run after the text) was dropped on screen,
+    so "12." ran on after 11.4 instead of starting a page. The paragraph is cut at the break into pieces with the
+    break between them, and saving puts the break back in its paragraph (`pageBreakPieces` / `breakInto` in
+    `project.ts`; `inline-page-breaks.test.ts`).
+  - A paragraph holding only a page break took no room; Word sets the break on a line of its paragraph, so on a full
+    page it starts the next page and leaves a blank one. Pagination gives the break its line (`breakLine`,
+    `pages.ts`; the style sheet gives it Normal's line height). The contract now has Word's 13 pages.
+  - Text in a text box had the app's new-document line spacing (1.65 lines) instead of the document's Normal, so the
+    cover's 28 pt title sat 13 px low; text boxes take Normal's line height from the document's style sheet.
+  - Everything was kerned (the browser's default); Word kerns only text whose `w:kern` asks for it. The document
+    style sheet sets `font-kerning` from `w:kern` (Word's lines measured in its PDF match unkerned widths).
+  - The document grid (`w:docGrid w:type="lines"`) was dropped on save, so Word drew the saved form 16 pt shorter,
+    and the app never drew it. Saving keeps the grid's type and character pitch (`gridType`, `charSpace` in the
+    section; `doc-grid.test.ts`). The app sets lines on it as Word does (measured in the VM on an 18 pt and a
+    15.6 pt grid, 8 to 28 pt text, multiples, at least and exact): a line spaced in multiples is the pitch times the
+    multiple, or the text's single line rounded up to whole pitches where taller; at least: its height or the line
+    rounded up; exact: unchanged; the text centred in its line; table text only with `adjustLineHeightInTable`
+    (read from settings); a paragraph or style with `w:snapToGrid w:val="0"` keeps its own lines (`snapToGrid` read,
+    written and drawn). In CSS (`gridLineStyleSheet` in `document/line-lead.ts`, `--word-grid-line` set by each line
+    rule); a test page matches Word within 1 pt on every line, tables included.
+  - A floating table with no room for text beside it (as wide as the text) was given a float the width of the text,
+    which the browser does not clear for the line after it, so the form's "Payment by…" ran under the TOTAL row. It
+    now takes a band across the text, as Word leaves text only above and below it (`floatSide`, `table-float.ts`).
+- **Checked:** both documents in the app against Word page by page (contract: all 13 pages break as Word's but page
+  6, below; the form: rows, lines and the fee table where Word has them); both saves 0 validator errors, Word renders them on the same pages as the originals (the remaining
+  pixel differences, sub-pixel justification and 1 px table rows, were there before). 1761 tests, typecheck, lint.
+- **Still open** (in `next-todo.md`, Word comparison 2026-11-26): Word squeezes the spaces of a justified line to fit
+  one more word (the app only stretches them), so one line of the contract's page 6 goes to page 7; a text box's
+  paragraph indent is not drawn (the cover's title starts 86 px left of Word's); spaces in the form's table cells
+  are wider in Word (their runs say `w:lang w:eastAsia="ko-KR"`; without it Word's spaces are the font's own, tested
+  in the VM).
+
 ## 2026-11-24
 
 ### Pictures in their line, the Format Picture pane and the mini toolbar's extras (v1.1.0)

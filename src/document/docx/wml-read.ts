@@ -574,6 +574,9 @@ function readSettings(xml: string | undefined, notes: WordNote[]): Settings {
   }
   const compat = wordChild(root, "compat")
   if (compat) {
+    if (wordChild(compat, "adjustLineHeightInTable")) {
+      settings.adjustLineHeightInTable = readOnOff(wordChild(compat, "adjustLineHeightInTable")) ?? true
+    }
     for (const setting of wordChildren(compat, "compatSetting")) {
       if (attr(setting, "name") !== "compatibilityMode") {
         continue
@@ -1890,6 +1893,14 @@ function readSectionModel(node: MarkupNode): SectionProps {
   const grid = wordChild(node, "docGrid")
   if (grid) {
     assignUint(section, "linePitch", attr(grid, "linePitch"))
+    const type = attr(grid, "type")
+    if (type === "default" || type === "lines" || type === "linesAndChars" || type === "snapToChars") {
+      section.gridType = type
+    }
+    const charSpace = Number(attr(grid, "charSpace"))
+    if (attr(grid, "charSpace") !== undefined && Number.isInteger(charSpace)) {
+      section.charSpace = charSpace
+    }
   }
   return section
 }
@@ -1900,6 +1911,7 @@ function readParagraphFormatting(node: MarkupNode) {
   assignOnOff(pPr, "keepNext", wordChild(node, "keepNext"))
   assignOnOff(pPr, "keepLines", wordChild(node, "keepLines"))
   assignOnOff(pPr, "contextualSpacing", wordChild(node, "contextualSpacing"))
+  assignOnOff(pPr, "snapToGrid", wordChild(node, "snapToGrid"))
   const frame = wordChild(node, "framePr")
   const dropCap = frame ? attr(frame, "dropCap") : undefined
   if (frame && (dropCap === "drop" || dropCap === "margin")) {

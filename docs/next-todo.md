@@ -162,6 +162,25 @@ largest first:
    section in columns) and, on one-word pages, sub-pixel shifts. The audit could hide those for page captures.
 4. Aptos is missing on the Linux host (Carlito stands in), so text in theme-font documents is narrower than Word's.
 
+**Word comparison (2026-11-26).** Real documents 4 and 5 (a 13-page contract, a one-page registration form; see
+`changes.md`). Fixed: missing fonts drawn in Word's substitute, Arial Nova Cond in Roboto Condensed, empty lines as
+tall as their mark, page breaks among text, the break paragraph's own line, text box line spacing, kerning. Open:
+
+1. [ ] Justified lines: Word squeezes a justified line's spaces to fit one more word (tested in the VM: a justified
+       paragraph keeps a word on the line the same text left-aligned wraps; the exact limit varied between runs, at least
+       ~12% of a space). The app only stretches spaces, so the contract's page 6 sends one line to page 7.
+2. [ ] Text box paragraphs: a paragraph indent (and alignment) inside a text box is not drawn; text boxes hold one
+       run of inline text. The contract's cover title starts 86 px left of Word's.
+3. [x] A floating table (`w:tblpPr`) as wide as the text: the text after it ran under its last row. Fixed
+       2026-11-26: a band across the text, as Word leaves text only above and below it.
+4. [x] Document grid (`w:docGrid w:type="lines"`): dropped on save and not drawn. Fixed 2026-11-26 (rule measured
+       in the VM, see `changes.md`); the form's lines and rows now are Word's.
+5. [x] The form's footer: drawn in a serif in Word (Batang, missing) and now in the app too (Cambria / Caladea for a
+       roman font).
+6. [ ] Spaces in the form's table cells are wider in Word: its runs carry `w:lang w:eastAsia="ko-KR"` (style No
+       Spacing); with that attribute removed Word's spaces are the font's own (tested in the VM). The rule (which
+       spaces, how wide) is not yet known.
+
 **Fidelity audit (2026-11-13).** When a .docx "opens weird", run `npm run audit:docx -- file.docx` with the dev
 server up before reading XML: it lists every run and paragraph whose drawn formatting differs from Word's rules,
 with the style and text. Done: run toggles turned off against styles, highlight, automatic colour on shading, row

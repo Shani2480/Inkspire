@@ -54,7 +54,7 @@ describe("tables text wraps around (22.10)", () => {
     const gaps = { top: 0, bottom: 0, left: 0.32, right: 0.32 }
     expect(floatSide(0, 200, gaps, 624)).toEqual({ float: "left", width: 212 })
     expect(floatSide(424, 200, gaps, 624)).toEqual({ float: "right", width: 212 })
-    expect(floatSide(10, 600, gaps, 624)).toEqual({ float: "left", width: 624 })
+    expect(floatSide(10, 600, gaps, 624)).toBeUndefined()
   })
 })
 

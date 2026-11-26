@@ -16,7 +16,14 @@ import { parseListIndent } from "@/editor/lists"
 import { chromeHasContent, chromeHasPageField } from "@/document/chrome-html"
 import { chromeJson } from "@/document/chrome-json"
 import { bordersOf, editedShading, sidePensOf, wordShadingValue } from "@/document/docx/cell-edits"
-import { cellCss, pictureLineSpace, tableLookTokens, tableVariables, themeFontsOf } from "@/document/docx/word-styles"
+import {
+  cellCss,
+  fontOf,
+  pictureLineSpace,
+  tableLookTokens,
+  tableVariables,
+  themeFontsOf,
+} from "@/document/docx/word-styles"
 import { floatValue } from "@/editor/table-float"
 import { presetAttrs, presetOf } from "@/editor/table-props"
 import {
@@ -1175,7 +1182,79 @@ function blockHtml(block: Block, ctx: Projection) {
   if (breakOnly(block, "column")) {
     return `<div data-column-break="" class="column-break"></div>`
   }
+  const pieces = block.key && !block.pPr.numPr ? pageBreakPieces(block) : null
+  if (pieces) {
+    // A page break among a paragraph's text: the paragraph in pieces with the break between them, as the editor's
+    // breaks are blocks; the break carries the paragraph's anchor, and saving puts it back in its place (`breakInto`).
+    // Nothing after a closing break: Word sets the paragraph's mark beside it, not on a line of the next page.
+    const shown = pieces.length > 1 && isEmptyPiece(pieces[pieces.length - 1]!) ? pieces.slice(0, -1) : pieces
+    const parts = shown.map((inlines, index) => {
+      const html = paragraphHtml({ ...block, inlines }, ctx)
+      const part = index === 0 ? "before" : index === shown.length - 1 ? "next" : "between"
+      return index === 0 && shown.length === 1 ? html : html.replace(/<(p|h[1-6])\b/, `<$1 data-docx-part="${part}"`)
+    })
+    const pageBreak = `<div data-page-break="" data-docx="${block.key}" class="page-break"></div>`
+    return parts.join(pageBreak) + (shown.length < pieces.length ? pageBreak : "")
+  }
   return paragraphHtml(block, ctx)
+}
+
+/** A run that is one page break and nothing else, Word's usual form for a break typed among text. */
+function isPageBreakRun(inline: Inline): inline is Run {
+  return (
+    inline.kind === "run" &&
+    inline.content.length === 1 &&
+    inline.content[0]?.kind === "break" &&
+    inline.content[0].breakType === "page"
+  )
+}
+
+/**
+ * A paragraph of text with page breaks among it, cut at each: the inlines before, between and after them. Null for
+ * one without such a break, or with a page break the editor could not put back (inside a link, or in a run with
+ * text).
+ */
+function pageBreakPieces(paragraph: Paragraph): Inline[][] | null {
+  if (!paragraph.inlines.some(isPageBreakRun) || isPageBreak(paragraph)) {
+    return null
+  }
+  const nested = (inline: Inline) => !isPageBreakRun(inline) && JSON.stringify(inline).includes('"breakType":"page"')
+  if (paragraph.inlines.some(nested)) {
+    return null
+  }
+  const pieces: Inline[][] = [[]]
+  for (const inline of paragraph.inlines) {
+    if (isPageBreakRun(inline)) {
+      pieces.push([])
+    } else {
+      pieces[pieces.length - 1]!.push(inline)
+    }
+  }
+  return pieces
+}
+
+function isEmptyPiece(inlines: Inline[]) {
+  return inlines.every((inline) => MARKERS.has(inline.kind))
+}
+
+/**
+ * A page break the editor cut a Word paragraph at (`pageBreakPieces`) goes back into that paragraph, after the
+ * text before it, in the run it came in. Whether it went back; not when the text before it is gone.
+ */
+function breakInto(blocks: Block[], node: JsonNode, build: Build) {
+  const key = typeof node.attrs?.docxKey === "string" ? node.attrs.docxKey : undefined
+  const origin = key ? build.origins.paragraphs.get(key) : undefined
+  const previous = blocks[blocks.length - 1]
+  if (!origin || isPageBreak(origin) || previous?.kind !== "paragraph" || previous.key !== key) {
+    return false
+  }
+  const run = origin.inlines.find(isPageBreakRun)
+  previous.inlines.push(
+    run
+      ? structuredClone({ ...run, key: undefined })
+      : { kind: "run", rPr: {}, content: [{ kind: "break", breakType: "page" }] },
+  )
+  return true
 }
 
 function paragraphHtml(paragraph: Paragraph, ctx: Projection) {
@@ -1225,7 +1304,28 @@ function paragraphInnerHtml(paragraph: Paragraph, ctx: Projection) {
     floats.push(img)
     return ""
   })
-  return `${floats.join("")}${aroundPictures(`<${tag}${attrs}${style}${tabs}>${inner}</${tag}>`)}`
+  // Empty but for bookmarks: nothing in it but the mark sets its line.
+  const mark =
+    !ctx.textParagraph &&
+    !/<(?:img|br|svg)\b|data-type=/.test(
+      inner.replace(/<span data-word-inline data-role="bookmark"[^>]*><\/span>/g, ""),
+    )
+      ? markFontAttribute(paragraph, ctx)
+      : ""
+  // Off (or back on) the document grid by its own w:snapToGrid (word-styles.ts gridLineStyleSheet).
+  const snap =
+    paragraph.pPr.snapToGrid === undefined ? "" : ` data-snap-to-grid="${paragraph.pPr.snapToGrid ? "1" : "0"}"`
+  return `${floats.join("")}${aroundPictures(`<${tag}${attrs}${style}${tabs}${mark}${snap}>${inner}</${tag}>`)}`
+}
+
+/**
+ * An empty paragraph's line is as tall as its paragraph mark, as Word draws it: the mark's own size and font
+ * ("14pt|Avenir LT Std 35 Light", either part may be empty), which the editor gives the empty line (word-lead.ts).
+ */
+function markFontAttribute(paragraph: Paragraph, ctx: Projection) {
+  const size = paragraph.markRPr.sz ? `${paragraph.markRPr.sz / 2}pt` : ""
+  const face = fontOf(paragraph.markRPr.rFonts, ctx.theme ?? themeFontsOf(ctx.doc)) ?? ""
+  return size || face ? ` data-mark-font="${escapeAttribute(`${size}|${face}`)}"` : ""
 }
 
 /** An in-line picture among a paragraph's text: not one placed on the page, which the editor draws apart. */
@@ -2549,6 +2649,9 @@ function blocksFromNodes(nodes: JsonNode[], build: Build, level: number, top = f
       if (drawing) {
         floats.push({ run: drawing, key: typeof node.attrs.docxKey === "string" ? node.attrs.docxKey : undefined })
       }
+      continue
+    }
+    if (node.type === "pageBreak" && breakInto(blocks, node, build)) {
       continue
     }
     const block = blockFromNode(node, build)

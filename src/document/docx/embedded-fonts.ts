@@ -50,6 +50,28 @@ function partName(target: string) {
   return `/${parts.join("/")}`
 }
 
+/** Each font's family in the document's font table (`w:family`), by lower-case name. */
+export function fontTableFamilies(doc: WordDocument): Map<string, string> {
+  const families = new Map<string, string>()
+  const table = (doc.preserved?.parts ?? []).find((part) => part.name.toLowerCase() === "/word/fonttable.xml")
+  if (!table) {
+    return families
+  }
+  for (const font of decodeXml(table.data).matchAll(/<w:font\b[^>]*w:name="([^"]+)"[^>]*>([\s\S]*?)<\/w:font>/g)) {
+    const family = /<w:family\b[^>]*w:val="([^"]+)"/.exec(font[2]!)?.[1]
+    if (family) {
+      families.set(
+        font[1]!
+          .replace(/&amp;/g, "&")
+          .replace(/&quot;/g, '"')
+          .toLowerCase(),
+        family,
+      )
+    }
+  }
+  return families
+}
+
 /** The faces a document embeds, ready to register; none when it embeds none or they cannot be read. */
 export function embeddedFonts(doc: WordDocument): EmbeddedFace[] {
   const parts = doc.preserved?.parts ?? []

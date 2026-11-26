@@ -1273,8 +1273,12 @@ function generateSection(section: SectionProps) {
   if (section.titlePg) {
     parts.push("<w:titlePg/>")
   }
-  if (section.linePitch !== undefined) {
-    parts.push(`<w:docGrid w:linePitch="${section.linePitch}"/>`)
+  if (section.linePitch !== undefined || section.gridType || section.charSpace !== undefined) {
+    // The grid's type matters: "lines" makes Word set every line on the grid (a form's rows grow with it).
+    const type = section.gridType && section.gridType !== "default" ? ` w:type="${section.gridType}"` : ""
+    const pitch = section.linePitch === undefined ? "" : ` w:linePitch="${section.linePitch}"`
+    const chars = section.charSpace === undefined ? "" : ` w:charSpace="${section.charSpace}"`
+    parts.push(`<w:docGrid${type}${pitch}${chars}/>`)
   }
   return parts.join("")
 }
@@ -1318,6 +1322,7 @@ function generateParagraphProperties(paragraph: ReturnType<typeof paragraphPrope
     writeParagraphBox(paragraph.pPr),
     writeTabs(paragraph.pPr.tabs),
     onOff("suppressAutoHyphens", paragraph.pPr.suppressAutoHyphens),
+    onOff("snapToGrid", paragraph.pPr.snapToGrid),
     writeSpacing(paragraph.pPr.spacing),
     writeIndent(paragraph.pPr.ind),
     onOff("contextualSpacing", paragraph.pPr.contextualSpacing),
@@ -1627,6 +1632,7 @@ function writeLooseParagraphProperties(props: ParagraphProperties) {
     writeParagraphBox(props),
     writeTabs(props.tabs),
     onOff("suppressAutoHyphens", props.suppressAutoHyphens),
+    onOff("snapToGrid", props.snapToGrid),
     writeSpacing(props.spacing),
     writeIndent(props.ind),
     onOff("contextualSpacing", props.contextualSpacing),

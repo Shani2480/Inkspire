@@ -45,3 +45,10 @@ export function fontLineOf(data: Uint8Array): FontLine | null {
 
 /** Lines of fonts read from files (a document's embedded fonts), by lower-case name. */
 export const fontLines = new Map<string, FontLine>()
+
+/**
+ * The family the open document's font table gives each font (`w:family`: roman, swiss, modern, script,
+ * decorative), by lower-case name. Word draws a font it does not have in Cambria when its family is roman and in
+ * Calibri otherwise (checked in Word 365: panose and the theme play no part).
+ */
+export const fontFamilies = new Map<string, string>()

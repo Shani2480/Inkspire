@@ -38,9 +38,14 @@ describe("the fonts a document is missing", () => {
   })
 
   it("say how commercial fonts are shown", async () => {
-    const offer = await fontOffer('a { font-family: "Arial Nova Cond" } b { font-family: Batang }', {}, {}, () => false)
+    const offer = await fontOffer('a { font-family: "Arial Nova" } b { font-family: Batang }', {}, {}, () => false)
     expect(offerText(offer)).toBe(
-      "This document uses Arial Nova Cond and Batang, which are not on this device. They are shown in similar fonts.",
+      "This document uses Arial Nova and Batang, which are not on this device. They are shown in similar fonts.",
     )
+  })
+
+  it("offer Roboto Condensed for Arial Nova Cond, which wraps where Word's lines do", async () => {
+    const offer = await fontOffer('a { font-family: "Arial Nova Cond" }', {}, {}, () => false)
+    expect(offer.standIns.map((font) => font.family)).toEqual(["Roboto Condensed"])
   })
 })

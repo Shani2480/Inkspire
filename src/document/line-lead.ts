@@ -37,6 +37,12 @@ export function ruleLineHeight(rule: "exact" | "atLeast", points: number) {
   const height = rule === "exact" ? `${points}pt` : `max(${points}pt, calc(var(--word-single-line, 1.17) * 1em))`
   return [
     `line-height: ${height}`,
+    // On a document grid an exact line stays as it is; an at-least line is the height or the text's line rounded up
+    // to whole grid lines (gridLineStyleSheet).
+    rule === "exact"
+      ? `--word-grid-line: ${height}`
+      : `--word-grid-line: max(${points}pt, round(up, calc(var(--word-single-line, 1.17) * 1em), var(--word-grid, 1pt)))`,
+    rule === "exact" ? "--word-grid-lead: 0.8lh" : `--word-grid-lead: ${leadBase("atLeast")}`,
     rule === "exact" ? "--word-run-line: 0" : "--word-run-line: calc(var(--word-single-line, 1.17) * 1em)",
     // A paragraph mixing sizes keeps this line (its strut); its runs are not shifted.
     "--word-lines: 1",
@@ -51,7 +57,36 @@ export function ruleLineHeight(rule: "exact" | "atLeast", points: number) {
  * text drawn back up (index.css); the paragraph's own strut is none, as it would split its extra above and below.
  */
 export function multipleLineVars(lines: number | string) {
-  return [`--word-lines: ${lines}`, "--word-mixed-strut: 0"]
+  return [
+    `--word-lines: ${lines}`,
+    "--word-mixed-strut: 0",
+    // On a document grid: the grid line times the multiple, or the text's own line rounded up to whole grid lines
+    // where that is taller (gridLineStyleSheet).
+    `--word-grid-line: max(calc(var(--word-grid, 0pt) * ${lines}), round(up, calc(var(--word-single-line, 1.17) * 1em), var(--word-grid, 1pt)))`,
+    "--word-grid-lead: initial",
+  ]
+}
+
+/**
+ * A section on a line grid (w:docGrid w:type="lines", measured in Word 2026-11-26): a line spaced in multiples is the
+ * grid's pitch times the multiple, or the text's single line rounded up to whole pitches where that is taller (a
+ * 16 pt line on an 18 pt grid takes two); an at-least line is its height or the text's line rounded up likewise; an
+ * exact line keeps its height. Word centres the text's single line in a grid line. Table text is on the grid only
+ * with the adjustLineHeightInTable compatibility option. A paragraph mixing sizes, one off the grid (w:snapToGrid="0",
+ * its own or its style's), or one given a line height that carries no grid line, keeps its own.
+ */
+export function gridLineStyleSheet(pitchPoints: number, inTables: boolean, offGridStyles: string[] = []) {
+  // Off the grid: its own w:snapToGrid="0", or a style's that the paragraph does not turn back on.
+  const off = offGridStyles.map(
+    (id) =>
+      `${id ? `[data-word-style="${id.replace(/["\\]/g, "\\$&")}"]` : ":not([data-word-style])"}:not([data-snap-to-grid="1"])`,
+  )
+  const blocks = `.page-editor ${TEXT_BLOCKS}:not([data-word-mixed], [data-snap-to-grid="0"], [style*="line-height:"]:not([style*="--word-grid-line"])${off.map((item) => `, ${item}`).join("")})`
+  const outside = inTables ? "" : ":not(td *, th *)"
+  return [
+    `:root .page-editor {\n  --word-grid: ${pitchPoints}pt;\n}`,
+    `:root:root:root ${blocks}${outside} {\n  line-height: var(--word-grid-line) !important;\n  --lead-base: var(--word-grid-lead, calc((1lh + var(--word-single-line, 1.17) * 1em) / 2 - var(--word-descent, 0.22) * 1em)) !important;\n}`,
+  ].join("\n\n")
 }
 
 const TEXT_BLOCKS = ":is(p, h1, h2, h3, h4, h5, h6)"

@@ -1841,6 +1841,19 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
     placeEdge(style, "bottom")
   }
 
+  /**
+   * The height of the line a page break sits on: its paragraph's line (the style sheet gives the break Normal's
+   * line height). None for a break the editor cut out of a paragraph of text, which ends that paragraph's last line.
+   */
+  const breakLine = (node: ProseNode, pos: number) => {
+    const before = view.state.doc.resolve(pos).nodeBefore
+    if (node.attrs.docxKey && before?.isTextblock && before.attrs.docxKey === node.attrs.docxKey) {
+      return 0
+    }
+    const dom = view.nodeDOM(pos)
+    return dom instanceof HTMLElement ? Number.parseFloat(getComputedStyle(dom).lineHeight) || 0 : 0
+  }
+
   const visit = (node: ProseNode, pos: number, following: () => number = () => 0) => {
     if (node.type.name === "sectionBreak") {
       const kind = String(node.attrs.kind || "nextPage")
@@ -1854,6 +1867,12 @@ function layoutPages(view: EditorView, measureCache: Map<number, MeasureCacheEnt
       return
     }
     if (node.type.name === "pageBreak") {
+      // Word sets a page break alone in its paragraph on a line of that paragraph: where that line does not fit,
+      // it starts the next page, which the break then ends (checked in Word 2026-11-26, a contract's last pages).
+      const line = breakLine(node, pos)
+      if (line > 0 && used > 0 && used + line > contentHeight + 0.5) {
+        pushBreak(pos, false)
+      }
       pushBreak(pos + node.nodeSize, true, section, pos)
       return
     }

@@ -860,6 +860,16 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 - [x] (tablet 2026-11-20; Word's reopen of a save checked in the VM) A document saved by Word with "Embed fonts in the file" shows in its fonts without any bar, and Word opens
       Inkspire's save with the fonts still embedded.
 
+## Missing fonts and Arial Nova Cond (2026-11-26, v1.1.1)
+
+- [ ] Desktop app: a document in Arial Nova Cond: the FONTS bar offers Roboto Condensed; after Download its text
+      redraws narrower and wraps as in Word (checked in Chrome with the font loaded, not through the bar).
+- [ ] Android phone or tablet: the same document without the download shows in the system's condensed Roboto
+      (`sans-serif-condensed`).
+- [ ] Windows desktop app: a document in a font the machine lacks (e.g. Avenir) shows in Calibri, as Word does there.
+- [ ] Desktop app (WebKitGTK) and Android: a document on a line grid (`w:docGrid w:type="lines"`) shows its lines on
+      the grid as in Chrome (the rules use CSS `round()`; checked in Chrome only).
+
 ## Pixel phone checks (2026-11-20, 1.0.1–1.0.2)
 
 - [x] Open, type, Bold, table, picture resize and crop, Save, Print (to Android's print service), Undo, 3D model

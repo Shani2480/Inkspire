@@ -47,6 +47,22 @@ export const DocxSource = Extension.create({
             renderHTML: (attributes: { wordStyle?: string | null }) =>
               attributes.wordStyle ? { "data-word-style": attributes.wordStyle } : {},
           },
+          // The paragraph mark's own size and font ("14pt|Avenir"), which an empty paragraph's line takes, as in
+          // Word (word-lead.ts). Saving keeps the mark from the source paragraph; a new paragraph has none.
+          // The paragraph's own w:snapToGrid ("0" off the document grid, "1" on it), drawn by the grid's rules.
+          snapToGrid: {
+            default: null as string | null,
+            parseHTML: (element: HTMLElement) => element.getAttribute("data-snap-to-grid"),
+            renderHTML: (attributes: { snapToGrid?: string | null }) =>
+              attributes.snapToGrid ? { "data-snap-to-grid": attributes.snapToGrid } : {},
+          },
+          markFont: {
+            default: null as string | null,
+            keepOnSplit: false,
+            parseHTML: (element: HTMLElement) => element.getAttribute("data-mark-font"),
+            renderHTML: (attributes: { markFont?: string | null }) =>
+              attributes.markFont ? { "data-mark-font": attributes.markFont } : {},
+          },
         },
       },
     ]

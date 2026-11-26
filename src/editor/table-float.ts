@@ -135,7 +135,7 @@ export function floatPlace(float: TableFloat, width: number, height: number, fra
 /**
  * The room the text leaves beside a floating table: a float from the text area's left edge to the table's right
  * edge plus its gap (text on the right), or the other way round. Text goes on the roomier side; a table with too
- * little room on both sides for a line leaves the text above and below it only, as Word does.
+ * little room on both sides for a line leaves the text above and below it only, as Word does (undefined: no side).
  */
 export function floatSide(x: number, width: number, gaps: Margins, textWidth: number) {
   const left = x - gaps.left * PX_PER_CM
@@ -143,7 +143,9 @@ export function floatSide(x: number, width: number, gaps: Margins, textWidth: nu
   const textRight = right >= left
   const room = textRight ? right : left
   if (room < 1 * PX_PER_CM) {
-    return { float: "left" as const, width: Math.round(textWidth) }
+    // Above and below only: a band across the text, which moves every line down, an empty one too (a float would
+    // leave an empty line behind the table, as the browser places only lines with something in them clear of it).
+    return undefined
   }
   return textRight
     ? { float: "left" as const, width: Math.max(0, Math.round(x + width + gaps.right * PX_PER_CM)) }

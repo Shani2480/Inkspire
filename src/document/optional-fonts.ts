@@ -150,6 +150,30 @@ export const OPTIONAL_FONTS: OptionalFont[] = [
       },
     ],
   },
+  {
+    // Not metric-compatible by design, but within half a percent of Arial Nova Cond's widths over a real form's
+    // text (measured against Word's own PDF), so its lines wrap where Word's do.
+    id: "roboto-condensed",
+    family: "Roboto Condensed",
+    standsFor: ["Arial Nova Cond"],
+    licence: OFL,
+    files: [
+      {
+        path: "ofl/robotocondensed/RobotoCondensed%5Bwght%5D.ttf",
+        weight: "100 900",
+        style: "normal",
+        size: 371616,
+        sha256: "dace262afcee68a5276f200d8026c57221735c0118ab5fda8c2c0d3dc409a8d0",
+      },
+      {
+        path: "ofl/robotocondensed/RobotoCondensed-Italic%5Bwght%5D.ttf",
+        weight: "100 900",
+        style: "italic",
+        size: 388124,
+        sha256: "78f643b1923008b00dfc9b371a2ecd4d80a017722925f1a3fac9940be56d1b7d",
+      },
+    ],
+  },
 ]
 
 /** Microsoft's own page for Aptos, Office's default font since 2023: it may not be passed on, only linked to. */

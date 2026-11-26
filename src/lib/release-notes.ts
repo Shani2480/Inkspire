@@ -9,6 +9,32 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "1.1.1",
+    date: "2026-11-26",
+    notes: [
+      {
+        title: "Missing fonts shown as Word shows them",
+        text: "When a document uses a font this device does not have, its text is drawn in the font Word itself uses in its place (Calibri, or Cambria for a serif font), so lines and pages break where they do in Word. Arial Nova Cond is shown in Roboto Condensed, which has nearly its widths; the bar offers it as a free download.",
+      },
+      {
+        title: "Page breaks inside a paragraph",
+        text: "A page break typed at the end of a line of text now starts the next page, as in Word; before, the text after it ran on. A page break on a nearly full page moves to the next page and leaves a blank page, as in Word.",
+      },
+      {
+        title: "Closer to Word on the page",
+        text: "Empty lines are as tall as their paragraph mark, text in text boxes has Word's line spacing, and text is no longer kerned unless the document asks for it.",
+      },
+      {
+        title: "Documents on a line grid",
+        text: "A document set on a line grid (common in forms and in documents from Asia) shows its lines and table rows at the grid's spacing, as Word does, and keeps the grid when saved; before, Word showed the saved copy shorter.",
+      },
+      {
+        title: "Text below wide floating tables",
+        text: "Text after a floating table as wide as the page now starts below the table instead of running under its last row.",
+      },
+    ],
+  },
+  {
     version: "1.1.0",
     date: "2026-11-24",
     notes: [

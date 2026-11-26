@@ -38,7 +38,7 @@ they do in Word, and Word opens Inkspire's saves as they were.
    save as the original. _Met on 2026-11-20 (77 of 77)._
 2. **Real documents look as in Word:** a set of at least 20 real, varied documents (letters, forms, contracts,
    reports, a thesis, a CV, documents from Google Docs and LibreOffice) is compared page by page with Word. Every
-   difference is fixed or listed under known limits. _Not met: 3 real documents so far (their 3 bugs fixed)._
+   difference is fixed or listed under known limits. _Not met: 5 real documents so far (2026-11-26: the contract and the form; their bugs fixed but those listed below)._
 3. **Checked where it runs:** the core items of `verify-list.md` (open, type, format, table, picture, save, print)
    are ticked in the desktop app on Linux and Windows and on an Android phone and tablet. _Partly met: the Android tablet (OnePlus Pad), the phone (Pixel) and the Linux desktop app pass (2026-11-20); Windows is open._
 4. **Tests, typecheck, lint and the Open XML validator are clean.** _Met._
@@ -50,3 +50,10 @@ they do in Word, and Word opens Inkspire's saves as they were.
   2026-11-20 (and a line in pieces numbered once); a picture's or chart's line is numbered too since 2026-11-24.
 - ~~A chart's series take a default palette instead of the document's theme colours.~~ Fixed 2026-11-20; chart
   line widths as Word's since 2026-11-24 (they were points taken as pixels).
+
+## Open differences found on real documents (2026-11-26)
+
+- Word squeezes a justified line's spaces to fit a word; the app only stretches them (one line on a contract moves
+  to the next page).
+- A paragraph indent inside a text box is not drawn (a cover title starts left of Word's).
+- Spaces in runs marked Korean (`w:lang w:eastAsia="ko-KR"`) are wider in Word than the font's own.

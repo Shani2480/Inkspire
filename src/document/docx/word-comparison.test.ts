@@ -197,7 +197,8 @@ describe("exact and at-least line spacing", () => {
   it("keeps an exact line whatever its runs' size, and an at-least line at least the text's own (Word, 2026-11-17)", async () => {
     const { ruleLineHeight } = await import("@/document/line-lead")
     // Exact 18 pt: 18 pt apart even with a 20 pt word, runs do not stretch the line.
-    expect(ruleLineHeight("exact", 18)).toEqual([
+    const offGrid = (rules: string[]) => rules.filter((rule) => !rule.startsWith("--word-grid"))
+    expect(offGrid(ruleLineHeight("exact", 18))).toEqual([
       "line-height: 18pt",
       "--word-run-line: 0",
       // A paragraph mixing sizes keeps the exact line as its strut, its runs not shifted.
@@ -215,7 +216,10 @@ describe("exact and at-least line spacing", () => {
     const { leadOf } = await import("@/editor/word-lead")
     // Word: the tallest run's single line times the multiple, the baseline where a single line has it, the extra all
     // below. Each run's box is its own line, lowered by its extra above; the paragraph's own strut is none.
-    expect(multipleLineVars(2)).toEqual(["--word-lines: 2", "--word-mixed-strut: 0"])
+    expect(multipleLineVars(2).filter((rule) => !rule.startsWith("--word-grid"))).toEqual([
+      "--word-lines: 2",
+      "--word-mixed-strut: 0",
+    ])
     const css = readFileSync(path.resolve(process.cwd(), "src/index.css"), "utf8")
     expect(css).toContain("line-height: var(--word-mixed-strut, 0) !important;")
     expect(css).toContain("--lead-shift: calc((1 - var(--word-lines, 1)) * var(--word-single-line, 1.17) * 0.5em);")
@@ -260,5 +264,48 @@ describe("exact and at-least line spacing", () => {
     expect(leadOf(editor.state.doc.child(1))).toMatchObject({ tall: false, family: "Arial" })
     expect(plain!.hasAttribute("data-word-mixed")).toBe(false)
     editor.destroy()
+  })
+})
+
+describe("the document grid (Word, 2026-11-26)", () => {
+  const gridDoc = (grid: string, compat = "") =>
+    readWordXml({
+      documentXml: `<w:document ${W}><w:body><w:p><w:r><w:t>x</w:t></w:r></w:p><w:sectPr>${grid}</w:sectPr></w:body></w:document>`,
+      settingsXml: `<w:settings ${W}><w:compat>${compat}</w:compat></w:settings>`,
+    })
+
+  it("sets lines on a line grid: the pitch times the multiple, or the text's line rounded up to whole pitches", async () => {
+    const { multipleLineVars, ruleLineHeight } = await import("@/document/line-lead")
+    // Measured on an 18 pt grid: 8-14 pt Arial under 1.16 lines 20.88 pt apart, 16-28 pt two pitches (36 pt), at
+    // least 15 pt one pitch, exact 10 pt 10 pt.
+    expect(multipleLineVars(1.16)).toContain(
+      "--word-grid-line: max(calc(var(--word-grid, 0pt) * 1.16), round(up, calc(var(--word-single-line, 1.17) * 1em), var(--word-grid, 1pt)))",
+    )
+    expect(ruleLineHeight("exact", 10)).toContain("--word-grid-line: 10pt")
+    expect(ruleLineHeight("atLeast", 15)).toContain(
+      "--word-grid-line: max(15pt, round(up, calc(var(--word-single-line, 1.17) * 1em), var(--word-grid, 1pt)))",
+    )
+    const css = documentStyleSheet(gridDoc('<w:docGrid w:type="lines" w:linePitch="360"/>'))
+    expect(css).toContain("--word-grid: 18pt")
+    expect(css).toContain("line-height: var(--word-grid-line) !important")
+    // Table text only on the grid with adjustLineHeightInTable.
+    expect(css).toContain(":not(td *, th *)")
+    expect(
+      documentStyleSheet(gridDoc('<w:docGrid w:type="lines" w:linePitch="360"/>', "<w:adjustLineHeightInTable/>")),
+    ).not.toContain(":not(td *, th *)")
+  })
+
+  it("leaves a paragraph off the grid by its own or its style's snapToGrid", () => {
+    const doc = readWordXml({
+      documentXml: `<w:document ${W}><w:body><w:p><w:r><w:t>x</w:t></w:r></w:p><w:sectPr><w:docGrid w:type="lines" w:linePitch="360"/></w:sectPr></w:body></w:document>`,
+      stylesXml: `<w:styles ${W}><w:style w:type="paragraph" w:styleId="Free"><w:name w:val="Free"/><w:pPr><w:snapToGrid w:val="0"/></w:pPr></w:style></w:styles>`,
+    })
+    const css = documentStyleSheet(doc)
+    expect(css).toContain('[data-snap-to-grid="0"]')
+    expect(css).toContain('[data-word-style="Free"]:not([data-snap-to-grid="1"])')
+  })
+
+  it("leaves lines alone without a line grid", () => {
+    expect(documentStyleSheet(gridDoc('<w:docGrid w:linePitch="360"/>'))).not.toContain("--word-grid:")
   })
 })

@@ -2,7 +2,7 @@ import { Extension } from "@tiptap/core"
 import type { Node as ProseNode } from "@tiptap/pm/model"
 import { Plugin, PluginKey, type EditorState } from "@tiptap/pm/state"
 import { Decoration, DecorationSet } from "@tiptap/pm/view"
-import { singleLine } from "@/document/docx/word-styles"
+import { fontStack, singleLine } from "@/document/docx/word-styles"
 import { wordDescent } from "@/document/line-lead"
 import { isFloating } from "@/editor/objects"
 
@@ -74,7 +74,31 @@ function firstFamily(list: string) {
     .replace(/^["']|["']$/g, "")
 }
 
+/** An empty paragraph drawn at its paragraph mark's size and in its font, as Word sizes its line. */
+function markLead(block: ProseNode): Record<string, string> | null {
+  const [size, face] = String(block.attrs.markFont ?? "").split("|")
+  const style: string[] = []
+  if (size) {
+    style.push(`font-size: ${size}`)
+  }
+  if (face) {
+    style.push(
+      `font-family: ${fontStack(face)}`,
+      `--word-single-line: ${singleLine(face)}`,
+      `--word-descent: ${wordDescent(face)}`,
+    )
+  }
+  return style.length > 0 ? { style: style.join("; ") } : null
+}
+
 function attributesFor(block: ProseNode): Record<string, string> | null {
+  let empty = true
+  block.forEach((child) => {
+    empty &&= child.type.name === "wordInline" && child.attrs.role === "bookmark"
+  })
+  if (empty && block.attrs.markFont) {
+    return markLead(block)
+  }
   const lead = leadOf(block)
   if (lead.tall) {
     return lead.mixed ? { "data-word-tall": "", "data-word-mixed": "" } : { "data-word-tall": "" }

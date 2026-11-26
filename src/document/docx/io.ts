@@ -1,5 +1,5 @@
-import { embeddedFonts } from "@/document/docx/embedded-fonts"
-import { fontLineOf, fontLines } from "@/document/docx/font-metrics"
+import { embeddedFonts, fontTableFamilies } from "@/document/docx/embedded-fonts"
+import { fontFamilies, fontLineOf, fontLines } from "@/document/docx/font-metrics"
 import { readEmbeddedSheets } from "@/document/docx/sheet-object"
 import type { BibSource, BibStyleId } from "@/document/bibliography"
 import type { NoteSettings } from "@/document/note-numbering"
@@ -49,6 +49,10 @@ export async function openDocxBytes(bytes: Uint8Array, fileName = "document.docx
   const sheets = await readEmbeddedSheets(pkg)
   if (sheets.length > 0) {
     word.sheets = sheets
+  }
+  // Which fonts are serif (Word's substitute for a missing one follows it), before any CSS names a font.
+  for (const [name, family] of fontTableFamilies(word)) {
+    fontFamilies.set(name, family)
   }
   // The lines of the fonts it embeds, read from them, before its paragraphs are laid out in them.
   for (const face of embeddedFonts(word)) {

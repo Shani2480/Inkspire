@@ -1,5 +1,6 @@
-import { fontLines } from "@/document/docx/font-metrics"
-import { leadBase, multipleLineVars, ruleLineHeight, wordDescent } from "@/document/line-lead"
+import { fontFamilies, fontLines } from "@/document/docx/font-metrics"
+import { fontAvailable } from "@/document/optional-fonts"
+import { gridLineStyleSheet, leadBase, multipleLineVars, ruleLineHeight, wordDescent } from "@/document/line-lead"
 import { patternImage, patternValue } from "@/document/docx/shading-pattern"
 import { decodeXml } from "@/document/docx/xml"
 import {
@@ -161,6 +162,10 @@ const STAND_INS: Record<string, string[]> = {
   "courier new": ["Liberation Mono", "Cousine"],
   aptos: ["Carlito"],
   "aptos display": ["Carlito"],
+  // Within half a percent of Arial Nova Cond's widths (Android has it as sans-serif-condensed).
+  "arial nova cond": ["Roboto Condensed", "sans-serif-condensed"],
+  // Same widths as Arial Narrow (Helvetica Narrow's metrics).
+  "arial narrow": ["Liberation Sans Narrow", "Nimbus Sans Narrow"],
 }
 /**
  * Height of one line in each font as a multiple of its size (ascent, descent and line gap), which is what Word
@@ -192,7 +197,35 @@ const TYPICAL_LINE = 1.17
 
 export function singleLine(face: string | undefined) {
   const key = (face ?? "").toLowerCase()
-  return fontLines.get(key)?.line ?? SINGLE_LINE[key] ?? TYPICAL_LINE
+  const known = fontLines.get(key)?.line ?? SINGLE_LINE[key]
+  if (known !== undefined) {
+    return known
+  }
+  // A font the page cannot draw is drawn in Word's substitute, so its lines are the substitute's.
+  const substitute = face && !STAND_INS[key] ? wordSubstitute(face) : undefined
+  return substitute && !drawable(face!) ? SINGLE_LINE[substitute[0]!.toLowerCase()]! : TYPICAL_LINE
+}
+
+const drawn = new Map<string, boolean>()
+function drawable(face: string) {
+  const key = face.toLowerCase()
+  if (!drawn.has(key)) {
+    drawn.set(key, fontAvailable(face))
+  }
+  return drawn.get(key)!
+}
+
+/**
+ * The font Word draws in place of one it does not have, with its same-width stand-in: Cambria for a font the
+ * document's font table calls roman (or a serif by name, where the table says nothing), Calibri for any other.
+ * Symbol and monospaced fonts keep their own fallbacks.
+ */
+function wordSubstitute(face: string): string[] | undefined {
+  const family = fontFamilies.get(face.toLowerCase())
+  if (family === "decorative" || /symbol|wingdings|webdings|dings/i.test(face) || MONO.test(face)) {
+    return undefined
+  }
+  return family === "roman" || (!family && SERIF.test(face)) ? ["Cambria", "Caladea"] : ["Calibri", "Carlito"]
 }
 
 /** How far a font rises above its baseline in Word's line, as a fraction of its size; undefined for a font not listed. */
@@ -254,8 +287,9 @@ export function fontOf(fonts: RunProperties["rFonts"], theme: ThemeFonts) {
 
 /** A CSS font-family list: the Word typeface, its metric-compatible stand-ins, and a generic family. */
 export function fontStack(face: string) {
-  const generic = MONO.test(face) ? "monospace" : SERIF.test(face) ? "serif" : "sans-serif"
-  const names = [face, ...(STAND_INS[face.toLowerCase()] ?? [])]
+  const roman = SERIF.test(face) || fontFamilies.get(face.toLowerCase()) === "roman"
+  const generic = MONO.test(face) ? "monospace" : roman ? "serif" : "sans-serif"
+  const names = [face, ...(STAND_INS[face.toLowerCase()] ?? wordSubstitute(face) ?? [])]
   return [...names.map((name) => `'${name.replace(/'/g, "")}'`), generic].join(", ")
 }
 
@@ -455,6 +489,11 @@ function runCss(props: RunProperties, theme: ThemeFonts, complete: boolean) {
   if (props.i !== undefined || complete) {
     rules.push(`font-style: ${props.i ? "italic" : "normal"}`)
   }
+  // Word kerns only text whose w:kern asks for it, from that size up; the browser kerns everything unless told.
+  if (props.kern !== undefined || complete) {
+    const size = props.sz ?? 20
+    rules.push(`font-kerning: ${props.kern && size >= props.kern ? "normal" : "none"}`)
+  }
   if (props.caps) {
     rules.push("text-transform: uppercase")
   }
@@ -629,6 +668,14 @@ export function documentStyleSheet(doc: WordDocument, themeFonts?: ThemeFonts): 
       ...runCss(base.rPr, theme, true),
       ...paragraphCss(base.pPr, true, line, theme.colors),
     ]),
+    // A text box's text, and a page break's line, are Normal paragraphs in Word: their lines are Normal's, not the
+    // page's own default.
+    rule(
+      `${page} :is(.text-box-body, [data-page-break])`,
+      paragraphCss(base.pPr, true, line, theme.colors).filter((declaration) =>
+        /^(line-height|--word-line|--lead)/.test(declaration),
+      ),
+    ),
   ]
   // Rules only for styles that need them: :has() selectors cost style recalculation on every edit.
   const direct = new Set(
@@ -674,6 +721,19 @@ export function documentStyleSheet(doc: WordDocument, themeFonts?: ThemeFonts): 
   // Line numbers are drawn in the Line Number character style, which starts from the document defaults (not Normal).
   const lineNumber = styles.has("LineNumber") ? resolveStyle("LineNumber", styles, defaults) : defaults
   css.push(rule(`${page} .line-number`, runCss({ ...lineNumber.rPr, vertAlign: undefined }, theme, true)))
+  // A body on a line grid sets its lines on the grid, as Word does (document/line-lead.ts gridLineStyleSheet).
+  const grid = doc.section
+  if (grid?.gridType && grid.gridType !== "default" && grid.linePitch) {
+    const offGrid = doc.styles.styles
+      .filter(
+        (style) => style.type === "paragraph" && resolveStyle(style.id, styles, defaults).pPr.snapToGrid === false,
+      )
+      .map((style) => style.id)
+    if (base.pPr.snapToGrid === false) {
+      offGrid.push("")
+    }
+    css.push(gridLineStyleSheet(grid.linePitch / 20, doc.settings.adjustLineHeightInTable === true, offGrid))
+  }
   return css.filter(Boolean).join("\n")
 }
 

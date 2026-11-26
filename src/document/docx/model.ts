@@ -243,6 +243,8 @@ export type ParagraphProperties = {
   shading?: Shading
   /** No space before or after when the neighbouring paragraph has the same style. */
   contextualSpacing?: boolean
+  /** w:snapToGrid: false sets the paragraph's lines off the document grid. */
+  snapToGrid?: boolean
   /**
    * w:framePr with w:dropCap: this paragraph is a drop cap, the large letter of the paragraph after it. `lines` is
    * how many lines it drops, `hSpace` its distance from the text (twips). Other frames stay in `source`.
@@ -305,6 +307,10 @@ export type SectionProps = {
   columnWidths?: { width: number; space?: number }[]
   titlePg?: boolean
   linePitch?: number
+  /** w:docGrid/@w:type: "lines" snaps lines to `linePitch`, "linesAndChars"/"snapToChars" also sets character pitch. */
+  gridType?: "default" | "lines" | "linesAndChars" | "snapToChars"
+  /** w:docGrid/@w:charSpace (kept as Word wrote it). */
+  charSpace?: number
   /** w:lnNumType: the section's line numbers (21.37). */
   lineNumbers?: LineNumbering
   /** w:pgBorders (22.4). */
@@ -852,6 +858,8 @@ export function docDefaultsFingerprint(catalog: StyleCatalog) {
 export type Settings = {
   /** Stored value. Null means the element was absent; Word treats that as mode 12. */
   compatibilityMode: number | null
+  /** w:compat/w:adjustLineHeightInTable: table text is set on the document grid too (read only; kept on save). */
+  adjustLineHeightInTable?: boolean
   rsidRoot?: string
   rsids: string[]
   defaultTabStop?: number
@@ -1437,6 +1445,7 @@ function mergeParagraph(base: ParagraphProperties, next: ParagraphProperties): P
     jc: next.jc ?? base.jc,
     outlineLvl: next.outlineLvl ?? base.outlineLvl,
     contextualSpacing: next.contextualSpacing ?? base.contextualSpacing,
+    snapToGrid: next.snapToGrid ?? base.snapToGrid,
   })
 }
 
@@ -1478,6 +1487,9 @@ function compactParagraph(props: ParagraphProperties): ParagraphProperties {
   }
   if (props.contextualSpacing !== undefined) {
     result.contextualSpacing = props.contextualSpacing
+  }
+  if (props.snapToGrid !== undefined) {
+    result.snapToGrid = props.snapToGrid
   }
   return result
 }

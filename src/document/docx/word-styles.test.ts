@@ -6,6 +6,7 @@ import { openDocxBytes, saveDocxBytes } from "@/document/docx/io"
 import { paragraphsIn, type Run } from "@/document/docx/model"
 import { findPart, openPackage, writePackage } from "@/document/docx/opc"
 import { readDocument } from "@/document/docx/wml-read"
+import { fontFamilies } from "@/document/docx/font-metrics"
 import { documentStyleSheet, fontStack, themeFontsOf } from "@/document/docx/word-styles"
 import { decodeXml } from "@/document/docx/xml"
 import { createExtensions } from "@/editor/extensions"
@@ -31,6 +32,14 @@ async function themeFontRun() {
     `<w:r><w:rPr><w:rFonts w:asciiTheme="majorHAnsi" w:hAnsiTheme="majorHAnsi"/></w:rPr><w:t>BEFORE</w:t></w:r>`,
   )
   part.data = new TextEncoder().encode(xml)
+  return writePackage(pkg)
+}
+
+/** f01 with these fonts added to its font table. */
+async function withFontTable(fonts: string) {
+  const pkg = await openPackage(source("f01_runs.docx"), "f01_runs.docx")
+  const part = pkg.parts.find((item) => /\/word\/fontTable\.xml$/i.test(item.name))!
+  part.data = new TextEncoder().encode(decodeXml(part.data).replace(/<\/w:fonts>/, `${fonts}</w:fonts>`))
   return writePackage(pkg)
 }
 
@@ -93,7 +102,32 @@ describe("the editor shows Word's styles", () => {
   it("names Office fonts' metric-compatible stand-ins", () => {
     expect(fontStack("Calibri")).toBe("'Calibri', 'Carlito', sans-serif")
     expect(fontStack("Times New Roman")).toBe("'Times New Roman', 'Liberation Serif', 'Tinos', serif")
-    expect(fontStack("Some Font")).toBe("'Some Font', sans-serif")
+    expect(fontStack("Arial Nova Cond")).toBe(
+      "'Arial Nova Cond', 'Roboto Condensed', 'sans-serif-condensed', sans-serif",
+    )
+    expect(fontStack("Arial Narrow")).toBe("'Arial Narrow', 'Liberation Sans Narrow', 'Nimbus Sans Narrow', sans-serif")
+  })
+
+  it("falls back as Word does on a font it does not have: Cambria for a roman one, Calibri for any other", () => {
+    // Checked in Word 365: a missing font is drawn in Calibri whatever its panose, in Cambria when the font table
+    // calls it roman; the theme's fonts play no part.
+    expect(fontStack("Some Font")).toBe("'Some Font', 'Calibri', 'Carlito', sans-serif")
+    expect(fontStack("Some Serif")).toBe("'Some Serif', 'Cambria', 'Caladea', serif")
+    fontFamilies.set("zq book", "roman")
+    expect(fontStack("Zq Book")).toBe("'Zq Book', 'Cambria', 'Caladea', serif")
+    fontFamilies.delete("zq book")
+    expect(fontStack("Wingdings")).toBe("'Wingdings', sans-serif")
+    expect(fontStack("Consolas")).toBe("'Consolas', monospace")
+  })
+
+  it("reads each font's family from the font table when a document opens", async () => {
+    const bytes = await withFontTable(
+      '<w:font w:name="Avenir LT Std 35 Light"><w:family w:val="swiss"/></w:font><w:font w:name="Zq Old Style"><w:family w:val="roman"/></w:font>',
+    )
+    await openDocxBytes(bytes, "fonts.docx")
+    expect(fontFamilies.get("zq old style")).toBe("roman")
+    expect(fontFamilies.get("avenir lt std 35 light")).toBe("swiss")
+    fontFamilies.clear()
   })
 
   it("tags paragraphs and runs with their Word styles", async () => {
