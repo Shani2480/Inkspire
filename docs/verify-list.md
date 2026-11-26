@@ -874,9 +874,9 @@ until a check fails. Collected on 2026-10-24 from the "not checked / not verifie
 
 ## Justified lines and page drift (2026-11-26, v1.1.3)
 
-- [ ] Desktop app (WebKitGTK 2.54, 2026-11-26): 12 justified Arial paragraphs: 11 break as in Word and headless
-      Chrome; one line (1.26 spaces over, inside the allowance) breaks a word early, also after an edit measures it
-      again. Not yet known why WebKit differs there (no inspector in the release build).
+- [x] Desktop app (WebKitGTK 2.54, 2026-11-26): 12 justified Arial paragraphs: 11 broke as in Word, one line a word
+      early. Cause: at a device pixel ratio of 1 WebKitGTK rounds glyph advances (the line 0.7% wider than at 2x).
+      Fixed in 1.1.5: 12 of 12, and 92 of 120 on the long test (Chrome 96).
 - [x] Android tablet (OnePlus Pad, 1.1.4 APK, 2026-11-26): with Arimo downloaded all 12 paragraphs break as in Word;
       a long press on a line's last word selects it with the handles on it. (Before 1.1.4 Arial was drawn in Roboto
       and nothing was offered: see changes.)

@@ -19,16 +19,45 @@ const squeezes = new WeakMap<ProseNode, { value: string; width: number }>()
 
 let context: CanvasRenderingContext2D | null | undefined
 
-function spaceWidth(style: CSSStyleDeclaration) {
+function canvas() {
   if (context === undefined) {
     context = typeof document === "undefined" ? null : document.createElement("canvas").getContext("2d")
   }
+  return context
+}
+
+function spaceWidth(style: CSSStyleDeclaration) {
+  const context = canvas()
   if (!context) {
     return 0
   }
   context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
   return context.measureText(" ").width
 }
+
+/**
+ * How much wider the engine sets this text than the font's own widths, as a fraction (0 where it does not). At a
+ * device pixel ratio of 1 WebKitGTK rounds each glyph's advance to whole pixels: a line of Arial 11 pt came out
+ * 0.7% wider than at 2x, and Word sets the true widths. The same text at a size where rounding is lost in the size
+ * gives the true width.
+ */
+function widthInflation(text: string, style: CSSStyleDeclaration) {
+  const context = canvas()
+  const size = parseFloat(style.fontSize)
+  if (!context || !(size > 0) || !text.trim()) {
+    return 0
+  }
+  const font = (px: number) => `${style.fontStyle} ${style.fontWeight} ${px}px ${style.fontFamily}`
+  const sample = text.slice(0, 400)
+  context.font = font(size)
+  const set = context.measureText(sample).width
+  context.font = font(TRUE_SIZE)
+  const exact = (context.measureText(sample).width * size) / TRUE_SIZE
+  return exact > 0 ? Math.max(0, set / exact - 1) : 0
+}
+
+/** A font size large enough that whole-pixel rounding of each glyph is negligible. */
+const TRUE_SIZE = 1000
 
 /** The style of the text the paragraph's first space is in (a run's own font and size, not the paragraph's). */
 function textStyle(dom: HTMLElement) {
@@ -83,14 +112,16 @@ export function measureSqueeze(text: string, dom: HTMLElement): string {
   // A justified line fills the text's width: the widest line but the last is that width.
   const width = Math.max(...lines.slice(0, -1).map((line) => line.right - line.left))
   const total = lines.reduce((sum, line) => sum + line.right - line.left, 0)
-  const space = spaceWidth(textStyle(dom) ?? style)
+  const runStyle = textStyle(dom) ?? style
+  const space = spaceWidth(runStyle)
   if (!(width > 0) || !(space > 0)) {
     return ""
   }
   // Spaces a full line holds (a ratio of screen widths, whatever the zoom), and the allowance (CSS pixels, as the
-  // word spacing is) shared over them.
+  // word spacing is) shared over them, with what the engine's rounding adds to a full line taken back too.
   const perLine = (spaces * width) / total
-  const share = (JUSTIFY_ALLOWANCE * space) / Math.max(1, perLine)
+  const rounding = widthInflation(text, runStyle) * dom.clientWidth
+  const share = (JUSTIFY_ALLOWANCE * space + rounding) / Math.max(1, perLine)
   return share >= 0.01 ? `${-Math.round(share * 100) / 100}px` : ""
 }
 

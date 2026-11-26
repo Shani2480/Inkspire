@@ -171,7 +171,7 @@ tall as their mark, page breaks among text, the break paragraph's own line, text
        of two spaces a line, and trailing spaces hang (`pre-wrap`). Left: Word's exact limit, which varies with the
        text (about one space on lines of one repeated letter, up to four on ordinary Arial 11 pt text); 96 of 120
        test paragraphs now break as Word's, the rest a word early (20) or late (4). On the tablet (with Arimo, 1.1.4)
-       12 of 12 test paragraphs as Word's; in the desktop app (WebKitGTK) 11 of 12, one line a word early (open).
+       12 of 12 test paragraphs as Word's; in the desktop app (WebKitGTK) 12 of 12 since 1.1.5 (its whole-pixel glyph widths at 1x allowed for).
 2. [x] Text box paragraphs: a paragraph indent inside a text box was not drawn (the cover title 86 px left of Word's).
        Fixed in 1.1.2 (the first paragraph's indent; different indents per paragraph in one box are not yet drawn).
 3. [x] A floating table (`w:tblpPr`) as wide as the text: the text after it ran under its last row. Fixed

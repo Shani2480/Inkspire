@@ -47,6 +47,8 @@ This file is the overview; update it in the same commit as the work.
 - ✅ 1.1.4: Arial, Times New Roman and Courier New on Android drawn in their same-width stand-ins (Android's own
   aliases had other widths and hid the offer). 1.1.3 checked on the tablet and the desktop app.
 
+- ✅ 1.1.5: justified lines in the Linux app at 1x allow for WebKitGTK's whole-pixel glyph widths.
+
 ## In progress
 
 - 🔄 1.0 release candidate: scope and criteria in `docs/V1_SCOPE.md` (draft). Open: a 20-document real-world set

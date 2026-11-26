@@ -7,6 +7,19 @@ in Word, Chrome or the desktop app.
 
 ## 2026-11-26
 
+### Justified lines in WebKitGTK at 1x (v1.1.5)
+
+- **What was wrong:** in the desktop app on Linux, one justified test line broke a word earlier than in Word and
+  Chrome. Measured inside the release app through WebKit's remote inspector (`WEBKIT_INSPECTOR_HTTP_SERVER`, a
+  private display, mock document): at a device pixel ratio of 1 WebKitGTK rounds each glyph's advance to whole
+  pixels (a space 4 px, not 4.07), so the line was 610.7 px against 606.6 px at 2x, and the squeeze (two spaces)
+  was not enough. Word and Chrome set the true widths.
+- **What changed:** `justify-squeeze.ts` measures how much wider the engine sets the paragraph's text than the
+  font's own widths (the same text on a canvas at its size and at 1000 px) and adds that to the squeeze
+  (`widthInflation`). Where the engine does not round (Chrome, WebKit at 2x) it adds nothing.
+- **Checked:** release desktop app at 1x: 12 of 12 test paragraphs as in Word (was 11), 92 of 120 on the long test.
+  Headless Chrome unchanged (96 of 120). 1771 tests, typecheck, lint.
+
 ### Arial on Android drawn in Arimo, not Roboto (v1.1.4)
 
 - **What was wrong:** Android answers "Arial" (and Helvetica, Tahoma, Verdana, Times New Roman, Georgia, Courier New

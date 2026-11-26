@@ -9,6 +9,16 @@ export type Release = { version: string; date: string; notes: ReleaseNote[] }
 
 export const RELEASES: Release[] = [
   {
+    version: "1.1.5",
+    date: "2026-11-26",
+    notes: [
+      {
+        title: "Justified text in the Linux app",
+        text: "On a screen without scaling, the Linux app sets text a little wider than the font's true widths, so a justified line now and then broke a word earlier than in Word. Inkspire now allows for that, and justified paragraphs break as they do in Word there too.",
+      },
+    ],
+  },
+  {
     version: "1.1.4",
     date: "2026-11-26",
     notes: [
